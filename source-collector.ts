@@ -282,14 +282,17 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
     connections = await (options.connect ?? ((s) => connectSources(s, config)))(signal);
     for (const source of SOURCES) if ("error" in connections[source]) error(source, (connections[source] as { error: string }).error);
     await Promise.all([gmail(), slack(), jira()]);
-    // Resolve links crossing sources and links found inside thread bodies. Bound
-    // expansion explicitly instead of silently treating skipped links as checked.
-    for (let round = 0; round < 3; round++) {
+    // Drain newly discovered links under the existing request, time and byte
+    // limits. A fixed hop count can leave real linked issues unread.
+    while (!signal.aborted) {
       const before = read.gmail.size + read.slack.size + read.jira.size;
       await Promise.all([readGmail(), readSlack(), readJira()]);
       if (before === read.gmail.size + read.slack.size + read.jira.size || signal.aborted) break;
     }
-    for (const source of SOURCES) if (pending[source].size > read[source].size) error(source, "Not all linked sources were fully read.");
+    for (const source of SOURCES) {
+      const unread = [...pending[source].keys()].filter(id => !read[source].has(id));
+      if (unread.length) error(source, `Linked references were not read: ${unread.slice(0, 10).join(", ")}${unread.length > 10 ? "…" : ""}.`);
+    }
   } catch (cause) {
     for (const source of SOURCES) error(source, sourceError(cause));
   } finally {

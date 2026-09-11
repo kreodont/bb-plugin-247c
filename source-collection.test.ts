@@ -40,6 +40,52 @@ it("excludes quote numbers and UUID fragments consistently from collection and c
   expect(requiredSourceReads(dossiers, "jira")).toEqual(["APP-815", "Q-42"]);
 });
 
+it("excludes all-zero example numbers from bare references and Jira URLs without dropping real numbers", () => {
+  const text = "CASE-000000 APP-0 APP-00 APP-1 APP-100000 APP-00012 https://example.atlassian.net/browse/APP-000 https://example.atlassian.net/browse/Q-42";
+  const dossiers = [{ task: { status: "open" }, text }] as unknown as Parameters<typeof collectSources>[1];
+  expect(sourceLinks(text).jira).toEqual(["APP-1", "APP-100000", "APP-00012", "Q-42"]);
+  expect(requiredSourceReads(dossiers, "jira")).toEqual(sourceLinks(text).jira);
+});
+
+it("keeps Jira complete when a collected issue describes an all-zero placeholder", async () => {
+  const ids: unknown[] = [];
+  const description = "Manual audits currently use a fake case number, for example CASE-000000. See APP-43 for a real related issue.";
+  const dossiers = [{ task: { status: "open" }, text: "APP-42 and the example https://example.atlassian.net/browse/CASE-000000" }] as unknown as Parameters<typeof collectSources>[1];
+  const connections: SourceConnections = {
+    gmail: { error: "Unavailable" }, slack: { error: "Unavailable" },
+    jira: { close: async () => {}, async call(tool, args) {
+      if (tool === "searchJiraIssuesUsingJql") return { content: [{ type: "text", text: '{"issues":[],"isLast":true}' }] };
+      ids.push(args.issueIdOrKey);
+      if (!["APP-42", "APP-43"].includes(String(args.issueIdOrKey))) return { isError: true, content: [{ type: "text", text: "Issue does not exist." }] };
+      return { content: [{ type: "text", text: JSON.stringify({ key: args.issueIdOrKey, fields: { description: args.issueIdOrKey === "APP-42" ? description : "Confirmed", comment: { comments: [], total: 0 } } }) }] };
+    } },
+  };
+  const bundle = await collectSources(sampleRun(), dossiers, { connect: async () => connections });
+  expect(ids).toEqual(["APP-42", "APP-43"]);
+  expect(bundle.documents).toHaveLength(2);
+  expect(bundle.documents[0].content).toContain("CASE-000000");
+  expect(validateSyncReports(bundle.reports, bundle.calls, dossiers).find(r => r.source === "jira")).toMatchObject({ status: "complete", paginationComplete: true, linkedTasksChecked: true, threadsRead: 2 });
+});
+
+it.each([600, 4])("follows a linked issue chain through completion or the request limit (%i), including cycles", async maxCalls => {
+  const ids: unknown[] = [];
+  const connections: SourceConnections = {
+    gmail: { error: "Unavailable" }, slack: { error: "Unavailable" },
+    jira: { close: async () => {}, async call(tool, args) {
+      if (tool === "searchJiraIssuesUsingJql") return { content: [{ type: "text", text: '{"issues":[{"key":"APP-1","fields":{"updated":"2026-09-10T10:00:00Z"}}],"isLast":true}' }] };
+      ids.push(args.issueIdOrKey);
+      const number = Number(String(args.issueIdOrKey).split("-")[1]);
+      return { content: [{ type: "text", text: JSON.stringify({ key: args.issueIdOrKey, fields: { description: `Related issue: APP-${number < 8 ? number + 1 : 1}`, comment: { comments: [], total: 0 } } }) }] };
+    } },
+  };
+  const bundle = await collectSources(sampleRun(), [], { connect: async () => connections, maxCalls });
+  const report = validateSyncReports(bundle.reports, bundle.calls).find(r => r.source === "jira")!;
+  expect(ids).toEqual(Array.from({ length: maxCalls === 600 ? 8 : 3 }, (_, i) => `APP-${i + 1}`));
+  expect(new Set(ids).size).toBe(ids.length);
+  expect(report.status).toBe(maxCalls === 600 ? "complete" : "partial");
+  if (maxCalls === 4) expect(report.detail).toContain("export limit was reached");
+});
+
 it.each([true, false])("resolves Gmail message permalinks with searched thread=%s", async inSearch => {
   const ids: unknown[] = [];
   const dossiers = [{ task: { status: "open" }, sourceRef: "https://mail.google.com/mail/u/0/#inbox/1a08d7511a507393" }] as unknown as Parameters<typeof collectSources>[1];

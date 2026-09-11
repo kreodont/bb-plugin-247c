@@ -24,3 +24,7 @@ Changing calendars does not modify earlier meetings from another calendar. An in
 Gmail permalinks can identify a message rather than its thread. The collector resolves message IDs from already loaded threads or with the read-only `get_message` metadata operation, then reads the full conversation once. Connector errors include the requested ID and the source's error text.
 
 Jira link discovery excludes UUID fragments and bare `Q-…` quote numbers. An explicit Jira `/browse/Q-…` URL still identifies a Jira issue. Collection and coverage validation use the same reference rules; unavailable real issues continue to make the check partial.
+
+Issue-shaped examples whose number consists entirely of zeros, such as `CASE-000000`, are excluded from link discovery, including in Jira URLs. Their original source text remains in the export. Positive issue numbers continue to be checked, and actual access errors still make the result partial.
+
+The collector follows newly discovered links until the queue is exhausted, subject to the existing time, request and export-size limits. Linked issue chains are not cut off after a fixed number of hops. Hitting a limit or failing to read a real issue still preserves the previous source checkpoint.

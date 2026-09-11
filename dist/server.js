@@ -33771,7 +33771,7 @@ function jiraReferences(text2) {
   const urls = [...text2.matchAll(/[a-z0-9-]+\.atlassian\.net\/browse\/([A-Z][A-Z0-9]*-\d+)\b/g)].map((m) => m[1]);
   const withoutUuids = text2.replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, " ");
   const bare = (withoutUuids.match(/\b[A-Z][A-Z0-9]*-\d+\b/g) ?? []).filter((key) => !key.startsWith("Q-"));
-  return [.../* @__PURE__ */ new Set([...bare, ...urls])];
+  return [.../* @__PURE__ */ new Set([...bare, ...urls])].filter((key) => !/-0+$/.test(key));
 }
 
 // source-sync.ts
@@ -34098,12 +34098,15 @@ async function collectSources(run, dossiers, options = {}) {
     connections = await (options.connect ?? ((s) => connectSources(s, config2)))(signal);
     for (const source of SOURCES) if ("error" in connections[source]) error61(source, connections[source].error);
     await Promise.all([gmail(), slack(), jira()]);
-    for (let round = 0; round < 3; round++) {
+    while (!signal.aborted) {
       const before = read.gmail.size + read.slack.size + read.jira.size;
       await Promise.all([readGmail(), readSlack(), readJira()]);
       if (before === read.gmail.size + read.slack.size + read.jira.size || signal.aborted) break;
     }
-    for (const source of SOURCES) if (pending[source].size > read[source].size) error61(source, "Not all linked sources were fully read.");
+    for (const source of SOURCES) {
+      const unread = [...pending[source].keys()].filter((id2) => !read[source].has(id2));
+      if (unread.length) error61(source, `Linked references were not read: ${unread.slice(0, 10).join(", ")}${unread.length > 10 ? "\u2026" : ""}.`);
+    }
   } catch (cause) {
     for (const source of SOURCES) error61(source, sourceError(cause));
   } finally {
