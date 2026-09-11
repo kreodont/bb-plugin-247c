@@ -1,0 +1,12 @@
+{
+  "profilePath": "~/.claude-work",
+  "expectedEmail": "owner@example.com",
+  "calendarId": "owner@example.com",
+  "jiraSite": "example.atlassian.net",
+  "jiraScope": "assignee = currentUser() OR reporter = currentUser()",
+  "slackChannels": ["support"],
+  "slackGroups": [],
+  "slackUserId": "",
+  "mailFilters": "-in:draft -in:chats -in:spam -in:trash",
+  "analysisContext": "Describe your responsibilities and which requests need your attention."
+}

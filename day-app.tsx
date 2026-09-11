@@ -1,0 +1,222 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useBbNavigate, useRpc, useRealtime, useRealtimeConnectionState } from "@get-bb/plugin-sdk/app";
+import type { rpcContract } from "./contracts.js";
+import { dayDateSchema, dayRpcContract, formatMinutes, localDay, parseMinutes, shiftDay, DAY_TIME_ZONE, type DayItem, type DayView } from "./day-contracts.js";
+import { z } from "zod";
+import { Button } from "./components/ui/button.js";
+import { Input } from "./components/ui/input.js";
+import { Icon } from "./components/ui/icon.js";
+import { cn } from "./lib/utils.js";
+
+function useDaySnapshot<T>(read: () => Promise<T>) {
+  const [data, setData] = useState<T | null>(null), [error, setError] = useState<string | null>(null);
+  const sequence = useRef(0), mounted = useRef(true), connection = useRealtimeConnectionState();
+  const refresh = useCallback(async () => {
+    const seq = ++sequence.current;
+    try { const next = await read(); if (mounted.current && seq === sequence.current) { setData(next); setError(null); } }
+    catch (e) { if (mounted.current && seq === sequence.current) setError(e instanceof Error ? e.message : String(e)); }
+  }, [read]);
+  useRealtime("desk-changed", refresh);
+  useEffect(() => { mounted.current = true; void refresh(); const timer = setInterval(() => { if (document.visibilityState !== "hidden") void refresh(); }, 10000); return () => { mounted.current = false; sequence.current++; clearInterval(timer); }; }, [refresh, connection]);
+  return { data, error, refresh };
+}
+function ErrorText({ error }: { error: string | null }) { return error ? <p role="alert" className="whitespace-pre-wrap break-words rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</p> : null; }
+const shortDate = (date: string) => new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`));
+const eventTime = (at: string) => new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit", timeZone: DAY_TIME_ZONE }).format(new Date(at));
+const inputTime = (minutes: number | null) => minutes === null ? "" : formatMinutes(minutes);
+type ViewItem = DayView["items"][number];
+type Patch = Omit<z.input<typeof dayRpcContract.dayEdit.input>, "id" | "revision" | "requestId">;
+type Flush = () => Promise<boolean>;
+
+export function CalendarStatus({ date }: { date?: string }) {
+  const rpc = useRpc<typeof rpcContract>();
+  const read = useCallback(() => rpc.call("calendarState", {}), [rpc]);
+  const { data, error, refresh } = useDaySnapshot(read);
+  const [busy, setBusy] = useState(false), [mutationError, setMutationError] = useState<string | null>(null);
+  async function sync() {
+    if (busy) return; setBusy(true); setMutationError(null);
+    try { await rpc.call("calendarSync", { date }); await refresh(); }
+    catch (e) { setMutationError(e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(false); }
+  }
+  return <section aria-label="Рабочий календарь" className="rounded-xl border border-border bg-card p-4">
+    <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-sm font-medium">Рабочий календарь</h2><p className="mt-1 text-xs text-muted-foreground">{data?.status === "running" ? "Загружаем встречи…" : data?.status === "complete" ? `Встреч: ${data.events} · проверено ${new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: DAY_TIME_ZONE }).format(new Date(data.completedAt!))}` : "Календарь из настроек 247C"}{data?.from && data.through ? ` · ${shortDate(data.from)} — ${shortDate(data.through)}` : ""}</p></div><Button variant="outline" size="sm" disabled={busy || data?.status === "running"} onClick={() => void sync()}>Проверить календарь</Button></div>
+    <p className="mt-2 text-xs text-muted-foreground">Встречи также обновляются при проверке почты, Slack и Jira. Ручные правки времени сохраняются.</p>
+    <ErrorText error={mutationError ?? error ?? (data?.status === "error" ? data.message : null)} />
+    {data?.status === "idle" && data.message && <p className="mt-2 text-xs text-muted-foreground">{data.message}</p>}
+  </section>;
+}
+
+function ItemHistory({ id }: { id: string }) {
+  const rpc = useRpc<typeof rpcContract>();
+  const [offset, setOffset] = useState(0);
+  const read = useCallback(() => rpc.call("dayHistory", { id, offset }), [rpc, id, offset]);
+  const { data, error } = useDaySnapshot(read);
+  return <div className="space-y-3"><ErrorText error={error} />{data?.items.map(event => <div key={event.sequence} className="rounded-lg bg-muted/40 p-3 text-xs"><div className="flex flex-wrap justify-between gap-2 text-muted-foreground"><span>{new Intl.DateTimeFormat("ru-RU", { dateStyle: "short", timeStyle: "short", timeZone: DAY_TIME_ZONE }).format(new Date(event.at))}</span><span>{event.actor.startsWith("calendar:") ? "Календарь" : event.actor.startsWith("bb-thread:") ? "Из разговора" : "Вручную"}</span></div><p className="mt-2">Planned: {formatMinutes(event.before?.plannedMinutes ?? null)} → {formatMinutes(event.after.plannedMinutes)} · Reported: {formatMinutes(event.before?.reportedMinutes ?? null)} → {formatMinutes(event.after.reportedMinutes)}</p>{event.before?.date !== event.after.date && <p className="mt-1">Дата: {event.before?.date ?? "—"} → {event.after.date}</p>}{event.after.carriedTo && <p className="mt-1">Продолжение: {event.after.carriedTo}</p>}{event.before?.step !== event.after.step && event.after.step && <p className="mt-1 whitespace-pre-wrap">{event.after.step}</p>}{event.before?.removed !== event.after.removed && event.after.removed && <p className="mt-1">Убрано из плана; отчёт сохранён.</p>}</div>)}{data && (offset > 0 || data.nextOffset !== null) && <div className="flex gap-2"><Button size="sm" variant="ghost" disabled={!offset} onClick={() => setOffset(Math.max(0, offset - 50))}>Новее</Button><Button size="sm" variant="ghost" disabled={data.nextOffset === null} onClick={() => setOffset(data.nextOffset!)}>Старее</Button></div>}</div>;
+}
+
+function DayRow({ item, refresh, register, openTask, openDay, move, moveDisabled }: {
+  item: ViewItem; refresh: () => Promise<void>; register: (id: string, flush: Flush | null) => void;
+  openTask: (id: string) => Promise<void>; openDay: (date: string) => Promise<void>; move: (id: string, direction: number) => Promise<void>; moveDisabled: boolean;
+}) {
+  const rpc = useRpc<typeof rpcContract>();
+  const [draft, setDraft] = useState({ planned: inputTime(item.plannedMinutes), reported: inputTime(item.reportedMinutes), step: item.step, reportedDate: item.reportedDate });
+  const [fields, setFields] = useState<Set<keyof typeof draft>>(new Set());
+  const [baseRevision, setBaseRevision] = useState(item.revision), [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
+  const [details, setDetails] = useState(false), [history, setHistory] = useState(false), [carryDate, setCarryDate] = useState(shiftDay(item.date, 1));
+  const flight = useRef<Promise<boolean> | null>(null), retry = useRef<{ key: string; id: string } | null>(null);
+  const dirty = fields.size > 0;
+  useEffect(() => { if (!dirty) { setDraft({ planned: inputTime(item.plannedMinutes), reported: inputTime(item.reportedMinutes), step: item.step, reportedDate: item.reportedDate }); setBaseRevision(item.revision); } }, [item.revision, item.plannedMinutes, item.reportedMinutes, item.step, item.reportedDate, dirty]);
+  function edit(field: keyof typeof draft, value: string) {
+    if (!dirty) setBaseRevision(item.revision);
+    setDraft(previous => ({ ...previous, [field]: value })); setFields(previous => new Set([...previous, field])); setError(null);
+  }
+  function save(extra: Patch = {}, overwrite = false): Promise<boolean> {
+    if (flight.current) return flight.current;
+    if (!dirty && Object.keys(extra).length === 0) return Promise.resolve(true);
+    const run = async () => {
+      setBusy(true); setError(null);
+      try {
+        const patch: Patch = {};
+        if (!extra.restoreAuto) {
+          if (fields.has("planned")) patch.plannedMinutes = parseMinutes(draft.planned);
+          if (fields.has("reported")) patch.reportedMinutes = parseMinutes(draft.reported);
+          if (fields.has("step")) patch.step = draft.step;
+          if (fields.has("reportedDate")) patch.reportedDate = dayDateSchema.parse(draft.reportedDate);
+        }
+        const body = { id: item.id, revision: overwrite || !dirty ? item.revision : baseRevision, ...patch, ...extra };
+        const key = JSON.stringify(body);
+        if (retry.current?.key !== key) retry.current = { key, id: crypto.randomUUID() };
+        const result = await rpc.call("dayEdit", { ...body, requestId: retry.current.id });
+        setFields(new Set()); setBaseRevision(result.revision); setDraft({ planned: inputTime(result.plannedMinutes), reported: inputTime(result.reportedMinutes), step: result.step, reportedDate: result.reportedDate }); retry.current = null;
+        await refresh(); return true;
+      } catch (e) { setError(e instanceof Error ? e.message : String(e)); await refresh(); return false; }
+      finally { setBusy(false); flight.current = null; }
+    };
+    flight.current = run(); return flight.current;
+  }
+  useEffect(() => { register(item.id, () => save()); return () => register(item.id, null); });
+  async function carry() {
+    if (dirty && !await save()) return;
+    setBusy(true); setError(null);
+    try {
+      const current = await rpc.call("day", { date: item.date });
+      const latest = current.items.find(i => i.id === item.id)!;
+      await rpc.call("dayCarry", { id: item.id, revision: latest.revision, date: dayDateSchema.parse(carryDate), requestId: crypto.randomUUID() }); await refresh();
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(false); }
+  }
+  const inactive = item.removed || item.calendar && item.calendar.status !== "confirmed";
+  return <article aria-label={`Запись дня: ${item.title}`} className={cn("border-t border-border p-4", inactive && "bg-muted/20")}>
+    <div className="grid grid-cols-2 items-start gap-3 sm:grid-cols-[minmax(0,1fr)_6.5rem_6.5rem]">
+      <div className="col-span-2 flex min-w-0 items-start gap-3 sm:col-span-1">
+        {item.kind === "task" ? <input type="checkbox" className="mt-1 size-4 shrink-0 accent-current" aria-label={`Шаг выполнен: ${item.title}`} checked={item.state === "done"} disabled={busy || inactive || item.state === "carried"} onChange={e => void save({ state: e.target.checked ? "done" : "open" })} /> : <span aria-label="Встреча из календаря" className="mt-0.5 text-primary">▦</span>}
+        <div className="min-w-0"><div className="flex flex-wrap items-center gap-2">{item.taskId ? <button type="button" className={cn("break-words text-left text-sm font-medium underline-offset-4 hover:text-primary hover:underline", inactive && "text-muted-foreground")} onClick={() => void openTask(item.taskId!)}>{item.title}</button> : item.calendar?.url ? <a href={item.calendar.url} target="_blank" rel="noreferrer" className="break-words text-sm font-medium underline-offset-4 hover:underline">{item.title}</a> : <h3 className="break-words text-sm font-medium">{item.title}</h3>}{item.taskStatus && item.taskStatus !== "open" && <span className="text-xs text-muted-foreground">Задача {item.taskStatus === "done" ? "закрыта" : "в архиве"}</span>}</div>
+          {item.calendar ? <p className="mt-1 text-xs text-muted-foreground">{shortDate(item.date)} · {eventTime(item.calendar.startAt)}–{eventTime(item.calendar.endAt)} · {item.calendar.status === "cancelled" ? "отменена" : item.calendar.status === "declined" ? "приглашение отклонено" : item.calendar.status === "excluded" ? "вне учёта встреч" : "из календаря"}</p> : item.step && <p className="mt-1 whitespace-pre-wrap break-words text-xs leading-relaxed text-muted-foreground">{item.step}</p>}
+          {item.carriedTo && <button className="mt-1 text-xs text-primary hover:underline" onClick={() => void openDay(item.carriedTo!)}>Продолжение {shortDate(item.carriedTo)}</button>}
+          {item.reportOnly && <p className="mt-1 text-xs text-muted-foreground">Здесь сохранён отчёт. План встречи — {shortDate(item.date)}.</p>}
+          {item.removed && <p className="mt-1 text-xs text-muted-foreground">Убрано из плана; reported сохранён.</p>}
+          {!item.calendar && item.plannedMinutes === null && item.reportedMinutes !== null && <p className="mt-1 text-xs text-muted-foreground">Вне плана</p>}
+        </div>
+      </div>
+      <label className="text-xs text-muted-foreground">Planned<Input aria-label={`Planned: ${item.title}`} className="mt-1 text-right tabular-nums" value={draft.planned} placeholder="—" disabled={busy} onChange={e => edit("planned", e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); void save(); } }} />{item.calendar && <span className="mt-1 block text-right text-xs">{item.plannedMode === "calendar" ? "календарь" : "вручную"}</span>}</label>
+      <label className="text-xs text-muted-foreground">Reported<Input aria-label={`Reported: ${item.title}`} className="mt-1 text-right tabular-nums" value={draft.reported} placeholder="—" disabled={busy} onChange={e => edit("reported", e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); void save(); } }} />{item.calendar && <span className="mt-1 block text-right text-xs">{item.reportedMode === "calendar" ? item.reportedMinutes === null ? "после встречи" : "авто" : "вручную"}</span>}</label>
+    </div>
+    <div className="mt-3 flex flex-wrap items-center gap-2"><Button size="sm" variant="ghost" onClick={() => setDetails(!details)} aria-expanded={details}>Подробнее</Button>{dirty && <><span className="mr-auto text-xs text-muted-foreground">Есть несохранённая правка</span><Button size="sm" variant="ghost" disabled={busy} onClick={() => { setFields(new Set()); setError(null); }}>Отменить правку</Button><Button size="sm" disabled={busy} onClick={() => void save()}>Сохранить время</Button></>}{item.removed && <Button size="sm" variant="outline" disabled={busy} onClick={() => void save({ removed: false })}>Вернуть в план</Button>}</div>
+    <ErrorText error={error} />
+    {dirty && error && item.revision !== baseRevision && <div className="mt-2 rounded-lg bg-muted/40 p-3 text-xs"><p>Сейчас сохранено: planned {formatMinutes(item.plannedMinutes)}, reported {formatMinutes(item.reportedMinutes)}.</p><Button className="mt-2" size="sm" variant="outline" onClick={() => void save({}, true)}>Применить мою правку</Button></div>}
+    {details && <div className="mt-3 space-y-3 border-t border-border pt-3">
+      <label className="block text-xs text-muted-foreground">{item.calendar ? "Заметка к встрече" : "Что сделать в этот день"}<textarea className="mt-1 min-h-16 w-full rounded-lg border border-input bg-transparent p-2 text-sm text-foreground" value={draft.step} disabled={busy} onChange={e => edit("step", e.target.value)} /></label>
+      {item.kind === "task" && !item.removed && <div className="flex flex-wrap items-center gap-2"><Input type="date" aria-label={`Дата продолжения: ${item.title}`} className="w-40" value={carryDate} onChange={e => setCarryDate(e.target.value)} /><Button variant="outline" size="sm" disabled={busy || item.state === "carried"} onClick={() => void carry()}>Продолжить в другой день</Button><Button size="sm" variant="ghost" disabled={busy || moveDisabled} onClick={() => void move(item.id, -1)}>Выше</Button><Button size="sm" variant="ghost" disabled={busy || moveDisabled} onClick={() => void move(item.id, 1)}>Ниже</Button></div>}
+      {item.calendar && <label className="block text-xs text-muted-foreground">Дата reported<Input type="date" className="mt-1 w-40" aria-label={`Дата reported: ${item.title}`} value={draft.reportedDate} disabled={busy} onChange={e => edit("reportedDate", e.target.value)} /></label>}
+      {item.calendar && <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" disabled={busy} onClick={() => void save({ reportedMinutes: 0 })}>Не участвовал</Button>{item.plannedMode === "manual" && <Button size="sm" variant="ghost" disabled={busy || dirty} onClick={() => void save({ restoreAuto: "planned" })}>Planned из календаря</Button>}{item.reportedMode === "manual" && <Button size="sm" variant="ghost" disabled={busy || dirty} onClick={() => void save({ restoreAuto: "reported" })}>Reported автоматически</Button>}</div>}
+      <div className="flex flex-wrap gap-2">{!item.removed && <Button size="sm" variant="ghost" disabled={busy} onClick={() => void save({ removed: true })}>Убрать из плана</Button>}<Button size="sm" variant="ghost" onClick={() => setHistory(!history)} aria-expanded={history}>История правок</Button></div>
+      {history && <ItemHistory id={item.id} />}
+    </div>}
+  </article>;
+}
+
+export function DayPage({ date, report = false, period = "week" }: { date: string; report?: boolean; period?: "day" | "week" }) {
+  const rpc = useRpc<typeof rpcContract>(), navigate = useBbNavigate();
+  const load = useCallback(async () => {
+    const [day, tasks, time] = await Promise.all([rpc.call("day", { date }), report ? Promise.resolve(null) : rpc.call("list", { history: true }), report ? rpc.call("timeReport", { date, period }) : Promise.resolve(null)]);
+    return { day, tasks: tasks?.tasks ?? [], time };
+  }, [rpc, date, report, period]);
+  const { data, error, refresh } = useDaySnapshot(load);
+  const [mutationError, setMutationError] = useState<string | null>(null), [busy, setBusy] = useState(false), [taskId, setTaskId] = useState("");
+  const [showClosed, setShowClosed] = useState(false), [query, setQuery] = useState("");
+  const flushers = useRef(new Map<string, Flush>());
+  const register = useCallback((id: string, flush: Flush | null) => { if (flush) flushers.current.set(id, flush); else flushers.current.delete(id); }, []);
+  const route = report ? `report/${period}/${date}` : `day/${date}`;
+  async function flushAll() { for (const flush of [...flushers.current.values()]) if (!await flush()) return false; return true; }
+  async function go(path: string) { if (await flushAll()) navigate.toPluginPanel("desk", { subPath: path }); }
+  async function openTask(id: string) { await go(`${id}/from/${route}`); }
+  async function openDay(next: string) { if (dayDateSchema.safeParse(next).success) await go(`day/${next}`); }
+  async function action(work: () => Promise<unknown>) {
+    if (busy || !await flushAll()) return;
+    setBusy(true); setMutationError(null);
+    try { await work(); await refresh(); }
+    catch (e) { setMutationError(e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(false); }
+  }
+  async function reorder(id: string, direction: number) {
+    await action(async () => {
+      const current = await rpc.call("day", { date });
+      const items = current.items.filter(i => i.kind === "task" && !i.removed);
+      const index = items.findIndex(i => i.id === id), target = index + direction;
+      if (index < 0 || target < 0 || target >= items.length) return;
+      [items[index], items[target]] = [items[target], items[index]];
+      await rpc.call("dayReorder", { requestId: crypto.randomUUID(), date, ids: items.map(i => i.id), revisions: Object.fromEntries(items.map(i => [i.id, i.revision])) });
+    });
+  }
+  const choices = data?.tasks.filter(task => (showClosed || task.status === "open") && !data.day.items.some(i => i.taskId === task.id && !i.reportOnly) && task.title.toLocaleLowerCase().includes(query.toLocaleLowerCase())) ?? [];
+  const totals = data?.time?.totals ?? data?.day.totals;
+  return <div className="h-full min-h-0 overflow-y-auto"><div className="mx-auto max-w-6xl space-y-5 p-5 md:p-8">
+    <Button variant="ghost" size="sm" className="-ml-3" onClick={() => void go("")}><Icon name="ChevronLeft" /> Все задачи</Button>
+    <div className="flex flex-wrap items-center justify-between gap-4"><div><h1 className="text-2xl font-medium">{report ? "Отчёт по времени" : "День"}</h1><p className="mt-1 text-sm text-muted-foreground">{report ? "Planned и reported суммируются отдельно." : "Что хочу сделать — и какое время указать в отчёте."}</p></div><div className="flex gap-2"><Button variant={report ? "outline" : "default"} onClick={() => void go(`day/${date}`)}>День</Button><Button variant={report ? "default" : "outline"} onClick={() => void go(`report/${period}/${date}`)}>Отчёт</Button></div></div>
+    <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><Button size="icon" variant="outline" aria-label="Предыдущий день" onClick={() => void go(report ? `report/${period}/${shiftDay(date, -1)}` : `day/${shiftDay(date, -1)}`)}><Icon name="ChevronLeft" /></Button><Input type="date" aria-label="Дата плана" value={date} className="w-40" onChange={e => { if (dayDateSchema.safeParse(e.target.value).success) void go(report ? `report/${period}/${e.target.value}` : `day/${e.target.value}`); }} /><Button size="icon" variant="outline" aria-label="Следующий день" onClick={() => void go(report ? `report/${period}/${shiftDay(date, 1)}` : `day/${shiftDay(date, 1)}`)}><Icon name="ChevronRight" /></Button><Button variant="ghost" size="sm" onClick={() => void go(report ? `report/${period}/${localDay()}` : `day/${localDay()}`)}>Сегодня</Button></div>{report && <div className="flex gap-2"><Button size="sm" variant={period === "day" ? "default" : "outline"} onClick={() => void go(`report/day/${date}`)}>За день</Button><Button size="sm" variant={period === "week" ? "default" : "outline"} onClick={() => void go(`report/week/${date}`)}>За неделю</Button></div>}</div>
+    <ErrorText error={mutationError ?? error} />
+    {totals && <div className="grid grid-cols-2 gap-3"><div className="rounded-xl border border-border bg-card p-4"><p className="text-xs text-muted-foreground">Planned · запланировано</p><p className="mt-2 text-2xl font-medium tabular-nums">{formatMinutes(totals.plannedMinutes)}</p></div><div className="rounded-xl border border-border bg-card p-4"><p className="text-xs text-muted-foreground">Reported · в отчёт</p><p className="mt-2 text-2xl font-medium tabular-nums">{formatMinutes(totals.reportedMinutes)}</p></div></div>}
+    {!data && !error && <p role="status" className="text-sm text-muted-foreground">Открываем сохранённый день…</p>}
+    {data && !report && <>
+      <DayParameters config={data.day.config} register={register} refresh={refresh} planned={data.day.totals.plannedMinutes} />
+      <section className="overflow-hidden rounded-xl border border-border bg-card"><div className="flex items-center justify-between gap-3 p-4"><h2 className="font-medium">Задачи и встречи</h2><span className="text-xs text-muted-foreground">{data.day.items.filter(i => !i.removed).length} записей</span></div>
+        {data.day.items.map(item => <DayRow key={item.id} item={item} refresh={refresh} register={register} openTask={openTask} openDay={openDay} move={reorder} moveDisabled={busy} />)}
+        {!data.day.items.length && <p className="border-t border-border p-7 text-center text-sm text-muted-foreground">План пока пуст. Добавь задачи или проверь календарь.</p>}
+        <form className="space-y-3 border-t border-border p-4" onSubmit={e => { e.preventDefault(); const chosen = taskId || choices[0]?.id; if (chosen && choices.some(t => t.id === chosen)) void action(async () => { await rpc.call("dayAdd", { date, taskId: chosen, requestId: crypto.randomUUID() }); setTaskId(""); }); }}><div className="flex flex-wrap gap-2"><Input value={query} onChange={e => { setQuery(e.target.value); setTaskId(""); }} aria-label="Найти задачу для дня" placeholder="Найти задачу для дня" className="min-w-48 flex-1" /><label className="flex items-center gap-2 text-xs text-muted-foreground"><input type="checkbox" checked={showClosed} onChange={e => { setShowClosed(e.target.checked); setTaskId(""); }} /> Включая закрытые</label></div><div className="flex flex-wrap gap-2"><select className="min-w-48 flex-1 rounded-lg border border-input bg-background p-2 text-sm" aria-label="Задача для плана" value={taskId || choices[0]?.id || ""} onChange={e => setTaskId(e.target.value)} disabled={!choices.length || busy}>{choices.length ? choices.map(task => <option key={task.id} value={task.id}>{task.title}</option>) : <option value="">Подходящих задач нет</option>}</select><Button type="submit" variant="outline" disabled={busy || !choices.length}>Добавить в день</Button></div></form>
+      </section>
+      <p className="text-xs leading-relaxed text-muted-foreground">Planned и reported задач независимы. Пустое поле — время ещё не указано, 0 — явно указанные ноль минут. Галочка отмечает шаг на день. Правки сохраняются кнопкой, по Enter или при переходе к задаче и другому дню.</p>
+      <CalendarStatus date={date} />
+    </>}
+    {data?.time && <section className="overflow-hidden rounded-xl border border-border bg-card"><h2 className="p-4 text-sm font-medium">{shortDate(data.time.from)} — {shortDate(data.time.through)}</h2><div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-muted/30 text-xs text-muted-foreground"><tr><th className="px-4 py-3 font-medium">Задача / встреча</th><th className="px-4 py-3 text-right font-medium">Planned</th><th className="px-4 py-3 text-right font-medium">Reported</th></tr></thead><tbody>{data.time.rows.map(row => <tr key={row.key} className="border-t border-border"><td className="px-4 py-3">{row.taskId ? <button className="text-left font-medium underline-offset-4 hover:text-primary hover:underline" onClick={() => void openTask(row.taskId!)}>{row.title}</button> : <span className="font-medium">{row.title}</span>}<div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">{row.days.map(day => <button key={`${day.itemId}:${day.date}`} className="text-xs text-muted-foreground hover:text-primary hover:underline" onClick={() => void openDay(day.date)}>{shortDate(day.date)} · reported {formatMinutes(day.reportedMinutes)}</button>)}</div></td><td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">{formatMinutes(row.plannedMinutes)}</td><td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">{formatMinutes(row.reportedMinutes)}</td></tr>)}</tbody><tfoot className="border-t border-border font-medium"><tr><td className="px-4 py-3">Всего</td><td className="px-4 py-3 text-right tabular-nums">{formatMinutes(data.time.totals.plannedMinutes)}</td><td className="px-4 py-3 text-right tabular-nums">{formatMinutes(data.time.totals.reportedMinutes)}</td></tr></tfoot></table></div>{!data.time.rows.length && <p className="px-4 pb-5 text-sm text-muted-foreground">Время за этот период пока не указано.</p>}<p className="border-t border-border px-4 py-3 text-xs text-muted-foreground">{data.time.totals.missingReported ? `Без reported: ${data.time.totals.missingReported}. ` : ""}Нажми дату, чтобы открыть день и исправить запись. Часовой пояс: {DAY_TIME_ZONE}.</p></section>}
+  </div></div>;
+}
+
+function DayParameters({ config, register, refresh, planned }: { config: DayView["config"]; register: (id: string, flush: Flush | null) => void; refresh: () => Promise<void>; planned: number }) {
+  const rpc = useRpc<typeof rpcContract>();
+  const [capacity, setCapacity] = useState(inputTime(config.capacityMinutes)), [note, setNote] = useState(config.note), [dirty, setDirty] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
+  const revision = useRef(config.revision), flight = useRef<Promise<boolean> | null>(null), request = useRef<string>(crypto.randomUUID());
+  useEffect(() => { if (!dirty) { setCapacity(inputTime(config.capacityMinutes)); setNote(config.note); revision.current = config.revision; } }, [config.revision, config.capacityMinutes, config.note, dirty]);
+  function change(fn: () => void) { if (!dirty) revision.current = config.revision; request.current = crypto.randomUUID(); fn(); setDirty(true); }
+  function save(): Promise<boolean> {
+    if (flight.current) return flight.current;
+    if (!dirty) return Promise.resolve(true);
+    flight.current = Promise.resolve().then(async () => { setBusy(true); setError(null); try { await rpc.call("dayConfig", { ...config, revision: revision.current, capacityMinutes: parseMinutes(capacity), note, requestId: request.current }); setDirty(false); await refresh(); return true; } catch (e) { setError(e instanceof Error ? e.message : String(e)); return false; } finally { setBusy(false); flight.current = null; } }); return flight.current;
+  }
+  useEffect(() => { register("config", save); return () => register("config", null); });
+  return <details className="rounded-xl border border-border p-4"><summary className="cursor-pointer text-sm">Параметры дня{config.capacityMinutes !== null ? ` · доступно ${formatMinutes(config.capacityMinutes)} · ${planned <= config.capacityMinutes ? `свободно ${formatMinutes(config.capacityMinutes - planned)}` : `план больше на ${formatMinutes(planned - config.capacityMinutes)}`}` : ""}</summary><div className="mt-3 space-y-3"><label className="block text-xs text-muted-foreground">Сколько времени доступно<Input className="mt-1 max-w-48" value={capacity} aria-label="Доступное время" placeholder="Например, 5ч" disabled={busy} onChange={e => change(() => setCapacity(e.target.value))} /></label><label className="block text-xs text-muted-foreground">Заметка на день<textarea className="mt-1 min-h-16 w-full rounded-lg border border-input bg-transparent p-2 text-sm text-foreground" value={note} disabled={busy} onChange={e => change(() => setNote(e.target.value))} /></label><ErrorText error={error} />{dirty && <div className="flex gap-2"><Button size="sm" disabled={busy} onClick={() => void save()}>Сохранить день</Button><Button size="sm" variant="ghost" disabled={busy} onClick={() => { setDirty(false); setError(null); }}>Отменить правку</Button></div>}</div></details>;
+}
+
+export function TaskTimeSummary({ taskId }: { taskId: string }) {
+  const rpc = useRpc<typeof rpcContract>(), navigate = useBbNavigate();
+  const read = useCallback(() => rpc.call("taskTime", { taskId }), [rpc, taskId]);
+  const { data, error } = useDaySnapshot(read);
+  const [date, setDate] = useState(localDay()), [busy, setBusy] = useState(false), [mutationError, setMutationError] = useState<string | null>(null);
+  async function plan() {
+    setBusy(true); setMutationError(null);
+    try { dayDateSchema.parse(date); const day = await rpc.call("day", { date }); if (!day.items.some(i => i.taskId === taskId)) await rpc.call("dayAdd", { date, taskId, requestId: crypto.randomUUID() }); navigate.toPluginPanel("desk", { subPath: `day/${date}` }); }
+    catch (e) { setMutationError(e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(false); }
+  }
+  return <section aria-label="Время задачи" className="rounded-xl border border-border p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-sm font-medium">Время за все дни</h2><p className="mt-1 text-sm tabular-nums">Planned: {data ? formatMinutes(data.plannedMinutes) : "…"} · Reported: {data ? formatMinutes(data.reportedMinutes) : "…"}</p></div><div className="flex flex-wrap gap-2"><Input type="date" aria-label="Запланировать задачу на дату" className="w-40" value={date} onChange={e => setDate(e.target.value)} /><Button variant="outline" size="sm" disabled={busy} onClick={() => void plan()}>В план дня</Button></div></div><ErrorText error={mutationError ?? error} /></section>;
+}

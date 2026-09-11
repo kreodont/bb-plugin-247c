@@ -1,0 +1,107 @@
+import json
+from pathlib import Path
+import sqlite3
+import tempfile
+import unittest
+import zipfile
+import backup
+
+
+class RecoveryTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.source = self.root / "live.db"
+        self.db = sqlite3.connect(self.source)
+        self.addCleanup(self.db.close)
+        self.db.executescript('''
+          PRAGMA journal_mode=WAL;
+          CREATE TABLE tasks(id TEXT PRIMARY KEY, title TEXT);
+          CREATE TABLE knowledge_files(id TEXT PRIMARY KEY, value_json TEXT);
+          CREATE TABLE session_transcripts(session_id TEXT PRIMARY KEY, value_json TEXT);
+          CREATE TABLE _bb_migrations(id INTEGER PRIMARY KEY);
+          CREATE TABLE sessions(id TEXT PRIMARY KEY,status TEXT,value_json TEXT);
+          CREATE TABLE session_events(id TEXT,session_id TEXT,kind TEXT,detail TEXT,payload_json TEXT,created_at TEXT);
+          CREATE TABLE source_sync_runs(id TEXT PRIMARY KEY,status TEXT,value_json TEXT);
+          INSERT INTO tasks VALUES('task1','Data written into WAL');
+          INSERT INTO sessions VALUES('session1','working','{"id":"session1","status":"working"}');
+        ''')
+        self.db.commit()
+
+    def archive(self):
+        root = self.root / "bundle"
+        (root / "database").mkdir(parents=True)
+        (root / "settings").mkdir()
+        counts = backup.copy_database(self.source, root / "database/data.db")
+        backup.dump(root / "settings/247c.json", {"hourlyUpdates": True})
+        manifest = {"format": backup.FORMAT, "pluginVersion": "test", "tables": counts,
+                    "members": {str(p.relative_to(root)): {"sha256": backup.digest(p), "bytes": p.stat().st_size} for p in root.rglob("*") if p.is_file()}}
+        backup.dump(root / "manifest.json", manifest)
+        path = self.root / "snapshot.zip"
+        with zipfile.ZipFile(path, "x") as z:
+            for p in root.rglob("*"):
+                if p.is_file():
+                    z.write(p, p.relative_to(root))
+        return path
+
+    def test_live_wal_is_captured_and_checked(self):
+        self.assertTrue(Path(str(self.source) + "-wal").exists())
+        target = self.root / "copy.db"
+        backup.copy_database(self.source, target)
+        with backup.readonly(target) as db:
+            self.assertEqual(db.execute("SELECT title FROM tasks").fetchone()[0], "Data written into WAL")
+        self.assertFalse(Path(str(target) + "-wal").exists())
+
+    def test_restore_preserves_tasks_and_original_and_pauses_execution(self):
+        archive = self.archive()
+        result = backup.restore_to_new(archive, self.root / "restored")
+        self.assertEqual(result["sessionsPaused"], 1)
+        with backup.readonly(self.root / "restored/prepared-bb/plugins/247c/data.db") as db:
+            self.assertEqual(db.execute("SELECT * FROM tasks").fetchall(), self.db.execute("SELECT * FROM tasks").fetchall())
+            self.assertEqual(db.execute("SELECT status FROM sessions").fetchone()[0], "blocked")
+        with backup.readonly(self.root / "restored/database/data.db") as db:
+            self.assertEqual(db.execute("SELECT status FROM sessions").fetchone()[0], "working")
+        settings = json.loads((self.root / "restored/settings/247c.for-restore.json").read_text())
+        self.assertFalse(settings["hourlyUpdates"])
+        self.assertEqual(self.db.execute("SELECT status FROM sessions").fetchone()[0], "working")
+
+    def test_restore_refuses_an_existing_target(self):
+        archive = self.archive()
+        target = self.root / "occupied"
+        target.mkdir()
+        (target / "important").write_text("keep")
+        with self.assertRaisesRegex(ValueError, "must not exist"):
+            backup.restore_to_new(archive, target)
+        self.assertEqual((target / "important").read_text(), "keep")
+
+    def test_bad_checksum_rejects_restore_without_publishing_directory(self):
+        original = self.archive()
+        corrupt = self.root / "corrupt.zip"
+        with zipfile.ZipFile(original) as src, zipfile.ZipFile(corrupt, "w") as dst:
+            for name in src.namelist():
+                dst.writestr(name, b"corrupt" if name == "database/data.db" else src.read(name))
+        with self.assertRaisesRegex(ValueError, "Checksum failed"):
+            backup.restore_to_new(corrupt, self.root / "bad-restore")
+        self.assertFalse((self.root / "bad-restore").exists())
+
+    def test_path_traversal_and_links_are_refused(self):
+        path = self.root / "evil.zip"
+        with zipfile.ZipFile(path, "w") as z:
+            z.writestr("../escape", "no")
+        with self.assertRaisesRegex(ValueError, "Unsafe"):
+            backup.verify_archive(path)
+        self.assertFalse((self.root.parent / "escape").exists())
+
+    def test_sources_exclude_credentials_and_external_links(self):
+        root = self.root / "plugin"
+        root.mkdir()
+        (root / "server.ts").write_text("export default {}")
+        (root / ".env").write_text("DO_NOT_COPY=secret")
+        (root / "settings.private.json").write_text("private")
+        (root / "outside.ts").symlink_to(self.source)
+        self.assertEqual([p.name for p in backup.source_files(root)], ["server.ts"])
+
+
+if __name__ == "__main__":
+    unittest.main()

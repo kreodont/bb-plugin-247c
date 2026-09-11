@@ -1,0 +1,16 @@
+node_modules
+.verification/
+__pycache__/
+*.pyc
+*.db
+*.db-*
+*.sqlite*
+*.zip
+*.tar*
+*.private.*
+.env*
+!.env.example
+backups/
+snapshots/
+local/
+.DS_Store

@@ -1,0 +1,11 @@
+{
+  "source": "247C/src/core",
+  "copiedOn": "2026-09-08",
+  "sha256": {
+    "kernel.ts": "21cd9d36058e78bf9426038a170c1e014117b9ea592b5a163755f70da802eaf2",
+    "types.ts": "72cb91fcdd0575fd720b5b348be08e157981ed45ce1d05c0168c1bad3adedbad",
+    "errors.ts": "a221240f25d662a6b26b56670c80c98ddc8f42600114c37f33eb0b321065fbd1",
+    "validation.ts": "0ce9859744eabc0cb0c31cb337b0b3f68ec31f00de118b28076a024b9d50b885"
+  },
+  "adaptation": "SQLite handle supplied by BB; kernel Statement import uses better-sqlite3. BB adaptation supports proposal status changes with one approval/receipt and reversible task completion. sha256 records the original copied source; the source 247C project itself is unchanged. BB 0.2.11 removes the lexical-overlap summary heuristic: evidence references, source citations, explicit-instruction checks and human approval remain required. BB 0.2.12 adds task title/status/priority to evidence-backed proposals, approval snapshots and reversals; Kernel now uses the existing BB planning table. Manual planning edits increment both planning CAS and task revision. Original copied source hashes remain unchanged. BB 0.2.14 allows an evidence-backed proposal to clear a fulfilled/cancelled nextStep without completing the whole task: progress or decision evidence is sufficient for null, while new non-null actions still require exact explicit instruction evidence and human approval."
+}
