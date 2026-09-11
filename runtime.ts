@@ -78,8 +78,9 @@ export class SessionRuntime {
     const mode = input.criteria.length ? "result" : "conversation";
     const reviewerProvider = mode === "conversation" ? input.request.providerId : input.request.providerId === "codex" ? "claude-code" : "codex";
     const reviewerModel = mode === "conversation" ? input.request.model : reviewerProvider === "codex" ? options.codexReviewer : options.claudeReviewer;
-    const request = await this.threadRouting.request(nativeRequest(input.request));
-    const environment = request.environment;
+    const routed = await this.threadRouting.request(input.request);
+    const request = nativeRequest(routed);
+    const environment = routed.environment;
     const routing = environment.type === "reuse"
       ? { environmentId: environment.environmentId }
       : environment.type === "provider"

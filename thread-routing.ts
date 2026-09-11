@@ -1,7 +1,10 @@
 import type { BbPluginApi, NewThreadRequest } from "@get-bb/plugin-sdk";
+import type { StartInput } from "./contracts.js";
 import { PolicyError } from "./core/errors.js";
 
 type Route = Pick<NewThreadRequest, "projectId" | "environment">;
+// Preserve newer composer environments until the host validates the spawn.
+type ComposerRoute = Pick<StartInput["request"], "projectId" | "environment">;
 
 /** Installation-specific project selection. No account IDs or paths are bundled. */
 export class ThreadRouting {
@@ -19,7 +22,7 @@ export class ThreadRouting {
     return { projectId: project.id, environment: { type: "host", hostId: source.hostId, workspace: { type: "unmanaged", path: null } } };
   }
 
-  async request<T extends Route>(request: T): Promise<T> {
+  async request<T extends ComposerRoute>(request: T): Promise<T> {
     const route = await this.configured();
     return route ? { ...request, ...route } : request;
   }

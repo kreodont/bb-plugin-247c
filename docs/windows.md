@@ -6,7 +6,8 @@ synchronize another computer's tasks, conversations or accounts.
 BB's supported Windows route is [Ubuntu on WSL2](https://github.com/get-bb/bb/blob/main/docs/platform-support.md).
 BB, Git, Node.js and the model provider CLIs all run in that Linux distribution.
 The browser can run on Windows. Native PowerShell and CMD are not BB runtime
-environments. These instructions were checked against BB 0.42.1 and 247C 0.4.2;
+environments. 247C 0.4.5 supports the SDK 0.4.47 bundled with stable BB 0.42.1.
+Installation has been verified in an isolated instance of that npm runtime on macOS;
 247C has not yet had an end-to-end verification on a Windows/WSL installation.
 
 ## 1. Prepare WSL and BB
@@ -40,6 +41,17 @@ supported npm versions. Keep this terminal running. Open
 `http://localhost:38886` in the Windows browser. Use a second Ubuntu terminal for
 the following commands; a global BB install provides both `bb-app` and `bb`.
 
+If BB is already running but `bb` is not on `PATH`, use its CLI through npx in
+the same Ubuntu distribution:
+
+```sh
+npx --package=bb-app bb settings version --json
+npx --package=bb-app bb plugin list --json
+```
+
+For the commands below, replace `bb` with `npx --package=bb-app bb` as needed.
+Ubuntu's `apt install bb` suggestion refers to a different program.
+
 ## 2. Install the private plugin
 
 Authenticate with a GitHub account that can access this repository:
@@ -47,14 +59,18 @@ Authenticate with a GitHub account that can access this repository:
 ```sh
 gh auth login
 gh auth setup-git
-bb plugin install 'git:https://github.com/kreodont/bb-plugin-247c.git@^0.4.2'
+bb plugin install 'git:https://github.com/kreodont/bb-plugin-247c.git@^0.4.5'
 bb plugin list
 bb 247c list --json
 ```
 
-`^0.4.2` tracks stable 0.4.x releases starting at 0.4.2. Use `@v0.4.2` instead
+`^0.4.5` tracks stable 0.4.x releases starting at 0.4.5. Use `@v0.4.5` instead
 only when an exact, pinned release is desired; pinned installs do not follow
 new releases through `bb plugin update`.
+
+If an older 247C release fails with `requires bb plugin SDK >=0.4.53, running
+SDK is 0.4.47`, install 0.4.5 or later. BB 0.42.1 is already sufficient; the
+error concerns the SDK bundled into the server, not the separately downloaded CLI.
 
 The repository includes source, tests, the ready plugin build and backup tools.
 The managed install uses the supplied build. Do not copy `node_modules` from

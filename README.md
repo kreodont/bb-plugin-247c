@@ -4,12 +4,12 @@ Local tasks, durable dossiers, shared knowledge, work conversations and day plan
 
 ## Install on another computer
 
-Requires BB ≥ 0.42 with Plugin SDK ≥ 0.4.53 and a login for your chosen model provider. Verified on macOS; integrations on other operating systems require separate validation.
+Requires BB ≥ 0.42 with Plugin SDK ≥ 0.4.47 and a login for your chosen model provider. Compatible with the stable BB 0.42.1 npm release. Verified on macOS; integrations on other operating systems require separate validation.
 
 This repository is currently private. Authenticate Git with a GitHub account that has access before installing; with GitHub CLI, run `gh auth login` and `gh auth setup-git` once on the new computer.
 
 ```sh
-bb plugin install git:https://github.com/kreodont/bb-plugin-247c.git@v0.4.4
+bb plugin install git:https://github.com/kreodont/bb-plugin-247c.git@v0.4.5
 ```
 
 The package includes source code and a ready build. It contains no author tasks, history, accounts or personal settings. **247C** appears in the sidebar with an empty database. Configure Gmail, Slack, Jira and calendar access separately; tasks, dossiers and conversations work without those integrations. The interface and public documentation are in English. Existing task content and conversations retain their original language.
@@ -146,4 +146,17 @@ bb plugin install . --yes
 
 For an installed plugin, use `bb plugin dev`, or build and run `bb plugin reload 247c`. Reloads preserve open conversations; interrupted reviews require a retry. Inspect status with `bb plugin list` and logs with `bb plugin logs 247c`.
 
-Tests cover multi-turn conversations, finishing with the button, pagination, provenance, atomic saves, cancellation, retry and reload. They use the official `@get-bb/plugin-sdk/testing`, real SQLite and the frontend harness to verify revisions, evidence, apply/undo behavior, session boundaries, model changes, repairs, cancellation during file reads and core UI workflows. Requires BB ≥ 0.42 and the pinned Plugin SDK 0.4.53.
+Tests cover multi-turn conversations, finishing with the button, pagination, provenance, atomic saves, cancellation, retry and reload. They use the official `@get-bb/plugin-sdk/testing`, real SQLite and the frontend harness to verify revisions, evidence, apply/undo behavior, session boundaries, model changes, repairs, cancellation during file reads and core UI workflows. Requires BB ≥ 0.42 and the pinned Plugin SDK 0.4.47.
+
+Build release artifacts with the stable BB 0.42.1 CLI so their SDK metadata
+matches the minimum supported runtime. A development BB can have a newer SDK
+even when its BB version number is the same. On macOS or Linux, bypass a
+development runtime's `BB_CLI` override when building a release:
+
+```sh
+env -u BB_CLI -u BB_CLI_DIR npx --package=bb-app@0.42.1 bb plugin build
+```
+
+Check that both `dist/server.meta.json` and `dist/app.meta.json` report
+`sdkVersion: "0.4.47"`, then verify installation in a separate stable BB instance
+before tagging the release. Keep runtime data and verification logs outside Git.
