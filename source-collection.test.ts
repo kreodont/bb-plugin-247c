@@ -5,7 +5,7 @@ import * as collector from "./source-collector.js";
 import { collectSources, pageState, responseData, sourceExportPage, sourceLinks, type SourceExport } from "./source-collector.js";
 import { syncStartSchema, type SyncRun } from "./contracts.js";
 import type { SourceConnections } from "./source-connectors.js";
-import { SourceSyncStore, syncRanges, validateSyncReports } from "./source-sync.js";
+import { SourceSyncStore, requiredSourceReads, syncRanges, validateSyncReports } from "./source-sync.js";
 import { fixture } from "./test-support.js";
 import { reportsFor } from "./source-sync-test-support.js";
 
@@ -31,6 +31,52 @@ function bundleFor(run: SyncRun, large = false): SourceExport {
 it("uses Jira's response body rather than the unrelated UI graph", () => {
   expect(responseData({ content: [{ type: "text", text: '{"issues":[],"isLast":true}' }], structuredContent: { issues: { nodes: [] }, context: {} } })).toEqual({ issues: [], isLast: true });
   expect(responseData({ content: [{ type: "text", text: '{"key":"APP-123","fields":{}}' }], structuredContent: { issues: { nodes: [] } } }).key).toBe("APP-123");
+});
+
+it("excludes quote numbers and UUID fragments consistently from collection and coverage", () => {
+  const text = "Q-12345 12345678-ABC4-4321-89AB-123456789ABC APP-815 https://example.atlassian.net/browse/Q-42";
+  const dossiers = [{ task: { status: "open" }, text }] as unknown as Parameters<typeof collectSources>[1];
+  expect(sourceLinks(text).jira).toEqual(["APP-815", "Q-42"]);
+  expect(requiredSourceReads(dossiers, "jira")).toEqual(["APP-815", "Q-42"]);
+});
+
+it.each([true, false])("resolves Gmail message permalinks with searched thread=%s", async inSearch => {
+  const ids: unknown[] = [];
+  const dossiers = [{ task: { status: "open" }, sourceRef: "https://mail.google.com/mail/u/0/#inbox/1a08d7511a507393" }] as unknown as Parameters<typeof collectSources>[1];
+  const connections: SourceConnections = {
+    slack: { error: "Unavailable" }, jira: { error: "Unavailable" },
+    gmail: { close: async () => {}, async call(tool, args) {
+      if (tool === "search_threads") return { content: [{ type: "text", text: JSON.stringify({ threads: inSearch ? [{ id: "1a04026aa250ce0e" }] : [] }) }] };
+      if (tool === "get_message") {
+        expect(args).toEqual({ messageId: "1a08d7511a507393", messageFormat: "METADATA_ONLY" });
+        return { content: [{ type: "text", text: '{"id":"1a08d7511a507393","threadId":"1a04026aa250ce0e"}' }] };
+      }
+      ids.push(args.threadId);
+      return { content: [{ type: "text", text: JSON.stringify({ id: args.threadId, messages: [{ id: "1a08d7511a507393", threadId: args.threadId, date: "2026-09-10T10:00:00Z", plaintextBody: "Confirmed" }] }) }] };
+    } },
+  };
+  const bundle = await collectSources(sampleRun(), dossiers, { connect: async () => connections });
+  expect(ids).toEqual(["1a04026aa250ce0e"]);
+  expect(bundle.documents).toHaveLength(1);
+  expect(bundle.documents[0].content).toContain("Confirmed");
+  expect(validateSyncReports(bundle.reports, bundle.calls, dossiers)[0].status).toBe("complete");
+});
+
+it.each(["gmail", "jira"] as const)("reports %s source errors with the requested ID instead of a format error", async source => {
+  const connections: SourceConnections = { gmail: { error: "Unavailable" }, slack: { error: "Unavailable" }, jira: { error: "Unavailable" } };
+  connections[source] = { close: async () => {}, async call(tool) {
+    if (tool === "search_threads") return { content: [{ type: "text", text: '{"threads":[{"id":"missing"}]}' }] };
+    if (tool === "searchJiraIssuesUsingJql") return { content: [{ type: "text", text: '{"issues":[{"key":"APP-404","fields":{"updated":"2026-09-10T10:00:00Z"}}],"isLast":true}' }] };
+    return source === "gmail" ? { isError: true, content: [{ type: "text", text: "Requested entity was not found." }] }
+      : { content: [{ type: "text", text: JSON.stringify({ error: true, message: "Issue does not exist or you do not have permission to see it." }) }] };
+  } };
+  const bundle = await collectSources(sampleRun(), [], { connect: async () => connections });
+  const report = bundle.reports.find(r => r.source === source)!;
+  expect(report.status).toBe("partial");
+  expect(report.detail).toContain(source === "gmail" ? "missing" : "APP-404");
+  expect(report.detail).toContain(source === "gmail" ? "not found" : "permission");
+  expect(report.detail).not.toContain("format");
+  expect(bundle.documents).toHaveLength(0);
 });
 it("follows Slack's prose cursors, refuses an ambiguous full page, and resolves parent threads", () => {
   expect(pageState({ pagination_info: "For the next page of results use cursor `abc=`" }, 20, 20)).toEqual({ token: "abc=", complete: false });

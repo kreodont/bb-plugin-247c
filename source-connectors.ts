@@ -11,7 +11,7 @@ import type { SyncSource } from "./contracts.js";
 
 const execute = promisify(execFile);
 export const READ_TOOLS: Record<SyncSource, readonly string[]> = {
-  gmail: ["search_threads", "get_thread"],
+  gmail: ["search_threads", "get_thread", "get_message"],
   slack: ["slack_search_public_and_private", "slack_read_channel", "slack_read_thread"],
   jira: ["searchJiraIssuesUsingJql", "getJiraIssue"],
 };

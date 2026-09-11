@@ -9,7 +9,7 @@ Requires BB ≥ 0.42 with Plugin SDK ≥ 0.4.53 and a login for your chosen mode
 This repository is currently private. Authenticate Git with a GitHub account that has access before installing; with GitHub CLI, run `gh auth login` and `gh auth setup-git` once on the new computer.
 
 ```sh
-bb plugin install git:https://github.com/kreodont/bb-plugin-247c.git@v0.4.1
+bb plugin install git:https://github.com/kreodont/bb-plugin-247c.git@v0.4.2
 ```
 
 The package includes source code and a ready build. It contains no author tasks, history, accounts or personal settings. **247C** appears in the sidebar with an empty database. Configure Gmail, Slack, Jira and calendar access separately; tasks, dossiers and conversations work without those integrations. The interface and public documentation are in English. Existing task content and conversations retain their original language.
@@ -55,13 +55,13 @@ Proposals are also available in **Updates** and the task's **Proposals** tab, wi
 
 Source statuses are independent. Errors, incomplete pagination or unread linked threads preserve the previous interval. Even the first failed run retains its start when retried days later. The interval end is fixed at the run's start. A manual date later than the previous checkpoint does not close the unchecked gap. Repeated findings are deduplicated by message. A new check can replace a stale proposal after the dossier changes.
 
-The **Check updates every hour, daily 08:00–20:00 (Athens)** setting runs checks at 08:00, 09:00, …, 20:00 every day, including weekends, while BB is running. Europe/Athens handles daylight saving time. It uses the account, model, reasoning level and workspace from the last successful check. If a check is still running, that scheduled start is skipped; the next run resumes from saved checkpoints. Proposals continue to require acceptance.
+The **Check updates every hour, daily 08:00–20:00 (Athens)** setting runs checks at 08:00, 09:00, …, 20:00 every day, including weekends, while BB is running. Europe/Athens handles daylight saving time. It uses the account, model and reasoning level from the last successful check. The workspace follows **Thread project** when configured; otherwise it uses the saved workspace. If a check is still running, that scheduled start is skipped; the next run resumes from saved checkpoints. Proposals continue to require acceptance.
 
 Collection starts only on request or through the enabled schedule. It does not modify email, messages or Jira. [Tools, intervals and limits](skills/source-sync.md).
 
 ## Getting started
 
-A durable task retains context, accepted results, its next step and history across BB work sessions. Work happens in ordinary BB threads with your chosen model and workspace.
+A durable task retains context, accepted results, its next step and history across BB work sessions. Work happens in ordinary BB threads with your chosen model. Set **Thread project** in plugin settings to group all new work conversations, review discussions, recorders, verification threads and source checks in one BB project using its default local folder. The composer opens in that project. Existing threads keep their original project. See the [setup-agent guide](docs/setup-agent.md#project-for-247c-threads) for configuration and recovery.
 
 Open **247C** in BB's sidebar. Create a task and add its initial context. The dossier can hold observations, decisions, constraints and an explicitly agreed next step. Importance and urgency are separate choices; an unknown priority remains unclassified.
 
@@ -122,7 +122,7 @@ Plugin tools and instructions define a workflow, not isolation from an agent wit
 
 ## Workspace selection compatibility
 
-Since 0.2.4, the plugin accepts BB's provider environment format (`type: "provider"`) for personal folders, projects and worktrees. The chosen environment is passed unchanged to BB; account and model availability are checked on the selected machine. Legacy `host`, `reuse` and `project-default` options are also supported.
+Since 0.2.4, the plugin accepts BB's provider environment format (`type: "provider"`) for personal folders, projects and worktrees. With **Thread project** unset, the chosen environment is passed unchanged to BB. When configured, all new threads use that project's default local folder, including launches from older saved requests. Account and model availability are checked on the target machine. Legacy `host`, `reuse` and `project-default` options are also supported.
 
 ## CLI and development
 

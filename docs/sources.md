@@ -20,3 +20,7 @@ subprocess.run(["bb", "plugin", "config", "247c", "set", "sources", json.dumps(p
 The setting is also available under Extensions → Plugins → 247C. Run a manual source check with an available model and workspace. You can then enable `hourlyUpdates`: daily 08:00–20:00 in Europe/Athens. `calendarMeetings` controls calendar import. Models and connected accounts remain subject to the selected provider's billing and limits.
 
 Changing calendars does not modify earlier meetings from another calendar. An incorrect account or missing login preserves existing data and shows an error. Installing the code on another computer does not transfer this profile or synchronize databases.
+
+Gmail permalinks can identify a message rather than its thread. The collector resolves message IDs from already loaded threads or with the read-only `get_message` metadata operation, then reads the full conversation once. Connector errors include the requested ID and the source's error text.
+
+Jira link discovery excludes UUID fragments and bare `Q-…` quote numbers. An explicit Jira `/browse/Q-…` URL still identifies a Jira issue. Collection and coverage validation use the same reference rules; unavailable real issues continue to make the check partial.

@@ -199,6 +199,7 @@ export const settingsViewSchema = z.object({ codexReviewer: z.string(), claudeRe
 export const syncStartSchema = z.object({ requestId: z.uuid(), since: z.iso.datetime({ offset: true }).nullable().default(null), request: requestSchema }).strict();
 export const syncStateSchema = z.object({ runs: z.array(syncRunSchema), candidates: z.array(syncCandidateSchema), pending: z.number(), checkpoints: z.record(syncSourceSchema, z.string().nullable()), nextSince: z.record(syncSourceSchema, z.string()) });
 export const rpcContract = defineRpcContract({
+  threadProject: { input: z.object({}).strict(), output: z.object({ projectId: idSchema.nullable() }) },
   ...dayRpcContract,
   proposalInbox: { input: z.object({ offset: z.number().int().min(0).default(0) }).strict(), output: z.object({ items: z.array(reviewItemSchema), total: z.number(), nextOffset: z.number().nullable() }) },
   acceptInbox: { input: z.object({ items: z.array(reviewSelectionSchema).min(1).max(50) }).strict(), output: z.object({ applied: z.array(z.object({ kind: z.enum(["source", "proposal"]), id: idSchema, taskId: idSchema })), failed: z.array(z.object({ kind: z.enum(["source", "proposal"]), id: idSchema, message: z.string() })) }) },

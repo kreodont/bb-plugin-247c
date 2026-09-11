@@ -9,6 +9,7 @@ import { PolicyError } from "./core/errors.js";
 import { rpcContract, draftSchema, idSchema, resultSchema, syncSubmitToolSchema, type SettingsView } from "./contracts.js";
 import { ACTIVE, EXTRA_SCHEMA, Repository } from "./repository.js";
 import { SessionRuntime } from "./runtime.js";
+import { ThreadRouting } from "./thread-routing.js";
 import { managementGuide } from "./prompts.js";
 import { SourceSyncRuntime } from "./source-sync.js";
 import { ProposalInbox } from "./proposal-inbox.js";
@@ -36,6 +37,7 @@ function boundedJson(value: unknown): string {
 
 export default async function plugin(bb: BbPluginApi) {
   const settings = bb.settings.define({
+    threadProjectId: { type: "string", label: "Thread project", description: "BB project ID for all new 247C conversations, reviews and source checks. Uses its default project folder. Leave blank to use the composer selection and personal review workspaces.", default: "", experimental_schema: z.string().trim().max(200) },
     codexReviewer: { type: "string", label: "Codex verification model", default: "gpt-5.6-sol", experimental_schema: z.string().trim().min(1).max(200) },
     claudeReviewer: { type: "string", label: "Personal Claude verification model (sessions with criteria)", default: "claude-fable-5-1", experimental_schema: z.string().trim().min(1).max(200) },
     maximumRepairs: { type: "number", label: "Repair attempts after verification", default: 2, experimental_schema: z.number().int().min(0).max(2) },
@@ -50,19 +52,21 @@ export default async function plugin(bb: BbPluginApi) {
   const changed = () => bb.realtime.publish("desk-changed", { at: Date.now() });
   const repo = new Repository(db, changed);
   const getSettings = async (): Promise<SettingsView> => settings.get();
-  const runtime = new SessionRuntime(bb, repo, getSettings);
+  const threadRouting = new ThreadRouting(bb, async () => (await settings.get()).threadProjectId);
+  const runtime = new SessionRuntime(bb, repo, getSettings, threadRouting);
   const days = new DayPlanning(repo);
   const sourceConfiguration = async () => parseSourceConfig((await settings.get()).sources);
   const calendar = new CalendarRuntime(days, async () => (await settings.get()).calendarMeetings, async input => {
     const config = await sourceConfiguration();
     return readCalendar({ ...input, calendarId: config.calendarId }, signal => connectCalendar(signal, config));
   });
-  const sync = new SourceSyncRuntime(bb, repo, async signal => { await calendar.start(undefined, signal); await calendar.settled(); }, sourceConfiguration);
+  const sync = new SourceSyncRuntime(bb, repo, async signal => { await calendar.start(undefined, signal); await calendar.settled(); }, sourceConfiguration, threadRouting);
   const inbox = new ProposalInbox(repo, sync.store, runtime);
   if (days.calendarState().status === "running") days.saveCalendarState({ ...days.calendarState(), status: "error", message: "The calendar check was interrupted. Run it again." });
   days.tick();
 
   bb.rpc.register(rpcContract, {
+    threadProject: async () => ({ projectId: (await settings.get()).threadProjectId || null }),
     day: ({ date }) => days.day(date),
     dayAdd: (input) => days.add(input),
     dayEdit: (input) => days.edit(input),
@@ -146,7 +150,7 @@ export default async function plugin(bb: BbPluginApi) {
     execute() { const { candidates: _candidates, ...state } = sync.store.state(); return boundedJson(state); },
   });
   bb.agents.registerTool({
-    name: "c247_sync_start", description: "Start a 247C source update check only on user request, with their chosen provider and model in this thread's project/workspace. since=null resumes each source's last complete checkpoint (first run: last 24 hours); explicit since is an ISO timestamp with timezone. Creates a collector chat, never applies task changes. Human review is in the Updates panel. Use the native panel composer when model/account choice is needed.",
+    name: "c247_sync_start", description: "Start a 247C source update check only on user request, with their chosen provider and model. Uses the configured Thread project and its default folder, or this thread's project/workspace when unset. since=null resumes each source's last complete checkpoint (first run: last 24 hours); explicit since is an ISO timestamp with timezone. Creates a collector chat, never applies task changes. Human review is in the Updates panel. Use the native panel composer when model/account choice is needed.",
     parameters: z.object({ requestId: z.uuid(), since: z.iso.datetime({ offset: true }).nullable().default(null), providerId: z.enum(["codex", "claude-code", "claude-work"]), model: z.string().min(1).max(200), reasoningLevel: z.enum(["low", "medium", "high", "xhigh", "max", "none", "ultra", "ultracode"]).default("medium") }).strict(),
     async execute(input, ctx) {
       independentCaller(ctx.threadId);

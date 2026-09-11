@@ -11,6 +11,7 @@ import { workerInstructions, reviewInstructions, repairInstructions, extractionI
 import { continueTranscript, extractionProposal, readConversation, validateExtraction } from "./conversation.js";
 import { allowedRecorder, selectRecorder } from "./recorder.js";
 import { readSavedRecorder } from "./recorder-recovery.js";
+import { ThreadRouting } from "./thread-routing.js";
 
 const FAILED = new Set(["error", "failed", "archived", "deleted"]);
 const forbiddenPath = new Set([".git", ".bb", ".codex", ".claude", ".agents", ".ssh", ".env", ".npmrc", "node_modules", ".247c"]);
@@ -37,7 +38,7 @@ export class SessionRuntime {
   private readonly processing = new Set<string>();
   private readonly archiving = new Set<string>();
   private disposed = false;
-  constructor(readonly bb: BbPluginApi, readonly repo: Repository, readonly settings: () => Promise<SettingsView>) {}
+  constructor(readonly bb: BbPluginApi, readonly repo: Repository, readonly settings: () => Promise<SettingsView>, readonly threadRouting = new ThreadRouting(bb, async () => "")) {}
 
   private current(id: string): Session {
     const session = this.repo.session(id);
@@ -77,7 +78,8 @@ export class SessionRuntime {
     const mode = input.criteria.length ? "result" : "conversation";
     const reviewerProvider = mode === "conversation" ? input.request.providerId : input.request.providerId === "codex" ? "claude-code" : "codex";
     const reviewerModel = mode === "conversation" ? input.request.model : reviewerProvider === "codex" ? options.codexReviewer : options.claudeReviewer;
-    const environment = input.request.environment;
+    const request = await this.threadRouting.request(nativeRequest(input.request));
+    const environment = request.environment;
     const routing = environment.type === "reuse"
       ? { environmentId: environment.environmentId }
       : environment.type === "provider"
@@ -104,12 +106,11 @@ export class SessionRuntime {
       const latest = this.discussionSource(input);
       if (latest?.proposal?.id !== discussion?.proposal?.id || latest?.proposal?.status !== discussion?.proposal?.status) throw new PolicyError("The review changed. Refresh the dossier before discussing it.");
       if (this.repo.active().some((s) => s.taskId === input.taskId)) throw new PolicyError("This task already has a worker.");
-      this.repo.insertSession(session, { request: input.request, startFingerprint: digest(input) });
+      this.repo.insertSession(session, { request, startFingerprint: digest(input) });
       this.repo.sessionEvent(session.id, "contract", mode === "conversation" ? "Task conversation started; the user ends it with the finish button." : "The assignment and acceptance criteria were saved.", input);
     });
     this.processing.add(session.id);
     try {
-      const request = nativeRequest(input.request);
       const thread = await this.bb.sdk.threads.spawn({ ...request,
         title: `247C · worker · ${session.id}`, visibility: "visible",
         input: [...request.input, { type: "text", text: workerInstructions(session, this.repo.detail(session.taskId), discussion), mentions: [], visibility: "agent-only" }],
@@ -491,16 +492,14 @@ export class SessionRuntime {
     const env = await this.bindEnvironment(session);
     const dossier = this.repo.detail(session.taskId);
     this.repo.assertCurrent(dossier.task.id, dossier.task.revision, !session.continuedFrom);
-    const personalProject = (await this.bb.sdk.projects.list({ includePersonal: true })).find((p) => p.kind === "personal");
-    if (!personalProject) throw new PolicyError("BB did not provide the personal workspace.");
+    const route = await this.threadRouting.review(env.hostId!);
     this.current(session.id);
     session = this.repo.saveSession({ ...this.repo.session(session.id), status: "review_starting", baseRevision: dossier.task.revision });
     this.repo.sessionEvent(session.id, "transcript", `Conversation saved: ${transcript.messages.length} messages.`, { count: transcript.messages.length, capturedAt: transcript.capturedAt });
     try {
-      const recorder = await this.bb.sdk.threads.spawn({ projectId: personalProject.id, providerId: session.reviewerProvider, model: session.reviewerModel,
+      const recorder = await this.bb.sdk.threads.spawn({ ...route, providerId: session.reviewerProvider, model: session.reviewerModel,
         reasoningLevel: session.reviewerReasoning, permissionMode: "accept-edits", visibility: "hidden",
         executionInputSources: { providerId: "explicit", model: "explicit", reasoningLevel: "explicit", permissionMode: "explicit" },
-        environment: { type: "host", hostId: env.hostId!, workspace: { type: "personal" } },
         title: `247C · review ${session.round} · ${session.id}`, prompt: extractionInstructions(session, dossier, transcript),
       });
       const current = this.repo.saveSession({ ...this.repo.session(session.id), reviewerThreadId: recorder.id });
@@ -544,13 +543,11 @@ export class SessionRuntime {
     session = this.repo.saveSession({ ...this.current(session.id), status: "review_starting", artifacts });
     this.repo.sessionEvent(session.id, "artifacts", "BB read the files for independent verification.", artifacts);
     try {
-      const personalProject = (await this.bb.sdk.projects.list({ includePersonal: true })).find((p) => p.kind === "personal");
-      if (!personalProject) throw new PolicyError("BB did not provide the personal workspace.");
+      const route = await this.threadRouting.review(session.hostId!);
       this.current(session.id);
-      const reviewer = await this.bb.sdk.threads.spawn({ projectId: personalProject.id, providerId: session.reviewerProvider, model: session.reviewerModel,
+      const reviewer = await this.bb.sdk.threads.spawn({ ...route, providerId: session.reviewerProvider, model: session.reviewerModel,
         reasoningLevel: "medium", permissionMode: "accept-edits", visibility: "hidden",
         executionInputSources: { providerId: "explicit", model: "explicit", reasoningLevel: "explicit", permissionMode: "explicit" },
-        environment: { type: "host", hostId: session.hostId!, workspace: { type: "personal" } },
         title: `247C · verification ${session.round} · ${session.id}`, prompt: reviewInstructions(session),
       });
       const current = this.repo.saveSession({ ...this.repo.session(session.id), reviewerThreadId: reviewer.id });

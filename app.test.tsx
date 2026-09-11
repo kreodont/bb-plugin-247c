@@ -23,6 +23,17 @@ async function setup(taskId?: string, supplied?: Awaited<ReturnType<typeof fixtu
   return { f, slot };
 }
 
+it.each(["work", "updates"])("opens the %s composer in the configured thread project", async page => {
+  const f = await fixture(); const task = await f.create();
+  await f.harness.behavior.setSettings({ threadProjectId: "proj_tasks" });
+  const { slot } = await setup(page === "work" ? task.id : "updates", f);
+  fireEvent.click(await slot.findByRole(page === "work" ? "tab" : "button", { name: page === "work" ? "Work" : "Check for updates" }));
+  const composer = await slot.findByTestId("bb-new-thread-composer");
+  expect(composer.getAttribute("data-default-project-id")).toBe("proj_tasks");
+  expect(JSON.parse(composer.getAttribute("data-default-environment")!)).toEqual({ type: "project-default" });
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
+});
+
 it("reviews new tasks and existing task updates together and accepts the selected list", async () => {
   const f = await fixture(); const task = await f.create();
   const { run } = await startSourceSync(f); const { input } = await sourceData(f, run, task.id);

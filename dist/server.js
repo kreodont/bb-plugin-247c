@@ -31031,7 +31031,7 @@ var StreamableHTTPClientTransport = class {
 // source-connectors.ts
 var execute = promisify(execFile);
 var READ_TOOLS = {
-  gmail: ["search_threads", "get_thread"],
+  gmail: ["search_threads", "get_thread", "get_message"],
   slack: ["slack_search_public_and_private", "slack_read_channel", "slack_read_thread"],
   jira: ["searchJiraIssuesUsingJql", "getJiraIssue"]
 };
@@ -31737,6 +31737,7 @@ var settingsViewSchema = external_exports.object({ codexReviewer: external_expor
 var syncStartSchema = external_exports.object({ requestId: external_exports.uuid(), since: external_exports.iso.datetime({ offset: true }).nullable().default(null), request: requestSchema }).strict();
 var syncStateSchema = external_exports.object({ runs: external_exports.array(syncRunSchema), candidates: external_exports.array(syncCandidateSchema), pending: external_exports.number(), checkpoints: external_exports.record(syncSourceSchema, external_exports.string().nullable()), nextSince: external_exports.record(syncSourceSchema, external_exports.string()) });
 var rpcContract = defineRpcContract({
+  threadProject: { input: external_exports.object({}).strict(), output: external_exports.object({ projectId: idSchema.nullable() }) },
   ...dayRpcContract,
   proposalInbox: { input: external_exports.object({ offset: external_exports.number().int().min(0).default(0) }).strict(), output: external_exports.object({ items: external_exports.array(reviewItemSchema), total: external_exports.number(), nextOffset: external_exports.number().nullable() }) },
   acceptInbox: { input: external_exports.object({ items: external_exports.array(reviewSelectionSchema).min(1).max(50) }).strict(), output: external_exports.object({ applied: external_exports.array(external_exports.object({ kind: external_exports.enum(["source", "proposal"]), id: idSchema, taskId: idSchema })), failed: external_exports.array(external_exports.object({ kind: external_exports.enum(["source", "proposal"]), id: idSchema, message: external_exports.string() })) }) },
@@ -32999,6 +33000,41 @@ async function readSavedRecorder(bb, threadId, session, dossier, transcript) {
   return { output: result.output, reviewerProvider: thread.providerId, reviewerModel: model, reviewerReasoning: request.data.execution.reasoningLevel };
 }
 
+// thread-routing.ts
+var ThreadRouting = class {
+  constructor(bb, projectId) {
+    this.bb = bb;
+    this.projectId = projectId;
+  }
+  bb;
+  projectId;
+  async configured() {
+    const id2 = (await this.projectId()).trim();
+    if (!id2) return null;
+    let project;
+    try {
+      project = await this.bb.sdk.projects.get({ projectId: id2 });
+    } catch {
+      throw new PolicyError("The configured 247C thread project is unavailable. Update Thread project in plugin settings.");
+    }
+    if (project.kind !== "standard") throw new PolicyError("The 247C thread project must be a standard project with a local folder.");
+    const source = project.sources.find((source2) => source2.isDefault) ?? project.sources[0];
+    if (source?.type !== "local_path" || !source.hostId || !source.path) throw new PolicyError("The configured thread project has no default local folder.");
+    return { projectId: project.id, environment: { type: "host", hostId: source.hostId, workspace: { type: "unmanaged", path: null } } };
+  }
+  async request(request) {
+    const route = await this.configured();
+    return route ? { ...request, ...route } : request;
+  }
+  async review(hostId) {
+    const route = await this.configured();
+    if (route) return route;
+    const project = (await this.bb.sdk.projects.list({ includePersonal: true })).find((project2) => project2.kind === "personal");
+    if (!project) throw new PolicyError("BB did not provide the personal workspace.");
+    return { projectId: project.id, environment: { type: "host", hostId, workspace: { type: "personal" } } };
+  }
+};
+
 // runtime.ts
 var FAILED = /* @__PURE__ */ new Set(["error", "failed", "archived", "deleted"]);
 var forbiddenPath = /* @__PURE__ */ new Set([".git", ".bb", ".codex", ".claude", ".agents", ".ssh", ".env", ".npmrc", "node_modules", ".247c"]);
@@ -33023,14 +33059,16 @@ function validateReview(value, session) {
   return review;
 }
 var SessionRuntime = class {
-  constructor(bb, repo, settings) {
+  constructor(bb, repo, settings, threadRouting = new ThreadRouting(bb, async () => "")) {
     this.bb = bb;
     this.repo = repo;
     this.settings = settings;
+    this.threadRouting = threadRouting;
   }
   bb;
   repo;
   settings;
+  threadRouting;
   processing = /* @__PURE__ */ new Set();
   archiving = /* @__PURE__ */ new Set();
   disposed = false;
@@ -33074,7 +33112,8 @@ var SessionRuntime = class {
     const mode = input2.criteria.length ? "result" : "conversation";
     const reviewerProvider = mode === "conversation" ? input2.request.providerId : input2.request.providerId === "codex" ? "claude-code" : "codex";
     const reviewerModel = mode === "conversation" ? input2.request.model : reviewerProvider === "codex" ? options.codexReviewer : options.claudeReviewer;
-    const environment = input2.request.environment;
+    const request = await this.threadRouting.request(nativeRequest(input2.request));
+    const environment = request.environment;
     const routing = environment.type === "reuse" ? { environmentId: environment.environmentId } : environment.type === "provider" ? { hostId: environment.machine.hostId } : environment.type === "host" && environment.hostId ? { hostId: environment.hostId } : {};
     const [providers, reviewerCatalog, workerCatalog] = await Promise.all([
       this.bb.sdk.providers.list(routing),
@@ -33123,12 +33162,11 @@ var SessionRuntime = class {
       const latest = this.discussionSource(input2);
       if (latest?.proposal?.id !== discussion?.proposal?.id || latest?.proposal?.status !== discussion?.proposal?.status) throw new PolicyError("The review changed. Refresh the dossier before discussing it.");
       if (this.repo.active().some((s) => s.taskId === input2.taskId)) throw new PolicyError("This task already has a worker.");
-      this.repo.insertSession(session, { request: input2.request, startFingerprint: digest(input2) });
+      this.repo.insertSession(session, { request, startFingerprint: digest(input2) });
       this.repo.sessionEvent(session.id, "contract", mode === "conversation" ? "Task conversation started; the user ends it with the finish button." : "The assignment and acceptance criteria were saved.", input2);
     });
     this.processing.add(session.id);
     try {
-      const request = nativeRequest(input2.request);
       const thread = await this.bb.sdk.threads.spawn({
         ...request,
         title: `247C \xB7 worker \xB7 ${session.id}`,
@@ -33525,21 +33563,19 @@ var SessionRuntime = class {
     const env = await this.bindEnvironment(session);
     const dossier = this.repo.detail(session.taskId);
     this.repo.assertCurrent(dossier.task.id, dossier.task.revision, !session.continuedFrom);
-    const personalProject = (await this.bb.sdk.projects.list({ includePersonal: true })).find((p) => p.kind === "personal");
-    if (!personalProject) throw new PolicyError("BB did not provide the personal workspace.");
+    const route = await this.threadRouting.review(env.hostId);
     this.current(session.id);
     session = this.repo.saveSession({ ...this.repo.session(session.id), status: "review_starting", baseRevision: dossier.task.revision });
     this.repo.sessionEvent(session.id, "transcript", `Conversation saved: ${transcript.messages.length} messages.`, { count: transcript.messages.length, capturedAt: transcript.capturedAt });
     try {
       const recorder = await this.bb.sdk.threads.spawn({
-        projectId: personalProject.id,
+        ...route,
         providerId: session.reviewerProvider,
         model: session.reviewerModel,
         reasoningLevel: session.reviewerReasoning,
         permissionMode: "accept-edits",
         visibility: "hidden",
         executionInputSources: { providerId: "explicit", model: "explicit", reasoningLevel: "explicit", permissionMode: "explicit" },
-        environment: { type: "host", hostId: env.hostId, workspace: { type: "personal" } },
         title: `247C \xB7 review ${session.round} \xB7 ${session.id}`,
         prompt: extractionInstructions(session, dossier, transcript)
       });
@@ -33589,18 +33625,16 @@ var SessionRuntime = class {
     session = this.repo.saveSession({ ...this.current(session.id), status: "review_starting", artifacts: artifacts2 });
     this.repo.sessionEvent(session.id, "artifacts", "BB read the files for independent verification.", artifacts2);
     try {
-      const personalProject = (await this.bb.sdk.projects.list({ includePersonal: true })).find((p) => p.kind === "personal");
-      if (!personalProject) throw new PolicyError("BB did not provide the personal workspace.");
+      const route = await this.threadRouting.review(session.hostId);
       this.current(session.id);
       const reviewer = await this.bb.sdk.threads.spawn({
-        projectId: personalProject.id,
+        ...route,
         providerId: session.reviewerProvider,
         model: session.reviewerModel,
         reasoningLevel: "medium",
         permissionMode: "accept-edits",
         visibility: "hidden",
         executionInputSources: { providerId: "explicit", model: "explicit", reasoningLevel: "explicit", permissionMode: "explicit" },
-        environment: { type: "host", hostId: session.hostId, workspace: { type: "personal" } },
         title: `247C \xB7 verification ${session.round} \xB7 ${session.id}`,
         prompt: reviewInstructions(session)
       });
@@ -33731,6 +33765,15 @@ var SessionRuntime = class {
   }
 };
 
+// source-links.ts
+function jiraReferences(text2) {
+  text2 = text2.replace(/\\\//g, "/");
+  const urls = [...text2.matchAll(/[a-z0-9-]+\.atlassian\.net\/browse\/([A-Z][A-Z0-9]*-\d+)\b/g)].map((m) => m[1]);
+  const withoutUuids = text2.replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, " ");
+  const bare = (withoutUuids.match(/\b[A-Z][A-Z0-9]*-\d+\b/g) ?? []).filter((key) => !key.startsWith("Q-"));
+  return [.../* @__PURE__ */ new Set([...bare, ...urls])];
+}
+
 // source-sync.ts
 import { randomUUID as randomUUID5 } from "node:crypto";
 
@@ -33801,7 +33844,7 @@ function sourceLinks(text2) {
   text2 = text2.replace(/\\\//g, "/");
   const gmail = [...text2.matchAll(/mail\.google\.com[^\s"\\]*\/(?:#|%23)(?:all|inbox|sent|label\/[^/]+)\/([a-f0-9]{10,32})\b/g)].map((m) => m[1]);
   const slack = [...text2.matchAll(/(?:[\w-]+\.)?slack\.com\/archives\/([CDG][A-Z0-9]+)\/p(\d{10})(\d{6})(\?[^\s<>"\\)\]|]*)?/g)].map((m) => ({ channel: m[1], ts: /thread_ts=(\d{10}\.\d{6})/.exec(m[4] ?? "")?.[1] ?? `${m[2]}.${m[3]}` }));
-  const jira = [.../* @__PURE__ */ new Set([...text2.match(/\b[A-Z][A-Z0-9]*-\d+\b/g) ?? [], ...[...text2.matchAll(/[a-z0-9-]+\.atlassian\.net\/browse\/([A-Z][A-Z0-9]+-\d+)/g)].map((m) => m[1])])];
+  const jira = jiraReferences(text2);
   return { gmail: [...new Set(gmail)], slack: [...new Map(slack.map((s) => [`${s.channel}:${s.ts}`, s])).values()], jira };
 }
 async function pool(items, work, concurrency = 3) {
@@ -33851,6 +33894,7 @@ async function collectSources(run, dossiers, options = {}) {
   const scanned = { gmail: 0, slack: 0, jira: 0 };
   const linked = sourceLinks(JSON.stringify(dossiers.filter((d) => d.task.status === "open")));
   const pending = { gmail: new Set(linked.gmail), slack: new Map(linked.slack.map((s) => [`${s.channel}:${s.ts}`, s])), jira: new Set(linked.jira) };
+  const searchedGmail = /* @__PURE__ */ new Set(), gmailThreads = /* @__PURE__ */ new Map();
   const read = { gmail: /* @__PURE__ */ new Set(), slack: /* @__PURE__ */ new Set(), jira: /* @__PURE__ */ new Set() };
   let connections;
   let bytes = 0, count = 0;
@@ -33894,14 +33938,16 @@ async function collectSources(run, dossiers, options = {}) {
       }
       const data = responseData(result), raw = result;
       const output2 = receiptText(data);
-      const shapeOk = !full || (source === "gmail" ? Array.isArray(data.messages) : source === "jira" ? Boolean(data.key && data.fields) : typeof data.messages === "string");
+      const shapeOk = tool === "get_message" ? typeof data.id === "string" && typeof data.threadId === "string" : !full || (source === "gmail" ? Array.isArray(data.messages) : source === "jira" ? Boolean(data.key && data.fields) : typeof data.messages === "string");
       const completed = !raw?.isError && !(raw?.statusCode >= 400) && !data.error && shapeOk;
       const size = Buffer.byteLength(output2);
       const truncated = size > 3 * 1024 * 1024 || bytes + size > 32 * 1024 * 1024;
       bytes += size;
       calls.push({ ref, source, tool: `${source}.${tool}`, args, output: truncated ? output2.slice(0, 1e3) : output2, completed: completed && !truncated, truncated, read: full });
       if (!completed || truncated) {
-        error61(source, `${tool}: ${truncated ? "response too large" : !shapeOk ? "unrecognized full thread/issue format" : sourceError(output2).slice(0, 400)}`);
+        const sourceFailure = raw?.isError || raw?.statusCode >= 400 || data.error;
+        const target = args.threadId ?? args.messageId ?? args.issueIdOrKey ?? args.channel_id;
+        error61(source, `${tool}${target ? ` (${target})` : ""}: ${truncated ? "response too large" : sourceFailure ? sourceError(data.message ?? data.text ?? output2).slice(0, 400) : !shapeOk ? "unrecognized source response format" : sourceError(output2).slice(0, 400)}`);
         return null;
       }
       if (full) {
@@ -33941,7 +33987,10 @@ async function collectSources(run, dossiers, options = {}) {
         return 0;
       }
       for (const t of data.threads) {
-        if (typeof t.id === "string") pending.gmail.add(t.id);
+        if (typeof t.id === "string") {
+          pending.gmail.add(t.id);
+          searchedGmail.add(t.id);
+        }
       }
       scanned.gmail += data.threads.length;
       return data.threads.length;
@@ -33955,11 +34004,30 @@ async function collectSources(run, dossiers, options = {}) {
     await readGmail();
   }
   async function readGmail() {
-    await pool([...pending.gmail].filter((id2) => !read.gmail.has(id2)), async (id2) => {
+    const fetchThread = async (id2) => {
+      let threadId = gmailThreads.get(id2) ?? id2;
+      if (!searchedGmail.has(id2) && !gmailThreads.has(id2)) {
+        const message = await call2("gmail", "get_message", { messageId: id2, messageFormat: "METADATA_ONLY" });
+        if (!message) {
+          read.gmail.add(id2);
+          return;
+        }
+        threadId = message.threadId;
+        gmailThreads.set(id2, threadId);
+      }
+      const alreadyRead = read.gmail.has(threadId);
       read.gmail.add(id2);
-      const data = await call2("gmail", "get_thread", { threadId: id2, messageFormat: "PLAIN_TEXT" }, true);
-      if (data && !Array.isArray(data.messages)) error61("gmail", `Could not read messages in thread ${id2}.`);
-    }, 4);
+      if (alreadyRead) return;
+      read.gmail.add(threadId);
+      const data = await call2("gmail", "get_thread", { threadId, messageFormat: "PLAIN_TEXT" }, true);
+      if (data && Array.isArray(data.messages)) {
+        for (const message of data.messages) {
+          if (typeof message.id === "string") gmailThreads.set(message.id, threadId);
+        }
+      }
+    };
+    await pool([...searchedGmail].filter((id2) => !read.gmail.has(id2)), fetchThread, 4);
+    await pool([...pending.gmail].filter((id2) => !read.gmail.has(id2)), fetchThread, 4);
   }
   async function slack() {
     const after = String(Math.floor(Date.parse(run.ranges.slack.since) / 1e3 - 300)), before = String(Date.parse(run.until) / 1e3);
@@ -34367,7 +34435,7 @@ ${call2.output}`.includes(citation.messageId)) throw new PolicyError("The messag
 }
 function requiredSourceReads(dossiers, source) {
   const text2 = JSON.stringify(dossiers.filter((d) => d.task.status === "open"));
-  if (source === "jira") return [.../* @__PURE__ */ new Set([...text2.match(/\b[A-Z][A-Z0-9]*-\d+\b/g) ?? [], ...[...text2.matchAll(/[a-z0-9-]+\.atlassian\.net\/browse\/([A-Z][A-Z0-9]+-\d+)/g)].map((m) => m[1])])];
+  if (source === "jira") return jiraReferences(text2);
   const found = source === "gmail" ? [...text2.matchAll(/mail\.google\.com[^\s"\\]*\/(?:#|%23)(?:all|inbox|sent|label\/[^/]+)\/([a-f0-9]{10,32})\b/g)].map((m) => m[1]) : [...text2.matchAll(/slack\.com\/archives\/[A-Z0-9]+\/p(\d{10})(\d{6})/g)].map((m) => `${m[1]}.${m[2]}`);
   return [...new Set(found)];
 }
@@ -34482,7 +34550,7 @@ var SourceSyncStore = class {
     const ranges = syncRanges(checkpoints, null, now3(), this.initialSince());
     return { runs, candidates: this.candidates(), pending, checkpoints, nextSince: Object.fromEntries(SYNC_SOURCES.map((source) => [source, ranges[source].since])) };
   }
-  insert(input2) {
+  insert(input2, fingerprint = digest(input2)) {
     return this.repo.store.transaction(() => {
       if (this.active().length) throw new PolicyError("A check is already running. Wait for it to finish or stop it.");
       const list = this.repo.list(true);
@@ -34504,7 +34572,7 @@ var SourceSyncStore = class {
         error: null,
         suggestions: 0,
         duplicates: 0,
-        fingerprint: digest(input2)
+        fingerprint
       };
       this.repo.db.prepare("INSERT INTO source_sync_runs VALUES (?,?,?,?,?)").run(run.id, run.status, null, JSON.stringify(run), JSON.stringify({ input: input2, snapshots }));
       this.repo.changed();
@@ -34657,17 +34725,19 @@ ${errors.join("\n").slice(0, 16e3)}`);
   }
 };
 var SourceSyncRuntime = class {
-  constructor(bb, repo, onStart, sourceConfiguration = async () => defaultSourceConfig) {
+  constructor(bb, repo, onStart, sourceConfiguration = async () => defaultSourceConfig, threadRouting = new ThreadRouting(bb, async () => "")) {
     this.bb = bb;
     this.repo = repo;
     this.onStart = onStart;
     this.sourceConfiguration = sourceConfiguration;
+    this.threadRouting = threadRouting;
     this.store = new SourceSyncStore(repo);
   }
   bb;
   repo;
   onStart;
   sourceConfiguration;
+  threadRouting;
   store;
   disposed = false;
   processing = /* @__PURE__ */ new Set();
@@ -34708,12 +34778,13 @@ var SourceSyncRuntime = class {
       return run2;
     }
     if (input2.request.input.some((i) => i.type !== "text")) throw new PolicyError("Check parameters must be text.");
-    const environment = input2.request.environment;
+    const routed = { ...input2, request: await this.threadRouting.request(input2.request) };
+    const environment = routed.request.environment;
     const routing = environment.type === "reuse" ? { environmentId: environment.environmentId } : environment.type === "provider" ? { hostId: environment.machine.hostId } : environment.type === "host" && environment.hostId ? { hostId: environment.hostId } : {};
     const [providers, catalog] = await Promise.all([this.bb.sdk.providers.list(routing), this.bb.sdk.providers.models({ ...routing, providerId: input2.request.providerId })]);
     if (this.disposed) throw new PolicyError("The plugin is reloading. Try starting again.");
     if (!providers.some((p) => p.id === input2.request.providerId && p.available) || catalog.modelLoadError || !catalog.models.some((m) => m.model === input2.request.model || m.id === input2.request.model)) throw new PolicyError("The selected account or model is unavailable on this machine.");
-    let run = this.store.insert(input2);
+    let run = this.store.insert(routed, digest(input2));
     run = this.store.save({ ...run, collection: { phase: "collecting", calls: 0, reads: 0, elapsedMs: 0 } });
     const controller = new AbortController();
     this.collectors.set(run.id, controller);
@@ -34724,7 +34795,7 @@ var SourceSyncRuntime = class {
         if (!this.disposed && !controller.signal.aborted) this.bb.log.warn(`Calendar check: ${String(error61)}`);
       }).finally(() => this.companions.delete(run.id));
     }
-    void this.collectAndLaunch(run, input2, controller);
+    void this.collectAndLaunch(run, routed, controller);
     return run;
   }
   async collectAndLaunch(initial, input2, controller) {
@@ -35371,6 +35442,7 @@ function boundedJson(value) {
 }
 async function plugin(bb) {
   const settings = bb.settings.define({
+    threadProjectId: { type: "string", label: "Thread project", description: "BB project ID for all new 247C conversations, reviews and source checks. Uses its default project folder. Leave blank to use the composer selection and personal review workspaces.", default: "", experimental_schema: external_exports.string().trim().max(200) },
     codexReviewer: { type: "string", label: "Codex verification model", default: "gpt-5.6-sol", experimental_schema: external_exports.string().trim().min(1).max(200) },
     claudeReviewer: { type: "string", label: "Personal Claude verification model (sessions with criteria)", default: "claude-fable-5-1", experimental_schema: external_exports.string().trim().min(1).max(200) },
     maximumRepairs: { type: "number", label: "Repair attempts after verification", default: 2, experimental_schema: external_exports.number().int().min(0).max(2) },
@@ -35392,7 +35464,8 @@ async function plugin(bb) {
   const changed = () => bb.realtime.publish("desk-changed", { at: Date.now() });
   const repo = new Repository(db, changed);
   const getSettings = async () => settings.get();
-  const runtime = new SessionRuntime(bb, repo, getSettings);
+  const threadRouting = new ThreadRouting(bb, async () => (await settings.get()).threadProjectId);
+  const runtime = new SessionRuntime(bb, repo, getSettings, threadRouting);
   const days = new DayPlanning(repo);
   const sourceConfiguration = async () => parseSourceConfig((await settings.get()).sources);
   const calendar = new CalendarRuntime(days, async () => (await settings.get()).calendarMeetings, async (input2) => {
@@ -35402,11 +35475,12 @@ async function plugin(bb) {
   const sync = new SourceSyncRuntime(bb, repo, async (signal) => {
     await calendar.start(void 0, signal);
     await calendar.settled();
-  }, sourceConfiguration);
+  }, sourceConfiguration, threadRouting);
   const inbox = new ProposalInbox(repo, sync.store, runtime);
   if (days.calendarState().status === "running") days.saveCalendarState({ ...days.calendarState(), status: "error", message: "The calendar check was interrupted. Run it again." });
   days.tick();
   bb.rpc.register(rpcContract, {
+    threadProject: async () => ({ projectId: (await settings.get()).threadProjectId || null }),
     day: ({ date: date5 }) => days.day(date5),
     dayAdd: (input2) => days.add(input2),
     dayEdit: (input2) => days.edit(input2),
@@ -35531,7 +35605,7 @@ async function plugin(bb) {
   });
   bb.agents.registerTool({
     name: "c247_sync_start",
-    description: "Start a 247C source update check only on user request, with their chosen provider and model in this thread's project/workspace. since=null resumes each source's last complete checkpoint (first run: last 24 hours); explicit since is an ISO timestamp with timezone. Creates a collector chat, never applies task changes. Human review is in the Updates panel. Use the native panel composer when model/account choice is needed.",
+    description: "Start a 247C source update check only on user request, with their chosen provider and model. Uses the configured Thread project and its default folder, or this thread's project/workspace when unset. since=null resumes each source's last complete checkpoint (first run: last 24 hours); explicit since is an ISO timestamp with timezone. Creates a collector chat, never applies task changes. Human review is in the Updates panel. Use the native panel composer when model/account choice is needed.",
     parameters: external_exports.object({ requestId: external_exports.uuid(), since: external_exports.iso.datetime({ offset: true }).nullable().default(null), providerId: external_exports.enum(["codex", "claude-code", "claude-work"]), model: external_exports.string().min(1).max(200), reasoningLevel: external_exports.enum(["low", "medium", "high", "xhigh", "max", "none", "ultra", "ultracode"]).default("medium") }).strict(),
     async execute(input2, ctx) {
       independentCaller(ctx.threadId);

@@ -1,5 +1,7 @@
+import { jiraReferences } from "./source-links.js";
 import { defaultSourceConfig, type SourceConfig } from "./source-config.js";
 import { randomUUID } from "node:crypto";
+import { ThreadRouting } from "./thread-routing.js";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { nativeRequest, syncCandidateSchema, syncRunSchema, syncStartSchema, syncSubmitSchema, type SyncCandidate, type SyncDraft, type SyncRun, type SyncSource, type SyncStart, type SyncSubmit } from "./contracts.js";
 import type { ProposalEvidence, TaskDossier } from "./core/types.js";
@@ -132,7 +134,7 @@ export function validateSyncDraft(draft: SyncDraft, run: SyncRun, snapshots: Tas
 
 export function requiredSourceReads(dossiers: TaskDossier[], source: SyncSource): string[] {
   const text = JSON.stringify(dossiers.filter((d) => d.task.status === "open"));
-  if (source === "jira") return [...new Set([...(text.match(/\b[A-Z][A-Z0-9]*-\d+\b/g) ?? []), ...[...text.matchAll(/[a-z0-9-]+\.atlassian\.net\/browse\/([A-Z][A-Z0-9]+-\d+)/g)].map((m) => m[1])])];
+  if (source === "jira") return jiraReferences(text);
   const found = source === "gmail"
     ? [...text.matchAll(/mail\.google\.com[^\s"\\]*\/(?:#|%23)(?:all|inbox|sent|label\/[^/]+)\/([a-f0-9]{10,32})\b/g)].map((m) => m[1])
     : [...text.matchAll(/slack\.com\/archives\/[A-Z0-9]+\/p(\d{10})(\d{6})/g)].map((m) => `${m[1]}.${m[2]}`);
@@ -241,7 +243,7 @@ export class SourceSyncStore {
     const ranges = syncRanges(checkpoints, null, now(), this.initialSince());
     return { runs, candidates: this.candidates(), pending, checkpoints, nextSince: Object.fromEntries(SYNC_SOURCES.map((source) => [source, ranges[source].since])) as Record<SyncSource, string> };
   }
-  insert(input: SyncStart): SyncRun {
+  insert(input: SyncStart, fingerprint = digest(input)): SyncRun {
     return this.repo.store.transaction(() => {
       if (this.active().length) throw new PolicyError("A check is already running. Wait for it to finish or stop it.");
       const list = this.repo.list(true);
@@ -250,7 +252,7 @@ export class SourceSyncStore {
       const until = now();
       const run: SyncRun = { id: input.requestId, status: "starting", threadId: null, provider: input.request.providerId, model: input.request.model,
         startedAt: until, until, finishedAt: null, manualSince: input.since, ranges: syncRanges(this.checkpoints(), input.since, until, this.initialSince()),
-        reports: [], error: null, suggestions: 0, duplicates: 0, fingerprint: digest(input) };
+        reports: [], error: null, suggestions: 0, duplicates: 0, fingerprint };
       this.repo.db.prepare("INSERT INTO source_sync_runs VALUES (?,?,?,?,?)").run(run.id, run.status, null, JSON.stringify(run), JSON.stringify({ input, snapshots }));
       this.repo.changed(); return run;
     });
@@ -371,7 +373,7 @@ export class SourceSyncRuntime {
   private processing = new Set<string>();
   private collectors = new Map<string, AbortController>();
   private companions = new Map<string, AbortController>();
-  constructor(readonly bb: BbPluginApi, readonly repo: Repository, readonly onStart?: (signal: AbortSignal) => Promise<unknown>, readonly sourceConfiguration: () => Promise<SourceConfig> = async () => defaultSourceConfig) { this.store = new SourceSyncStore(repo); }
+  constructor(readonly bb: BbPluginApi, readonly repo: Repository, readonly onStart?: (signal: AbortSignal) => Promise<unknown>, readonly sourceConfiguration: () => Promise<SourceConfig> = async () => defaultSourceConfig, readonly threadRouting = new ThreadRouting(bb, async () => "")) { this.store = new SourceSyncStore(repo); }
   private launchTitle(id: string) { return `247C · updates · ${id}`; }
   private isLaunchTitle(title: string | null, id: string) { return title === this.launchTitle(id) || title === `247C · обновления · ${id}`; }
   resolveThread(threadId: string, title?: string | null): SyncRun | undefined {
@@ -398,12 +400,13 @@ export class SourceSyncRuntime {
       return run;
     }
     if (input.request.input.some((i) => i.type !== "text")) throw new PolicyError("Check parameters must be text.");
-    const environment = input.request.environment;
+    const routed = { ...input, request: await this.threadRouting.request(input.request) };
+    const environment = routed.request.environment;
     const routing = environment.type === "reuse" ? { environmentId: environment.environmentId } : environment.type === "provider" ? { hostId: environment.machine.hostId } : environment.type === "host" && environment.hostId ? { hostId: environment.hostId } : {};
     const [providers, catalog] = await Promise.all([this.bb.sdk.providers.list(routing), this.bb.sdk.providers.models({ ...routing, providerId: input.request.providerId })]);
     if (this.disposed) throw new PolicyError("The plugin is reloading. Try starting again.");
     if (!providers.some((p) => p.id === input.request.providerId && p.available) || catalog.modelLoadError || !catalog.models.some((m) => m.model === input.request.model || m.id === input.request.model)) throw new PolicyError("The selected account or model is unavailable on this machine.");
-    let run = this.store.insert(input);
+    let run = this.store.insert(routed, digest(input));
     run = this.store.save({ ...run, collection: { phase: "collecting", calls: 0, reads: 0, elapsedMs: 0 } });
     const controller = new AbortController();
     this.collectors.set(run.id, controller); this.processing.add(run.id);
@@ -415,7 +418,7 @@ export class SourceSyncRuntime {
         .finally(() => this.companions.delete(run.id));
     }
     // Return immediately so the panel can show collection progress and cancel.
-    void this.collectAndLaunch(run, input, controller);
+    void this.collectAndLaunch(run, routed, controller);
     return run;
   }
   private async collectAndLaunch(initial: SyncRun, input: SyncStart, controller: AbortController) {

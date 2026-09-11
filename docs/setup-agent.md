@@ -5,6 +5,29 @@ installation. Each computer has an independent database. Configure source
 connections using [Source configuration](sources.md); restore existing data only
 when requested, using [Backup and recovery](recovery.md).
 
+## Project for 247C threads
+
+To keep 247C conversations together, create or select a standard BB project with
+the local folder requested by the user. Set its project ID in the plugin's
+**Thread project** setting (`threadProjectId`). Find the ID with `bb project list`.
+
+```sh
+bb plugin config 247c set threadProjectId proj_example
+```
+
+New work conversations, review discussions, recorders, verification threads and
+manual or scheduled source checks all use that project's default local folder.
+The native composer opens with the configured project selected. The setting
+overrides older saved workspace choices while preserving account, model,
+reasoning and permission selections. If the project is unavailable, the launch
+fails with a configuration error. Existing threads remain in their original
+projects; this setting does not migrate BB history.
+
+Leave the setting empty to use the composer's workspace for work and source
+checks, with personal workspaces for reviews. Store the actual project ID and
+folder only in local BB settings. On another computer, create or select a project
+there and configure its new ID. Prepared recovery settings clear the old ID.
+
 ## Corporate source-read policy
 
 During an authorized corporate setup, configure new corporate conversations to
@@ -57,6 +80,7 @@ outside the checkout, or in its ignored `local/` directory:
 
 - Actual profile settings and generated permission allowlists.
 - Account identities, profile paths and source inventories.
+- Installed project IDs and local workspace paths.
 - Credentials, tokens, login state and completed source configurations.
 - Rollback copies, verification transcripts, database snapshots and backups.
 

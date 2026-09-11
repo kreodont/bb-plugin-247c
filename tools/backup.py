@@ -276,6 +276,8 @@ def restore_to_new(path, destination):
             db.commit()
         settings = json.loads((root / "settings/247c.json").read_text())
         settings["hourlyUpdates"] = False
+        if "threadProjectId" in settings:
+            settings["threadProjectId"] = ""
         dump(root / "settings/247c.for-restore.json", settings)
         dump(root / "RESTORE-REPORT.json", {"verified": True, "pluginVersion": manifest["pluginVersion"], "sessionsPaused": recovered, "originalDatabase": "database/data.db", "preparedDatabase": "prepared-bb/plugins/247c/data.db", "scheduleEnabled": False, "requires": ["Install the included plugin code in a compatible BB.", "Disable 247C before copying the prepared DB into the NEW installation.", "Restore non-secret settings using settings/247c.for-restore.json.", "Log in to providers again and choose local workspaces.", "Run one manual source check before enabling hourlyUpdates."]})
         check_db(portable)

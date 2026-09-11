@@ -1,3 +1,4 @@
+import { jiraReferences } from "./source-links.js";
 import { defaultSourceConfig, type SourceConfig } from "./source-config.js";
 import { randomUUID } from "node:crypto";
 import type { SyncRun, SyncSource, SyncSubmit } from "./contracts.js";
@@ -83,7 +84,7 @@ export function sourceLinks(text: string): { gmail: string[]; slack: { channel: 
   text = text.replace(/\\\//g, "/");
   const gmail = [...text.matchAll(/mail\.google\.com[^\s"\\]*\/(?:#|%23)(?:all|inbox|sent|label\/[^/]+)\/([a-f0-9]{10,32})\b/g)].map(m => m[1]);
   const slack = [...text.matchAll(/(?:[\w-]+\.)?slack\.com\/archives\/([CDG][A-Z0-9]+)\/p(\d{10})(\d{6})(\?[^\s<>"\\)\]|]*)?/g)].map(m => ({ channel: m[1], ts: /thread_ts=(\d{10}\.\d{6})/.exec(m[4] ?? "")?.[1] ?? `${m[2]}.${m[3]}` }));
-  const jira = [...new Set([...(text.match(/\b[A-Z][A-Z0-9]*-\d+\b/g) ?? []), ...[...text.matchAll(/[a-z0-9-]+\.atlassian\.net\/browse\/([A-Z][A-Z0-9]+-\d+)/g)].map(m => m[1])])];
+  const jira = jiraReferences(text);
   return { gmail: [...new Set(gmail)], slack: [...new Map(slack.map(s => [`${s.channel}:${s.ts}`, s])).values()], jira };
 }
 async function pool<T>(items: T[], work: (item: T) => Promise<void>, concurrency = 3) {
@@ -116,6 +117,7 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
   const scanned = { gmail: 0, slack: 0, jira: 0 };
   const linked = sourceLinks(JSON.stringify(dossiers.filter(d => d.task.status === "open")));
   const pending = { gmail: new Set(linked.gmail), slack: new Map(linked.slack.map(s => [`${s.channel}:${s.ts}`, s])), jira: new Set(linked.jira) };
+  const searchedGmail = new Set<string>(), gmailThreads = new Map<string, string>();
   const read = { gmail: new Set<string>(), slack: new Set<string>(), jira: new Set<string>() };
   let connections: SourceConnections;
   let bytes = 0, count = 0;
@@ -148,13 +150,18 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
       }
       const data = responseData(result), raw = result as Json;
       const output = receiptText(data);
-      const shapeOk = !full || (source === "gmail" ? Array.isArray(data.messages) : source === "jira" ? Boolean(data.key && data.fields) : typeof data.messages === "string");
+      const shapeOk = tool === "get_message" ? typeof data.id === "string" && typeof data.threadId === "string" : !full || (source === "gmail" ? Array.isArray(data.messages) : source === "jira" ? Boolean(data.key && data.fields) : typeof data.messages === "string");
       const completed = !raw?.isError && !(raw?.statusCode >= 400) && !data.error && shapeOk;
       const size = Buffer.byteLength(output);
       const truncated = size > 3 * 1024 * 1024 || bytes + size > 32 * 1024 * 1024;
       bytes += size;
       calls.push({ ref, source, tool: `${source}.${tool}`, args, output: truncated ? output.slice(0, 1000) : output, completed: completed && !truncated, truncated, read: full });
-      if (!completed || truncated) { error(source, `${tool}: ${truncated ? "response too large" : !shapeOk ? "unrecognized full thread/issue format" : sourceError(output).slice(0, 400)}`); return null; }
+      if (!completed || truncated) {
+        const sourceFailure = raw?.isError || raw?.statusCode >= 400 || data.error;
+        const target = args.threadId ?? args.messageId ?? args.issueIdOrKey ?? args.channel_id;
+        error(source, `${tool}${target ? ` (${target})` : ""}: ${truncated ? "response too large" : sourceFailure ? sourceError(data.message ?? data.text ?? output).slice(0, 400) : !shapeOk ? "unrecognized source response format" : sourceError(output).slice(0, 400)}`);
+        return null;
+      }
       if (full) { documents.push({ ref, source, tool, args, content: documentContent(source, data, Date.parse(run.until)) }); addLinks(output); }
       progress(source, full ? "Reading full threads and linked issues" : "Loading the list of changes");
       return data;
@@ -178,7 +185,7 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
   async function gmailSearch(query: string) {
     await pages("gmail", "search_threads", { query, pageSize: 50, view: "THREAD_VIEW_MINIMAL" }, data => {
       if (!Array.isArray(data.threads)) { if (Object.keys(data).some(k => k !== "resultCountEstimate")) error("gmail", "Unrecognized Gmail search format."); return 0; }
-      for (const t of data.threads) { if (typeof t.id === "string") pending.gmail.add(t.id); }
+      for (const t of data.threads) { if (typeof t.id === "string") { pending.gmail.add(t.id); searchedGmail.add(t.id); } }
       scanned.gmail += data.threads.length; return data.threads.length;
     }, "pageToken", 50);
   }
@@ -191,11 +198,29 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
     await readGmail();
   }
   async function readGmail() {
-    await pool([...pending.gmail].filter(id => !read.gmail.has(id)), async id => {
+    const fetchThread = async (id: string) => {
+      let threadId = gmailThreads.get(id) ?? id;
+      if (!searchedGmail.has(id) && !gmailThreads.has(id)) {
+        const message = await call("gmail", "get_message", { messageId: id, messageFormat: "METADATA_ONLY" });
+        if (!message) { read.gmail.add(id); return; }
+        threadId = message.threadId;
+        gmailThreads.set(id, threadId);
+      }
+      const alreadyRead = read.gmail.has(threadId);
       read.gmail.add(id);
-      const data = await call("gmail", "get_thread", { threadId: id, messageFormat: "PLAIN_TEXT" }, true);
-      if (data && !Array.isArray(data.messages)) error("gmail", `Could not read messages in thread ${id}.`);
-    }, 4);
+      if (alreadyRead) return;
+      read.gmail.add(threadId);
+      const data = await call("gmail", "get_thread", { threadId, messageFormat: "PLAIN_TEXT" }, true);
+      if (data && Array.isArray(data.messages)) {
+        for (const message of data.messages) {
+          if (typeof message.id === "string") gmailThreads.set(message.id, threadId);
+        }
+      }
+    };
+    // Search results contain canonical thread IDs. Read them first so message
+    // permalinks in dossiers can resolve to a full thread already in the export.
+    await pool([...searchedGmail].filter(id => !read.gmail.has(id)), fetchThread, 4);
+    await pool([...pending.gmail].filter(id => !read.gmail.has(id)), fetchThread, 4);
   }
   async function slack() {
     const after = String(Math.floor(Date.parse(run.ranges.slack.since) / 1000 - 300)), before = String(Date.parse(run.until) / 1000);

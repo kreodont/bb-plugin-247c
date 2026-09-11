@@ -34,7 +34,7 @@ class RecoveryTests(unittest.TestCase):
         (root / "database").mkdir(parents=True)
         (root / "settings").mkdir()
         counts = backup.copy_database(self.source, root / "database/data.db")
-        backup.dump(root / "settings/247c.json", {"hourlyUpdates": True})
+        backup.dump(root / "settings/247c.json", {"hourlyUpdates": True, "threadProjectId": "proj_old_computer"})
         manifest = {"format": backup.FORMAT, "pluginVersion": "test", "tables": counts,
                     "members": {str(p.relative_to(root)): {"sha256": backup.digest(p), "bytes": p.stat().st_size} for p in root.rglob("*") if p.is_file()}}
         backup.dump(root / "manifest.json", manifest)
@@ -64,6 +64,9 @@ class RecoveryTests(unittest.TestCase):
             self.assertEqual(db.execute("SELECT status FROM sessions").fetchone()[0], "working")
         settings = json.loads((self.root / "restored/settings/247c.for-restore.json").read_text())
         self.assertFalse(settings["hourlyUpdates"])
+        self.assertEqual(settings["threadProjectId"], "")
+        original_settings = json.loads((self.root / "restored/settings/247c.json").read_text())
+        self.assertEqual(original_settings["threadProjectId"], "proj_old_computer")
         self.assertEqual(self.db.execute("SELECT status FROM sessions").fetchone()[0], "working")
 
     def test_restore_refuses_an_existing_target(self):

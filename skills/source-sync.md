@@ -16,7 +16,7 @@ The user selects the analysis account and model in BB's native composer; the def
 ## Tools and commands
 
 - `c247_sync_status {}` / `bb 247c sync --json`: recent runs and checkpoints.
-- `c247_sync_start {requestId, since, providerId, model, reasoningLevel}`: run only on user request, with their chosen account and model. Uses the current chat's project and workspace. Prefer the panel when those choices have not been made.
+- `c247_sync_start {requestId, since, providerId, model, reasoningLevel}`: run only on user request, with their chosen account and model. Uses the configured `threadProjectId` and its default folder, or the current chat's project and workspace when unset. Prefer the panel when those choices have not been made.
 - `bb 247c sync-start '<request-json>' --json`: automation form with full `{requestId,since,request}`. `request` is the native BB execution request submitted by the composer: providerId, model, reasoningLevel, permissionMode, executionInputSources, projectId, environment and input. Do not run without an explicit user request.
 - `c247_sync_data {page}`: local export page for the analyst. Page 0 is included in the initial instructions; read all remaining pages before submission. Responses are limited to 24,000 bytes including JSON formatting and escaping. A document's `ref` is its `callRef`; `part/parts` mark segments of large documents.
 - `c247_sync_calls {}`: registry of script responses, or chat calls for legacy runs.

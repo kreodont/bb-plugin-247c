@@ -38,12 +38,12 @@ python3 tools/backup.py restore /path/to/247c-snapshot.zip --destination /new/re
 
 If the original computer is lost, download the ZIP from Drive. It includes `restore.py`, which supports the same commands without the original installation. The recovery directory must not already exist. Verification checks every file, ZIP structure, SQLite integrity and foreign keys.
 
-`database/data.db` preserves the original snapshot unchanged. `prepared-bb/plugins/247c/data.db` is prepared for a new installation: unfinished sessions are marked as requiring a new conversation, and active source checks are stopped. Tasks, facts, approvals and time remain unchanged. Automatic launch settings in `settings/247c.for-restore.json` are disabled until the first manual check.
+`database/data.db` preserves the original snapshot unchanged. `prepared-bb/plugins/247c/data.db` is prepared for a new installation: unfinished sessions are marked as requiring a new conversation, and active source checks are stopped. Tasks, facts, approvals and time remain unchanged. Automatic launch settings in `settings/247c.for-restore.json` are disabled until the first manual check. The prepared settings also clear `threadProjectId`, because project IDs belong to the original BB installation.
 
 1. Install a compatible BB, required providers and the code in `plugins/247c`. For source installation, run `npm ci --include=dev`, then `bb plugin install .`.
 2. On the new installation with an empty database, run `bb plugin disable 247c`. Confirm it is disabled with `bb plugin list`.
 3. Copy the prepared database to `<dataDir>/plugins/247c/data.db`. Do not overwrite a running or populated installation; back up any existing data separately first.
-4. Restore non-secret settings with `bb plugin config`, then run `bb plugin enable 247c`. Sign in to providers again and choose new local workspaces. Rebuild corporate source-read permissions in the target provider's local profile using the [setup-agent guide](setup-agent.md); provider profile permissions are not included in this backup.
+4. Restore non-secret settings with `bb plugin config`, then run `bb plugin enable 247c`. Sign in to providers again and choose new local workspaces. To group 247C threads, configure **Thread project** with a project ID from this installation. Rebuild corporate source-read permissions in the target provider's local profile using the [setup-agent guide](setup-agent.md); provider profile permissions are not included in this backup.
 5. Compare tasks, knowledge and the day plan with `manifest.json`. Old BB thread, host and environment IDs are historical references. Exported `threads/` files remain readable, but the former agent process cannot resume. Start a new conversation to continue work.
 6. Check sources manually. Then enable `hourlyUpdates` if desired, and configure daily backups using the new computer's name.
 
