@@ -43,7 +43,7 @@ If the original computer is lost, download the ZIP from Drive. It includes `rest
 1. Install a compatible BB, required providers and the code in `plugins/247c`. For source installation, run `npm ci --include=dev`, then `bb plugin install .`.
 2. On the new installation with an empty database, run `bb plugin disable 247c`. Confirm it is disabled with `bb plugin list`.
 3. Copy the prepared database to `<dataDir>/plugins/247c/data.db`. Do not overwrite a running or populated installation; back up any existing data separately first.
-4. Restore non-secret settings with `bb plugin config`, then run `bb plugin enable 247c`. Sign in to providers again and choose new local workspaces.
+4. Restore non-secret settings with `bb plugin config`, then run `bb plugin enable 247c`. Sign in to providers again and choose new local workspaces. Rebuild corporate source-read permissions in the target provider's local profile using the [setup-agent guide](setup-agent.md); provider profile permissions are not included in this backup.
 5. Compare tasks, knowledge and the day plan with `manifest.json`. Old BB thread, host and environment IDs are historical references. Exported `threads/` files remain readable, but the former agent process cannot resume. Start a new conversation to continue work.
 6. Check sources manually. Then enable `hourlyUpdates` if desired, and configure daily backups using the new computer's name.
 
