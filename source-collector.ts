@@ -1,7 +1,7 @@
 import { jiraReferences } from "./source-links.js";
 import { defaultSourceConfig, type SourceConfig } from "./source-config.js";
 import { randomUUID } from "node:crypto";
-import type { SyncRun, SyncSource, SyncSubmit } from "./contracts.js";
+import type { SyncCandidate, SyncRun, SyncSource, SyncSubmit } from "./contracts.js";
 import type { TaskDossier } from "./core/types.js";
 import type { SourceCall } from "./source-sync.js";
 import { connectSources, sourceError, type SourceConnections } from "./source-connectors.js";
@@ -15,6 +15,7 @@ export type SourceExport = {
 export type CollectionProgress = { source: SyncSource; calls: number; reads: number; detail: string };
 export type CollectionOptions = {
   config?: SourceConfig;
+  pendingCandidates?: SyncCandidate[];
   signal?: AbortSignal; connect?: (signal: AbortSignal) => Promise<SourceConnections>;
   onProgress?: (progress: CollectionProgress) => void;
   timeoutMs?: number; maxCalls?: number;
@@ -115,7 +116,7 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
   const calls: SourceCall[] = [], documents: SourceDocument[] = [];
   const problems: Record<SyncSource, string[]> = { gmail: [], slack: [], jira: [] };
   const scanned = { gmail: 0, slack: 0, jira: 0 };
-  const linked = sourceLinks(JSON.stringify(dossiers.filter(d => d.task.status === "open")));
+  const linked = sourceLinks(JSON.stringify([dossiers.filter(d => d.task.status === "open"), options.pendingCandidates ?? []]));
   const pending = { gmail: new Set(linked.gmail), slack: new Map(linked.slack.map(s => [`${s.channel}:${s.ts}`, s])), jira: new Set(linked.jira) };
   const searchedGmail = new Set<string>(), gmailThreads = new Map<string, string>();
   const read = { gmail: new Set<string>(), slack: new Set<string>(), jira: new Set<string>() };

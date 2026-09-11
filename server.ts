@@ -174,7 +174,7 @@ export default async function plugin(bb: BbPluginApi) {
     execute(input, ctx) { return boundedJson(sync.data(ctx.threadId, input.page)); },
   });
   bb.agents.registerTool({
-    name: "c247_sync_submit", description: "Save a batch of suggestions after reading all export pages. Script runs stay open by default: send further batches, fix validation errors, then explicitly finish with {suggestions:[],finalize:true}. Failed batches save nothing; earlier batches remain. Script reports come from the export. Older runs require reports and finalize by default. Quotes are verified; only explicit completion advances checkpoints. Task changes await human approval.",
+    name: "c247_sync_submit", description: "Save a batch of suggestions after reading all export pages. Script runs stay open by default: send further batches, fix validation errors, then explicitly finish with {suggestions:[],finalize:true}. Failed batches save nothing; earlier batches remain. Script reports come from the export. Older runs require reports and finalize by default. Use mergeCandidateIds to combine matching unreviewed proposals from earlier checks, including pending new tasks. Prior facts and untouched fields are preserved, old IDs become history only after validation, and concurrent human review blocks replacement. Quotes are verified; only explicit completion advances checkpoints. Task changes await human approval.",
     parameters: syncSubmitToolSchema,
     execute(input, ctx) { return sync.submit(ctx.threadId, input).then(boundedJson); },
   });

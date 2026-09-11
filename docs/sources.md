@@ -28,3 +28,11 @@ Jira link discovery excludes UUID fragments and bare `Q-…` quote numbers. An e
 Issue-shaped examples whose number consists entirely of zeros, such as `CASE-000000`, are excluded from link discovery, including in Jira URLs. Their original source text remains in the export. Positive issue numbers continue to be checked, and actual access errors still make the result partial.
 
 The collector follows newly discovered links until the queue is exhausted, subject to the existing time, request and export-size limits. Linked issue chains are not cut off after a fixed number of hops. Hitting a limit or failing to read a real issue still preserves the previous source checkpoint.
+
+## Missed update checks
+
+Each check takes a complete snapshot of unreviewed source proposals, including pending new tasks, and rechecks their linked sources alongside open tasks. The analyst combines relevant new findings with all matching pending proposals from earlier checks. Unrelated requests remain separate; one unchanged proposal is kept without creating another approval.
+
+A combined proposal preserves earlier facts, quotations and untouched proposed fields. Changed summaries and arrays describe the complete current result. Conflicting or stale field changes must be reconciled explicitly. Previous proposals become superseded history only after the combined result validates and is saved atomically with a new approval ID. Tasks still change only through human acceptance.
+
+Concurrent acceptance, rejection or dossier edits block a stale replacement. Rejected findings are not revived by an unchanged replay. Old receipts may substantiate unchanged carried facts, but never count as fresh source coverage; unavailable sources still produce a partial result. Oversized analyses or combined proposals fail without removing the pending backlog.

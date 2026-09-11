@@ -165,6 +165,7 @@ it("rejects acceptance after a concurrent task edit without leaving a proposal o
   const next = (await startSourceSync(f, run.ranges.gmail.since)).run;
   const replay = await sourceData(f, next, task.id);
   for (const fact of replay.input.suggestions[0].facts) fact.citations[0].occurredAt = input.suggestions[0].facts[0].citations[0].occurredAt;
+  replay.input.suggestions[0].mergeCandidateIds = [candidate.id];
   await submitSourceData(f, next, replay.input);
   expect(store.candidate(candidate.id).status).toBe("superseded");
   const fresh = store.candidates().find((c) => c.status === "pending")!;

@@ -9,7 +9,7 @@ Requires BB ≥ 0.42 with Plugin SDK ≥ 0.4.53 and a login for your chosen mode
 This repository is currently private. Authenticate Git with a GitHub account that has access before installing; with GitHub CLI, run `gh auth login` and `gh auth setup-git` once on the new computer.
 
 ```sh
-bb plugin install git:https://github.com/kreodont/bb-plugin-247c.git@v0.4.3
+bb plugin install git:https://github.com/kreodont/bb-plugin-247c.git@v0.4.4
 ```
 
 The package includes source code and a ready build. It contains no author tasks, history, accounts or personal settings. **247C** appears in the sidebar with an empty database. Configure Gmail, Slack, Jira and calendar access separately; tasks, dossiers and conversations work without those integrations. The interface and public documentation are in English. Existing task content and conversations retain their original language.

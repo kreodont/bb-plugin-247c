@@ -120,6 +120,7 @@ export const syncDraftSchema = z.object({
   taskId: idSchema.nullable(), title: z.string().trim().min(1).max(200),
   rationale: text, confidence: z.number().min(0).max(1),
   facts: z.array(syncFactSchema).min(1).max(30), changes: changesSchema,
+  mergeCandidateIds: z.array(idSchema).min(1).max(500).optional(),
 }).strict();
 export const syncReportSchema = z.object({
   source: syncSourceSchema, status: z.enum(["complete", "partial", "unavailable"]),
@@ -145,6 +146,7 @@ export const syncRunSchema = z.object({
   collection: z.object({ phase: z.enum(["collecting", "analyzing"]), calls: z.number().int().min(0), reads: z.number().int().min(0), elapsedMs: z.number().min(0) }).optional(),
 });
 export const syncCandidateSchema = syncDraftSchema.extend({
+  facts: z.array(syncFactSchema).min(1).max(300),
   id: idSchema, runId: idSchema, baseRevision: revisionSchema.nullable(),
   status: z.enum(["pending", "applied", "rejected", "superseded"]), createdAt: z.string(), resolvedAt: z.string().nullable(),
   before: z.object({ title: z.string(), status: statusSchema, urgent: axisSchema, important: axisSchema,

@@ -1,4 +1,5 @@
 import { jiraReferences } from "./source-links.js";
+import { mergeSyncDraft } from "./source-sync-merge.js";
 import { defaultSourceConfig, type SourceConfig } from "./source-config.js";
 import { randomUUID } from "node:crypto";
 import { ThreadRouting } from "./thread-routing.js";
@@ -15,7 +16,7 @@ import { collectSources, sourceExportPage, type SourceExport } from "./source-co
 export const SYNC_SOURCES: SyncSource[] = ["gmail", "slack", "jira"];
 export const SYNC_ACTIVE = new Set<SyncRun["status"]>(["starting", "working"]);
 type Row = Record<string, unknown>;
-type RunRequest = { input: SyncStart; snapshots: TaskDossier[]; submittedFingerprint?: string; submittedFingerprints?: string[]; dataPagesRead?: number[] };
+type RunRequest = { input: SyncStart; snapshots: TaskDossier[]; pendingCandidates?: SyncCandidate[]; submittedFingerprint?: string; submittedFingerprints?: string[]; submittedBatches?: string[]; dataPagesRead?: number[] };
 export type SourceCall = { ref: string; source: SyncSource; tool: string; args: unknown; output: string; completed: boolean; truncated: boolean; read: boolean };
 const now = () => new Date().toISOString();
 const normalize = (s: string) => s.trim().replace(/\s+/g, " ").toLocaleLowerCase();
@@ -105,14 +106,18 @@ export function syncEvidence(draft: SyncDraft, runId: string, dossier: TaskDossi
   }))];
 }
 
-export function validateSyncDraft(draft: SyncDraft, run: SyncRun, snapshots: TaskDossier[], calls: SourceCall[]): TaskDossier {
+export function validateSyncDraft(draft: SyncDraft, run: SyncRun, snapshots: TaskDossier[], calls: SourceCall[], carriedFacts: SyncDraft["facts"] = []): TaskDossier {
   const dossier = draft.taskId ? snapshots.find((d) => d.task.id === draft.taskId) : emptyDossier(draft.title);
   if (!dossier) throw new PolicyError(`taskId ${draft.taskId} is absent from the snapshot. Copy the exact id of the matching open task from the snapshot; do not create a duplicate.`);
   if (draft.taskId && dossier.task.status !== "open") throw new PolicyError(`Task "${dossier.task.title}» (${draft.taskId}) has status=${dossier.task.status}. Only open tasks can be updated. A separate new request may become a new task proposal; skip completed requests.`);
   if (!draft.taskId && (!draft.changes.summary?.value || !draft.changes.nextStep?.value)) throw new PolicyError("A new task must have a summary and a specific next step.");
   if (!draft.taskId && draft.changes.status && draft.changes.status.value !== "open") throw new PolicyError("A new task must remain open.");
   const byRef = new Map(calls.map((call) => [call.ref, call]));
+  const carried = new Set(carriedFacts.map(fact => digest(fact)));
   for (const fact of draft.facts) for (const citation of fact.citations) {
+    // Only unchanged facts from explicitly selected, still-pending proposals
+    // may retain a prior run's verified receipts. They do not prove coverage.
+    if (carried.has(digest(fact))) continue;
     const call = byRef.get(citation.callRef);
     if (!call || call.source !== citation.source || !call.completed || !call.read) throw new PolicyError("The quote must reference a successful full thread or Jira issue read in this run.");
     if (!call.output.includes(citation.quote)) throw new PolicyError("The quote is absent from the saved connector response. Copy it verbatim without translation or shortening.");
@@ -123,17 +128,16 @@ export function validateSyncDraft(draft: SyncDraft, run: SyncRun, snapshots: Tas
     if (!`${JSON.stringify(call.args)}\n${call.output}`.includes(citation.messageId)) throw new PolicyError("The message identifier is absent from the source call.");
     if (Date.parse(citation.occurredAt) > Date.parse(run.until)) throw new PolicyError("The message is newer than the interval end. It will be included in the next run.");
   }
-  // A background update always needs fresh source evidence, even when it also
-  // cites an accepted field to preserve earlier context.
+  // Every field needs a verified source fact, including preserved merge facts.
   for (const change of Object.values(draft.changes)) {
-    if (!change?.evidenceRefs.some((ref) => /^fact:\d+$/.test(ref))) throw new PolicyError("Every change must reference a finding from this run (fact:N).");
+    if (!change?.evidenceRefs.some((ref) => /^fact:\d+$/.test(ref))) throw new PolicyError("Every change must reference a verified source finding (fact:N).");
   }
   validateEvidence(draft, dossier, syncEvidence(draft, run.id, dossier));
   return dossier;
 }
 
-export function requiredSourceReads(dossiers: TaskDossier[], source: SyncSource): string[] {
-  const text = JSON.stringify(dossiers.filter((d) => d.task.status === "open"));
+export function requiredSourceReads(dossiers: TaskDossier[], source: SyncSource, pending: SyncCandidate[] = []): string[] {
+  const text = JSON.stringify([dossiers.filter((d) => d.task.status === "open"), pending]);
   if (source === "jira") return jiraReferences(text);
   const found = source === "gmail"
     ? [...text.matchAll(/mail\.google\.com[^\s"\\]*\/(?:#|%23)(?:all|inbox|sent|label\/[^/]+)\/([a-f0-9]{10,32})\b/g)].map((m) => m[1])
@@ -150,7 +154,7 @@ function hasUnfetchedPage(call: SourceCall, selected: SourceCall[]): boolean {
   return tokens.some((token) => !selected.some((other) => other.ref !== call.ref && other.tool === call.tool && other.completed && suppliedTokens(other.args).includes(token)));
 }
 
-export function validateSyncReports(reports: SyncSubmit["reports"], calls: SourceCall[], snapshots: TaskDossier[] = []): SyncSubmit["reports"] {
+export function validateSyncReports(reports: SyncSubmit["reports"], calls: SourceCall[], snapshots: TaskDossier[] = [], pending: SyncCandidate[] = []): SyncSubmit["reports"] {
   const byRef = new Map(calls.map((call) => [call.ref, call]));
   return reports.map((report) => {
     const selected = [...new Set(report.callRefs)].map((ref) => {
@@ -169,7 +173,7 @@ export function validateSyncReports(reports: SyncSubmit["reports"], calls: Sourc
       if (report.scanned > 0 && !live.some((call) => call.read)) problems.push("no thread or Jira comment reads");
       if (selected.some((call) => !call.completed || call.truncated)) problems.push("an error or truncated response is present");
       if (selected.some((call) => hasUnfetchedPage(call, selected))) problems.push("the next source page was not read");
-      const missing = requiredSourceReads(snapshots, report.source).filter((id) => !live.some((call) => call.read && `${JSON.stringify(call.args)}\n${call.output}`.includes(id)));
+      const missing = requiredSourceReads(snapshots, report.source, pending).filter((id) => !live.some((call) => call.read && `${JSON.stringify(call.args)}\n${call.output}`.includes(id)));
       if (missing.length) problems.push(`linked threads/issues were not read: ${missing.slice(0, 10).join(", ")}${missing.length > 10 ? "…" : ""}`);
     }
     return { ...report, callRefs: selected.map((call) => call.ref), threadsRead: live.filter((call) => call.read).length,
@@ -236,6 +240,11 @@ export class SourceSyncStore {
     }
     return candidates;
   }
+  pendingCandidates(): SyncCandidate[] {
+    // The display list is capped; an analysis must see the complete backlog.
+    return (this.repo.db.prepare("SELECT value_json FROM source_sync_candidates WHERE status='pending' ORDER BY rowid").all() as Row[])
+      .map(row => syncCandidateSchema.parse(JSON.parse(String(row.value_json))));
+  }
   state() {
     const runs = (this.repo.db.prepare("SELECT id FROM source_sync_runs ORDER BY rowid DESC LIMIT 30").all() as Row[]).map((row) => this.run(String(row.id)));
     const pending = Number((this.repo.db.prepare("SELECT count(*) AS n FROM source_sync_candidates WHERE status='pending'").get() as Row).n);
@@ -249,11 +258,12 @@ export class SourceSyncStore {
       const list = this.repo.list(true);
       if (list.total > 500) throw new PolicyError("247C contains more than 500 tasks. A complete cross-check exceeds the limit for one run.");
       const snapshots = list.tasks.map((task) => this.repo.kernel.getDossier(task.id));
+      const pendingCandidates = this.pendingCandidates();
       const until = now();
       const run: SyncRun = { id: input.requestId, status: "starting", threadId: null, provider: input.request.providerId, model: input.request.model,
         startedAt: until, until, finishedAt: null, manualSince: input.since, ranges: syncRanges(this.checkpoints(), input.since, until, this.initialSince()),
         reports: [], error: null, suggestions: 0, duplicates: 0, fingerprint };
-      this.repo.db.prepare("INSERT INTO source_sync_runs VALUES (?,?,?,?,?)").run(run.id, run.status, null, JSON.stringify(run), JSON.stringify({ input, snapshots }));
+      this.repo.db.prepare("INSERT INTO source_sync_runs VALUES (?,?,?,?,?)").run(run.id, run.status, null, JSON.stringify(run), JSON.stringify({ input, snapshots, pendingCandidates }));
       this.repo.changed(); return run;
     });
   }
@@ -265,48 +275,72 @@ export class SourceSyncStore {
       if (request.submittedFingerprints?.includes(fingerprint) || (!supplement && finalize && request.submittedFingerprint === digest(input))) return run;
       if (supplement ? !["completed", "partial"].includes(run.status) : !SYNC_ACTIVE.has(run.status)) throw new PolicyError("The check has already finished. Its result cannot be changed.");
       if ((request.submittedFingerprints?.length ?? 0) >= 101) throw new PolicyError("The proposal batch limit for this run was reached.");
-      const reports = validateSyncReports(input.reports, calls, request.snapshots);
-      const taskIds = input.suggestions.filter((s) => s.taskId).map((s) => s.taskId);
-      if (new Set(taskIds).size !== taskIds.length) throw new PolicyError("Combine findings for the same task into one proposal.");
-      const errors: string[] = [];
-      for (const [index, draft] of input.suggestions.entries()) {
+      const reports = validateSyncReports(input.reports, calls, request.snapshots, request.pendingCandidates);
+      const batchKey = digest(input.suggestions);
+      const replayedBatch = request.submittedBatches?.includes(batchKey) ?? false;
+      const suggestions = replayedBatch ? [] : input.suggestions;
+      const targets = suggestions.map(s => s.taskId ?? "new:" + normalize(s.title));
+      if (new Set(targets).size !== targets.length) throw new PolicyError("Combine findings for the same task into one proposal.");
+      const prepared: { draft: SyncDraft; dossier: TaskDossier; parents: SyncCandidate[]; related: SyncCandidate[]; previousBatch?: SyncCandidate }[] = [];
+      const errors: string[] = [], claimed = new Set<string>();
+      for (const [index, raw] of suggestions.entries()) {
         try {
-          const dossier = validateSyncDraft(draft, run, request.snapshots, calls);
-          if (supplement && draft.taskId) this.repo.assertCurrent(draft.taskId, dossier.task.revision);
+          const ids = raw.mergeCandidateIds ?? [];
+          if (new Set(ids).size !== ids.length) throw new PolicyError("List each mergeCandidateId once.");
+          const related = (this.repo.db.prepare("SELECT value_json FROM source_sync_candidates WHERE task_id IS ? OR json_extract(value_json,'$.resultTaskId')=?").all(raw.taskId, raw.taskId) as Row[])
+            .map(row => syncCandidateSchema.parse(JSON.parse(String(row.value_json))))
+            .filter(c => raw.taskId || normalize(c.title) === normalize(raw.title) || ids.includes(c.id));
+          const previousBatch = related.find(c => c.runId === id && c.status === "pending");
+          const parents = [...new Map([...ids.map(parentId => this.candidate(parentId)), ...(previousBatch ? [previousBatch] : [])].map(p => [p.id, p])).values()];
+          for (const parent of parents) {
+            if (parent.status !== "pending") throw new ConflictError("Proposal " + parent.id + " was already reviewed or superseded. Start a new check against the current proposals.");
+            if (parent.runId !== id && !request.pendingCandidates?.some(p => p.id === parent.id)) throw new PolicyError("The merge proposal was not in this run's pending snapshot.");
+            if (parent.taskId && parent.taskId !== raw.taskId) throw new PolicyError("Cannot merge proposals for different existing tasks.");
+            if (claimed.has(parent.id)) throw new PolicyError("A pending proposal cannot be merged into two results in the same batch.");
+            claimed.add(parent.id);
+            if (!related.some(c => c.id === parent.id)) related.push(parent);
+          }
+          const snapshot = raw.taskId ? request.snapshots.find(d => d.task.id === raw.taskId) : emptyDossier(raw.title);
+          if (!snapshot) throw new PolicyError("taskId " + raw.taskId + " is absent from the snapshot. Copy the exact open task ID.");
+          const draft = mergeSyncDraft(raw, parents, snapshot);
+          const dossier = validateSyncDraft(draft, run, request.snapshots, calls, parents.flatMap(p => p.facts));
+          if (draft.taskId && (supplement || parents.length || request.pendingCandidates)) this.repo.assertCurrent(draft.taskId, dossier.task.revision);
+          prepared.push({ draft, dossier, parents, related, previousBatch });
         } catch (error) {
           if (!(error instanceof PolicyError) && !(error instanceof ConflictError)) throw error;
-          errors.push(`suggestions[${index}] «${draft.title}» (${draft.taskId ?? "new task"}): ${error instanceof Error ? error.message : String(error)}`);
+          errors.push(`suggestions[${index}] «${raw.title}» (${raw.taskId ?? "new task"}): ${error instanceof Error ? error.message : String(error)}`);
         }
       }
       if (errors.length) throw new PolicyError(`The batch was not saved; previous proposals and the run are preserved. Correct the listed proposals and submit again.
 ${errors.join("\n").slice(0, 16000)}`);
-      let duplicates = 0;
-      for (const draft of input.suggestions) {
-        const dossier = validateSyncDraft(draft, run, request.snapshots, calls);
-        const identities = draft.facts.flatMap((f) => f.citations.map((c) => [c.source, c.messageId, new Date(c.occurredAt).toISOString()]));
-        const related = (this.repo.db.prepare("SELECT value_json FROM source_sync_candidates WHERE task_id IS ? OR json_extract(value_json,'$.resultTaskId')=?").all(draft.taskId, draft.taskId) as Row[]).map((row) => syncCandidateSchema.parse(JSON.parse(String(row.value_json))));
-        const eventIds = (c: SyncDraft) => c.facts.flatMap((f) => f.citations.map((q) => JSON.stringify([q.source, q.messageId, new Date(q.occurredAt).toISOString()])));
-        const previousBatch = draft.taskId ? related.find(c => c.runId === id && c.status === "pending") : undefined;
-        if (previousBatch && digest(candidateDraft(previousBatch)) === digest(draft)) { duplicates++; continue; }
-        if (supplement && previousBatch) throw new PolicyError(`Recovery can only add missing proposals. The saved proposal for ${draft.taskId} is unchanged.`);
-        const incoming = new Set(identities.map((i) => JSON.stringify(i)));
-        if (previousBatch && !eventIds(previousBatch).every(event => incoming.has(event))) throw new PolicyError(`A batch for task ${draft.taskId} is already saved. Submit one combined proposal with all previous and new findings; the previous batch is preserved.`);
-        const identityKey = digest([draft.taskId, draft.taskId ? dossier.task.revision : null, [...incoming].sort()]);
-        const key = previousBatch ? digest([identityKey, digest(draft)]) : identityKey;
+      let duplicates = replayedBatch ? input.suggestions.length : 0;
+      for (const { draft, dossier, parents, related, previousBatch } of prepared) {
+        const eventIds = (c: SyncDraft) => c.facts.flatMap(f => f.citations.map(q => JSON.stringify([q.source, q.messageId, new Date(q.occurredAt).toISOString()])));
+        const incoming = new Set(eventIds(draft));
+        if (previousBatch && digest(candidateDraft(previousBatch)) === digest(candidateDraft(draft))) { duplicates++; continue; }
+        if (supplement && parents.length) throw new PolicyError("Recovery can only add missing proposals. Existing pending proposals are unchanged.");
+        const identityKey = digest([draft.taskId ?? ["new", normalize(draft.title)], draft.taskId ? dossier.task.revision : null, [...incoming].sort()]);
+        const key = parents.length ? digest([identityKey, candidateDraft(draft), parents.map(p => p.id).sort()]) : identityKey;
         if (this.repo.db.prepare("SELECT id FROM source_sync_candidates WHERE fingerprint=?").get(key)) { duplicates++; continue; }
-        const known = new Set(related.filter((c) => (!previousBatch || c.runId !== id || c.status === "applied" || c.status === "rejected") && (c.status === "applied" || (draft.taskId ? c.baseRevision === dossier.task.revision : c.taskId === null))).flatMap(eventIds));
-        if (identities.length && identities.every((identity) => known.has(JSON.stringify(identity)))) { duplicates++; continue; }
+        const known = new Set(related.filter(c => (!previousBatch || c.runId !== id || c.status === "applied" || c.status === "rejected") &&
+          (c.status === "applied" || (draft.taskId ? c.baseRevision === dossier.task.revision : c.taskId === null))).flatMap(eventIds));
+        // One unchanged pending proposal needs no new approval identity. Several
+        // missed proposals may be consolidated even without an additional event.
+        if (parents.length < 2 && related.filter(c => c.status === "pending").length < 2 && incoming.size && [...incoming].every(event => known.has(event))) { duplicates++; continue; }
+        if (!supplement && request.pendingCandidates) {
+          const missing = related.filter(c => c.status === "pending" && !parents.some(p => p.id === c.id));
+          if (missing.length) throw new PolicyError("Combine this finding with the pending proposals using mergeCandidateIds: " + missing.map(c => c.id).join(", ") + ". All previous findings and untouched fields will be preserved.");
+        }
         if (draft.taskId && related.some(c => c.runId === id && ["applied", "rejected"].includes(c.status))) throw new PolicyError(`The proposal for task ${draft.taskId} has already been reviewed by the user. This run cannot replace it; start a new check with the current dossier.`);
-        if (!draft.taskId && request.snapshots.some((d) => normalize(d.task.title) === normalize(draft.title))) throw new PolicyError("A task with this title already exists. Link the finding to that task.");
-        const candidate: SyncCandidate = { ...draft, id: randomUUID(), runId: run.id, baseRevision: draft.taskId ? dossier.task.revision : null,
+        if (!draft.taskId && this.repo.list(true).tasks.some(d => normalize(d.title) === normalize(draft.title))) throw new ConflictError("A task with this title already exists. Start a new check and link the finding to that task.");
+        const candidate = syncCandidateSchema.parse({ ...draft, id: randomUUID(), runId: run.id, baseRevision: draft.taskId ? dossier.task.revision : null,
           before: draft.taskId ? { title: dossier.task.title, status: dossier.task.status, urgent: dossier.planning.urgent, important: dossier.planning.important,
             summary: dossier.projection.summary, nextStep: dossier.projection.nextStep, openQuestions: dossier.projection.openQuestions, blockers: dossier.projection.blockers, artifacts: dossier.projection.artifacts } : null,
-          status: "pending", createdAt: now(), resolvedAt: null, proposalId: null, resultTaskId: null };
+          status: "pending", createdAt: now(), resolvedAt: null, proposalId: null, resultTaskId: null });
         this.repo.db.prepare("INSERT INTO source_sync_candidates VALUES (?,?,?,?,?,?)").run(candidate.id, run.id, candidate.taskId, candidate.status, key, JSON.stringify(candidate));
-        if (previousBatch) this.saveCandidate({ ...previousBatch, status: "superseded", resolvedAt: now() });
-        // A new valid proposal can replace the same finding at an outdated
-        // revision. Never let deduplication make a stale proposal unrecoverable.
-        for (const older of related) if (older.status === "pending" && older.baseRevision !== candidate.baseRevision && eventIds(older).every((event) => incoming.has(event))) {
+        for (const parent of parents) this.saveCandidate({ ...parent, status: "superseded", resolvedAt: now() });
+        // Preserve recovery behavior for collectors started before merge snapshots.
+        if (!request.pendingCandidates) for (const older of related) if (older.status === "pending" && older.baseRevision !== candidate.baseRevision && eventIds(older).every(event => incoming.has(event))) {
           this.saveCandidate({ ...older, status: "superseded", resolvedAt: now() });
         }
       }
@@ -318,7 +352,7 @@ ${errors.join("\n").slice(0, 16000)}`);
         if (report.status !== "complete" || (contiguousFrom && range.since > contiguousFrom)) continue;
         this.repo.db.prepare("INSERT INTO source_sync_checkpoints VALUES (?,?) ON CONFLICT(source) DO UPDATE SET through=MAX(through,excluded.through)").run(report.source, run.until);
       }
-      this.repo.db.prepare("UPDATE source_sync_runs SET request_json=? WHERE id=?").run(JSON.stringify({ ...request, submittedFingerprints: [...(request.submittedFingerprints ?? []), fingerprint] }), run.id);
+      this.repo.db.prepare("UPDATE source_sync_runs SET request_json=? WHERE id=?").run(JSON.stringify({ ...request, submittedFingerprints: [...(request.submittedFingerprints ?? []), fingerprint], submittedBatches: [...(request.submittedBatches ?? []), batchKey] }), run.id);
       return this.save({ ...run, reports: supplement ? run.reports : reports, suggestions: retained.length, duplicates: run.duplicates + duplicates,
         ...(!supplement && finalize ? { finishedAt: now(), status: reports.every((r) => r.status === "complete") ? "completed" as const : "partial" as const } : {}) });
     });
@@ -426,7 +460,8 @@ export class SourceSyncRuntime {
     const progress = new Map<SyncSource, { calls: number; reads: number }>();
     try {
       const config = await this.sourceConfiguration();
-      const bundle = await collectSources(initial, this.store.request(id).snapshots, { config, signal: controller.signal, onProgress: p => {
+      const context = this.store.request(id);
+      const bundle = await collectSources(initial, context.snapshots, { config, pendingCandidates: context.pendingCandidates, signal: controller.signal, onProgress: p => {
         if (this.disposed || controller.signal.aborted) return;
         progress.set(p.source, p);
         const run = this.store.run(id);
@@ -437,9 +472,9 @@ export class SourceSyncRuntime {
       this.store.saveExport(bundle);
       let run = this.store.run(id);
       if (!SYNC_ACTIVE.has(run.status) || controller.signal.aborted) return;
-      run = this.store.save({ ...run, reports: validateSyncReports(bundle.reports, bundle.calls, this.store.request(id).snapshots), collection: { phase: "analyzing", calls: bundle.calls.length, reads: bundle.documents.length, elapsedMs: bundle.elapsedMs } });
+      run = this.store.save({ ...run, reports: validateSyncReports(bundle.reports, bundle.calls, context.snapshots, context.pendingCandidates), collection: { phase: "analyzing", calls: bundle.calls.length, reads: bundle.documents.length, elapsedMs: bundle.elapsedMs } });
       if (bundle.reports.every(r => r.status === "unavailable")) throw new PolicyError("Could not load sources. See the Gmail, Slack and Jira cards for details; analysis was not started.");
-      const prompt = syncAnalysisInstructions(run, this.store.request(id).snapshots, this.store.candidates(), bundle, config);
+      const prompt = syncAnalysisInstructions(run, context.snapshots, [...(context.pendingCandidates ?? this.store.pendingCandidates()), ...this.store.candidates().filter(c => c.status !== "pending")], bundle, config);
       if (Buffer.byteLength(prompt) > 768 * 1024) throw new PolicyError("The task snapshot is too large for one analysis.");
       this.store.recordDataPage(id, 0);
       const request = nativeRequest(input.request);
@@ -508,6 +543,7 @@ export class SourceSyncRuntime {
     if (this.disposed) throw new PolicyError("The plugin is reloading. Submit the result again.");
     const result = this.store.submit(run.id, input, calls, { finalize });
     return { run: { id: result.id, status: result.status, suggestions: result.suggestions, duplicates: result.duplicates }, canonicalTasksChanged: false,
+      pendingProposals: this.repo.db.prepare("SELECT id,task_id AS taskId FROM source_sync_candidates WHERE run_id=? AND status='pending'").all(run.id),
       message: finalize ? "The check is complete. The user will apply proposals in the 247C panel." : "Batch saved; you can submit the remaining proposals. When finished, call c247_sync_submit with {suggestions:[],finalize:true}. Source checkpoints do not advance until completion. The user will apply proposals in the 247C panel." };
   }
   supplement(id: string, raw: unknown) {
