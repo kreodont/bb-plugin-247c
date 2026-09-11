@@ -16,6 +16,7 @@ The package includes source code and a ready build. It contains no author tasks,
 
 - [Source configuration](docs/sources.md)
 - [Setup-agent guide and local read permissions](docs/setup-agent.md)
+- [Windows installation with WSL2](docs/windows.md)
 - [Backups, Google Drive and recovery](docs/recovery.md)
 - [Third-party notices](THIRD_PARTY_NOTICES.md)
 

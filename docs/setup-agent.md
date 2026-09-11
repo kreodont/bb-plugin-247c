@@ -5,6 +5,9 @@ installation. Each computer has an independent database. Configure source
 connections using [Source configuration](sources.md); restore existing data only
 when requested, using [Backup and recovery](recovery.md).
 
+On Windows, follow [the WSL2 installation guide](windows.md). BB and the model
+provider CLIs run inside the same Linux distribution.
+
 ## Project for 247C threads
 
 To keep 247C conversations together, create or select a standard BB project with
