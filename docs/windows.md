@@ -73,7 +73,8 @@ SDK is 0.4.47`, install 0.4.5 or later. BB 0.42.1 is already sufficient; the
 error concerns the SDK bundled into the server, not the separately downloaded CLI.
 
 The repository includes source, tests, the ready plugin build and backup tools.
-The managed install uses the supplied build. Do not copy `node_modules` from
+BB uses the frontend build and prepares the backend and dependencies during
+managed installation. Do not copy `node_modules` from
 another operating system. On a new BB installation, 247C starts with an empty
 database. Its live database stays in the WSL BB data directory; do not put it in
 a synchronized Drive folder.
