@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 
 // Installation-specific data belongs in BB settings, never in the source tree.
 export const sourceConfigSchema = z.object({
-  profilePath: z.string().min(1).default("~/.claude-work"),
+  profilePath: z.string().default(""),
   expectedEmail: z.union([z.email(), z.literal("")]).default(""),
   calendarId: z.string().min(1).default("primary"),
   jiraSite: z.string().regex(/^(?:[a-z0-9-]+\.atlassian\.net)?$/).default(""),
@@ -22,5 +22,6 @@ export function parseSourceConfig(text: string): SourceConfig {
   return { ...config, calendarId: config.calendarId === "primary" && config.expectedEmail ? config.expectedEmail : config.calendarId };
 }
 export function sourceProfile(config: SourceConfig): string {
+  if (!config.profilePath.trim()) throw new Error("Set profilePath in the sources setting to your configured Claude profile.");
   return resolve(config.profilePath.startsWith("~/") ? `${homedir()}/${config.profilePath.slice(2)}` : config.profilePath);
 }

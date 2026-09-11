@@ -59,11 +59,11 @@ export function selectRecorder(catalogs: RecorderCatalog[], worker: Execution, f
     }));
   candidates.sort((a, b) => a.score - b.score || Number(b.model.isDefault) - Number(a.model.isDefault) || a.model.model.localeCompare(b.model.model, "en", { numeric: true }));
   const chosen = candidates[0];
-  if (!chosen) throw new PolicyError("Нет доступной модели для разбора. Проверь подключение Codex или личного Claude и повтори завершение.");
+  if (!chosen) throw new PolicyError("No review model is available. Check the Codex or personal Claude connection and retry finishing the session.");
   return {
     reviewerProvider: chosen.providerId,
     reviewerModel: chosen.model.model,
     reviewerReasoning: recorderReasoning(chosen.model),
-    selectionReason: `Автоматический разбор: ${chosen.model.displayName || chosen.model.model} (${chosen.providerId}). ${chosen.sameModel ? "Другой подходящей средней модели нет; используется новая сессия той же модели." : chosen.sameFamily ? "Запасной вариант: другая модель того же семейства." : "Выбрано другое семейство моделей; приоритет Sonnet и Sol."}`,
+    selectionReason: `Automatic review: ${chosen.model.displayName || chosen.model.model} (${chosen.providerId}). ${chosen.sameModel ? "No other suitable mid-tier model is available; using a fresh session with the same model." : chosen.sameFamily ? "Fallback: another model in the same family." : "A different model family was selected; Sonnet and Sol are preferred."}`,
   };
 }

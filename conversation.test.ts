@@ -80,7 +80,7 @@ describe("Conversations and their recorder", () => {
       expect(JSON.stringify(config.tools)).toContain("c247_knowledge");
       for (const tool of ["c247_create", "c247_propose", "c247_submit_result"]) expect(JSON.stringify(config.tools)).not.toContain(tool);
       expect(await f.harness.behavior.callRpc("threadSession", { threadId: thread.id })).toMatchObject({ session: { id: session.id, taskId: tasks[i].id } });
-      await expect(f.harness.behavior.callAgentTool("c247_read", { taskId: tasks[1 - i].id }, { threadId: thread.id })).rejects.toThrow(/только досье/);
+      await expect(f.harness.behavior.callAgentTool("c247_read", { taskId: tasks[1 - i].id }, { threadId: thread.id })).rejects.toThrow(/only its own task dossier/);
     }
     await f.harness.behavior.callRpc("finish", { sessionId: sessions[0].id });
     expect(f.repo.session(sessions[0].id).status).toBe("reviewing");
@@ -104,7 +104,7 @@ describe("Conversations and their recorder", () => {
     expect(f.threads.get(session.workerThreadId!)?.title).toBe(`247C · ${task.title}`);
     const updates = f.harness.inspection.sdk.callsTo("threads.update").length;
     f.threads.set(session.workerThreadId!, { ...f.threads.get(session.workerThreadId!)!, title: "Моё название разговора" });
-    await f.idle(session.workerThreadId!, "Продолжение");
+    await f.idle(session.workerThreadId!, "Continuation");
     expect(f.threads.get(session.workerThreadId!)?.title).toBe("Моё название разговора");
     expect(f.harness.inspection.sdk.callsTo("threads.update")).toHaveLength(updates);
   });
@@ -136,7 +136,7 @@ describe("Conversations and their recorder", () => {
 
   it("keeps a conversation open while BB has not assigned its workspace", async () => {
     const { f, session } = await conversation("claude-work", { deferEnvironment: true });
-    await expect(f.harness.behavior.callRpc("finish", { sessionId: session.id })).rejects.toThrow(/ещё не подготовил рабочую папку/);
+    await expect(f.harness.behavior.callRpc("finish", { sessionId: session.id })).rejects.toThrow(/not prepared the session workspace yet/);
     expect(f.repo.session(session.id)).toMatchObject({ status: "working", finishedAt: null, environmentId: null });
     expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
     expect(f.harness.inspection.sdk.callsTo("threads.stop")).toHaveLength(0);
@@ -156,7 +156,7 @@ describe("Conversations and their recorder", () => {
     expect(f.harness.inspection.sdk.callsTo("threads.stop")).toHaveLength(0);
     const runtime = new SessionRuntime(f.bb, f.repo, async () => ({ codexReviewer: "unused", claudeReviewer: "unused", maximumRepairs: 2, sessionMinutes: 20 }));
     expect(runtime.dispatch(session.workerThreadId!)).toEqual({ action: "proceed" });
-    await expect(f.harness.behavior.callAgentTool("c247_submit_result", { summary: "Готово", artifacts: [] }, { threadId: session.workerThreadId! })).rejects.toThrow(/Завершить сессию/);
+    await expect(f.harness.behavior.callAgentTool("c247_submit_result", { summary: "Готово", artifacts: [] }, { threadId: session.workerThreadId! })).rejects.toThrow(/Finish session/);
   });
 
   it("automatically picks a different model family only after Finish, exactly once", async () => {
@@ -227,7 +227,7 @@ describe("Conversations and their recorder", () => {
   it("keeps the conversation open when no catalog can supply a recorder", async () => {
     const { f, session } = await conversation();
     f.harness.inspection.sdk.stub("providers.models", () => ({ models: [], modelLoadError: "Unavailable" }));
-    await expect(f.harness.behavior.callRpc("finish", { sessionId: session.id })).rejects.toThrow(/Нет доступной модели/);
+    await expect(f.harness.behavior.callRpc("finish", { sessionId: session.id })).rejects.toThrow(/No review model is available/);
     expect(f.repo.session(session.id)).toMatchObject({ status: "working", finishedAt: null });
     expect(f.harness.inspection.sdk.callsTo("threads.stop")).toHaveLength(0);
   });
@@ -235,7 +235,7 @@ describe("Conversations and their recorder", () => {
   it("keeps the conversation open if only excluded recorder models are available", async () => {
     const { f, session } = await conversation();
     f.harness.inspection.sdk.stub("providers.models", ({ providerId }) => ({ modelLoadError: null, models: [{ id: "default", model: providerId === "codex" ? "gpt-5.6-luna" : "claude-haiku-4-5-20251001", defaultReasoningEffort: "low", supportedReasoningEfforts: [{ reasoningEffort: "low" }] }] }));
-    await expect(f.harness.behavior.callRpc("finish", { sessionId: session.id })).rejects.toThrow(/Нет доступной модели/);
+    await expect(f.harness.behavior.callRpc("finish", { sessionId: session.id })).rejects.toThrow(/No review model is available/);
     expect(f.repo.session(session.id)).toMatchObject({ status: "working", finishedAt: null });
     expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
   });
@@ -244,7 +244,7 @@ describe("Conversations and their recorder", () => {
     const { f, session } = await conversation();
     if (recorder === "same") f.models.set(session.workerThreadId!, model);
     else await f.harness.behavior.setSettings({ claudeReviewer: model });
-    await expect(f.harness.behavior.callRpc("finish", { sessionId: session.id, recorder })).rejects.toThrow(/исключена из разбора/);
+    await expect(f.harness.behavior.callRpc("finish", { sessionId: session.id, recorder })).rejects.toThrow(/excluded from review/);
     expect(f.repo.session(session.id)).toMatchObject({ status: "working", finishedAt: null });
     expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
     expect(f.harness.inspection.sdk.callsTo("threads.stop")).toHaveLength(0);
@@ -315,7 +315,7 @@ describe("Conversations and their recorder", () => {
       }
     }
     expect(f.repo.session(session.id)).toMatchObject({ status: "blocked", extractionRepair: { attempt: 2 }, proposalId: null });
-    expect(f.repo.session(session.id).error).toContain("после 2 автоматических исправлений");
+    expect(f.repo.session(session.id).error).toContain("after 2 automatic repairs");
     await pollSession(f, session);
     expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(4);
     const retried = sessionSchema.parse(await f.harness.behavior.callRpc("retry", { sessionId: session.id }));
@@ -366,12 +366,12 @@ describe("Conversations and their recorder", () => {
   it("accepts next-step formatting differences without dropping negation or changing the user's words", () => {
     const quote = "Следующий шаг: Проверить тестовый отчёт завтра";
     const transcript: Transcript = { threadId: "test", capturedAt: "2026-09-09", warnings: [], messages: [{ ref: "message:1", role: "user", sequence: 1, text: quote }] };
-    const draft: Extraction = { rationale: "Поручение", facts: [{ kind: "explicit_next_step", text: "Проверить тестовый отчёт завтра.", citations: [{ messageRef: "message:1", quote }] }], changes: null, knowledge: [] };
+    const draft: Extraction = { rationale: "Instruction", facts: [{ kind: "explicit_next_step", text: "Проверить тестовый отчёт завтра.", citations: [{ messageRef: "message:1", quote }] }], changes: null, knowledge: [] };
     expect(validateExtraction(draft, transcript).facts).toHaveLength(1);
     transcript.messages[0].text = "Не отправлять письмо.";
     draft.facts[0].text = "Отправлять письмо.";
     draft.facts[0].citations[0].quote = "Не отправлять письмо.";
-    expect(() => validateExtraction(draft, transcript)).toThrow(/слова пользователя/);
+    expect(() => validateExtraction(draft, transcript)).toThrow(/user's words/);
   });
 
   it("allows a proposed observation to preserve attribution and uncertainty around an exact quote", () => {
@@ -671,4 +671,47 @@ describe("Conversations and their recorder", () => {
     expect(repo.kernel.getTask(session.taskId).status).toBe("open");
     expect(repo.knowledge().total).toBe(0);
   });
+});
+
+it.each([
+  ["Russian", "Проверь отчёт завтра."],
+  ["Spanish", "Revisa el informe mañana."],
+  ["Greek", "Έλεγξε την αναφορά αύριο."],
+  ["Arabic", "راجع التقرير غدًا."],
+  ["Chinese", "请明天检查报告。"],
+  ["Japanese", "明日レポートを確認してください。"],
+  ["mixed language", "Проверь invoice 明天 — mañana, пожалуйста."],
+])("preserves %s conversation text, verbatim evidence and accepted task content", async (_language, instruction) => {
+  const { f, task, session } = await conversation();
+  f.message(session.workerThreadId!, "user", instruction);
+  await f.idle(session.workerThreadId!, instruction);
+  await f.harness.behavior.callRpc("finish", { sessionId: session.id });
+  const saved = f.repo.transcript(session.id)!;
+  const source = saved.messages.find(m => m.role === "user" && m.text === instruction)!;
+  expect(source.text).toBe(instruction);
+  const draft: Extraction = { rationale: instruction,
+    facts: [{ kind: "explicit_next_step", text: instruction, citations: [{ messageRef: source.ref, quote: instruction }] }],
+    changes: { nextStep: { value: instruction, evidenceRefs: ["fact:0"] } }, knowledge: [] };
+  await f.idle(f.repo.session(session.id).reviewerThreadId!, draft);
+  const pending = f.repo.session(session.id);
+  expect(pending.status).toBe("awaiting_approval");
+  await f.harness.behavior.callRpc("accept", { proposalId: pending.proposalId, revision: task.revision });
+  const dossier = await f.detail(task.id);
+  expect(dossier.projection.nextStep).toBe(instruction);
+  expect(f.repo.transcript(session.id)!.messages.find(m => m.ref === source.ref)?.text).toBe(instruction);
+  expect(dossier.facts.some(fact => fact.text === instruction)).toBe(true);
+});
+
+it.each(["worker", "исполнитель"])("recovers an unbound %s launch without creating another worker", async (role) => {
+  const { f, session } = await conversation();
+  const threadId = session.workerThreadId!;
+  f.threads.set(threadId, { ...f.threads.get(threadId)!, title: `247C · ${role} · ${session.id}` });
+  f.repo.saveSession({ ...session, status: "starting", workerThreadId: null });
+  const threadCount = f.threads.size;
+  await f.reload();
+  await f.idle(threadId, "Continue with the existing conversation.");
+  expect(f.repo.session(session.id).workerThreadId).toBe(threadId);
+  expect(f.repo.session(session.id).status).toBe("working");
+  expect(f.threads.size).toBe(threadCount);
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
 });

@@ -11,11 +11,11 @@ afterEach(async () => { for (const f of hosts.splice(0)) await f.harness.lifecyc
 describe("Dossier kernel behind BB RPC", () => {
   it("records exactly one task per request, and rejects reusing that request for another title", async () => {
     const f = await setup();
-    const input = { title: "План", description: "Контекст", requestId: randomUUID() };
+    const input = { title: "План", description: "Context", requestId: randomUUID() };
     const first = await f.harness.behavior.callRpc("create", input);
     expect(await f.harness.behavior.callRpc("create", input)).toEqual(first);
     expect(f.repo.list().total).toBe(1);
-    await expect(f.harness.behavior.callRpc("create", { ...input, title: "Другая задача" })).rejects.toThrow(/другими данными/);
+    await expect(f.harness.behavior.callRpc("create", { ...input, title: "Другая задача" })).rejects.toThrow(/different data/);
   });
   it("does not apply a proposal until approval, applies once, and reverses through a new proposal", async () => {
     const f = await setup(); const task = await f.create();
@@ -38,11 +38,11 @@ describe("Dossier kernel behind BB RPC", () => {
   it("refuses invented next steps, unknown evidence, and stale proposals without persisting an approval", async () => {
     const f = await setup(); const task = await f.create(); const before = await f.detail(task.id);
     await expect(f.harness.behavior.callRpc("propose", { taskId: task.id, revision: task.revision, requestId: randomUUID(), draft: { rationale: "Next", confidence: 1, changes: { nextStep: { value: "Отправить письмо", evidenceRefs: [before.facts[0].id] } } } })).rejects.toThrow(/explicit/);
-    await expect(f.harness.behavior.callRpc("propose", { taskId: task.id, revision: task.revision, requestId: randomUUID(), draft: { rationale: "Summary", confidence: 1, changes: { summary: { value: "Контекст", evidenceRefs: ["invented"] } } } })).rejects.toThrow(/unknown/);
+    await expect(f.harness.behavior.callRpc("propose", { taskId: task.id, revision: task.revision, requestId: randomUUID(), draft: { rationale: "Summary", confidence: 1, changes: { summary: { value: "Context", evidenceRefs: ["invented"] } } } })).rejects.toThrow(/unknown/);
     const proposal = f.repo.propose({ taskId: task.id, revision: task.revision, requestId: randomUUID(), draft: { rationale: "Summary", confidence: 1, changes: { summary: { value: before.facts[0].text, evidenceRefs: [before.facts[0].id] } } } }, "test");
     await f.harness.behavior.callRpc("note", { taskId: task.id, revision: task.revision, kind: "constraint", text: "Новая вводная", requestId: randomUUID() });
     const updated = await f.detail(task.id);
-    await expect(f.harness.behavior.callRpc("accept", { proposalId: proposal.id, revision: updated.task.revision })).rejects.toThrow(/старой версии/);
+    await expect(f.harness.behavior.callRpc("accept", { proposalId: proposal.id, revision: updated.task.revision })).rejects.toThrow(/old dossier revision/);
     expect((await f.detail(task.id)).proposals[0].status).toBe("pending");
     expect(f.repo.db.prepare("SELECT count(*) n FROM proposal_approvals").get()).toEqual({ n: 0 });
     expect((await f.detail(task.id)).projection.summary).toBeNull();
@@ -53,7 +53,7 @@ describe("Dossier kernel behind BB RPC", () => {
     const after = await f.detail(task.id);
     expect(after.task.revision).toBe(task.revision + 1);
     expect(after.planning).toEqual({ urgent: true, important: null, revision: 1 });
-    await expect(f.harness.behavior.callRpc("classify", { taskId: task.id, revision: 0, urgent: false, important: true })).rejects.toThrow(/другом окне/);
+    await expect(f.harness.behavior.callRpc("classify", { taskId: task.id, revision: 0, urgent: false, important: true })).rejects.toThrow(/another window/);
     await f.harness.behavior.callRpc("status", { taskId: task.id, revision: after.task.revision, status: "archived" });
     expect(f.repo.list().total).toBe(0);
     expect(f.repo.list(true).total).toBe(1);
@@ -63,7 +63,7 @@ describe("Dossier kernel behind BB RPC", () => {
     const input = { taskId: task.id, revision: task.revision, kind: "explicit_next_step", text: "Подготовить план", requestId: randomUUID() };
     const note = factSchema.parse(await f.harness.behavior.callRpc("note", input));
     expect(await f.harness.behavior.callRpc("note", input)).toEqual(note);
-    await expect(f.harness.behavior.callRpc("note", { ...input, requestId: randomUUID() })).rejects.toThrow(/Досье изменилось/);
+    await expect(f.harness.behavior.callRpc("note", { ...input, requestId: randomUUID() })).rejects.toThrow(/The dossier changed/);
   });
 });
 
@@ -119,7 +119,7 @@ describe("Bounded work and independent review", () => {
   it("fails preflight before creating a worker when the review model is unavailable", async () => {
     const f = await setup(); const task = await f.create();
     f.harness.inspection.sdk.stub("providers.models", () => ({ models: [], modelLoadError: null }));
-    await expect(f.start(task.id, task.revision)).rejects.toThrow(/недоступна/);
+    await expect(f.start(task.id, task.revision)).rejects.toThrow(/unavailable/);
     expect(f.repo.sessions(task.id)).toHaveLength(0);
     expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
   });
@@ -128,19 +128,19 @@ describe("Bounded work and independent review", () => {
     let session = await f.start(task.id, task.revision);
     f.models.set(session.workerThreadId!, "other-model");
     await f.idle(session.workerThreadId!, { summary: "1. Вводные 2. План 3. Проверка", artifacts: [] });
-    expect(f.repo.session(session.id).error).toMatch(/Модель исполнителя/);
+    expect(f.repo.session(session.id).error).toMatch(/worker model/);
     session = await f.start(task.id, task.revision);
     await f.idle(session.workerThreadId!, { summary: "1. Вводные 2. План 3. Проверка", artifacts: [] });
     session = f.repo.session(session.id);
     f.models.set(session.reviewerThreadId!, "other-model");
     await f.idle(session.reviewerThreadId!, f.pass(session));
-    expect(f.repo.session(session.id).error).toMatch(/Модель проверки/);
+    expect(f.repo.session(session.id).error).toMatch(/verification model/);
     expect((await f.detail(task.id)).proposals).toHaveLength(0);
   });
   it("allows only one owner and never trusts claims about absent files", async () => {
     const f = await setup(); const task = await f.create(); const started = await f.start(task.id, task.revision);
-    await expect(f.start(task.id, task.revision)).rejects.toThrow(/уже есть исполнитель/);
-    await expect(f.harness.behavior.callRpc("status", { taskId: task.id, revision: task.revision, status: "done" })).rejects.toThrow(/останови/);
+    await expect(f.start(task.id, task.revision)).rejects.toThrow(/already has a worker/);
+    await expect(f.harness.behavior.callRpc("status", { taskId: task.id, revision: task.revision, status: "done" })).rejects.toThrow(/Stop/);
     await f.idle(started.workerThreadId!, { summary: "План готов", artifacts: [{ path: "missing.md", label: "План" }] });
     expect(f.repo.session(started.id).status).toBe("blocked");
     expect((await f.detail(task.id)).proposals).toHaveLength(0);
@@ -149,8 +149,8 @@ describe("Bounded work and independent review", () => {
   it("prevents cross-task tool access and canonical mutation by a session worker", async () => {
     const f = await setup(); const task = await f.create(); const other = await f.create("Другой контекст"); const session = await f.start(task.id, task.revision);
     const ctx = { threadId: session.workerThreadId!, projectId: "proj_personal", signal: new AbortController().signal };
-    await expect(f.harness.behavior.callAgentTool("c247_read", { taskId: other.id }, ctx)).rejects.toThrow(/только досье/);
-    await expect(f.harness.behavior.callAgentTool("c247_create", { title: "Новая", description: "", requestId: randomUUID() }, ctx)).rejects.toThrow(/Рабочий агент/);
+    await expect(f.harness.behavior.callAgentTool("c247_read", { taskId: other.id }, ctx)).rejects.toThrow(/only its own task dossier/);
+    await expect(f.harness.behavior.callAgentTool("c247_create", { title: "Новая", description: "", requestId: randomUUID() }, ctx)).rejects.toThrow(/A worker/);
     expect(await f.harness.behavior.callAgentTool("c247_submit_result", { summary: "Результат", artifacts: [] }, ctx)).toContain("canonicalTaskChanged");
     expect((await f.detail(task.id)).projection.summary).toBeNull();
     const config = await f.harness.behavior.resolveAgentConfiguration(makePluginAgentConfigurationContext({ origin: { pluginId: "247c", kind: null }, thread: { title: `247C · проверка 0 · ${session.id}` } }));
@@ -164,7 +164,7 @@ describe("Bounded work and independent review", () => {
     const current = f.repo.kernel.getTask(task.id);
     session = await f.start(task.id, current.revision);
     await f.idle(session.workerThreadId!, { summary: "Готово", artifacts: [{ path: "../../.ssh/id_rsa", label: "Secret" }] });
-    expect(f.repo.session(session.id).error).toMatch(/вне рабочей/);
+    expect(f.repo.session(session.id).error).toMatch(/outside the session workspace/);
     expect(f.harness.inspection.sdk.callsTo("files.read")).toHaveLength(0);
   });
   it("repairs in the same worker at most twice, with a fresh reviewer each round", async () => {
@@ -194,7 +194,7 @@ describe("Bounded work and independent review", () => {
     await f.idle(session.reviewerThreadId!, f.pass(session));
     session = f.repo.session(session.id);
     f.files.set("/work/plan.md", "Другой результат");
-    await expect(f.harness.behavior.callRpc("accept", { proposalId: session.proposalId, revision: task.revision })).rejects.toThrow(/Файлы изменились/);
+    await expect(f.harness.behavior.callRpc("accept", { proposalId: session.proposalId, revision: task.revision })).rejects.toThrow(/Files changed/);
     expect((await f.detail(task.id)).projection.summary).toBeNull();
   });
   it("cannot resurrect a cancelled session when a file read completes late", async () => {
@@ -217,7 +217,7 @@ describe("Bounded work and independent review", () => {
     const f = await setup(); const task = await f.create(); const session = await f.start(task.id, task.revision);
     f.repo.saveSession({ ...session, deadlineAt: Date.now() - 1 });
     await f.idle(session.workerThreadId!, { summary: "Готово", artifacts: [] });
-    expect(f.repo.session(session.id).error).toMatch(/Время/);
+    expect(f.repo.session(session.id).error).toMatch(/timed out/);
     expect(f.harness.inspection.sdk.callsTo("threads.stop").flat()).toContainEqual({ threadId: session.workerThreadId });
   });
 });

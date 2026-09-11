@@ -72,12 +72,12 @@ export function parseProposalDraft(input: unknown): StewardProposalDraft {
   onlyKeys(rawChanges, ["title", "status", "urgent", "important", "summary", "nextStep", "openQuestions", "blockers", "artifacts"], "proposal.changes");
   const changes: StewardChanges = {};
   if ("title" in rawChanges) changes.title = proposed(rawChanges.title, "title", (value) => {
-    if (typeof value !== "string" || !value.trim() || value.trim().length > 200) throw new PolicyError("Название должно содержать от 1 до 200 символов.");
+    if (typeof value !== "string" || !value.trim() || value.trim().length > 200) throw new PolicyError("The title must contain 1 to 200 characters.");
     return value.trim();
   });
   for (const field of ["urgent", "important"] as const) {
     if (field in rawChanges) changes[field] = proposed(rawChanges[field], field, (value) => {
-      if (value !== null && typeof value !== "boolean") throw new PolicyError("Приоритет должен быть true, false или null.");
+      if (value !== null && typeof value !== "boolean") throw new PolicyError("Priority must be true, false or null.");
       return value;
     });
   }
@@ -109,12 +109,12 @@ export function validateEvidence(draft: StewardProposalDraft, dossier: TaskDossi
 
   const status = draft.changes.status;
   if (status && !status.evidenceRefs.some((id) => ["progress", "decision", "user_instruction"].includes(facts.get(id)!.kind))) {
-    throw new PolicyError("Изменение статуса требует основания о результате или решения по задаче.");
+    throw new PolicyError("A status change requires evidence of a result or a task decision.");
   }
   for (const field of ["title", "urgent", "important"] as const) {
     const change = draft.changes[field];
     if (change && !change.evidenceRefs.some((id) => ["decision", "user_instruction"].includes(facts.get(id)!.kind))) {
-      throw new PolicyError(`${field}: требуется решение или поручение об изменении задачи.`);
+      throw new PolicyError(`${field}: a decision or instruction to change the task is required.`);
     }
   }
 
@@ -127,7 +127,7 @@ export function validateEvidence(draft: StewardProposalDraft, dossier: TaskDossi
       // the supporting result/decision and its meaning still need human review.
       const clearingKinds = new Set([...explicitKinds, "progress", "decision"]);
       if (!nextStep.evidenceRefs.some((id) => clearingKinds.has(facts.get(id)!.kind))) {
-        throw new PolicyError("Очистка nextStep требует progress/decision о выполнении или отмене шага, либо explicit_next_step/user_instruction. Завершать всю задачу для этого не нужно.");
+        throw new PolicyError("Clearing nextStep requires progress/decision evidence that the step was completed or canceled, or explicit_next_step/user_instruction evidence. The whole task does not need to be completed.");
       }
     } else {
       if (!nextStep.evidenceRefs.some((id) => explicitKinds.has(facts.get(id)!.kind))) {

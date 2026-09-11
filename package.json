@@ -1,6 +1,6 @@
 {
   "name": "bb-plugin-247c",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "type": "module",
   "engines": {
     "bb": ">=0.42",
@@ -8,7 +8,7 @@
   },
   "bb": {
     "name": "247C",
-    "description": "Задачи с живым досье, рабочими разговорами и общей базой знаний.",
+    "description": "Durable task dossiers, work conversations and a shared knowledge base.",
     "branding": {
       "icon": "Target"
     },

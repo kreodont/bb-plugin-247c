@@ -10,12 +10,12 @@ export class CalendarRuntime {
   constructor(readonly days: DayPlanning, readonly enabled: () => Promise<boolean>, readonly read = readCalendar) {}
   async start(raw = this.days.today(), externalSignal?: AbortSignal) {
     const date = dayDateSchema.parse(raw);
-    if (this.disposed) throw new Error("Плагин перезагружается.");
+    if (this.disposed) throw new Error("The plugin is reloading.");
     if (this.active) return this.days.calendarState();
     externalSignal?.throwIfAborted();
-    if (!await this.enabled()) return this.days.saveCalendarState({ ...this.days.calendarState(), status: "idle", message: "Импорт встреч отключён в настройках 247C." });
+    if (!await this.enabled()) return this.days.saveCalendarState({ ...this.days.calendarState(), status: "idle", message: "Meeting import is disabled in 247C settings." });
     externalSignal?.throwIfAborted();
-    if (this.disposed) throw new Error("Плагин перезагружается.");
+    if (this.disposed) throw new Error("The plugin is reloading.");
     if (this.active) return this.days.calendarState();
     const from = weekStart(date), through = shiftDay(date, 7), controller = new AbortController();
     this.controller = controller;
@@ -33,7 +33,7 @@ export class CalendarRuntime {
       this.days.mergeCalendar(result.events);
       this.days.saveCalendarState({ ...this.days.calendarState(), status: "complete", completedAt: this.days.now(), events: result.events.filter(e => e.status === "confirmed").length, message: null });
     } catch (error) {
-      if (!this.disposed) this.days.saveCalendarState({ ...this.days.calendarState(), status: controller.signal.aborted ? "idle" : "error", message: controller.signal.aborted ? "Проверка календаря остановлена. Прежние встречи сохранены." : sourceError(error) });
+      if (!this.disposed) this.days.saveCalendarState({ ...this.days.calendarState(), status: controller.signal.aborted ? "idle" : "error", message: controller.signal.aborted ? "Calendar check stopped. Previous meetings are preserved." : sourceError(error) });
     } finally { if (this.controller === controller) { this.controller = null; this.active = null; } }
   }
   async settled() { await this.active; }

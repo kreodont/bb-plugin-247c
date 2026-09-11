@@ -65,12 +65,12 @@ it("does not infer cancellation or apply a partial batch after a read failure", 
 
 it("refuses wrong accounts, repeated pages, malformed dates and recurring masters", async () => {
   const wrong = connection(() => ({ calendars: [{ id: "personal@example.com" }] }));
-  await expect(readCalendar(input(), wrong.connect)).rejects.toThrow(/не найден рабочий/); expect(wrong.close).toHaveBeenCalledOnce();
+  await expect(readCalendar(input(), wrong.connect)).rejects.toThrow(/does not contain the work calendar/); expect(wrong.close).toHaveBeenCalledOnce();
   const cycle = connection(name => name === "list_calendars" ? { calendars: [{ id: WORK_CALENDAR }] } : { events: [], nextPageToken: "same" });
-  await expect(readCalendar(input(), cycle.connect)).rejects.toThrow(/повторяет страницу/);
+  await expect(readCalendar(input(), cycle.connect)).rejects.toThrow(/repeats a page/);
   expect(() => normalizeCalendarEvent(event("bad", { start: { dateTime: "2026-09-10T23:30:00" } }))).toThrow();
-  expect(() => normalizeCalendarEvent(event("master", { recurrence: ["RRULE:FREQ=WEEKLY"] }))).toThrow(/серию/);
-  expect(() => normalizeCalendarEvent({ id: "bad" }, normalizeCalendarEvent(event())!)).toThrow(/нет времени/);
+  expect(() => normalizeCalendarEvent(event("master", { recurrence: ["RRULE:FREQ=WEEKLY"] }))).toThrow(/recurring series/);
+  expect(() => normalizeCalendarEvent({ id: "bad" }, normalizeCalendarEvent(event())!)).toThrow(/no start or end time/);
 });
 
 it("keeps imported meetings after cancellation or disposal, even if a connector returns late", async () => {

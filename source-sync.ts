@@ -20,7 +20,7 @@ const normalize = (s: string) => s.trim().replace(/\s+/g, " ").toLocaleLowerCase
 function candidateDraft({ taskId, title, rationale, confidence, facts, changes }: SyncDraft): SyncDraft { return { taskId, title, rationale, confidence, facts, changes }; }
 
 export function syncRanges(checkpoints: Record<SyncSource, string | null>, since: string | null, until: string, initialSince?: Record<SyncSource, string | null>): SyncRun["ranges"] {
-  if (since && Date.parse(since) >= Date.parse(until)) throw new PolicyError("Начальная дата должна быть раньше начала проверки.");
+  if (since && Date.parse(since) >= Date.parse(until)) throw new PolicyError("The start date must precede the check's start time.");
   return Object.fromEntries(SYNC_SOURCES.map((source) => [source, {
     since: since ? new Date(since).toISOString() : checkpoints[source] ?? initialSince?.[source] ?? new Date(Date.parse(until) - 86400000).toISOString(),
     previous: checkpoints[source],
@@ -74,7 +74,7 @@ export async function readSourceCalls(bb: BbPluginApi, threadId: string): Promis
       const raw = typeof item.result === "string" ? item.result : JSON.stringify(item.result ?? "");
       const output = decodedText(raw);
       size += Buffer.byteLength(output);
-      if (size > 32 * 1024 * 1024 || calls.size >= 2000) throw new PolicyError("Слишком большой объём источников для одного прогона. Раздели проверку по датам; отметки времени не изменены.");
+      if (size > 32 * 1024 * 1024 || calls.size >= 2000) throw new PolicyError("Too much source data for one run. Split the check by date; checkpoints are unchanged.");
       calls.set(ref, { ref, source, tool, args: item.arguments ?? {}, output,
         completed: item.status === "completed" && !item.error && !/"isError"\s*:\s*true/.test(output),
         truncated: Boolean(item.truncation?.result || item.truncation?.resultText),
@@ -83,10 +83,10 @@ export async function readSourceCalls(bb: BbPluginApi, threadId: string): Promis
     }
     if (page.length < limit) return [...calls.values()];
     const next = Math.max(...page.map((event) => event.seq));
-    if (next <= afterSeq) throw new PolicyError("Не прочитаны все страницы вызовов источников.");
+    if (next <= afterSeq) throw new PolicyError("Not all source call pages were read.");
     afterSeq = next;
   }
-  throw new PolicyError("Превышено число страниц проверки. Отметки времени не изменены.");
+  throw new PolicyError("The check page limit was exceeded. Checkpoints are unchanged.");
 }
 
 function emptyDossier(title: string): TaskDossier {
@@ -105,26 +105,26 @@ export function syncEvidence(draft: SyncDraft, runId: string, dossier: TaskDossi
 
 export function validateSyncDraft(draft: SyncDraft, run: SyncRun, snapshots: TaskDossier[], calls: SourceCall[]): TaskDossier {
   const dossier = draft.taskId ? snapshots.find((d) => d.task.id === draft.taskId) : emptyDossier(draft.title);
-  if (!dossier) throw new PolicyError(`taskId ${draft.taskId} отсутствует в снимке. Скопируй точный id подходящей открытой задачи из снимка; не создавай дубликат.`);
-  if (draft.taskId && dossier.task.status !== "open") throw new PolicyError(`Задача «${dossier.task.title}» (${draft.taskId}) имеет status=${dossier.task.status}. Можно обновлять только открытые задачи. Новая отдельная просьба может стать предложением новой задачи; завершённую просьбу пропусти.`);
-  if (!draft.taskId && (!draft.changes.summary?.value || !draft.changes.nextStep?.value)) throw new PolicyError("У новой задачи должны быть сводка и конкретный следующий шаг.");
-  if (!draft.taskId && draft.changes.status && draft.changes.status.value !== "open") throw new PolicyError("Новая задача должна оставаться открытой.");
+  if (!dossier) throw new PolicyError(`taskId ${draft.taskId} is absent from the snapshot. Copy the exact id of the matching open task from the snapshot; do not create a duplicate.`);
+  if (draft.taskId && dossier.task.status !== "open") throw new PolicyError(`Task "${dossier.task.title}» (${draft.taskId}) has status=${dossier.task.status}. Only open tasks can be updated. A separate new request may become a new task proposal; skip completed requests.`);
+  if (!draft.taskId && (!draft.changes.summary?.value || !draft.changes.nextStep?.value)) throw new PolicyError("A new task must have a summary and a specific next step.");
+  if (!draft.taskId && draft.changes.status && draft.changes.status.value !== "open") throw new PolicyError("A new task must remain open.");
   const byRef = new Map(calls.map((call) => [call.ref, call]));
   for (const fact of draft.facts) for (const citation of fact.citations) {
     const call = byRef.get(citation.callRef);
-    if (!call || call.source !== citation.source || !call.completed || !call.read) throw new PolicyError("Цитата должна ссылаться на успешное чтение полного треда или Jira issue в этом прогоне.");
-    if (!call.output.includes(citation.quote)) throw new PolicyError("Цитаты нет в сохранённом ответе коннектора. Скопируй её дословно, без перевода или сокращения.");
+    if (!call || call.source !== citation.source || !call.completed || !call.read) throw new PolicyError("The quote must reference a successful full thread or Jira issue read in this run.");
+    if (!call.output.includes(citation.quote)) throw new PolicyError("The quote is absent from the saved connector response. Copy it verbatim without translation or shortening.");
     const url = new URL(citation.url);
     const jiraSite = call.args && typeof call.args === "object" && "cloudId" in call.args ? call.args.cloudId : undefined;
     const allowed = citation.source === "gmail" ? url.hostname === "mail.google.com" : citation.source === "slack" ? url.hostname === "slack.com" || url.hostname.endsWith(".slack.com") : url.hostname.endsWith(".atlassian.net") && (typeof jiraSite !== "string" || !jiraSite.includes(".") || url.hostname === jiraSite);
-    if (url.protocol !== "https:" || !allowed || url.username || url.password) throw new PolicyError("Нужна прямая HTTPS-ссылка на Gmail, Slack или настроенный Jira.");
-    if (!`${JSON.stringify(call.args)}\n${call.output}`.includes(citation.messageId)) throw new PolicyError("Идентификатор сообщения отсутствует в вызове источника.");
-    if (Date.parse(citation.occurredAt) > Date.parse(run.until)) throw new PolicyError("Сообщение новее конца интервала. Оно попадёт в следующий прогон.");
+    if (url.protocol !== "https:" || !allowed || url.username || url.password) throw new PolicyError("A direct HTTPS link to Gmail, Slack or the configured Jira site is required.");
+    if (!`${JSON.stringify(call.args)}\n${call.output}`.includes(citation.messageId)) throw new PolicyError("The message identifier is absent from the source call.");
+    if (Date.parse(citation.occurredAt) > Date.parse(run.until)) throw new PolicyError("The message is newer than the interval end. It will be included in the next run.");
   }
   // A background update always needs fresh source evidence, even when it also
   // cites an accepted field to preserve earlier context.
   for (const change of Object.values(draft.changes)) {
-    if (!change?.evidenceRefs.some((ref) => /^fact:\d+$/.test(ref))) throw new PolicyError("Каждое изменение должно ссылаться на находку этого прогона (fact:N).");
+    if (!change?.evidenceRefs.some((ref) => /^fact:\d+$/.test(ref))) throw new PolicyError("Every change must reference a finding from this run (fact:N).");
   }
   validateEvidence(draft, dossier, syncEvidence(draft, run.id, dossier));
   return dossier;
@@ -153,25 +153,26 @@ export function validateSyncReports(reports: SyncSubmit["reports"], calls: Sourc
   return reports.map((report) => {
     const selected = [...new Set(report.callRefs)].map((ref) => {
       const call = byRef.get(ref);
-      if (!call || call.source !== report.source) throw new PolicyError("Статус источника ссылается на неизвестный вызов.");
+      if (!call || call.source !== report.source) throw new PolicyError("The source status references an unknown call.");
       return call;
     });
     const live = selected.filter((call) => call.completed);
     const queries = live.filter((call) => /search|list/i.test(call.tool));
     const problems: string[] = [];
     if (report.status === "complete") {
-      if (!queries.length) problems.push("нет успешного поиска");
-      if (report.source === "gmail" && (queries.length < 2 || !queries.some((call) => /is:unread/.test(JSON.stringify(call.args))))) problems.push("не подтверждены оба поиска Gmail");
-      if (!report.paginationComplete) problems.push("пагинация не завершена");
-      if (!report.linkedTasksChecked) problems.push("ссылки открытых задач не проверены");
-      if (report.scanned > 0 && !live.some((call) => call.read)) problems.push("нет чтения тредов или комментариев Jira");
-      if (selected.some((call) => !call.completed || call.truncated)) problems.push("есть ошибка или обрезанный ответ");
-      if (selected.some((call) => hasUnfetchedPage(call, selected))) problems.push("не прочитана следующая страница источника");
+      if (!queries.length) problems.push("no successful search");
+      if (report.source === "gmail" && (queries.length < 2 || !queries.some((call) => /is:unread/.test(JSON.stringify(call.args))))) problems.push("both Gmail searches were not confirmed");
+      if (!report.paginationComplete) problems.push("pagination is incomplete");
+      if (!report.linkedTasksChecked) problems.push("open task links were not checked");
+      if (report.scanned > 0 && !live.some((call) => call.read)) problems.push("no thread or Jira comment reads");
+      if (selected.some((call) => !call.completed || call.truncated)) problems.push("an error or truncated response is present");
+      if (selected.some((call) => hasUnfetchedPage(call, selected))) problems.push("the next source page was not read");
       const missing = requiredSourceReads(snapshots, report.source).filter((id) => !live.some((call) => call.read && `${JSON.stringify(call.args)}\n${call.output}`.includes(id)));
-      if (missing.length) problems.push(`не прочитаны связанные треды/тикеты: ${missing.slice(0, 10).join(", ")}${missing.length > 10 ? "…" : ""}`);
+      if (missing.length) problems.push(`linked threads/issues were not read: ${missing.slice(0, 10).join(", ")}${missing.length > 10 ? "…" : ""}`);
     }
     return { ...report, callRefs: selected.map((call) => call.ref), threadsRead: live.filter((call) => call.read).length,
-      ...(problems.length ? { status: "partial" as const, detail: `${report.detail}\nНеполная проверка: ${problems.join("; ")}.`.slice(0, 4000) } : {}) };
+      ...(problems.length ? { status: "partial" as const, detail: `${report.detail}
+Incomplete check: ${problems.join("; ")}.`.slice(0, 4000) } : {}) };
   });
 }
 
@@ -179,12 +180,12 @@ export class SourceSyncStore {
   constructor(readonly repo: Repository) {}
   run(id: string): SyncRun {
     const row = this.repo.db.prepare("SELECT value_json FROM source_sync_runs WHERE id=?").get(id) as Row | undefined;
-    if (!row) throw new PolicyError("Проверка обновлений не найдена.");
+    if (!row) throw new PolicyError("Update check not found.");
     return syncRunSchema.parse(JSON.parse(String(row.value_json)));
   }
   request(id: string): RunRequest {
     const row = this.repo.db.prepare("SELECT request_json FROM source_sync_runs WHERE id=?").get(id) as Row | undefined;
-    if (!row) throw new PolicyError("Проверка обновлений не найдена.");
+    if (!row) throw new PolicyError("Update check not found.");
     return JSON.parse(String(row.request_json)) as RunRequest;
   }
   export(id: string): SourceExport | null {
@@ -221,7 +222,7 @@ export class SourceSyncStore {
   }
   candidate(id: string): SyncCandidate {
     const row = this.repo.db.prepare("SELECT value_json FROM source_sync_candidates WHERE id=?").get(id) as Row | undefined;
-    if (!row) throw new PolicyError("Предложение обновления не найдено.");
+    if (!row) throw new PolicyError("Update proposal not found.");
     return syncCandidateSchema.parse(JSON.parse(String(row.value_json)));
   }
   candidates(): SyncCandidate[] {
@@ -242,9 +243,9 @@ export class SourceSyncStore {
   }
   insert(input: SyncStart): SyncRun {
     return this.repo.store.transaction(() => {
-      if (this.active().length) throw new PolicyError("Проверка уже идёт. Дождись её завершения или останови её.");
+      if (this.active().length) throw new PolicyError("A check is already running. Wait for it to finish or stop it.");
       const list = this.repo.list(true);
-      if (list.total > 500) throw new PolicyError("В 247C больше 500 задач. Полная сверка не помещается в один прогон.");
+      if (list.total > 500) throw new PolicyError("247C contains more than 500 tasks. A complete cross-check exceeds the limit for one run.");
       const snapshots = list.tasks.map((task) => this.repo.kernel.getDossier(task.id));
       const until = now();
       const run: SyncRun = { id: input.requestId, status: "starting", threadId: null, provider: input.request.providerId, model: input.request.model,
@@ -260,11 +261,11 @@ export class SourceSyncStore {
       const finalize = options.finalize ?? true, supplement = options.supplement ?? false;
       const fingerprint = digest({ input, finalize, supplement });
       if (request.submittedFingerprints?.includes(fingerprint) || (!supplement && finalize && request.submittedFingerprint === digest(input))) return run;
-      if (supplement ? !["completed", "partial"].includes(run.status) : !SYNC_ACTIVE.has(run.status)) throw new PolicyError("Проверка уже завершена. Её результат не изменяется.");
-      if ((request.submittedFingerprints?.length ?? 0) >= 101) throw new PolicyError("Достигнут предел пакетов предложений этого прогона.");
+      if (supplement ? !["completed", "partial"].includes(run.status) : !SYNC_ACTIVE.has(run.status)) throw new PolicyError("The check has already finished. Its result cannot be changed.");
+      if ((request.submittedFingerprints?.length ?? 0) >= 101) throw new PolicyError("The proposal batch limit for this run was reached.");
       const reports = validateSyncReports(input.reports, calls, request.snapshots);
       const taskIds = input.suggestions.filter((s) => s.taskId).map((s) => s.taskId);
-      if (new Set(taskIds).size !== taskIds.length) throw new PolicyError("Объедини находки по одной задаче в одно предложение.");
+      if (new Set(taskIds).size !== taskIds.length) throw new PolicyError("Combine findings for the same task into one proposal.");
       const errors: string[] = [];
       for (const [index, draft] of input.suggestions.entries()) {
         try {
@@ -272,10 +273,11 @@ export class SourceSyncStore {
           if (supplement && draft.taskId) this.repo.assertCurrent(draft.taskId, dossier.task.revision);
         } catch (error) {
           if (!(error instanceof PolicyError) && !(error instanceof ConflictError)) throw error;
-          errors.push(`suggestions[${index}] «${draft.title}» (${draft.taskId ?? "новая задача"}): ${error instanceof Error ? error.message : String(error)}`);
+          errors.push(`suggestions[${index}] «${draft.title}» (${draft.taskId ?? "new task"}): ${error instanceof Error ? error.message : String(error)}`);
         }
       }
-      if (errors.length) throw new PolicyError(`Пакет не сохранён; прежние предложения и прогон сохранены. Исправь указанные предложения и повтори отправку.\n${errors.join("\n").slice(0, 16000)}`);
+      if (errors.length) throw new PolicyError(`The batch was not saved; previous proposals and the run are preserved. Correct the listed proposals and submit again.
+${errors.join("\n").slice(0, 16000)}`);
       let duplicates = 0;
       for (const draft of input.suggestions) {
         const dossier = validateSyncDraft(draft, run, request.snapshots, calls);
@@ -284,16 +286,16 @@ export class SourceSyncStore {
         const eventIds = (c: SyncDraft) => c.facts.flatMap((f) => f.citations.map((q) => JSON.stringify([q.source, q.messageId, new Date(q.occurredAt).toISOString()])));
         const previousBatch = draft.taskId ? related.find(c => c.runId === id && c.status === "pending") : undefined;
         if (previousBatch && digest(candidateDraft(previousBatch)) === digest(draft)) { duplicates++; continue; }
-        if (supplement && previousBatch) throw new PolicyError(`Восстановление может добавить только пропущенные предложения. Сохранённое предложение для ${draft.taskId} не изменено.`);
+        if (supplement && previousBatch) throw new PolicyError(`Recovery can only add missing proposals. The saved proposal for ${draft.taskId} is unchanged.`);
         const incoming = new Set(identities.map((i) => JSON.stringify(i)));
-        if (previousBatch && !eventIds(previousBatch).every(event => incoming.has(event))) throw new PolicyError(`Для задачи ${draft.taskId} уже сохранён пакет. Передай одно объединённое предложение со всеми прежними и новыми находками; прежний пакет сохранён.`);
+        if (previousBatch && !eventIds(previousBatch).every(event => incoming.has(event))) throw new PolicyError(`A batch for task ${draft.taskId} is already saved. Submit one combined proposal with all previous and new findings; the previous batch is preserved.`);
         const identityKey = digest([draft.taskId, draft.taskId ? dossier.task.revision : null, [...incoming].sort()]);
         const key = previousBatch ? digest([identityKey, digest(draft)]) : identityKey;
         if (this.repo.db.prepare("SELECT id FROM source_sync_candidates WHERE fingerprint=?").get(key)) { duplicates++; continue; }
         const known = new Set(related.filter((c) => (!previousBatch || c.runId !== id || c.status === "applied" || c.status === "rejected") && (c.status === "applied" || (draft.taskId ? c.baseRevision === dossier.task.revision : c.taskId === null))).flatMap(eventIds));
         if (identities.length && identities.every((identity) => known.has(JSON.stringify(identity)))) { duplicates++; continue; }
-        if (draft.taskId && related.some(c => c.runId === id && ["applied", "rejected"].includes(c.status))) throw new PolicyError(`Предложение для задачи ${draft.taskId} уже рассмотрено пользователем. Этот прогон не может заменить его; нужна новая проверка с актуальным досье.`);
-        if (!draft.taskId && request.snapshots.some((d) => normalize(d.task.title) === normalize(draft.title))) throw new PolicyError("Задача с таким названием уже существует. Свяжи находку с её карточкой.");
+        if (draft.taskId && related.some(c => c.runId === id && ["applied", "rejected"].includes(c.status))) throw new PolicyError(`The proposal for task ${draft.taskId} has already been reviewed by the user. This run cannot replace it; start a new check with the current dossier.`);
+        if (!draft.taskId && request.snapshots.some((d) => normalize(d.task.title) === normalize(draft.title))) throw new PolicyError("A task with this title already exists. Link the finding to that task.");
         const candidate: SyncCandidate = { ...draft, id: randomUUID(), runId: run.id, baseRevision: draft.taskId ? dossier.task.revision : null,
           before: draft.taskId ? { title: dossier.task.title, status: dossier.task.status, urgent: dossier.planning.urgent, important: dossier.planning.important,
             summary: dossier.projection.summary, nextStep: dossier.projection.nextStep, openQuestions: dossier.projection.openQuestions, blockers: dossier.projection.blockers, artifacts: dossier.projection.artifacts } : null,
@@ -307,7 +309,7 @@ export class SourceSyncStore {
         }
       }
       const retained = (this.repo.db.prepare("SELECT value_json FROM source_sync_candidates WHERE run_id=? AND status!='superseded'").all(id) as Row[]).map(row => candidateDraft(JSON.parse(String(row.value_json))));
-      if (retained.length > 100 || Buffer.byteLength(JSON.stringify(retained)) > 1024 * 1024) throw new PolicyError("Превышен предел прогона: 100 предложений или 1 МиБ. Последний пакет не сохранён.");
+      if (retained.length > 100 || Buffer.byteLength(JSON.stringify(retained)) > 1024 * 1024) throw new PolicyError("The run limit of 100 proposals or 1 MiB was exceeded. The last batch was not saved.");
       for (const report of finalize && !supplement ? reports : []) {
         const range = run.ranges[report.source];
         const contiguousFrom = range.previous ?? this.initialSince()[report.source];
@@ -327,12 +329,12 @@ export class SourceSyncStore {
     const result = this.repo.store.transaction(() => {
       const candidate = this.candidate(id);
       if (candidate.status === "applied") return this.repo.detail(candidate.resultTaskId!);
-      if (candidate.status !== "pending") throw new PolicyError("Это предложение уже отклонено или заменено новой проверкой.");
+      if (candidate.status !== "pending") throw new PolicyError("This proposal was already rejected or superseded by a new check.");
       let taskId = candidate.taskId;
       if (taskId) this.repo.assertCurrent(taskId, candidate.baseRevision!);
       else {
         const duplicate = this.repo.list(true).tasks.find((task) => normalize(task.title) === normalize(candidate.title));
-        if (duplicate) throw new ConflictError("Пока шла проверка, такая задача уже появилась. Отклони дубликат и запусти сверку ещё раз.");
+        if (duplicate) throw new ConflictError("This task was created while the check was running. Reject the duplicate and check again.");
         taskId = this.repo.create({ title: candidate.title, description: "", requestId: candidate.id }).id;
       }
       const dossier = this.repo.kernel.getDossier(taskId);
@@ -356,7 +358,7 @@ export class SourceSyncStore {
   }
   reject(id: string): SyncCandidate {
     const candidate = this.candidate(id);
-    if (candidate.status === "applied") throw new PolicyError("Изменения уже приняты. Для отмены используй предложение отмены в досье.");
+    if (candidate.status === "applied") throw new PolicyError("The changes were already accepted. Use an undo proposal in the dossier to reverse them.");
     if (candidate.status === "rejected" || candidate.status === "superseded") return candidate;
     const result = this.saveCandidate({ ...candidate, status: "rejected", resolvedAt: now() });
     this.repo.changed(); return result;
@@ -370,11 +372,12 @@ export class SourceSyncRuntime {
   private collectors = new Map<string, AbortController>();
   private companions = new Map<string, AbortController>();
   constructor(readonly bb: BbPluginApi, readonly repo: Repository, readonly onStart?: (signal: AbortSignal) => Promise<unknown>, readonly sourceConfiguration: () => Promise<SourceConfig> = async () => defaultSourceConfig) { this.store = new SourceSyncStore(repo); }
-  private launchTitle(id: string) { return `247C · обновления · ${id}`; }
+  private launchTitle(id: string) { return `247C · updates · ${id}`; }
+  private isLaunchTitle(title: string | null, id: string) { return title === this.launchTitle(id) || title === `247C · обновления · ${id}`; }
   resolveThread(threadId: string, title?: string | null): SyncRun | undefined {
     const bound = this.store.forThread(threadId);
     if (bound) return bound;
-    const match = /^247C · обновления · ([a-f0-9-]{36})$/.exec(title ?? "");
+    const match = /^247C · (?:updates|обновления) · ([a-f0-9-]{36})$/.exec(title ?? "");
     if (match) { try { return this.store.run(match[1]); } catch { /* Unrelated thread. */ } }
     return undefined;
   }
@@ -387,19 +390,19 @@ export class SourceSyncRuntime {
   }
   async start(raw: SyncStart): Promise<SyncRun> {
     const input = syncStartSchema.parse(raw);
-    if (this.disposed) throw new PolicyError("Плагин перезагружается.");
+    if (this.disposed) throw new PolicyError("The plugin is reloading.");
     const existing = this.repo.db.prepare("SELECT id FROM source_sync_runs WHERE id=?").get(input.requestId);
     if (existing) {
       const run = this.store.run(input.requestId);
-      if (run.fingerprint !== digest(input)) throw new PolicyError("Ключ запуска уже использован с другими параметрами.");
+      if (run.fingerprint !== digest(input)) throw new PolicyError("The launch key has already been used with different parameters.");
       return run;
     }
-    if (input.request.input.some((i) => i.type !== "text")) throw new PolicyError("Параметры проверки должны быть текстовыми.");
+    if (input.request.input.some((i) => i.type !== "text")) throw new PolicyError("Check parameters must be text.");
     const environment = input.request.environment;
     const routing = environment.type === "reuse" ? { environmentId: environment.environmentId } : environment.type === "provider" ? { hostId: environment.machine.hostId } : environment.type === "host" && environment.hostId ? { hostId: environment.hostId } : {};
     const [providers, catalog] = await Promise.all([this.bb.sdk.providers.list(routing), this.bb.sdk.providers.models({ ...routing, providerId: input.request.providerId })]);
-    if (this.disposed) throw new PolicyError("Плагин перезагружается. Повтори запуск.");
-    if (!providers.some((p) => p.id === input.request.providerId && p.available) || catalog.modelLoadError || !catalog.models.some((m) => m.model === input.request.model || m.id === input.request.model)) throw new PolicyError("Выбранный аккаунт или модель недоступны на этой машине.");
+    if (this.disposed) throw new PolicyError("The plugin is reloading. Try starting again.");
+    if (!providers.some((p) => p.id === input.request.providerId && p.available) || catalog.modelLoadError || !catalog.models.some((m) => m.model === input.request.model || m.id === input.request.model)) throw new PolicyError("The selected account or model is unavailable on this machine.");
     let run = this.store.insert(input);
     run = this.store.save({ ...run, collection: { phase: "collecting", calls: 0, reads: 0, elapsedMs: 0 } });
     const controller = new AbortController();
@@ -432,9 +435,9 @@ export class SourceSyncRuntime {
       let run = this.store.run(id);
       if (!SYNC_ACTIVE.has(run.status) || controller.signal.aborted) return;
       run = this.store.save({ ...run, reports: validateSyncReports(bundle.reports, bundle.calls, this.store.request(id).snapshots), collection: { phase: "analyzing", calls: bundle.calls.length, reads: bundle.documents.length, elapsedMs: bundle.elapsedMs } });
-      if (bundle.reports.every(r => r.status === "unavailable")) throw new PolicyError("Не удалось загрузить источники. Подробности указаны в карточках Gmail, Slack и Jira; анализ не запускался.");
+      if (bundle.reports.every(r => r.status === "unavailable")) throw new PolicyError("Could not load sources. See the Gmail, Slack and Jira cards for details; analysis was not started.");
       const prompt = syncAnalysisInstructions(run, this.store.request(id).snapshots, this.store.candidates(), bundle, config);
-      if (Buffer.byteLength(prompt) > 768 * 1024) throw new PolicyError("Снимок задач слишком велик для одного анализа.");
+      if (Buffer.byteLength(prompt) > 768 * 1024) throw new PolicyError("The task snapshot is too large for one analysis.");
       this.store.recordDataPage(id, 0);
       const request = nativeRequest(input.request);
       const thread = await this.bb.sdk.threads.spawn({ ...request, title: this.launchTitle(id), visibility: "visible", input: [...request.input, { type: "text", text: prompt, mentions: [], visibility: "agent-only" }] });
@@ -455,22 +458,22 @@ export class SourceSyncRuntime {
     for (let offset = 0; offset < 2000; offset += 100) {
       const page = await this.bb.sdk.threads.list({ originPluginId: this.bb.pluginId, includeHidden: true, limit: 100, offset });
       if (this.disposed) return;
-      const thread = page.find((t) => t.title === this.launchTitle(run.id));
+      const thread = page.find((t) => this.isLaunchTitle(t.title, run.id));
       if (thread) { this.store.save({ ...this.store.run(run.id), threadId: thread.id }); return; }
       if (page.length < 100) return;
     }
-    throw new PolicyError("Не удалось однозначно восстановить запуск проверки.");
+    throw new PolicyError("Could not unambiguously recover the check launch.");
   }
   private async nameThread(run: SyncRun, thread: { id: string; title: string | null; originPluginId: string | null }) {
-    if (this.disposed || thread.originPluginId !== this.bb.pluginId || thread.title !== this.launchTitle(run.id)) return;
+    if (this.disposed || thread.originPluginId !== this.bb.pluginId || !this.isLaunchTitle(thread.title, run.id)) return;
     try {
-      const label = new Intl.DateTimeFormat("ru-RU", { timeZone: "Europe/Athens", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(run.startedAt));
-      await this.bb.sdk.threads.update({ threadId: thread.id, title: `247C · Обновления · ${label}` });
+      const label = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Athens", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(run.startedAt));
+      await this.bb.sdk.threads.update({ threadId: thread.id, title: `247C · Updates · ${label}` });
     } catch (error) { if (!this.disposed) this.bb.log.warn(`Could not name source collector: ${String(error)}`); }
   }
   private caller(threadId: string): SyncRun {
     const run = this.store.forThread(threadId);
-    if (!run) throw new PolicyError("Этот инструмент доступен только сборщику обновлений 247C.");
+    if (!run) throw new PolicyError("This tool is available only to the 247C update collector.");
     return run;
   }
   async audit(threadId: string) {
@@ -480,7 +483,7 @@ export class SourceSyncRuntime {
   }
   data(threadId: string, page: number) {
     const run = this.caller(threadId), bundle = this.store.export(run.id);
-    if (!bundle) throw new PolicyError("У этого прогона нет сохранённой выгрузки.");
+    if (!bundle) throw new PolicyError("This run has no saved export.");
     const result = sourceExportPage(bundle, page);
     this.store.recordDataPage(run.id, page);
     return result;
@@ -491,22 +494,22 @@ export class SourceSyncRuntime {
     const { finalize: requestedFinalize, ...payload } = raw as { finalize?: boolean; [key: string]: unknown };
     const finalize = requestedFinalize ?? !bundle;
     const input = syncSubmitSchema.parse(bundle ? { ...payload, reports: bundle.reports } : payload);
-    if (run.collection && !bundle) throw new PolicyError("Нет сохранённой выгрузки источников.");
+    if (run.collection && !bundle) throw new PolicyError("No saved source export.");
     if (bundle) {
       const pages = sourceExportPage(bundle, 0).totalPages, read = new Set(this.store.request(run.id).dataPagesRead ?? []);
       const missing = Array.from({ length: pages }, (_, n) => n).filter(n => !read.has(n));
-      if (missing.length) throw new PolicyError(`Сначала прочитай страницы выгрузки через c247_sync_data: ${missing.join(", ")}.`);
+      if (missing.length) throw new PolicyError(`First read the export pages with c247_sync_data: ${missing.join(", ")}.`);
       // The model cannot upgrade a partial export to complete coverage.
     }
     const calls = bundle?.calls ?? await readSourceCalls(this.bb, threadId);
-    if (this.disposed) throw new PolicyError("Плагин перезагружается. Повтори отправку результата.");
+    if (this.disposed) throw new PolicyError("The plugin is reloading. Submit the result again.");
     const result = this.store.submit(run.id, input, calls, { finalize });
     return { run: { id: result.id, status: result.status, suggestions: result.suggestions, duplicates: result.duplicates }, canonicalTasksChanged: false,
-      message: finalize ? "Проверка завершена. Предложения применит пользователь в панели 247C." : "Пакет сохранён; можно отправить остальные предложения. Когда всё готово, вызови c247_sync_submit с {suggestions:[],finalize:true}. До завершения отметки источников не сдвигаются. Предложения применит пользователь в панели 247C." };
+      message: finalize ? "The check is complete. The user will apply proposals in the 247C panel." : "Batch saved; you can submit the remaining proposals. When finished, call c247_sync_submit with {suggestions:[],finalize:true}. Source checkpoints do not advance until completion. The user will apply proposals in the 247C panel." };
   }
   supplement(id: string, raw: unknown) {
     const bundle = this.store.export(id);
-    if (!bundle) throw new PolicyError("Восстановление требует сохранённую выгрузку источников.");
+    if (!bundle) throw new PolicyError("Recovery requires a saved source export.");
     const input = syncSubmitSchema.parse({ suggestions: raw, reports: bundle.reports });
     const result = this.store.submit(id, input, bundle.calls, { supplement: true, finalize: false });
     return { runId: result.id, status: result.status, suggestions: result.suggestions, canonicalTasksChanged: false, checkpointsChanged: false };
@@ -527,10 +530,10 @@ export class SourceSyncRuntime {
       let run = this.store.run(id);
       if (!SYNC_ACTIVE.has(run.status)) return;
       if (!run.threadId) { await this.findThread(run); run = this.store.run(id); }
-      if (!run.threadId) throw new PolicyError("Запуск проверки прервался до создания чата. Начни новую проверку.");
+      if (!run.threadId) throw new PolicyError("The check launch was interrupted before the chat was created. Start a new check.");
       const thread = await this.bb.sdk.threads.get({ threadId: run.threadId });
       if (this.disposed || !SYNC_ACTIVE.has(this.store.run(id).status)) return;
-      if (["idle", "error", "failed", "archived", "deleted"].includes(thread.status)) throw new PolicyError("Сборщик остановился без подтверждённого результата. Открой чат проверки; отметки источников сохранены.");
+      if (["idle", "error", "failed", "archived", "deleted"].includes(thread.status)) throw new PolicyError("The collector stopped without a confirmed result. Open the check chat; source checkpoints are preserved.");
       if (Date.now() - Date.parse(run.startedAt) > 45 * 60000) { await this.cancel(id); return; }
       if (run.status === "starting") this.store.save({ ...run, status: "working" });
       await this.nameThread(run, thread);
@@ -540,7 +543,7 @@ export class SourceSyncRuntime {
   }
   dispatch(threadId: string) {
     const run = this.store.forThread(threadId);
-    if (run && !SYNC_ACTIVE.has(run.status)) throw new PolicyError("Этот прогон проверки завершён. Начни новую проверку в панели «Обновления».");
+    if (run && !SYNC_ACTIVE.has(run.status)) throw new PolicyError("This check run has finished. Start a new check in the Updates panel.");
   }
   dispose() { this.disposed = true; for (const c of [...this.collectors.values(), ...this.companions.values()]) c.abort(); this.collectors.clear(); this.companions.clear(); }
 }

@@ -20,7 +20,7 @@ export async function startSourceSync(f: Awaited<ReturnType<typeof fixture>>, si
   // covered. The actual script-first start is exercised in source-collection.test.
   const store = new SourceSyncStore(f.repo);
   let run = store.insert(input);
-  const thread = await f.bb.sdk.threads.spawn({ ...nativeRequest(input.request), title: `247C · обновления · ${run.id}` });
+  const thread = await f.bb.sdk.threads.spawn({ ...nativeRequest(input.request), title: `247C · updates · ${run.id}` });
   run = store.save({ ...run, threadId: thread.id, status: "working" });
   return { run, input };
 }

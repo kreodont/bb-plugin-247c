@@ -1,145 +1,147 @@
 # 247C for BB
 
-Локальные задачи, досье, знания, рабочие разговоры и план дня. На каждом компьютере создаётся своя независимая SQLite-база.
+Local tasks, durable dossiers, shared knowledge, work conversations and day planning. Each computer has its own independent SQLite database.
 
-## Установка на другом компьютере
+## Install on another computer
 
-Нужны BB ≥ 0.42 с Plugin SDK ≥ 0.4.53 и вход в выбранный провайдер моделей. Проверено на macOS; другие ОС требуют отдельной проверки интеграций.
+Requires BB ≥ 0.42 with Plugin SDK ≥ 0.4.53 and a login for your chosen model provider. Verified on macOS; integrations on other operating systems require separate validation.
+
+This repository is currently private. Authenticate Git with a GitHub account that has access before installing; with GitHub CLI, run `gh auth login` and `gh auth setup-git` once on the new computer.
 
 ```sh
-bb plugin install git:https://github.com/kreodont/bb-plugin-247c.git@v0.4.0
+bb plugin install git:https://github.com/kreodont/bb-plugin-247c.git@v0.4.1
 ```
 
-Пакет содержит код и готовую сборку. Задачи, история, аккаунты и настройки автора в него не входят. **247C** появится в боковой панели с пустой базой. Доступ к Gmail, Slack, Jira и календарю настраивается отдельно; без него доступны задачи, досье и разговоры.
+The package includes source code and a ready build. It contains no author tasks, history, accounts or personal settings. **247C** appears in the sidebar with an empty database. Configure Gmail, Slack, Jira and calendar access separately; tasks, dossiers and conversations work without those integrations. The interface and public documentation are in English. Existing task content and conversations retain their original language.
 
-- [Настройка источников](docs/sources.md)
-- [Бэкап, Google Drive и восстановление](docs/recovery.md)
-- [Компоненты сторонних авторов](THIRD_PARTY_NOTICES.md)
+- [Source configuration](docs/sources.md)
+- [Backups, Google Drive and recovery](docs/recovery.md)
+- [Third-party notices](THIRD_PARTY_NOTICES.md)
 
-Для обновления установи более новый выпуск через поддерживаемый BB механизм обновления. Перед изменением версии создай бэкап. Тег выпуска всегда указывает на одну неизменную версию кода.
+To update, install a newer release through BB's supported update mechanism. Make a backup before changing versions. Each release tag identifies one immutable code version.
 
+If an accepted next step has been completed or canceled, a review can propose clearing it based on a result or decision in the conversation, even while the overall task remains open. Assigning a new next step requires an explicit user instruction. All proposed changes require acceptance.
 
-Если принятый следующий шаг выполнен или отменён, разбор может предложить его очистить по результату или решению из переписки, даже пока вся задача остаётся открытой. Назначение нового шага требует явного поручения пользователя; все изменения применяются после принятия предложения.
+After an error, **Retry review** first revalidates saved responses from the same session against the current rules. A response can be recovered without new generation only when the transcript and accepted dossier are unchanged. Previously proposed or rejected responses are not reused. The result still awaits your acceptance. If no suitable response exists, or you explicitly selected a model, a new review starts.
 
-После ошибки **Повторить разбор** сначала заново проверяет сохранённые ответы той же сессии по текущим правилам. Ответ можно восстановить без новой генерации только при неизменных переписке и принятом досье; ранее предложенные или отклонённые ответы не используются. Результат по-прежнему ждёт твоего принятия. Если подходящего ответа нет или ты явно выбрал модель, запускается новый разбор.
+## Day planning and time
 
-## План дня и время
+Open **247C → Day**, choose a date and add existing tasks. Planned and reported time are independent: a task can have 10 planned minutes and 3 reported hours. Enter time as `10m`, `3h`, `1h 20m` or `1:20`. A blank field differs from an explicit zero minutes. Save with the button, Enter, or by opening a task, report or another date. The task title opens its full dossier; **Back to day plan** returns to the selected date. Each task also shows its total time across all days.
 
-Открой **247C → День**, выбери дату и добавь существующие задачи. Planned и reported у задачи независимы: 10 минут в плане и 3 часа в отчёте — обычная запись. Время можно ввести как `10м`, `3ч`, `1ч 20м` или `1:20`. Пустое поле отличается от явно указанных нуля минут. Сохранение — кнопкой, по Enter или при переходе к задаче, отчёту и другой дате. Название открывает полное досье; **К плану дня** возвращает на выбранную дату. В карточке задачи есть итог времени за все дни.
+**Report → By day / By week** shows planned and reported time separately. Weeks start on Monday; the timezone is Europe/Athens. You can edit past dates and time for closed tasks. The checkbox marks only the daily step. **Continue on another day** preserves the original entry and its time, then adds a continuation with blank values. **Remove from plan** preserves reported time. Entry details include edit history.
 
-**Отчёт → За день / За неделю** показывает planned и reported отдельно. Неделя начинается в понедельник; часовой пояс — Europe/Athens. Можно исправлять прошлые даты и время закрытых задач. Галочка отмечает только дневной шаг. **Продолжить в другой день** сохраняет прежнюю строку с её временем и добавляет продолжение с пустыми значениями. **Убрать из плана** сохраняет reported. История правок доступна в подробностях записи.
+The assistant can record time from an explicit instruction: “Set this task's reported time for September 10 to 3 hours” or “Add another 20 minutes.” The first replaces the total; the second increases it. Time is never inferred from conversation duration. Its separate journal does not change the dossier revision or make proposals stale.
 
-Ассистент может записывать время по твоему сообщению: «По этой задаче за 10 сентября reported 3 часа» или «Добавь ещё 20 минут». Первое заменяет итог, второе увеличивает его. Время не вычисляется из длительности разговора; его журнал не меняет ревизию досье и не делает предложения устаревшими.
+During **Check for updates**, a script independently reads the work Google Calendar selected by `sources.calendarId`. It imports meetings from the Monday of the selected week through seven days after the selected date. The day screen also has a separate **Check calendar** button. Import uses the connected configured calendar without running a model. All-day events, focus time, out-of-office events and declined invitations do not receive automatic hours.
 
-При **Проверке обновлений** скрипт независимо читает рабочий Google Calendar из настройки `sources.calendarId` и вносит встречи с понедельника выбранной недели по семь дней после выбранной даты. В экране дня есть отдельная кнопка **Проверить календарь** для нужного периода. Используется уже подключённый корпоративный календарь; модель для импорта не запускается. События на весь день, focus time, отсутствие в офисе и отклонённые приглашения не получают автоматические часы.
+A meeting's planned time defaults to its calendar duration. After it ends, reported time automatically equals planned time. Both fields can be edited independently; calendar updates preserve manual overrides. **Did not attend** sets reported time to zero. **Planned from calendar** and **Automatic reported time** restore the respective field's automatic calculation. If a meeting moves, manually reported time retains its original date, which can be edited separately. Cancellation removes automatic hours while preserving manual reports and history. Connection errors preserve existing meetings.
 
-Planned встречи по умолчанию равен длительности в календаре. После окончания встречи reported автоматически равен planned. Оба поля можно менять вручную независимо; обновления календаря их не перезаписывают. **Не участвовал** ставит reported = 0. **Planned из календаря** и **Reported автоматически** возвращают соответствующее поле к автоматическому расчёту. При переносе встречи ручное reported сохраняет прежнюю дату; её можно исправить отдельно. Отмена убирает автоматические часы, сохраняя ручной отчёт и историю. Ошибка связи сохраняет прежние встречи.
+[Time journal rules and assistant tools](skills/day-planning.md).
 
-[Правила журнала времени и инструменты ассистента](skills/day-planning.md).
+## Gmail, Slack and Jira updates
 
-## Проверка обновлений Gmail, Slack и Jira
+Click **Check for updates** on the home screen. Each source resumes from the exact time of its last complete run; a first run covers the last 24 hours. For a different interval, enable **Set a start date** and choose a date and time. Select any available analysis model in BB's native composer; the default is Codex Sol.
 
-На главном экране нажми **Проверить обновления**. По умолчанию каждый источник продолжает проверку с точного времени последнего полного прогона; первый запуск охватывает последние 24 часа. Для другого периода включи **Указать начальную дату** и выбери дату/время. Выбери в обычном композере BB любую доступную модель анализа: по умолчанию Codex Sol.
+Since 0.2.16, a script collects changes, full threads and Jira comments in parallel through configured connectors, using the saved login for the configured Claude profile on the BB server. Collection does not run a corporate model or consume its generation quota. The panel shows threads read and elapsed time. The selected model then receives the exported data and task snapshot, analyzes them and prepares proposals. Quotes are checked against the script's saved responses.
 
-С версии 0.2.16 сбор выполняет скрипт: он параллельно читает изменения, полные треды и комментарии Jira через корпоративные коннекторы, используя сохранённый вход `.claude-work` на сервере BB. Корпоративная модель для этого не запускается и её лимиты генерации не расходуются. Панель показывает количество прочитанных тредов и время. После выгрузки выбранная модель получает готовые данные и снимок задач. Она анализирует их и готовит предложения; цитаты проверяются по сохранённым ответам скрипта.
+Since 0.2.17, export pages are limited to 24 KB including JSON so models receive complete pages. Proposals are saved in batches. Invalid task IDs and quotes are listed in the response, and completing the check requires a separate explicit submission. Missing proposals from a completed run can be recovered from saved analysis without new generation; they still await approval in the panel.
 
-С версии 0.2.17 страницы выгрузки ограничены 24 КБ с учётом JSON, чтобы модели получали их целиком. Предложения сохраняются пакетами; ошибочные taskId и цитаты перечисляются в ответе, а завершение проверки выполняется отдельной явной отправкой. Пропущенные предложения ранее завершённого прогона можно восстановить из сохранённого анализа без новой генерации; они также ждут утверждения в панели.
+An orange badge beside **247C** in the sidebar counts pending session and source proposals. It updates automatically and disappears at zero. Counts above 99 display `99+`, with the exact number in the tooltip. BB hides extra sidebar indicators on compact screens; the proposal count remains available on the 247C home page.
 
-Если есть предложения, ожидающие решения, рядом с названием **247C** в боковой панели появляется оранжевый счётчик. Он учитывает предложения сессий и источников, обновляется автоматически и исчезает при нуле. При большом количестве показывает `99+`, точное число — в подсказке. На компактном экране BB скрывает дополнительные индикаторы боковой панели; счётчик предложений доступен на главной странице 247C.
+**247C → Proposals** brings together new tasks, source updates and session outcomes. The count includes proposals that do not yet have a task. Expand all changes, inspect facts and quotes, select individual proposals or all eligible proposals, and accept them together. A new task is created only after acceptance. Stale proposals require individual attention; if a task has multiple alternatives, Select all skips it. One failed acceptance does not undo successful ones, and each result is retained.
 
-В **247C → Предложения** собраны новые задачи, обновления из источников и результаты сессий. Счётчик включает предложения, для которых задача ещё не создана. Можно раскрыть все изменения, посмотреть факты и цитаты, выбрать нужные или все доступные и принять одной кнопкой. Новая карточка создаётся только после принятия. Устаревшие предложения остаются для отдельного решения; если для задачи есть несколько вариантов, общий выбор пропускает её. Ошибка одного принятия не отменяет успешные, результат по каждому сохраняется.
+Proposals are also available in **Updates** and the task's **Proposals** tab, with Before/After fields, facts, verbatim quotes and links. **Create task from proposal** creates a new task. Accepting an update saves fields and facts with a single receipt; dossier history supports undoing fields.
 
-Предложения можно рассмотреть в **Обновлениях** и в **Предложениях** соответствующей задачи: поля «Было / Станет», факты, дословные цитаты и ссылки. Новые карточки создаются только по кнопке **Создать задачу по предложению**. Принятие обновления сохраняет поля и факты одной квитанцией; отмена полей доступна в истории досье.
+Source statuses are independent. Errors, incomplete pagination or unread linked threads preserve the previous interval. Even the first failed run retains its start when retried days later. The interval end is fixed at the run's start. A manual date later than the previous checkpoint does not close the unchecked gap. Repeated findings are deduplicated by message. A new check can replace a stale proposal after the dossier changes.
 
-Статусы источников независимы. Ошибка, неполная пагинация или непрочитанные связанные треды сохраняют прежний интервал; даже первый неудачный запуск не сдвигает его при повторе через несколько дней. Конец интервала фиксируется в начале прогона. Ручная дата позже прежней границы не закрывает пропущенный промежуток. Повторные находки сверяются по сообщениям; новая проверка может заменить устаревшее предложение, если досье уже изменилось.
+The **Check updates every hour, daily 08:00–20:00 (Athens)** setting runs checks at 08:00, 09:00, …, 20:00 every day, including weekends, while BB is running. Europe/Athens handles daylight saving time. It uses the account, model, reasoning level and workspace from the last successful check. If a check is still running, that scheduled start is skipped; the next run resumes from saved checkpoints. Proposals continue to require acceptance.
 
-В настройках 247C доступна **Проверять обновления ежедневно каждый час, 08:00–20:00 (Афины)**. При включении проверка запускается в 08:00, 09:00, …, 20:00 ежедневно, включая выходные, пока BB работает. Часовой пояс Europe/Athens учитывает летнее и зимнее время. Используются аккаунт, модель, режим рассуждения и рабочая среда последней успешной проверки. Если проверка ещё идёт, текущий запуск пропускается; следующая продолжает с сохранённых отметок. Предложения по-прежнему ждут принятия.
+Collection starts only on request or through the enabled schedule. It does not modify email, messages or Jira. [Tools, intervals and limits](skills/source-sync.md).
 
-Сбор запускается по запросу или включённому расписанию; письма, сообщения и Jira он не изменяет. [Инструменты, интервалы и ограничения](skills/source-sync.md).
+## Getting started
 
+A durable task retains context, accepted results, its next step and history across BB work sessions. Work happens in ordinary BB threads with your chosen model and workspace.
 
-Постоянные задачи и живое досье поверх рабочих сессий BB. Задача хранит контекст, принятые результаты, следующий шаг и историю; работа выполняется в обычных тредах BB с выбранной моделью и рабочей папкой.
+Open **247C** in BB's sidebar. Create a task and add its initial context. The dossier can hold observations, decisions, constraints and an explicitly agreed next step. Importance and urgency are separate choices; an unknown priority remains unclassified.
 
-## Первый запуск
+Cards and filters use quadrant colors: red for urgent and important, orange for urgent and less important, yellow for important without urgency, and green for neither. The main list follows that order. Colors update with importance and urgency; unclassified tasks stay neutral.
 
-Открой **247C** в боковой панели BB. Создай задачу и добавь исходный контекст. В досье можно записывать наблюдения, решения, ограничения и явно заданный следующий шаг. Важность и срочность выбираются отдельно; неизвестный приоритет остаётся неизвестным.
+Choose an available provider and model in the native composer when starting a conversation. A review discussion uses the original session's account and model, which you can change in the composer before sending.
 
-Карточки и фильтры окрашены по квадрантам: красный — срочно и важно, оранжевый — срочно и менее важно, жёлтый — важно без спешки, зелёный — без срочности и важности. Общий список идёт в этом порядке. Цвет обновляется вместе с важностью и срочностью; неразобранные задачи остаются нейтральными.
+In Threads, the work conversation is named **247C · task title**, making its dossier easy to identify. Manually edited thread titles are preserved.
 
-Для новых разговоров по умолчанию выбран **Claude Code · Корпоративный → Opus 5 (1M)**. При обсуждении разбора используется аккаунт и модель исходной сессии; их можно поменять в композере перед отправкой.
+In the **Work** tab, start a conversation using BB's embedded composer: choose an account, model and workspace, then send your first message. No acceptance criteria are required. The assistant receives the dossier and responds normally. You can keep talking between responses and after pauses, without a conversation time limit.
 
-В списке Threads рабочий разговор называется **247C · название задачи**. По названию сразу видно, к какому досье он относится. Название, изменённое вручную, сохраняется.
+When finished, click **Finish session** in the **Work** tab or on the right side of the 247C work thread header. On narrow screens the button becomes a checkmark; after completion it becomes a link to the session dossier. Finishing stops the current response, closes the chat to new messages and saves the full text conversation, including answers to BB questions. A separate session prepares dossier and knowledge records.
 
-Во вкладке **Работа** просто начни разговор через встроенный композер BB: выбери аккаунт, модель и рабочую папку и напиши первое сообщение. Поле «Готово, когда…» не требуется. Ассистент получает досье задачи и отвечает обычным текстом; можно продолжать диалог между ответами и после пауз без ограничения времени.
+The review model is selected automatically from those available in BB: Codex Sol after any Claude model (Sonnet, Opus or Fable), and personal Sonnet after Codex. Spark, Luna, Haiku, mini/nano and unknown models are excluded, including as fallbacks or prior manual choices. Selection uses the model active when the conversation finishes; changing an account, alias or context window does not count as changing the model. Sol and Sonnet remain preferred on retries, even when that uses the worker's model family. Terra is the first fallback, followed by Fable, Opus or Astra. Models outside this explicit list are never substituted automatically. Reasoning is set to low when supported. The selected model appears in the review tab and the selection reason in task history.
 
-Когда закончишь, нажми **Завершить сессию** во вкладке **Работа** или прямо справа в заголовке рабочего треда 247C. На узком экране кнопка сворачивается в значок галочки; после завершения на её месте появляется переход к досье сессии. Кнопка останавливает текущий ответ, закрывает чат для новых сообщений и сохраняет полную текстовую переписку, включая ответы на вопросы BB. Отдельная новая сессия готовит записи для досье и общей базы знаний. Модель выбирается автоматически из доступных в BB: после любого Claude (Sonnet, Opus или Fable) — Codex Sol, после Codex — личный Sonnet. Spark, Luna, Haiku, mini/nano и незнакомые модели полностью исключены из разбора, в том числе из запасных вариантов и прежнего ручного выбора. Учитывается модель, выбранная к моменту завершения; смена аккаунта, псевдонима или окна контекста не считается сменой модели. Sol и Sonnet имеют приоритет и при повторе после ошибки, даже если для этого используется семейство рабочего агента. Запасной вариант — Terra; затем Fable, Opus или Astra. Модели вне этого явного списка не подставляются автоматически. Режим рассуждения — низкий, если модель его поддерживает. Выбранная модель видна во вкладке разбора, причина выбора — в истории задачи.
+Automatic selection uses personal Claude and Codex. A corporate account may review only a corporate conversation. Provider-specific eligibility rules can exclude models listed in a catalog. Failure to load one catalog does not prevent choosing from another. If no model is available, the conversation stays open so you can retry finishing after access is restored. A catalog listing does not guarantee available account quota.
 
-Автовыбор использует личный Claude и Codex; корпоративный аккаунт может участвовать только в разборе корпоративного разговора. Корпоративный Fable исключён: он есть в каталоге CLI, но недоступен этому аккаунту. Ошибка загрузки одного каталога не мешает выбрать другой. Если модель не найдена, чат остаётся открытым, и завершение можно повторить после восстановления доступа. Наличие модели в каталоге не гарантирует свободный лимит аккаунта.
+The **Proposals** tab shows changed fields, new records, quotes and knowledge. **Accept changes** saves them in one operation. **Reject** leaves permanent records unchanged. If a review fails or the dossier changes, **Retry review** uses the saved conversation and current dossier. JSON, citation and proposal structure errors can trigger up to two automatic repair attempts with precise feedback and the same transcript snapshot. The repair count is configurable; zero disables repairs. Repairs do not extend the overall review deadline. Access or storage errors, cancellation and dossier changes do not trigger automatic repairs. After an error, another available option is preferred: Sol → Sonnet or Sonnet → Sol.
 
-Во вкладке **Предложения** видны изменённые поля, новые записи, цитаты и знания. **Принять изменения** сохраняет всё одной операцией. **Отклонить** оставляет постоянные данные без изменений. Если разбор завершился с ошибкой или досье успело измениться, **Повторить разбор** использует сохранённый разговор и актуальное досье. Ошибки JSON, цитат и структуры предложения исправляются автоматически: до двух новых разборов с точным описанием ошибки и тем же снимком переписки. Лимит задаётся настройкой количества исправлений (0 отключает их); общий срок разбора не продлевается. Ошибки доступа, хранения, отмена или изменение досье не запускают автоматические исправления. После ошибки приоритет получает другой доступный вариант: Sol → Sonnet, Sonnet → Sol.
+The recorder receives the 247C workflow, priorities, dossier and session list. It can propose **title, status, urgency, importance, summary, next step, questions, blockers, artifacts and knowledge**. Title and priority changes require a user decision; archiving and reopening also require an explicit decision in the conversation. For example, “reduce urgency and importance, but keep the task open” produces two separate **Yes → No** changes while keeping the task open. Mentioning priority only in the summary does not change its fields. Manual priority edits advance the dossier revision, so an old proposal cannot overwrite the new choice. Any accepted fields, including title and priority, can be reversed through a compensating proposal in history.
 
-Разборщик получает устройство 247C, текущие приоритеты, досье и список сессий. Он может предложить **название, статус, срочность, важность, сводку, следующий шаг, вопросы, препятствия, артефакты и знания**. Название и приоритет меняются по решению пользователя; архивирование и возврат в работу также требуют его явного решения в разговоре. Например, «убавить срочность и важность, но не закрывать» превращается в два отдельных изменения **Да → Нет**, а задача остаётся открытой. Одного упоминания приоритета в сводке недостаточно. Ручное изменение приоритета увеличивает ревизию досье: прежнее предложение не перезапишет новый выбор. Любые принятые поля, включая приоритет и название, можно вернуть компенсирующим предложением из истории.
+**Discuss review** is available beside a proposal and in a finished session's **Work** tab. It opens the composer for a new linked conversation. Send a clarification; the assistant receives the original transcript, previous review and current dossier. After the discussion ends, the new review considers both conversations, later corrections and the actual authors of quoted messages. An unaccepted earlier proposal is replaced only after a valid new one is ready; cancellation or failure preserves it. The proposal cannot be accepted while its discussion is open. A closed task can be discussed without reopening it. Accepting the revised results also archives finished source conversations in that chain. A review superseded by a later discussion cannot be retried; retry the latest review to preserve corrections.
 
-**Обсудить разбор** доступно рядом с предложением и в завершённой сессии на вкладке **Работа**. Кнопка открывает композер нового связанного разговора: напиши уточнение и отправь. Ассистент получает исходную переписку, прошлый разбор и актуальное досье. После завершения обсуждения новый разбор учитывает оба разговора, поздние исправления и настоящих авторов цитат. Непринятое прежнее предложение заменяется только после успешной подготовки нового; при отмене или ошибке оно сохраняется. Пока обсуждение открыто, принять обсуждаемое предложение нельзя. Обсуждение доступно и для закрытой задачи, не возвращая её в работу автоматически. После принятия уточнённых результатов архивируются также завершённые исходные разговоры этой цепочки. Повтор старого разбора, уже уточнённого в следующей сессии, запрещён: повторяй последний разбор, чтобы не потерять исправления.
+Accepting a session's results automatically archives its thread in Threads, even while the task stays open. The conversation remains accessible from task history; continue working in a new session from the dossier. This also applies to previously accepted sessions. Temporary archival failures are retried in the background. If you manually restore a successfully archived thread, subsequent updates to an open task do not hide it again.
 
-После принятия итогов сессии её тред автоматически переходит в архив Threads, даже если задача остаётся открытой. Переписка доступна из истории задачи; продолжение работы начинай новой сессией из досье. Это правило применяется и к ранее принятым сессиям. Временный сбой архивирования повторяется в фоне. Если после успешного архивирования ты вручную вернул тред, последующие изменения открытой задачи снова его не скрывают.
+When the whole task is complete, the review proposes **Task status: Open → Done** with supporting evidence. **Accept and complete task** saves records, knowledge and status together; the same proposal may clear a completed next step. Ending a conversation or completing one stage does not by itself complete the task. The review considers later corrections and outstanding required actions. If completion is supported by the assistant's reported recheck, the quote and author make that attribution visible for your review.
 
-Если из разговора следует, что вся задача выполнена, разбор предложит **Статус задачи: Открыта → Завершена** и приведёт основания. Кнопка **Принять и завершить задачу** одновременно сохранит записи, знания и статус; выполненный следующий шаг можно убрать в том же предложении. Завершение разговора или готовность отдельного этапа сами по себе не означают выполнения задачи. Разбор учитывает поздние исправления и оставшиеся обязательные действия. Если основание — сообщение ассистента о перепроверке, это видно по цитате и автору: пользователь оценивает вывод перед сохранением.
+Task status stays unchanged until acceptance. Any failure rolls back the entire operation, including status. Repeated acceptance does not apply changes twice. Finish any other open work session first. After acceptance, find the task in history; **History → Propose undoing completion and changes** prepares restoration of its previous status and fields while preserving historical facts and knowledge.
 
-До принятия предложения статус задачи не меняется. При ошибке любой части сохранения откатывается вся операция, включая статус. Повторное нажатие не создаёт второй эффект. Если открыта другая рабочая сессия, сначала нужно закончить её. После принятия задачу можно найти в истории; **История → Предложить отмену завершения и изменений** подготовит возврат прежнего статуса и полей. Исторические факты и знания сохраняются.
+Completing or archiving a task archives all its finished work and review chats, including earlier sessions. An open discussion of a closed task remains in Threads until it ends. Transcripts and 247C history links are preserved. This works for proposal acceptance and manual status changes. The plugin also handles tasks closed before an update and retries temporary archival failures. Reopening a task does not resume old sessions; start a new conversation.
 
-При завершении или архивировании задачи все её завершённые рабочие чаты и чаты разбора автоматически переходят в архив Threads, включая чаты прошлых сессий. Открытое обсуждение закрытой задачи сохраняется в Threads до завершения. Переписка и ссылки в истории 247C сохраняются. Это работает и при принятии предложения, и при ручной смене статуса. Плагин также обрабатывает задачи, закрытые до обновления; временную ошибку архивирования повторяет в фоне. Открытие самой задачи заново не возобновляет старые сессии — новую работу начинай отдельным разговором.
+The **Knowledge base** stores accepted conversation knowledge and imported Markdown documents. Search full text, titles, tags and paths. Use **Read in full** to expand large documents. Conversation records link to their dossier and source thread; documents link to the original file on the appropriate computer. Assistants search with `c247_knowledge` and paginate with `nextOffset`.
 
-**База знаний** на главной странице хранит принятые сведения из разговоров и импортированные Markdown-документы. Есть поиск по полному тексту, названиям, тегам и путям файлов. Большие документы раскрываются кнопкой **Читать полностью**. Для записей из разговоров доступны досье и исходный тред; для документов — оригинальный файл на нужном компьютере. Ассистенты ищут сведения инструментом `c247_knowledge` и продолжают выдачу по `nextOffset`.
+When explicitly requested, documents can be copied through the `importKnowledge` RPC. Full text is preserved with its source path, modification time and SHA-256. Reimporting the same path updates its copy without duplicates. Later source-file changes do not sync automatically. Import creates no tasks or sessions and does not approve conversation proposals. [Import format and verification](skills/knowledge-import.md).
 
-По явному поручению пользователя документы можно скопировать через RPC `importKnowledge`: полный текст сохраняется без пересказа, вместе с исходным путём, датой изменения и SHA-256. Повторный импорт того же пути обновляет его копию без дубликатов; изменения файлов после импорта сами не синхронизируются. Импорт не создаёт задачи или сессии и не утверждает предложения из разговоров. [Формат импорта и проверка](skills/knowledge-import.md).
+## Stored data
 
-## Что сохраняется
+- Tasks, statuses and separate importance and urgency classifications.
+- Immutable facts with sources; accepted summary, next step, questions, blockers and artifacts.
+- Evidence-backed proposals tied to an exact base revision. Stale changes cannot be applied; repeated acceptance does not duplicate effects.
+- Application receipts and undo through new proposals. History is never rewritten.
+- Frozen finished transcripts, proposed records with exact quotes, and accepted knowledge with provenance.
+- For legacy sessions with acceptance criteria: criteria, observed files with SHA-256 and independent review findings.
 
-- Задачи, их статусы и отдельная классификация по важности и срочности.
-- Неизменяемые факты с источниками; принятая сводка, следующий шаг, вопросы, препятствия и артефакты.
-- Предложения с основаниями и точной исходной ревизией. Устаревшие изменения нельзя применить. Повторное утверждение не дублирует эффект.
-- Квитанции применения и отмена через новое предложение. История не переписывается.
-- Снимок завершённого диалога, предложенные записи с точными цитатами и принятые знания с источниками.
-- Для прежних сессий с критериями: условия готовности, наблюдавшиеся файлы с SHA-256 и выводы независимой проверки.
+BB manages the plugin's own SQLite database. The original dossier kernel was ported from the 247C project; provenance is recorded in `core/UPSTREAM.json`. Installation does not automatically import BB projects, an older 247C database or chats, and does not start agents.
 
-Данные находятся в собственной SQLite-базе плагина, которой управляет BB. Исходное ядро досье перенесено из проекта 247C; происхождение зафиксировано в `core/UPSTREAM.json`. Плагин не импортирует проекты BB, старую базу 247C или чаты автоматически. Установка не запускает агентов.
+## Boundaries and compatibility
 
-## Границы и совместимость
+Reviews read the entire text conversation, not just the final response. BB pagination is followed to the beginning without silent truncation. A review supports up to 512 KiB of text and 4,000 messages. Attachment contents and command execution are not independently verified; proposals disclose attachment presence. A conversation citation establishes the source of a claim, not the truth of every assistant statement.
 
-Разбор видит всю текстовую переписку, а не только последний ответ. Пагинация BB читается до начала разговора; тихого обрезания нет. Предел одного разбора — 512 КиБ текста и 4000 сообщений. Содержимое вложений и выполнение команд отдельно не проверяются; при наличии вложений это указано в предложении. Ссылка на разговор подтверждает источник утверждения, а не истинность каждого высказывания ассистента.
+In work conversations, a new next step requires an explicit user instruction. Source checks may propose a translated request from email, Slack or Jira, retaining its external provenance and original quote for human acceptance. Task completion may also clear a fulfilled step using the same completion evidence. Summaries may paraphrase cited facts; word overlap is not used as a semantic check. The user reviews meaning and caveats before acceptance. Each new record requires real quotes, and proposals can be saved only against the current dossier revision. Accepted facts are immutable. Undo creates a compensating proposal and preserves historical conversation records and knowledge.
 
-В разборе рабочего разговора новый следующий шаг берётся только из явно сформулированного поручения пользователя. При проверке внешних источников допускается предложить перевод просьбы из письма, Slack или Jira: он сохраняется как внешнее основание с оригинальной цитатой и требует принятия человеком. При предложении завершить задачу можно очистить выполненный шаг со ссылкой на те же основания завершения. Сводка может пересказывать процитированные факты: доля совпадающих слов не используется как проверка смысла. Достоверность пересказа и сохранение оговорок проверяет пользователь перед принятием. Для каждой новой записи проверяются реальные цитаты; сохранять предложение можно только по актуальной ревизии досье. Принятые факты неизменяемы. Кнопка отмены создаёт компенсирующее предложение и сохраняет исторические записи разговора и знания.
+A new conversation needs only the selected available provider: Codex, Claude Code or corporate Claude. The configurable 1–60 minute limit, default 20, applies to reviews rather than conversations. Each model run uses the chosen provider's quota. Legacy sessions created with acceptance criteria continue their independent verification workflow using another model family; their data and proposals remain compatible.
 
-Новый разговор требует только выбранного доступного провайдера: Codex, Claude Code или корпоративного Claude. Лимит 1–60 минут в настройках (по умолчанию 20) относится к разбору, а не к разговору. Каждый запуск расходует лимиты выбранного провайдера. Сессии, созданные раньше с критериями готовности, продолжают прежний цикл независимой проверки другим семейством моделей; данные и предложения совместимы.
+Open conversations survive plugin reloads. If a reload interrupts a review, **Retry review** processes the saved transcript. Canceling a session stops it without preparing updates; it does not undo actions performed in the work chat.
 
-Открытые разговоры переживают перезагрузку плагина. Если перезагрузка прерывает разбор, сохранённую переписку можно обработать кнопкой **Повторить разбор**. Отмена сессии останавливает её без подготовки обновлений; она не откатывает сделанные в рабочем чате действия.
+Plugin tools and instructions define a workflow, not isolation from an agent with full computer access. Approval governs 247C records. The plugin does not automatically read unrelated conversations or import projects or old databases on installation.
 
-Инструменты плагина и инструкции задают рабочий протокол, а не изоляцию от агента с полным доступом к компьютеру. Утверждение относится к записям 247C. Плагин не читает посторонние разговоры автоматически и не импортирует проекты или старые базы при установке.
+## Workspace selection compatibility
 
-## Совместимость с выбором рабочей среды
+Since 0.2.4, the plugin accepts BB's provider environment format (`type: "provider"`) for personal folders, projects and worktrees. The chosen environment is passed unchanged to BB; account and model availability are checked on the selected machine. Legacy `host`, `reuse` and `project-default` options are also supported.
 
-Версия 0.2.4 принимает новый формат рабочих сред BB (`type: "provider"`) для личной папки, проекта и worktree. Выбор среды передаётся в BB без изменения; доступность аккаунтов и моделей проверяется на выбранной машине. Прежние варианты `host`, `reuse` и `project-default` также поддерживаются.
-
-## CLI и разработка
+## CLI and development
 
 ```sh
 bb 247c list --json
 bb 247c show <task-id>
 bb 247c knowledge "invoice booked"
-bb 247c new "Подготовить план"
+bb 247c new "Prepare a plan"
 ```
 
-Исходники: `app.tsx` — панель, `server.ts` — публичные поверхности BB, `repository.ts` — хранение, `runtime.ts` — сессии, `recorder.ts` — автоматический выбор модели, `conversation.ts` — чтение диалогов и проверка источников, `core/` — ядро досье.
+Source layout: `app.tsx` is the panel, `server.ts` exposes BB surfaces, `repository.ts` handles storage, `runtime.ts` manages sessions, `recorder.ts` selects review models, `conversation.ts` reads transcripts and validates sources, and `core/` contains the dossier kernel.
 
 ```sh
-npm install --include=dev
+npm ci --include=dev
 npm run typecheck
 npm test
 bb plugin build
 bb plugin install . --yes
 ```
 
-Для работы с уже установленным плагином: `bb plugin dev` или сборка и `bb plugin reload 247c`. Перезагрузка сохраняет открытые разговоры; прерванный разбор потребует повтора. Проверить состояние: `bb plugin list`, журнал: `bb plugin logs 247c`.
+For an installed plugin, use `bb plugin dev`, or build and run `bb plugin reload 247c`. Reloads preserve open conversations; interrupted reviews require a retry. Inspect status with `bb plugin list` and logs with `bb plugin logs 247c`.
 
-Тесты разговоров проверяют несколько ходов, завершение по кнопке, пагинацию, источники, атомарное сохранение, отмену, повтор разбора и перезагрузку. Тесты используют официальный `@get-bb/plugin-sdk/testing`, настоящую SQLite и frontend harness. Они проверяют ревизии, основания, применение и отмену, ограничения сессий, смену моделей, исправления, отмену во время чтения файлов и основные действия интерфейса. Требуются BB ≥ 0.42 и Plugin SDK ≥ 0.4.47.
+Tests cover multi-turn conversations, finishing with the button, pagination, provenance, atomic saves, cancellation, retry and reload. They use the official `@get-bb/plugin-sdk/testing`, real SQLite and the frontend harness to verify revisions, evidence, apply/undo behavior, session boundaries, model changes, repairs, cancellation during file reads and core UI workflows. Requires BB ≥ 0.42 and the pinned Plugin SDK 0.4.53.

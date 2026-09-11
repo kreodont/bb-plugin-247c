@@ -16,12 +16,12 @@ it("retains a legacy collector's chosen account, idempotency and read-only task 
   expect(run).toMatchObject({ status: "working", provider: "claude-work", model: "claude-opus-5[1m]" });
   expect(Date.parse(run.until) - Date.parse(run.ranges.gmail.since)).toBe(86400000);
   expect(await f.harness.behavior.callRpc("syncStart", input)).toEqual(run);
-  await expect(f.harness.behavior.callRpc("syncStart", { ...input, since: "2026-01-01T00:00:00Z" })).rejects.toThrow(/Ключ/);
-  await expect(startSourceSync(f)).rejects.toThrow(/уже идёт/);
-  const config = await f.harness.behavior.resolveAgentConfiguration(makePluginAgentConfigurationContext({ origin: { pluginId: "247c", kind: null }, thread: { id: run.threadId!, title: `247C · обновления · ${run.id}` } }));
+  await expect(f.harness.behavior.callRpc("syncStart", { ...input, since: "2026-01-01T00:00:00Z" })).rejects.toThrow(/launch key/);
+  await expect(startSourceSync(f)).rejects.toThrow(/already running/);
+  const config = await f.harness.behavior.resolveAgentConfiguration(makePluginAgentConfigurationContext({ origin: { pluginId: "247c", kind: null }, thread: { id: run.threadId!, title: `247C · updates · ${run.id}` } }));
   expect(config.tools.map((t) => t.name)).toEqual(["c247_sync_calls", "c247_sync_submit", "c247_knowledge", "c247_tasks", "c247_read"]);
   const ctx = { threadId: run.threadId!, projectId: "proj_personal", signal: new AbortController().signal };
-  await expect(f.harness.behavior.callAgentTool("c247_create", { title: "Новая", description: "", requestId: randomUUID() }, ctx)).rejects.toThrow(/Рабочий агент/);
+  await expect(f.harness.behavior.callAgentTool("c247_create", { title: "Новая", description: "", requestId: randomUUID() }, ctx)).rejects.toThrow(/A worker/);
   expect(f.repo.list().total).toBe(0);
   expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
 });
@@ -111,7 +111,7 @@ it("does not jump over a gap on a manual date override, including before any suc
   const olderData = await sourceData(f, backfill); olderData.input.suggestions = [];
   await submitSourceData(f, backfill, olderData.input);
   expect(store.checkpoints().gmail).toBe(backfill.until);
-  expect(() => syncRanges(store.checkpoints(), "2999-01-01T00:00:00Z", backfill.until)).toThrow(/раньше/);
+  expect(() => syncRanges(store.checkpoints(), "2999-01-01T00:00:00Z", backfill.until)).toThrow(/precede/);
 });
 
 it("detects an unfetched pagination token even when the collector claims complete coverage", async () => {
@@ -158,7 +158,7 @@ it("rejects acceptance after a concurrent task edit without leaving a proposal o
   const f = await setup(); const task = await f.create(); const { run } = await startSourceSync(f); const { input } = await sourceData(f, run, task.id);
   await submitSourceData(f, run, input); const store = new SourceSyncStore(f.repo); const candidate = store.candidates()[0];
   await f.harness.behavior.callRpc("note", { taskId: task.id, revision: task.revision, kind: "decision", text: "Новая договорённость", requestId: randomUUID() });
-  await expect(f.harness.behavior.callRpc("syncAccept", { candidateId: candidate.id })).rejects.toThrow(/Досье изменилось/);
+  await expect(f.harness.behavior.callRpc("syncAccept", { candidateId: candidate.id })).rejects.toThrow(/The dossier changed/);
   expect(store.candidate(candidate.id).status).toBe("pending");
   expect((await f.detail(task.id)).proposals).toHaveLength(0);
   expect((await f.detail(task.id)).projection.summary).toBeNull();
@@ -195,9 +195,9 @@ it("keeps failed and cancelled runs durable without creating task sessions or mo
   expect(new SourceSyncStore(f.repo).checkpoints().gmail).toBeNull();
   const next = (await startSourceSync(f)).run; const { input } = await sourceData(f, next);
   expect(syncRunSchema.parse(await f.harness.behavior.callRpc("syncCancel", { runId: next.id })).status).toBe("cancelled");
-  await expect(submitSourceData(f, next, input)).rejects.toThrow(/завершена/);
+  await expect(submitSourceData(f, next, input)).rejects.toThrow(/already finished/);
   expect(new SourceSyncStore(f.repo).candidates()).toHaveLength(0);
-  await expect(f.harness.behavior.callAgentTool("c247_sync_calls", {}, { threadId: "unrelated" })).rejects.toThrow(/только сборщику/);
+  await expect(f.harness.behavior.callAgentTool("c247_sync_calls", {}, { threadId: "unrelated" })).rejects.toThrow(/only to the 247C update collector/);
 });
 
 it("leaves rejected source findings out of task facts and remembers the rejection", async () => {
@@ -206,5 +206,5 @@ it("leaves rejected source findings out of task facts and remembers the rejectio
   const rejected = syncCandidateSchema.parse(await f.harness.behavior.callRpc("syncReject", { candidateId: candidate.id }));
   expect(rejected.status).toBe("rejected");
   expect((await f.detail(task.id)).facts).toHaveLength(1);
-  await expect(f.harness.behavior.callRpc("syncAccept", { candidateId: candidate.id })).rejects.toThrow(/отклонено/);
+  await expect(f.harness.behavior.callRpc("syncAccept", { candidateId: candidate.id })).rejects.toThrow(/rejected/);
 });

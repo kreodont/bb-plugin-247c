@@ -36,10 +36,10 @@ export async function scheduledSourceUpdate(sync: SourceSyncRuntime, enabled: ()
   // check for a completed or failed attempt in the same hourly slot.
   if (sync.repo.db.prepare("SELECT id FROM source_sync_runs WHERE id=?").get(requestId)) return null;
   const previous = sync.repo.db.prepare("SELECT id FROM source_sync_runs WHERE status IN ('completed','partial') ORDER BY rowid DESC LIMIT 1").get() as { id: string } | undefined;
-  if (!previous) throw new PolicyError("Для расписания сначала выполни проверку вручную и выбери аккаунт, модель и рабочую папку.");
+  if (!previous) throw new PolicyError("Before enabling the schedule, run a manual check and select an account, model and workspace.");
   const source = sync.store.request(previous.id).input;
   const input = syncStartSchema.parse({ requestId, since: null, request: { ...source.request,
-    input: [{ type: "text", text: "Плановая почасовая проверка обновлений 247C по поручению пользователя. Проанализируй готовую выгрузку почты, Slack и Jira и подготовь предложения для задач 247C. Прочитай все страницы выгрузки и заверши прогон штатной отправкой результата. Предложения ждут принятия пользователем в панели 247C.", mentions: [] }],
+    input: [{ type: "text", text: "Scheduled hourly 247C update check requested by the user. Analyze the prepared email, Slack and Jira export and propose updates to 247C tasks. Read every export page and finish the run by submitting the result through the standard tool. Proposals await user acceptance in the 247C panel.", mentions: [] }],
   } });
   try { return (await sync.start(input)).id; }
   catch (error) {

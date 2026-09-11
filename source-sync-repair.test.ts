@@ -96,7 +96,7 @@ it("replaces an unreviewed batch with a combined proposal under a new approval i
   const pending = store.candidates().filter(c => c.status === "pending");
   expect(pending).toHaveLength(1); expect(pending[0].id).not.toBe(original.id);
   expect(store.run(run.id).suggestions).toBe(1);
-  expect(() => store.accept(original.id)).toThrow(/заменено/);
+  expect(() => store.accept(original.id)).toThrow(/superseded/);
   await f.harness.behavior.callAgentTool("c247_sync_submit", { suggestions: combined, finalize: true }, ctx);
   expect(store.candidates().filter(c => c.status === "pending")).toHaveLength(1);
 });
@@ -125,12 +125,12 @@ it("rejects stale or fabricated supplements atomically and cannot revive a cance
   await f.harness.behavior.callAgentTool("c247_sync_submit", { suggestions: [], finalize: true }, { threadId: run.threadId! });
   const runtime = new SourceSyncRuntime(f.bb, f.repo);
   const fabricated = structuredClone(input.suggestions); fabricated[0].facts[0].citations[0].quote = "Invented";
-  expect(() => runtime.supplement(run.id, fabricated)).toThrow(/Цитаты нет/);
+  expect(() => runtime.supplement(run.id, fabricated)).toThrow(/quote is absent/);
   f.repo.db.prepare("UPDATE tasks SET revision=revision+1 WHERE id=?").run(task.id);
-  expect(() => runtime.supplement(run.id, input.suggestions)).toThrow(/Досье изменилось/);
+  expect(() => runtime.supplement(run.id, input.suggestions)).toThrow(/The dossier changed/);
   expect(store.candidates()).toHaveLength(0);
   store.save({ ...store.run(run.id), status: "cancelled" });
-  expect(() => runtime.supplement(run.id, [])).toThrow(/завершена/);
+  expect(() => runtime.supplement(run.id, [])).toThrow(/already finished/);
 });
 
 it.each(["throw", "payload"])("retries MCP Request timed out returned as %s", async mode => {

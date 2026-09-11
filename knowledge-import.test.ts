@@ -42,7 +42,7 @@ it("deduplicates repeated copies by source path and updates only the changed imp
   expect(f.repo.knowledge().total).toBe(1);
   expect(f.repo.knowledge().entries[0]).toMatchObject({ id: original.id, createdAt: original.createdAt, body: changed.documents[0].body });
   expect(await f.detail(task.id)).toEqual(before);
-  await expect(f.harness.behavior.callRpc("importKnowledge", { ...changed, requestId: request.requestId })).rejects.toThrow(/уже использован/);
+  await expect(f.harness.behavior.callRpc("importKnowledge", { ...changed, requestId: request.requestId })).rejects.toThrow(/already been used/);
 });
 
 it("rolls back the complete batch on a storage failure and can retry the same request", async () => {

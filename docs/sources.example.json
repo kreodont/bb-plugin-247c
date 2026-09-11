@@ -1,5 +1,5 @@
 {
-  "profilePath": "~/.claude-work",
+  "profilePath": "/path/to/claude-profile",
   "expectedEmail": "owner@example.com",
   "calendarId": "owner@example.com",
   "jiraSite": "example.atlassian.net",

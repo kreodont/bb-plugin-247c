@@ -99,7 +99,7 @@ describe("Recovering saved recorder responses", () => {
       f.repo.classify({ taskId: task.id, revision: before.planning.revision, urgent: true, important: null });
       return events.get(threadId) ?? [];
     });
-    await expect(f.harness.behavior.callRpc("retry", { sessionId: session.id })).rejects.toThrow(/Досье изменилось/);
+    await expect(f.harness.behavior.callRpc("retry", { sessionId: session.id })).rejects.toThrow(/The dossier changed/);
     expect(f.repo.session(session.id)).toMatchObject({ status: "blocked", proposalId: null });
     expect(f.repo.detail(task.id).proposals).toHaveLength(0);
     expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(2);

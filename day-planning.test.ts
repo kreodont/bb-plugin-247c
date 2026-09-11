@@ -37,7 +37,7 @@ it("carries a step without rewriting history, prevents duplicate dates and logs 
   const moved = days.carry({ id: initial.id, revision: 0, date: "2026-09-11", requestId: randomUUID() });
   expect(moved.original).toMatchObject({ plannedMinutes: 10, reportedMinutes: 180, state: "carried" });
   expect(moved.next).toMatchObject({ plannedMinutes: null, reportedMinutes: null, step: initial.step });
-  expect(() => days.add({ taskId: task.id, date: moved.next.date, requestId: randomUUID() })).toThrow(/уже есть/);
+  expect(() => days.add({ taskId: task.id, date: moved.next.date, requestId: randomUUID() })).toThrow(/already/);
   f.repo.status(task.id, "done", f.repo.kernel.getTask(task.id).revision);
   const edited = days.edit({ id: moved.next.id, revision: 0, reportedMinutes: 45, requestId: randomUUID() });
   expect(edited.reportedMinutes).toBe(45);
@@ -49,7 +49,7 @@ it("rejects stale edits and rolls the record and audit back together", async () 
   const { f, task, days } = await setup();
   const initial = days.add({ taskId: task.id, date: "2026-09-10", requestId: randomUUID() });
   const current = days.edit({ id: initial.id, revision: 0, reportedMinutes: 180, requestId: randomUUID() });
-  expect(() => days.edit({ id: initial.id, revision: 0, plannedMinutes: 10, requestId: randomUUID() })).toThrow(/изменилась/);
+  expect(() => days.edit({ id: initial.id, revision: 0, plannedMinutes: 10, requestId: randomUUID() })).toThrow(/changed/);
   f.repo.db.exec("CREATE TRIGGER fail_day_audit BEFORE INSERT ON day_item_events BEGIN SELECT RAISE(ABORT,'audit failed'); END");
   expect(() => days.edit({ id: current.id, revision: current.revision, plannedMinutes: 20, requestId: randomUUID() })).toThrow(/audit failed/);
   expect(days.get(current.id)).toEqual(current); expect(days.history(current.id).items).toHaveLength(2);
@@ -103,7 +103,7 @@ it("keeps identical meeting titles separate and sums a task over the Monday-base
 it("parses durations including fractional hours without accepting negative or malformed times", () => {
   expect(parseMinutes("3ч")).toBe(180); expect(parseMinutes("1,5ч")).toBe(90); expect(parseMinutes("1:20")).toBe(80);
   expect(parseMinutes("10м 30с")).toBe(10.5); expect(parseMinutes("")).toBeNull(); expect(parseMinutes("0")).toBe(0);
-  expect(formatMinutes(10.5)).toBe("10м 30с"); expect(() => parseMinutes("-10")).toThrow(); expect(() => parseMinutes("1:99")).toThrow();
+  expect(formatMinutes(10.5)).toBe("10m 30s"); expect(() => parseMinutes("-10")).toThrow(); expect(() => parseMinutes("1:99")).toThrow();
 });
 
 it("adds a reported delta exactly once and rejects reuse with a different amount", async () => {
@@ -121,7 +121,7 @@ it("reorders atomically, rejects stale membership and preserves reports when rem
   const second = days.add({ date: first.date, taskId: other.id, requestId: randomUUID() });
   const order = { date: first.date, ids: [second.id, first.id], revisions: { [first.id]: 0, [second.id]: 0 }, requestId: randomUUID() };
   expect(days.reorder(order).items.map(i => i.id)).toEqual(order.ids);
-  expect(() => days.reorder({ ...order, requestId: randomUUID() })).toThrow(/изменилась/);
+  expect(() => days.reorder({ ...order, requestId: randomUUID() })).toThrow(/changed/);
   expect(days.day(first.date).items.map(i => i.id)).toEqual(order.ids);
   const current = days.get(first.id);
   days.edit({ id: first.id, revision: current.revision, removed: true, requestId: randomUUID() });
@@ -136,10 +136,10 @@ it("confines worker time edits to its task and denies recording agents", async (
   await f.harness.behavior.callRpc("start", { ...f.startInput(task.id, task.revision), criteria: [] });
   const session = f.repo.sessions(task.id)[0], ctx = { threadId: session.workerThreadId! };
   const edit = (id: string) => ({ id, revision: 0, reportedMinutes: 180, requestId: randomUUID() });
-  await expect(f.harness.behavior.callAgentTool("c247_time_edit", edit(theirs.id), ctx)).rejects.toThrow(/только время её задачи/);
+  await expect(f.harness.behavior.callAgentTool("c247_time_edit", edit(theirs.id), ctx)).rejects.toThrow(/only for its own task/);
   await f.harness.behavior.callAgentTool("c247_time_edit", edit(mine.id), ctx);
   expect(days.get(mine.id).reportedMinutes).toBe(180); expect(days.get(theirs.id).reportedMinutes).toBeNull();
   await f.harness.behavior.callRpc("finish", { sessionId: session.id });
   const reviewerId = f.repo.session(session.id).reviewerThreadId!;
-  await expect(f.harness.behavior.callAgentTool("c247_day", { date: mine.date }, { threadId: reviewerId })).rejects.toThrow(/только время её задачи/);
+  await expect(f.harness.behavior.callAgentTool("c247_day", { date: mine.date }, { threadId: reviewerId })).rejects.toThrow(/only for its own task/);
 });

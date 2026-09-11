@@ -308,7 +308,7 @@ export class Kernel {
     const current = { ...dossier.projection, status: dossier.task.status, title: dossier.task.title, urgent: dossier.planning.urgent, important: dossier.planning.important };
     const changes: Record<string, unknown> = {}, additionalEvidence: ProposalEvidence[] = [];
     for (const field of Object.keys(applied.changes) as Array<keyof StewardChanges>) {
-      if (!(field in before) || !(field in after)) throw new PolicyError("В сохранённой операции нет прежнего значения поля задачи.");
+      if (!(field in before) || !(field in after)) throw new PolicyError("The saved operation does not contain the previous task field value.");
       if (JSON.stringify(current[field]) !== JSON.stringify(after[field])) throw new ConflictError(`${field} changed after this application; automatic reversal would overwrite newer work`);
       const values = Array.isArray(before[field]) ? before[field] as unknown[] : [before[field]];
       const evidenceRefs: string[] = [];

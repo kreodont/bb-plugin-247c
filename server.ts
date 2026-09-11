@@ -18,7 +18,7 @@ import { dayRpcContract } from "./day-contracts.js";
 import { scheduledSourceUpdate, UPDATE_CRON, UPDATE_SCHEDULE } from "./source-schedule.js";
 
 export { rpcContract } from "./contracts.js";
-export const DESCRIPTION = "Задачи с живым досье, рабочими разговорами и общей базой знаний.";
+export const DESCRIPTION = "Durable task dossiers, work conversations and a shared knowledge base.";
 
 function sleep(ms: number, signal: AbortSignal) {
   return new Promise<void>((resolve) => {
@@ -30,19 +30,19 @@ function sleep(ms: number, signal: AbortSignal) {
 }
 function boundedJson(value: unknown): string {
   const json = JSON.stringify(value, null, 2);
-  if (Buffer.byteLength(json) > 768 * 1024) throw new PolicyError("Досье слишком большое для одного ответа. Открой его в панели 247C.");
+  if (Buffer.byteLength(json) > 768 * 1024) throw new PolicyError("The dossier is too large for one response. Open it in the 247C panel.");
   return json;
 }
 
 export default async function plugin(bb: BbPluginApi) {
   const settings = bb.settings.define({
-    codexReviewer: { type: "string", label: "Модель проверки в Codex", default: "gpt-5.6-sol", experimental_schema: z.string().trim().min(1).max(200) },
-    claudeReviewer: { type: "string", label: "Модель проверки в личном Claude (сессии с критериями)", default: "claude-fable-5-1", experimental_schema: z.string().trim().min(1).max(200) },
-    maximumRepairs: { type: "number", label: "Попыток исправления после проверки", default: 2, experimental_schema: z.number().int().min(0).max(2) },
-    sessionMinutes: { type: "number", label: "Лимит разбора или проверки, минут (разговор без лимита)", default: 20, experimental_schema: z.number().int().min(1).max(60) },
-    sources: { type: "string", label: "Источники: JSON-профиль аккаунта, Slack, Jira и календаря", default: "{}", experimental_schema: z.string().max(32000).refine(value => { try { parseSourceConfig(value); return true; } catch { return false; } }, "Нужен корректный JSON-профиль источников.") },
-    calendarMeetings: { type: "boolean", label: "Встречи из рабочего Google Calendar при проверке обновлений", default: true },
-    hourlyUpdates: { type: "boolean", label: "Проверять обновления ежедневно каждый час, 08:00–20:00 (Афины)", default: false },
+    codexReviewer: { type: "string", label: "Codex verification model", default: "gpt-5.6-sol", experimental_schema: z.string().trim().min(1).max(200) },
+    claudeReviewer: { type: "string", label: "Personal Claude verification model (sessions with criteria)", default: "claude-fable-5-1", experimental_schema: z.string().trim().min(1).max(200) },
+    maximumRepairs: { type: "number", label: "Repair attempts after verification", default: 2, experimental_schema: z.number().int().min(0).max(2) },
+    sessionMinutes: { type: "number", label: "Review or verification timeout in minutes (conversations have no timeout)", default: 20, experimental_schema: z.number().int().min(1).max(60) },
+    sources: { type: "string", label: "Sources: JSON account, Slack, Jira and calendar profile", default: "{}", experimental_schema: z.string().max(32000).refine(value => { try { parseSourceConfig(value); return true; } catch { return false; } }, "A valid source profile JSON is required.") },
+    calendarMeetings: { type: "boolean", label: "Import work Google Calendar meetings when checking updates", default: true },
+    hourlyUpdates: { type: "boolean", label: "Check updates every hour, daily 08:00–20:00 (Athens)", default: false },
   });
   const db = bb.storage.database();
   db.pragma("foreign_keys = ON");
@@ -59,7 +59,7 @@ export default async function plugin(bb: BbPluginApi) {
   });
   const sync = new SourceSyncRuntime(bb, repo, async signal => { await calendar.start(undefined, signal); await calendar.settled(); }, sourceConfiguration);
   const inbox = new ProposalInbox(repo, sync.store, runtime);
-  if (days.calendarState().status === "running") days.saveCalendarState({ ...days.calendarState(), status: "error", message: "Проверка календаря прервалась. Запусти её ещё раз." });
+  if (days.calendarState().status === "running") days.saveCalendarState({ ...days.calendarState(), status: "error", message: "The calendar check was interrupted. Run it again." });
   days.tick();
 
   bb.rpc.register(rpcContract, {
@@ -106,12 +106,12 @@ export default async function plugin(bb: BbPluginApi) {
   });
 
   const independentCaller = (threadId?: string) => {
-    if (threadId && (repo.forThread(threadId) || sync.store.forThread(threadId))) throw new PolicyError("Рабочий агент может передавать результаты только своей сессии или проверки. Изменять задачи и утверждать предложения здесь нельзя.");
+    if (threadId && (repo.forThread(threadId) || sync.store.forThread(threadId))) throw new PolicyError("A worker may submit results only for its own session or source check. It cannot change tasks or approve proposals here.");
   };
   const timeCaller = (threadId: string, taskId?: string | null) => {
-    if (sync.store.forThread(threadId)) throw new PolicyError("Анализатор источников не меняет ручной учёт времени.");
+    if (sync.store.forThread(threadId)) throw new PolicyError("The source analyst cannot change manual time entries.");
     const session = repo.forThread(threadId);
-    if (session && (session.workerThreadId !== threadId || taskId && session.taskId !== taskId || taskId === null)) throw new PolicyError("Сессии доступно только время её задачи.");
+    if (session && (session.workerThreadId !== threadId || taskId && session.taskId !== taskId || taskId === null)) throw new PolicyError("A session can access time entries only for its own task.");
     return session;
   };
   const timeInstructions = "247C day planning keeps plannedMinutes and reportedMinutes independent for tasks. These tools record manual time only from an explicit user instruction, including its date and whether to SET a total or ADD minutes. Never infer hours from chat duration, task completion, a model's guess, or external content. Read c247_day first; use the returned full item ID and revision. A stable requestId prevents duplicate additions. Times are a separate journal; task fields and knowledge still go through approved proposals. Meetings are imported by the calendar script, with automatic reported=planned after the meeting; manual overrides always win. Never create a task just to represent an imported meeting.";
@@ -155,7 +155,7 @@ export default async function plugin(bb: BbPluginApi) {
         projectId: ctx.projectId, providerId: input.providerId, model: input.model, reasoningLevel: input.reasoningLevel,
         permissionMode: "accept-edits", executionInputSources: { providerId: "explicit", model: "explicit", reasoningLevel: "explicit", permissionMode: "explicit" },
         environment: caller.environmentId ? { type: "reuse", environmentId: caller.environmentId } : { type: "project-default" },
-        input: [{ type: "text", text: "Проверь обновления Gmail, Slack и Jira и подготовь предложения для задач 247C.", mentions: [] }],
+        input: [{ type: "text", text: "Check Gmail, Slack and Jira updates and prepare proposals for 247C tasks.", mentions: [] }],
       } }));
     },
   });
@@ -192,7 +192,7 @@ export default async function plugin(bb: BbPluginApi) {
     parameters: z.object({ taskId: idSchema }).strict(),
     execute({ taskId }, ctx) {
       const session = repo.forThread(ctx.threadId);
-      if (session && session.taskId !== taskId) throw new PolicyError("Сессии доступно только досье её задачи.");
+      if (session && session.taskId !== taskId) throw new PolicyError("A session can access only its own task dossier.");
       return boundedJson(repo.detail(taskId));
     },
   });
@@ -223,9 +223,9 @@ export default async function plugin(bb: BbPluginApi) {
     // Initial configuration can run before thread.created binds the ID.
     // Later turns use that binding, independent of the human-readable title.
     if (own && !session) {
-      const match = /^247C · (исполнитель|проверка \d+|разбор \d+) · ([a-f0-9-]{36})$/.exec(context.thread.title ?? "");
+      const match = /^247C · (worker|verification \d+|review \d+|исполнитель|проверка \d+|разбор \d+) · ([a-f0-9-]{36})$/.exec(context.thread.title ?? "");
       if (match) {
-        try { session = repo.session(match[2]); role = match[1] === "исполнитель" ? "worker" : "reviewer"; }
+        try { session = repo.session(match[2]); role = ["worker", "исполнитель"].includes(match[1]) ? "worker" : "reviewer"; }
         catch { /* Unrelated title. */ }
       }
     }
@@ -275,7 +275,19 @@ export default async function plugin(bb: BbPluginApi) {
   settings.onChange(changed);
   bb.onDispose(async () => { calendar.dispose(); sync.dispose(); await runtime.dispose(); });
 
-  const usage = `247C — постоянные задачи, разговоры и база знаний\n\n  bb 247c list [--history] [--json]\n  bb 247c show <task-id> [--json]\n  bb 247c knowledge [query] [--offset N] [--json]\n  bb 247c new <title> [--json]\n  bb 247c propose <task-id> <revision> '<draft-json>' [--json]\n  bb 247c sync [--json]\n  bb 247c sync-start '<request-json>' [--json]\n  bb 247c sync-supplement <run-id> '<suggestions-json-array>' --json\n\nУтверждение, архив, запуск и завершение сессий — в панели 247C.\n`;
+  const usage = `247C — durable tasks, conversations and knowledge
+
+  bb 247c list [--history] [--json]
+  bb 247c show <task-id> [--json]
+  bb 247c knowledge [query] [--offset N] [--json]
+  bb 247c new <title> [--json]
+  bb 247c propose <task-id> <revision> '<draft-json>' [--json]
+  bb 247c sync [--json]
+  bb 247c sync-start '<request-json>' [--json]
+  bb 247c sync-supplement <run-id> '<suggestions-json-array>' --json
+
+Use the 247C panel to approve, archive, start or finish sessions.
+`;
   bb.cli.register({
     name: "247c", summary: "Read 247C dossiers, record tasks, and submit pending proposals",
     commands: [
@@ -308,7 +320,7 @@ export default async function plugin(bb: BbPluginApi) {
           value = session ? { task: repo.kernel.getTask(session.taskId) } : repo.list(history);
         } else if (command === "show" && args.length === 1) {
           const session = ctx.threadId ? repo.forThread(ctx.threadId) : undefined;
-          if (session && session.taskId !== args[0]) throw new PolicyError("Сессии доступно только досье её задачи.");
+          if (session && session.taskId !== args[0]) throw new PolicyError("A session can access only its own task dossier.");
           value = repo.detail(args[0]);
           if (!json) return { exitCode: 0, stdout: repo.kernel.prepareBrief(args[0]).markdown };
         } else if (command === "knowledge") {

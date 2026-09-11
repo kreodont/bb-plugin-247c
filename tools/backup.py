@@ -259,7 +259,7 @@ def restore_to_new(path, destination):
         portable = root / "prepared-bb/plugins/247c/data.db"
         portable.parent.mkdir(parents=True)
         shutil.copyfile(root / "database/data.db", portable)
-        message = "Восстановлено из резервной копии. Выбери рабочую папку и начни новый разговор; прежняя история сохранена в архиве."
+        message = "Restored from backup. Choose a workspace and start a new conversation; previous history is preserved in the archive."
         recovered = 0
         with sqlite3.connect(portable) as db:
             for session_id, status, raw in db.execute("SELECT id,status,value_json FROM sessions").fetchall():

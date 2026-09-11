@@ -38,7 +38,7 @@ export function sourceExportPage(bundle: SourceExport, page: number) {
       }
       // Do not split a UTF-16 surrogate pair between pages.
       if (lo && /[\uD800-\uDBFF]/.test(doc.content[offset + lo - 1])) lo--;
-      if ((!lo && offset < doc.content.length) || size(envelope([{ ...doc, content: "", part: 999999, parts: 999999 }])) > SOURCE_PAGE_BYTES) throw new Error("Метаданные документа превышают размер страницы выгрузки.");
+      if ((!lo && offset < doc.content.length) || size(envelope([{ ...doc, content: "", part: 999999, parts: 999999 }])) > SOURCE_PAGE_BYTES) throw new Error("Document metadata exceeds the export page size.");
       chunks.push(doc.content.slice(offset, offset + lo)); offset += lo;
     } while (offset < doc.content.length);
     for (const [part, content] of chunks.entries()) {
@@ -47,7 +47,7 @@ export function sourceExportPage(bundle: SourceExport, page: number) {
       pages[pages.length - 1].push(value);
     }
   }
-  if (!Number.isInteger(page) || page < 0 || page >= pages.length) throw new Error("Страница выгрузки не найдена.");
+  if (!Number.isInteger(page) || page < 0 || page >= pages.length) throw new Error("Export page not found.");
   return { runId: bundle.runId, page, totalPages: pages.length, nextPage: page + 1 < pages.length ? page + 1 : null, documents: pages[page] };
 }
 const SOURCES: SyncSource[] = ["gmail", "slack", "jira"];
@@ -127,7 +127,7 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
     found.slack.forEach(s => pending.slack.set(`${s.channel}:${s.ts}`, s));
   };
   async function call(source: SyncSource, tool: string, args: Json, full = false): Promise<Json | null> {
-    if (signal.aborted || count >= (options.maxCalls ?? 600) || bytes > 28 * 1024 * 1024) { error(source, "Достигнут лимит выгрузки; непроверенный интервал сохранён."); return null; }
+    if (signal.aborted || count >= (options.maxCalls ?? 600) || bytes > 28 * 1024 * 1024) { error(source, "The export limit was reached; the unchecked interval is preserved."); return null; }
     const connection = connections[source];
     if ("error" in connection) { error(source, connection.error); return null; }
     count++;
@@ -138,7 +138,7 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
         try {
           result = await connection.call(tool, args, signal);
           const response = result as Json;
-          if ((response?.isError || response?.statusCode >= 400) && /429|502|503|504|currently unavailable|temporarily unavailable|rate.limit|timed?\s*out|timeout|-32001/i.test(JSON.stringify(response))) throw new Error("Источник временно недоступен (503/429/timeout).");
+          if ((response?.isError || response?.statusCode >= 400) && /429|502|503|504|currently unavailable|temporarily unavailable|rate.limit|timed?\s*out|timeout|-32001/i.test(JSON.stringify(response))) throw new Error("The source is temporarily unavailable (503/429/timeout).");
           break;
         }
         catch (cause) {
@@ -154,14 +154,14 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
       const truncated = size > 3 * 1024 * 1024 || bytes + size > 32 * 1024 * 1024;
       bytes += size;
       calls.push({ ref, source, tool: `${source}.${tool}`, args, output: truncated ? output.slice(0, 1000) : output, completed: completed && !truncated, truncated, read: full });
-      if (!completed || truncated) { error(source, `${tool}: ${truncated ? "слишком большой ответ" : !shapeOk ? "неизвестный формат полного треда/тикета" : sourceError(output).slice(0, 400)}`); return null; }
+      if (!completed || truncated) { error(source, `${tool}: ${truncated ? "response too large" : !shapeOk ? "unrecognized full thread/issue format" : sourceError(output).slice(0, 400)}`); return null; }
       if (full) { documents.push({ ref, source, tool, args, content: documentContent(source, data, Date.parse(run.until)) }); addLinks(output); }
-      progress(source, full ? "Читаем полные треды и связанные задачи" : "Загружаем список изменений");
+      progress(source, full ? "Reading full threads and linked issues" : "Loading the list of changes");
       return data;
     } catch (cause) {
-      const message = signal.aborted ? "Выгрузка остановлена по времени или отменена." : sourceError(cause);
+      const message = signal.aborted ? "The export timed out or was canceled." : sourceError(cause);
       calls.push({ ref, source, tool: `${source}.${tool}`, args, output: message, completed: false, truncated: false, read: full });
-      error(source, `${tool}: ${message}`); progress(source, "Часть данных недоступна"); return null;
+      error(source, `${tool}: ${message}`); progress(source, "Some data is unavailable"); return null;
     }
   }
   async function pages(source: SyncSource, tool: string, args: Json, take: (data: Json) => number, tokenName: string, limit: number, full = false): Promise<void> {
@@ -170,14 +170,14 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
       const data = await call(source, tool, args, full); if (!data) return;
       const n = take(data), state = pageState(data, n, limit);
       if (state.complete) return;
-      if (!state.token || tokens.has(state.token)) { error(source, `${tool}: нет подтверждённого конца пагинации.`); return; }
+      if (!state.token || tokens.has(state.token)) { error(source, `${tool}: the end of pagination was not confirmed.`); return; }
       tokens.add(state.token); args = { ...args, [tokenName]: state.token };
     }
-    error(source, `${tool}: превышен лимит страниц.`);
+    error(source, `${tool}: page limit exceeded.`);
   }
   async function gmailSearch(query: string) {
     await pages("gmail", "search_threads", { query, pageSize: 50, view: "THREAD_VIEW_MINIMAL" }, data => {
-      if (!Array.isArray(data.threads)) { if (Object.keys(data).some(k => k !== "resultCountEstimate")) error("gmail", "Неизвестный формат поиска Gmail."); return 0; }
+      if (!Array.isArray(data.threads)) { if (Object.keys(data).some(k => k !== "resultCountEstimate")) error("gmail", "Unrecognized Gmail search format."); return 0; }
       for (const t of data.threads) { if (typeof t.id === "string") pending.gmail.add(t.id); }
       scanned.gmail += data.threads.length; return data.threads.length;
     }, "pageToken", 50);
@@ -194,7 +194,7 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
     await pool([...pending.gmail].filter(id => !read.gmail.has(id)), async id => {
       read.gmail.add(id);
       const data = await call("gmail", "get_thread", { threadId: id, messageFormat: "PLAIN_TEXT" }, true);
-      if (data && !Array.isArray(data.messages)) error("gmail", `Не прочитаны сообщения треда ${id}.`);
+      if (data && !Array.isArray(data.messages)) error("gmail", `Could not read messages in thread ${id}.`);
     }, 4);
   }
   async function slack() {
@@ -203,7 +203,7 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
       await pages("slack", "slack_search_public_and_private", { query, after, before, limit: 20, include_context: false, include_bots: true, sort: "timestamp" }, data => {
         const text = String(data.results ?? data.text ?? ""); addLinks(text);
         const n = [...text.matchAll(/### Result \d+/g)].length; scanned.slack += n;
-        if ((!text && typeof data.results !== "string") || (!n && !/no (?:results|messages)|0 results|no matches|messages \(0/i.test(text) && text.trim())) error("slack", "Неизвестный формат поисковой выдачи Slack.");
+        if ((!text && typeof data.results !== "string") || (!n && !/no (?:results|messages)|0 results|no matches|messages \(0/i.test(text) && text.trim())) error("slack", "Unrecognized Slack search result format.");
         return n;
       }, "cursor", 20);
     });
@@ -221,7 +221,7 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
       read.slack.add(`${s.channel}:${s.ts}`);
       await pages("slack", "slack_read_thread", { channel_id: s.channel, message_ts: s.ts, limit: 1000, latest: String(Date.parse(run.until) / 1000) }, data => {
         const text = String(data.messages ?? "");
-        if (!text && !/no more|no thread/i.test(String(data.pagination_info ?? ""))) error("slack", `Не прочитан тред ${s.channel}:${s.ts}.`);
+        if (!text && !/no more|no thread/i.test(String(data.pagination_info ?? ""))) error("slack", `Could not read thread ${s.channel}:${s.ts}.`);
         return [...text.matchAll(/Message[_ ]TS:/gi)].length;
       }, "cursor", 1000, true);
     }, 4);
@@ -233,10 +233,10 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
     const since = new Date(sinceMs - 86400000).toISOString().slice(0, 10), until = new Date(untilMs + 2 * 86400000).toISOString().slice(0, 10);
     const jql = `updated >= "${since}" AND updated <= "${until}" AND (${config.jiraScope}) ORDER BY updated DESC`;
     await pages("jira", "searchJiraIssuesUsingJql", { cloudId: config.jiraSite, jql, maxResults: 100, fields: ["summary", "status", "updated"], responseContentFormat: "markdown" }, data => {
-      if (!Array.isArray(data.issues)) { error("jira", "Неизвестный формат поиска Jira."); return 0; }
+      if (!Array.isArray(data.issues)) { error("jira", "Unrecognized Jira search format."); return 0; }
       for (const issue of data.issues) {
         const at = Date.parse(issue.fields?.updated);
-        if (!Number.isFinite(at)) error("jira", `Нет времени обновления ${issue.key}.`);
+        if (!Number.isFinite(at)) error("jira", `Missing update time for ${issue.key}.`);
         if (Number.isFinite(at) && at >= sinceMs && at <= untilMs && typeof issue.key === "string") pending.jira.add(issue.key);
       }
       scanned.jira += data.issues.length; return data.issues.length;
@@ -248,9 +248,9 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
       read.jira.add(id);
       const data = await call("jira", "getJiraIssue", { cloudId: config.jiraSite, issueIdOrKey: id, fields: ["summary", "status", "updated", "assignee", "priority", "description", "comment"], responseContentFormat: "markdown", updateHistory: false }, true);
       if (!data) return;
-      if (!data.fields || !data.key) { error("jira", `Не прочитан тикет ${id}.`); return; }
+      if (!data.fields || !data.key) { error("jira", `Could not read issue ${id}.`); return; }
       const c = data.fields.comment, comments = data.comments ?? c?.comments;
-      if (!Array.isArray(comments) || c?.total > comments.length || c?.startAt > 0 || comments.length >= 100) error("jira", `${id}: коннектор не подтвердил полноту комментариев.`);
+      if (!Array.isArray(comments) || c?.total > comments.length || c?.startAt > 0 || comments.length >= 100) error("jira", `${id}: the connector did not confirm that all comments were included.`);
     });
   }
   try {
@@ -264,7 +264,7 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
       await Promise.all([readGmail(), readSlack(), readJira()]);
       if (before === read.gmail.size + read.slack.size + read.jira.size || signal.aborted) break;
     }
-    for (const source of SOURCES) if (pending[source].size > read[source].size) error(source, "Не дочитаны все связанные источники.");
+    for (const source of SOURCES) if (pending[source].size > read[source].size) error(source, "Not all linked sources were fully read.");
   } catch (cause) {
     for (const source of SOURCES) error(source, sourceError(cause));
   } finally {
@@ -274,7 +274,7 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
     const receipts = calls.filter(c => c.source === source), good = receipts.filter(c => c.completed);
     const issues = problems[source];
     return { source, status: (!good.length ? "unavailable" : issues.length ? "partial" : "complete") as SyncSubmit["reports"][number]["status"],
-      detail: issues.length ? issues.join("\n").slice(0, 3800) : `Загружено скриптом: ${good.filter(c => c.read).length} полных тредов/тикетов.`,
+      detail: issues.length ? issues.join("\n").slice(0, 3800) : `Loaded by script: ${good.filter(c => c.read).length} full threads/issues.`,
       callRefs: receipts.map(c => c.ref), paginationComplete: !issues.length, linkedTasksChecked: !issues.length,
       scanned: scanned[source], threadsRead: good.filter(c => c.read).length,
     };

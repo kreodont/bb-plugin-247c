@@ -1,22 +1,21 @@
 # 247C
 
-Постоянные задачи, рабочие разговоры и общая база знаний в BB.
+Durable tasks, work conversations and a shared knowledge base in BB.
 
-Начни разговор во вкладке «Работа», без условий готовности. По кнопке «Завершить сессию» во вкладке «Работа» или в заголовке рабочего треда отдельная сессия прочитает весь диалог и подготовит изменения досье и знания с цитатами. После Claude (Sonnet, Opus или Fable) автоматически выбирается Codex Sol, после Codex — личный Sonnet. Spark, Luna, Haiku и модели вне явного списка исключены из разбора. Просмотри записи в «Предложениях» и прими одним действием. Принятые знания доступны в следующих разговорах и через поиск на странице «База знаний».
+Start a conversation in **Work**, without acceptance criteria. **Finish session**, in the Work tab or thread header, starts a separate session that reads the full dialogue and proposes dossier and knowledge updates with quotes. Codex Sol is automatically selected after Claude (Sonnet, Opus or Fable), and personal Sonnet after Codex. Spark, Luna, Haiku and models outside the explicit allowlist are excluded from review. Inspect the records in **Proposals** and accept them together. Accepted knowledge is available to future conversations and through search in **Knowledge base**.
 
-Важность и срочность выделены цветами. Сохраняются история задач, ревизии, источники и решения пользователя. Открытые разговоры переживают перезагрузку; неудачный разбор можно повторить по сохранённой переписке.
+Color distinguishes importance and urgency. Task history, revisions, sources and user decisions are retained. Open conversations survive reloads; failed reviews can be retried from the saved transcript.
 
-Когда выполнена вся задача, разбор предлагает завершить её вместе с обновлением досье. Статус и основания видны перед нажатием «Принять и завершить задачу». Ошибочное завершение можно отменить отдельным предложением из истории.
+When the entire task is complete, the review proposes completing it together with the dossier update. Status and evidence are visible before **Accept and complete task**. An incorrect completion can be reversed through a separate proposal in history.
 
-При закрытии задачи все связанные рабочие чаты и чаты разбора автоматически архивируются в Threads. Переписка остаётся доступной из истории задачи.
+Closing a task automatically archives its finished work and review chats in Threads. Conversations remain accessible from task history.
 
-Поддерживаются Codex, личный Claude и корпоративный Claude. Прежние сессии с условиями готовности остаются совместимыми.
+Supports Codex, personal Claude and corporate Claude. Legacy sessions with acceptance criteria remain compatible.
 
-База знаний также принимает существующие Markdown-справочники: полный текст, поиск, ссылки на исходные файлы и обновление повторным импортом без дубликатов.
+The knowledge base also accepts existing Markdown reference documents: full text, search, source-file links and updates by reimport without duplicates.
 
-Разбор умеет предлагать название, статус, срочность и важность наряду с полями досье. Каждое изменение показывается отдельно с основаниями и применяется только после принятия. «Обсудить разбор» открывает связанный разговор с прежней перепиской и предложением; поздние уточнения учитываются в новом разборе.
+Reviews can propose title, status, urgency and importance alongside other dossier fields. Each change is displayed separately with its evidence and requires acceptance. **Discuss review** starts a linked conversation with the earlier transcript and proposal; a new review includes later corrections.
 
+**Work source updates** check Gmail, Slack and Jira from a saved or selected date. Since 0.2.16, a script exports data in parallel through configured connectors without running a model. The model selected in BB's native composer then analyzes the prepared export; its account does not need source access. Quotes are checked against saved script responses in the plugin database; legacy runs retain validation through `threads.events.list`. Partial exports do not advance source checkpoints. Task updates and new tasks await the user's decision. [Instructions](https://github.com/kreodont/bb-plugin-247c/blob/main/skills/source-sync.md).
 
-**Обновления из рабочих источников** проверяют Gmail, Slack и Jira с сохранённой или выбранной даты. С версии 0.2.16 скрипт выгружает данные параллельно через корпоративные коннекторы без запуска модели. Затем выбранная в native composer модель анализирует готовый пакет; её аккаунту не нужен доступ к источникам. Цитаты сверяются с ответами скрипта в базе плагина, а старые прогоны сохраняют проверку по `threads.events.list`. Частичная выгрузка не сдвигает границу источника; изменения задач и новые карточки ждут решения пользователя. [Инструкция](https://github.com/kreodont/bb-plugin-247c/blob/main/skills/source-sync.md).
-
-На каждом компьютере хранится отдельная база. Аккаунты и источники задаются локально. Утилита резервного копирования сохраняет согласованный снимок SQLite, код, настройки и текстовую историю связанных чатов; восстановление проверяет контрольные суммы и создаёт новую папку. Для утилиты нужен Python 3.11 или новее.
+Each computer has a separate database. Accounts and sources are configured locally. The backup utility captures a consistent SQLite snapshot, code, settings and related chat text. Recovery verifies checksums and writes a new directory. Requires Python 3.11 or newer.

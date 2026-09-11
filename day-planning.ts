@@ -16,12 +16,12 @@ export class DayPlanning {
   today() { return localDay(this.clock()); }
   get(id: string): DayItem {
     const row = this.repo.db.prepare("SELECT value_json FROM day_items WHERE id=?").get(id) as JsonRow | undefined;
-    if (!row) throw new PolicyError("Запись дня не найдена. Обнови план.");
+    if (!row) throw new PolicyError("Day entry not found. Refresh the plan.");
     return dayItemSchema.parse(JSON.parse(row.value_json));
   }
   private rows(sql: string, ...args: string[]) {
     const rows = this.repo.db.prepare(`SELECT value_json FROM day_items ${sql}`).all(...args) as JsonRow[];
-    if (rows.length > 5000) throw new PolicyError("Слишком много записей для одного ответа. Выбери меньший период или отдельную задачу.");
+    if (rows.length > 5000) throw new PolicyError("Too many entries for one response. Choose a shorter period or a single task.");
     return rows.map(row => dayItemSchema.parse(JSON.parse(row.value_json)));
   }
   private write(raw: DayItem, before: DayItem | null, actor: string, action: string): DayItem {
@@ -34,12 +34,12 @@ export class DayPlanning {
   }
   private current(id: string, revision: number) {
     const item = this.get(id);
-    if (item.revision !== revision) throw new ConflictError("Запись времени изменилась в другом окне. Обнови её и повтори правку.");
+    if (item.revision !== revision) throw new ConflictError("The time entry changed in another window. Refresh it and retry your edit.");
     return item;
   }
   private blank(date: string, taskId: string | null, title: string): DayItem {
     const count = this.repo.db.prepare("SELECT count(*) AS n FROM day_items WHERE date=?").get(date) as { n: number };
-    if (count.n >= 1000) throw new PolicyError("В одном дне уже 1000 записей.");
+    if (count.n >= 1000) throw new PolicyError("This day already has 1,000 entries.");
     return { id: randomUUID(), date, reportedDate: date, kind: taskId ? "task" : "meeting", taskId, title, step: "", ordinal: count.n,
       revision: 0, plannedMinutes: null, reportedMinutes: null, plannedMode: "manual", reportedMode: "manual", state: "open", removed: false,
       carriedTo: null, calendar: null, createdAt: this.now(), updatedAt: this.now() };
@@ -56,7 +56,7 @@ export class DayPlanning {
       if (previous) {
         // An already displayed row must be edited with its revision. Do not let
         // a second browser or agent overwrite reported time through Add.
-        throw new ConflictError("Задача уже есть в этом дне. Измени существующую запись.");
+        throw new ConflictError("The task is already on this day. Edit the existing entry.");
       }
       const item = this.blank(input.date, task.id, task.title);
       item.step = input.step ?? this.repo.kernel.getDossier(task.id).projection.nextStep ?? "";
@@ -90,7 +90,7 @@ export class DayPlanning {
       }
       if (input.step !== undefined) item.step = input.step;
       if (input.reportedDate !== undefined) {
-        if (item.kind === "task" && input.reportedDate !== item.date) throw new PolicyError("Время задачи относится к дате её записи. Добавь запись нужного дня.");
+        if (item.kind === "task" && input.reportedDate !== item.date) throw new PolicyError("Task time belongs to the entry's date. Add an entry for the required day.");
         item.reportedDate = input.reportedDate; item.reportedMode = "manual";
       }
       if (input.state !== undefined) { item.state = input.state; item.carriedTo = null; }
@@ -99,7 +99,7 @@ export class DayPlanning {
         if (item.removed && item.reportedMinutes !== null) item.reportedMode = "manual";
       }
       if (input.restoreAuto) {
-        if (!item.calendar) throw new PolicyError("Автоматическое время доступно только для встреч из календаря.");
+        if (!item.calendar) throw new PolicyError("Automatic time is available only for calendar meetings.");
         if (input.restoreAuto !== "reported") item.plannedMode = "calendar";
         if (input.restoreAuto !== "planned") item.reportedMode = "calendar";
       }
@@ -111,10 +111,10 @@ export class DayPlanning {
     const input = dayRpcContract.dayCarry.input.parse(raw);
     const result = this.repo.request(input.requestId, { kind: "day.carry", input, actor }, () => {
       const before = this.current(input.id, input.revision);
-      if (!before.taskId || before.calendar) throw new PolicyError("Встречу нужно переносить в календаре.");
-      if (input.date === before.date) throw new PolicyError("Выбери другую дату для продолжения.");
-      if (before.removed) throw new PolicyError("Сначала верни запись в план.");
-      if (this.taskItem(before.taskId, input.date)) throw new ConflictError("Эта задача уже есть в выбранном дне. Её время не изменено.");
+      if (!before.taskId || before.calendar) throw new PolicyError("Reschedule the meeting in the calendar.");
+      if (input.date === before.date) throw new PolicyError("Choose another date to continue.");
+      if (before.removed) throw new PolicyError("Restore the entry to the plan first.");
+      if (this.taskItem(before.taskId, input.date)) throw new ConflictError("This task is already on the selected day. Its time is unchanged.");
       const task = this.repo.kernel.getTask(before.taskId);
       const next = { ...this.blank(input.date, task.id, task.title), step: before.step };
       const original = this.write({ ...before, state: "carried", carriedTo: input.date }, before, actor, "carried");
@@ -125,9 +125,9 @@ export class DayPlanning {
   reorder(raw: z.infer<typeof dayRpcContract.dayReorder.input>, actor = "human:panel") {
     const input = dayRpcContract.dayReorder.input.parse(raw);
     this.repo.request(input.requestId, { kind: "day.reorder", input, actor }, () => {
-      if (new Set(input.ids).size !== input.ids.length) throw new PolicyError("Запись повторяется в порядке дня.");
+      if (new Set(input.ids).size !== input.ids.length) throw new PolicyError("The day order contains a duplicate entry.");
       const current = this.rows("WHERE date=?", input.date).filter(item => item.kind === "task" && !item.removed);
-      if (current.length !== input.ids.length || current.some(item => !input.ids.includes(item.id))) throw new ConflictError("Состав дня изменился. Обнови план и повтори перемещение.");
+      if (current.length !== input.ids.length || current.some(item => !input.ids.includes(item.id))) throw new ConflictError("The day's entries changed. Refresh the plan and retry the move.");
       const items = input.ids.map(id => this.current(id, input.revisions[id]));
       items.forEach((item, ordinal) => { if (item.ordinal !== ordinal) this.write({ ...item, ordinal }, item, actor, "reordered"); });
       return { ok: true };
@@ -142,7 +142,7 @@ export class DayPlanning {
     const input = dayRpcContract.dayConfig.input.parse(raw);
     const result = this.repo.request(input.requestId, { kind: "day.config", input, actor }, () => {
       const before = this.config(input.date);
-      if (before.revision !== input.revision) throw new ConflictError("Параметры дня изменились. Обнови план.");
+      if (before.revision !== input.revision) throw new ConflictError("Day settings changed. Refresh the plan.");
       const next = dayConfigSchema.parse({ ...input, revision: before.revision + 1 });
       this.repo.db.prepare("INSERT INTO day_configs VALUES (?,?) ON CONFLICT(date) DO UPDATE SET value_json=excluded.value_json").run(input.date, JSON.stringify(next));
       this.repo.db.prepare("INSERT INTO day_config_events(date,at,actor,before_json,after_json) VALUES (?,?,?,?,?)").run(input.date, this.now(), actor, JSON.stringify(before), JSON.stringify(next));
@@ -210,7 +210,7 @@ export class DayPlanning {
   }
   mergeCalendar(raw: CalendarEvent[], actor = "calendar:google") {
     const events = z.array(calendarEventSchema).max(3000).parse(raw);
-    if (new Set(events.map(e => e.key)).size !== events.length) throw new PolicyError("Календарь вернул повторяющиеся события.");
+    if (new Set(events.map(e => e.key)).size !== events.length) throw new PolicyError("The calendar returned duplicate events.");
     const result = this.repo.store.transaction(() => {
       let changed = 0;
       for (const event of events) {

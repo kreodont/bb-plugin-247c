@@ -49,17 +49,17 @@ it("reports a stale proposal while accepting the other selected item without cha
   const result = rpcContract.acceptInbox.output.parse(await f.harness.behavior.callRpc("acceptInbox", { items }));
   expect(result.applied).toHaveLength(1); expect(result.failed).toMatchObject([{ id: proposal.id }]);
   expect(f.repo.kernel.getDossier(task.id)).toEqual(before);
-  expect((await inbox(f)).items[0].blockedReason).toContain("Досье изменилось");
+  expect((await inbox(f)).items[0].blockedReason).toContain("The dossier changed");
 });
 
 it("rejects selecting multiple proposals for one task before applying any and preserves exact revision checks", async () => {
   const f = await setup(); const task = await f.create(); propose(f, task.id); propose(f, task.id);
   const page = await inbox(f);
-  await expect(f.harness.behavior.callRpc("acceptInbox", { items: page.items.map(selection) })).rejects.toThrow(/несколько предложений/);
+  await expect(f.harness.behavior.callRpc("acceptInbox", { items: page.items.map(selection) })).rejects.toThrow(/Multiple proposals/);
   expect(f.repo.pendingTotal()).toBe(2);
   const item = selection(page.items[0]); item.revision = 999;
   const result = rpcContract.acceptInbox.output.parse(await f.harness.behavior.callRpc("acceptInbox", { items: [item] }));
-  expect(result.applied).toHaveLength(0); expect(result.failed[0].message).toContain("Предложение изменилось");
+  expect(result.applied).toHaveLength(0); expect(result.failed[0].message).toContain("The proposal changed");
 });
 
 it("keeps file integrity checks on bulk acceptance of session results", async () => {

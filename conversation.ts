@@ -8,11 +8,11 @@ import { digest } from "./repository.js";
 const normalize = (text: string) => text.trim().replace(/\s+/g, " ").toLocaleLowerCase();
 // Formatting differences around an explicitly labelled next step do not change
 // its words. Never strip arbitrary prefixes, especially negation.
-const instructionWords = (text: string) => normalize(text).replace(/^следующий шаг\s*[:—-]\s*/u, "").replace(/[.!?…]+$/u, "");
+const instructionWords = (text: string) => normalize(text).replace(/^(?:next step|следующий шаг)\s*[:—-]\s*/u, "").replace(/[.!?…]+$/u, "");
 type TimelineRow = Awaited<ReturnType<BbPluginApi["sdk"]["threads"]["timeline"]>>["rows"][number];
 
 export async function readConversation(bb: BbPluginApi, session: Session): Promise<Transcript> {
-  if (!session.workerThreadId) throw new PolicyError("Чат сессии ещё не создан.");
+  if (!session.workerThreadId) throw new PolicyError("The session chat has not been created yet.");
   const messages = new Map<string, Transcript["messages"][number]>();
   const warnings = new Set<string>();
   let bytes = 0;
@@ -21,18 +21,18 @@ export async function readConversation(bb: BbPluginApi, session: Session): Promi
     const ref = `message:${row.sourceSeqStart}:${digest(row.id).slice(0, 12)}${suffix}`;
     if (messages.has(ref)) return;
     bytes += Buffer.byteLength(text);
-    if (bytes > 512 * 1024 || messages.size >= 4000) throw new PolicyError("Разговор превышает объём одного разбора (512 КБ). Переписка сохранена в чате; автоматический разбор не обрезает её.");
+    if (bytes > 512 * 1024 || messages.size >= 4000) throw new PolicyError("The conversation exceeds the review limit of 512 KiB. The transcript is preserved in the chat; automatic review does not truncate it.");
     messages.set(ref, { ref, role, text, sequence: row.sourceSeqStart });
   }
   function visit(row: TimelineRow) {
     if (row.kind === "turn") {
-      if (row.children === null && row.summaryCount > 0) throw new PolicyError("BB вернул свёрнутую часть разговора без сообщений. Повтори разбор после обновления BB.");
+      if (row.children === null && row.summaryCount > 0) throw new PolicyError("BB returned a collapsed conversation segment without messages. Update BB and retry the review.");
       row.children?.forEach(visit);
     } else if (row.kind === "conversation") {
       if (row.role === "user" && row.turnRequest.status !== "accepted") return;
       const role = row.role === "assistant" ? "assistant" : row.initiator === "user" ? "user" : "context";
       add(row, role, row.text);
-      if (row.attachments && (row.attachments.localFiles || row.attachments.localImages || row.attachments.webImages)) warnings.add("Разбор использует текст переписки. Содержимое вложений отдельно не проверялось.");
+      if (row.attachments && (row.attachments.localFiles || row.attachments.localImages || row.attachments.webImages)) warnings.add("The review uses the conversation text. Attachment contents were not independently verified.");
     } else if (row.kind === "work" && row.workKind === "question") {
       row.questions.forEach((question, index) => {
         add(row, "assistant", question.prompt, `:q${index}`);
@@ -48,14 +48,14 @@ export async function readConversation(bb: BbPluginApi, session: Session): Promi
     page.rows.forEach(visit);
     if (!page.timelinePage.hasOlderRows) {
       const ordered = [...messages.values()].sort((a, b) => a.sequence - b.sequence);
-      if (!ordered.length) throw new PolicyError("BB не вернул сообщения разговора. Переписка не заменяется последним ответом; попробуй повторить разбор.");
+      if (!ordered.length) throw new PolicyError("BB did not return the conversation messages. The transcript is not replaced by the last response; try the review again.");
       return { threadId: session.workerThreadId, capturedAt: new Date().toISOString(), messages: ordered, warnings: [...warnings] };
     }
     cursor = page.timelinePage.olderCursor;
-    if (!cursor || seenCursors.has(JSON.stringify(cursor))) throw new PolicyError("Не удалось прочитать все страницы разговора. Повтори разбор.");
+    if (!cursor || seenCursors.has(JSON.stringify(cursor))) throw new PolicyError("Could not read every conversation page. Retry the review.");
     seenCursors.add(JSON.stringify(cursor));
   }
-  throw new PolicyError("Слишком много страниц разговора для одного разбора. Переписка сохранена целиком в BB.");
+  throw new PolicyError("Too many conversation pages for one review. The full transcript is preserved in BB.");
 }
 
 export function acceptedEvidence(dossier: Pick<Dossier, "projection" | "task">): ProposalEvidence[] {
@@ -77,10 +77,10 @@ export function validateExtraction(value: unknown, transcript: Transcript): Extr
   for (const fact of extraction.facts) {
     for (const citation of fact.citations) {
       const source = messages.get(citation.messageRef);
-      if (!source || !source.text.includes(citation.quote)) throw new PolicyError("В разборе есть цитата, которой нет в сохранённом разговоре.");
-      if (["explicit_next_step", "user_instruction"].includes(fact.kind) && source.role !== "user") throw new PolicyError("Следующий шаг должен исходить от тебя, а не из предложения ассистента.");
+      if (!source || !source.text.includes(citation.quote)) throw new PolicyError("The review contains a quote missing from the saved conversation.");
+      if (["explicit_next_step", "user_instruction"].includes(fact.kind) && source.role !== "user") throw new PolicyError("The next step must come from you, not an assistant suggestion.");
     }
-    if (["explicit_next_step", "user_instruction"].includes(fact.kind) && !fact.citations.some((c) => instructionWords(c.quote) === instructionWords(fact.text))) throw new PolicyError("Поручение должно сохранять слова пользователя без изменения смысла.");
+    if (["explicit_next_step", "user_instruction"].includes(fact.kind) && !fact.citations.some((c) => instructionWords(c.quote) === instructionWords(fact.text))) throw new PolicyError("An instruction must preserve the user's words without changing their meaning.");
     // Draft observations may paraphrase or add essential speaker/uncertainty
     // attribution. Lexical overlap is not a factuality check. Quotes are checked
     // against the frozen source; the user reviews meaning before acceptance.
@@ -90,7 +90,7 @@ export function validateExtraction(value: unknown, transcript: Transcript): Extr
     const status = extraction.changes.status;
     const completionFacts = status.evidenceRefs.map((ref) => factRefs.has(ref) ? extraction.facts[Number(ref.slice(5))] : undefined);
     if (!completionFacts.some((fact) => fact && (status.value === "done" ? ["progress", "decision", "user_instruction"] : ["decision", "user_instruction"]).includes(fact.kind) && fact.citations.some((citation) => status.value === "done" ? ["user", "assistant"].includes(messages.get(citation.messageRef)?.role ?? "") : messages.get(citation.messageRef)?.role === "user"))) {
-      throw new PolicyError(status.value === "done" ? "Предложение завершить задачу должно ссылаться на результат или решение в этом разговоре." : "Архивирование или возврат задачи в работу должны ссылаться на решение пользователя в разговоре.");
+      throw new PolicyError(status.value === "done" ? "A proposal to complete the task must cite a result or decision in this conversation." : "Archiving or reopening a task must cite a user decision in the conversation.");
     }
   }
   for (const field of ["title", "urgent", "important"] as const) {
@@ -98,10 +98,10 @@ export function validateExtraction(value: unknown, transcript: Transcript): Extr
     if (change && !change.evidenceRefs.some((ref) => {
       const fact = factRefs.has(ref) ? extraction.facts[Number(ref.slice(5))] : undefined;
       return fact && ["decision", "user_instruction"].includes(fact.kind) && fact.citations.some((c) => messages.get(c.messageRef)?.role === "user");
-    })) throw new PolicyError(`${field}: изменение должно ссылаться на решение пользователя в разговоре.`);
+    })) throw new PolicyError(`${field}: the change must cite a user decision in the conversation.`);
   }
   for (const entry of extraction.knowledge) {
-    if (entry.evidenceRefs.some((ref) => !factRefs.has(ref))) throw new PolicyError("Запись базы знаний ссылается на отсутствующий факт разговора.");
+    if (entry.evidenceRefs.some((ref) => !factRefs.has(ref))) throw new PolicyError("The knowledge entry references a missing conversation fact.");
   }
   return extraction;
 }
@@ -132,6 +132,6 @@ export function continueTranscript(previous: Transcript, current: Transcript): T
     return { ...message, ref: `prior:${digest(source).slice(0, 32)}`, sequence, source };
   });
   const messages = [...earlier, ...current.messages.map((message, i) => ({ ...message, sequence: earlier.length + i, source: message.source ?? { threadId: current.threadId, messageRef: message.ref } }))];
-  if (messages.length > 4000 || messages.reduce((n, m) => n + Buffer.byteLength(m.text), 0) > 512 * 1024) throw new PolicyError("Разговор вместе с предыдущей сессией превышает объём одного разбора (512 КБ). Исходная переписка сохранена.");
+  if (messages.length > 4000 || messages.reduce((n, m) => n + Buffer.byteLength(m.text), 0) > 512 * 1024) throw new PolicyError("The conversation and previous session together exceed the review limit of 512 KiB. The original transcript is preserved.");
   return { ...current, messages, warnings: [...new Set([...previous.warnings, ...current.warnings])] };
 }

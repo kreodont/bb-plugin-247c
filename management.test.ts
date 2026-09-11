@@ -76,7 +76,7 @@ describe("Task management proposals", () => {
     const pending = await review(f, session);
     f.repo.classify({ taskId: task.id, revision: 1, urgent: false, important: true });
     const manual = canonical(f, task.id);
-    await expect(f.harness.behavior.callRpc("accept", { proposalId: pending.proposalId, revision: manual.task.revision })).rejects.toThrow(/старой версии/);
+    await expect(f.harness.behavior.callRpc("accept", { proposalId: pending.proposalId, revision: manual.task.revision })).rejects.toThrow(/old dossier revision/);
     expect(canonical(f, task.id)).toEqual(manual);
     const retry = sessionSchema.parse(await f.harness.behavior.callRpc("retry", { sessionId: session.id }));
     const transcript = f.repo.transcript(session.id)!;
@@ -104,10 +104,10 @@ describe("Task management proposals", () => {
 
   it.each(["assistant", "context"] as const)("does not treat %s metadata suggestions as user decisions", (role) => {
     const transcript: Transcript = { threadId: "thread", capturedAt: "2026-09-10", warnings: [], messages: [{ ref: "message:1", role, sequence: 1, text: "Снизить срочность." }] };
-    const draft: Extraction = { rationale: "Приоритет", facts: [{ kind: "decision", text: "Снизить срочность.", citations: [{ messageRef: "message:1", quote: "Снизить срочность." }] }], changes: { urgent: { value: false, evidenceRefs: ["fact:0"] } }, knowledge: [] };
-    expect(() => validateExtraction(draft, transcript)).toThrow(/решение пользователя/);
+    const draft: Extraction = { rationale: "Priority", facts: [{ kind: "decision", text: "Снизить срочность.", citations: [{ messageRef: "message:1", quote: "Снизить срочность." }] }], changes: { urgent: { value: false, evidenceRefs: ["fact:0"] } }, knowledge: [] };
+    expect(() => validateExtraction(draft, transcript)).toThrow(/user decision/);
     draft.changes = { title: { value: "Новое имя", evidenceRefs: ["fact:0"] } };
-    expect(() => validateExtraction(draft, transcript)).toThrow(/решение пользователя/);
+    expect(() => validateExtraction(draft, transcript)).toThrow(/user decision/);
     draft.changes = { status: { value: "archived", evidenceRefs: ["fact:0"] } };
     expect(() => validateExtraction(draft, transcript)).toThrow();
   });
@@ -120,7 +120,7 @@ describe("Discussing a finished review", () => {
     const frozen = f.repo.transcript(session.id)!;
     const before = canonical(f, task.id);
     const input = { ...f.startInput(task.id, task.revision), criteria: [], continueSessionId: session.id };
-    input.request.input[0].text = "Хочу обсудить разбор. Срочность снизь, важность оставь высокой.";
+    input.request.input[0].text = "Хочу discuss the review. Срочность снизь, важность оставь высокой.";
     const discussion = sessionSchema.parse(await f.harness.behavior.callRpc("start", input));
     const spawnCount = f.harness.inspection.sdk.callsTo("threads.spawn").length;
     expect(await f.harness.behavior.callRpc("start", input)).toMatchObject({ id: discussion.id });
@@ -130,13 +130,13 @@ describe("Discussing a finished review", () => {
     expect(packet).toContain(decision);
     expect(packet).toContain(old.proposalId!);
     expect(f.repo.kernel.getProposal(old.proposalId!).status).toBe("pending");
-    await expect(f.harness.behavior.callRpc("accept", { proposalId: old.proposalId, revision: task.revision })).rejects.toThrow(/обсуждение/);
+    await expect(f.harness.behavior.callRpc("accept", { proposalId: old.proposalId, revision: task.revision })).rejects.toThrow(/discussing/);
     await f.reload();
     expect(f.repo.session(discussion.id).status).toBe("working");
     const replacement = await review(f, discussion, (transcript) => ({ rationale: "Срочность снять, важность оставить по уточнению пользователя.", facts: [fact(transcript, decision), fact(transcript, input.request.input[0].text)], changes: { urgent: { value: false, evidenceRefs: ["fact:0", "fact:1"] } }, knowledge: [] }));
     expect(replacement.status).toBe("awaiting_approval");
     expect(f.repo.kernel.getProposal(old.proposalId!).status).toBe("rejected");
-    await expect(f.harness.behavior.callRpc("retry", { sessionId: session.id })).rejects.toThrow(/уточнён/);
+    await expect(f.harness.behavior.callRpc("retry", { sessionId: session.id })).rejects.toThrow(/revised/);
     expect(canonical(f, task.id)).toEqual(before);
     expect(f.repo.transcript(session.id)).toEqual(frozen);
     const evidence = f.repo.kernel.proposalEvidence(replacement.proposalId!);
@@ -171,11 +171,11 @@ describe("Discussing a finished review", () => {
   it("rejects cross-task and unfinished discussion sources before any spawn", async () => {
     const { f, task, session } = await setup();
     const request = { ...f.startInput(task.id, task.revision), criteria: [], continueSessionId: session.id };
-    await expect(f.harness.behavior.callRpc("start", request)).rejects.toThrow(/завершённый/);
+    await expect(f.harness.behavior.callRpc("start", request)).rejects.toThrow(/finished conversation/);
     await review(f, session);
     const other = await f.create();
     const count = f.harness.inspection.sdk.callsTo("threads.spawn").length;
-    await expect(f.harness.behavior.callRpc("start", { ...request, taskId: other.id, revision: other.revision })).rejects.toThrow(/этой же задачи/);
+    await expect(f.harness.behavior.callRpc("start", { ...request, taskId: other.id, revision: other.revision })).rejects.toThrow(/belonging to this task/);
     expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(count);
   });
 
@@ -209,6 +209,6 @@ describe("Discussing a finished review", () => {
     expect(combined.messages.map((m) => m.text)).toEqual(["A", "B", "C"]);
     expect(new Set(combined.messages.map((m) => m.ref)).size).toBe(3);
     expect(combined.messages.map((m) => m.source?.threadId)).toEqual(["first", "second", "third"]);
-    expect(() => continueTranscript(transcript("large", "x".repeat(512 * 1024)), second)).toThrow(/512 КБ/);
+    expect(() => continueTranscript(transcript("large", "x".repeat(512 * 1024)), second)).toThrow(/512 KiB/);
   });
 });

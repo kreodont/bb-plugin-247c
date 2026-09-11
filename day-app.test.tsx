@@ -25,63 +25,63 @@ async function setup() {
 it("saves 10 minutes planned and 3 hours reported before opening a task and returning to the same day", async () => {
   const { f, task, days, item, mount } = await setup(); const original = f.repo.detail(task.id);
   const slot = mount("day/2026-09-10");
-  fireEvent.change(await slot.findByLabelText(`Planned: ${task.title}`), { target: { value: "10м" } });
-  fireEvent.change(slot.getByLabelText(`Reported: ${task.title}`), { target: { value: "3ч" } });
+  fireEvent.change(await slot.findByLabelText(`Planned: ${task.title}`), { target: { value: "10m" } });
+  fireEvent.change(slot.getByLabelText(`Reported: ${task.title}`), { target: { value: "3h" } });
   fireEvent.click(slot.getByRole("button", { name: task.title }));
   await waitFor(() => expect(JSON.stringify(slot.inspection.navigateCalls)).toContain(`${task.id}/from/day/2026-09-10`));
   expect(days.get(item.id)).toMatchObject({ plannedMinutes: 10, reportedMinutes: 180 }); expect(f.repo.detail(task.id)).toEqual(original);
   slot.lifecycle.unmount();
   const dossier = mount(`${task.id}/from/day/2026-09-10`);
   await dossier.findByRole("heading", { name: task.title });
-  expect(await dossier.findByText("Planned: 10м · Reported: 3ч")).toBeTruthy();
-  fireEvent.click(dossier.getByRole("button", { name: "К плану дня" }));
+  expect(await dossier.findByText("Planned: 10m · Reported: 3h")).toBeTruthy();
+  fireEvent.click(dossier.getByRole("button", { name: "Back to day plan" }));
   expect(JSON.stringify(dossier.inspection.navigateCalls)).toContain("day/2026-09-10");
   dossier.lifecycle.unmount(); const returned = mount("day/2026-09-10");
-  expect((await returned.findByLabelText(`Reported: ${task.title}`) as HTMLInputElement).value).toBe("3ч");
-  expect((returned.getByLabelText("Дата плана") as HTMLInputElement).value).toBe("2026-09-10");
+  expect((await returned.findByLabelText(`Reported: ${task.title}`) as HTMLInputElement).value).toBe("3h");
+  expect((returned.getByLabelText("Plan date") as HTMLInputElement).value).toBe("2026-09-10");
 });
 
 it("keeps a conflicting draft, blocks navigation, and applies it only after the explicit overwrite action", async () => {
   const { task, days, item, mount } = await setup(); const slot = mount("day/2026-09-10");
-  fireEvent.change(await slot.findByLabelText(`Reported: ${task.title}`), { target: { value: "3ч" } });
+  fireEvent.change(await slot.findByLabelText(`Reported: ${task.title}`), { target: { value: "3h" } });
   days.edit({ id: item.id, revision: item.revision, plannedMinutes: 10, reportedMinutes: 20, requestId: randomUUID() });
   await act(async () => { await slot.behavior.emitRealtime("desk-changed", {}); });
   fireEvent.click(slot.getByRole("button", { name: task.title }));
   await slot.findByRole("alert");
-  expect(slot.inspection.navigateCalls).toHaveLength(0); expect((slot.getByLabelText(`Reported: ${task.title}`) as HTMLInputElement).value).toBe("3ч");
-  fireEvent.click(await slot.findByRole("button", { name: "Применить мою правку" }));
+  expect(slot.inspection.navigateCalls).toHaveLength(0); expect((slot.getByLabelText(`Reported: ${task.title}`) as HTMLInputElement).value).toBe("3h");
+  fireEvent.click(await slot.findByRole("button", { name: "Apply my edit" }));
   await waitFor(() => expect(days.get(item.id)).toMatchObject({ plannedMinutes: 10, reportedMinutes: 180 }));
-  await waitFor(() => expect(slot.queryByText("Есть несохранённая правка")).toBeNull());
+  await waitFor(() => expect(slot.queryByText("Unsaved edit")).toBeNull());
 });
 
 it("lets a validation error be corrected and flushes day parameters when the date changes", async () => {
   const { days, mount } = await setup(); const slot = mount("day/2026-09-10");
-  fireEvent.click(await slot.findByText("Параметры дня"));
-  fireEvent.change(slot.getByLabelText("Доступное время"), { target: { value: "-2" } });
-  fireEvent.click(slot.getByRole("button", { name: "Сохранить день" })); await slot.findByRole("alert");
-  fireEvent.change(slot.getByLabelText("Доступное время"), { target: { value: "5ч" } });
-  fireEvent.click(slot.getByRole("button", { name: "Следующий день" }));
+  fireEvent.click(await slot.findByText("Day settings"));
+  fireEvent.change(slot.getByLabelText("Available time"), { target: { value: "-2" } });
+  fireEvent.click(slot.getByRole("button", { name: "Save day" })); await slot.findByRole("alert");
+  fireEvent.change(slot.getByLabelText("Available time"), { target: { value: "5h" } });
+  fireEvent.click(slot.getByRole("button", { name: "Next day" }));
   await waitFor(() => expect(JSON.stringify(slot.inspection.navigateCalls)).toContain("day/2026-09-11"));
   expect(days.config("2026-09-10").capacityMinutes).toBe(300);
 });
 
 it("overrides a meeting manually, preserves it through calendar changes and restores each field separately", async () => {
   const { days, mount } = await setup();
-  const event = normalizeCalendarEvent({ id: "meeting", summary: "Рабочая встреча", start: { dateTime: "2026-09-10T08:00:00Z" }, end: { dateTime: "2026-09-10T08:30:00Z" } })!;
+  const event = normalizeCalendarEvent({ id: "meeting", summary: "Work meeting", start: { dateTime: "2026-09-10T08:00:00Z" }, end: { dateTime: "2026-09-10T08:30:00Z" } })!;
   days.mergeCalendar([event]); const id = days.calendarItems()[0].id;
-  const slot = mount("day/2026-09-10"); const row = within(await slot.findByRole("article", { name: "Запись дня: Рабочая встреча" }));
-  fireEvent.change(row.getByLabelText("Planned: Рабочая встреча"), { target: { value: "45м" } });
-  fireEvent.change(row.getByLabelText("Reported: Рабочая встреча"), { target: { value: "20м" } });
-  fireEvent.click(row.getByRole("button", { name: "Подробнее" }));
-  fireEvent.click(row.getByRole("button", { name: "Не участвовал" }));
+  const slot = mount("day/2026-09-10"); const row = within(await slot.findByRole("article", { name: "Day entry: Work meeting" }));
+  fireEvent.change(row.getByLabelText("Planned: Work meeting"), { target: { value: "45m" } });
+  fireEvent.change(row.getByLabelText("Reported: Work meeting"), { target: { value: "20m" } });
+  fireEvent.click(row.getByRole("button", { name: "Details" }));
+  fireEvent.click(row.getByRole("button", { name: "Did not attend" }));
   await waitFor(() => expect(days.get(id)).toMatchObject({ plannedMinutes: 45, reportedMinutes: 0, reportedMode: "manual" }));
-  await waitFor(() => expect(row.queryByText("Есть несохранённая правка")).toBeNull());
+  await waitFor(() => expect(row.queryByText("Unsaved edit")).toBeNull());
   days.mergeCalendar([{ ...event, endAt: "2026-09-10T09:00:00Z" }]); await slot.behavior.emitRealtime("desk-changed", {});
-  await waitFor(() => expect((row.getByLabelText("Reported: Рабочая встреча") as HTMLInputElement).value).toBe("0м"));
-  fireEvent.click(row.getByRole("button", { name: "Planned из календаря" }));
+  await waitFor(() => expect((row.getByLabelText("Reported: Work meeting") as HTMLInputElement).value).toBe("0m"));
+  fireEvent.click(row.getByRole("button", { name: "Planned from calendar" }));
   await waitFor(() => expect(days.get(id)).toMatchObject({ plannedMinutes: 60, reportedMinutes: 0 }));
-  await waitFor(() => expect((row.getByRole("button", { name: "Reported автоматически" }) as HTMLButtonElement).disabled).toBe(false));
-  fireEvent.click(row.getByRole("button", { name: "Reported автоматически" }));
+  await waitFor(() => expect((row.getByRole("button", { name: "Automatic reported time" }) as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(row.getByRole("button", { name: "Automatic reported time" }));
   await waitFor(() => expect(days.get(id)).toMatchObject({ reportedMinutes: 60, reportedMode: "calendar" }));
 });
 
@@ -90,6 +90,6 @@ it("opens report task titles with the report return route and day entries for co
   const report = mount("report/week/2026-09-10");
   fireEvent.click(await report.findByRole("button", { name: task.title }));
   await waitFor(() => expect(JSON.stringify(report.inspection.navigateCalls)).toContain(`${task.id}/from/report/week/2026-09-10`));
-  fireEvent.click(report.getByRole("button", { name: /10 сент.*reported 3ч/ }));
+  fireEvent.click(report.getByRole("button", { name: /10 Sept.*reported 3h/ }));
   await waitFor(() => expect(JSON.stringify(report.inspection.navigateCalls)).toContain('"day/2026-09-10"'));
 });

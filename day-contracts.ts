@@ -4,14 +4,14 @@ export const DAY_TIME_ZONE = "Europe/Athens";
 export const dayDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => {
   const d = new Date(`${value}T12:00:00Z`);
   return Number.isFinite(d.getTime()) && d.toISOString().slice(0, 10) === value;
-}, "Укажи существующую дату в формате YYYY-MM-DD.");
+}, "Enter a valid date in YYYY-MM-DD format.");
 export const dayMinutesSchema = z.number().min(0).max(525600).nullable();
 const id = z.string().min(1).max(300);
 export const calendarEventSchema = z.object({
   key: id, calendarId: id, eventId: id, occurrenceId: z.string().max(300).nullable(),
   title: z.string().min(1).max(1000), startAt: z.iso.datetime({ offset: true }), endAt: z.iso.datetime({ offset: true }),
   url: z.string().max(4096).nullable(), status: z.enum(["confirmed", "cancelled", "declined", "excluded"]),
-}).strict().refine(e => Date.parse(e.endAt) > Date.parse(e.startAt), "Встреча должна иметь положительную длительность.");
+}).strict().refine(e => Date.parse(e.endAt) > Date.parse(e.startAt), "A meeting must have a positive duration.");
 export type CalendarEvent = z.infer<typeof calendarEventSchema>;
 export const dayItemSchema = z.object({
   id, date: dayDateSchema, reportedDate: dayDateSchema, kind: z.enum(["task", "meeting"]), taskId: id.nullable(),
@@ -46,9 +46,9 @@ export const dayEditSchema = z.object({
   operation: z.enum(["set", "add"]).default("set"),
   step: z.string().trim().max(2000).optional(), state: z.enum(["open", "done"]).optional(),
   removed: z.boolean().optional(), restoreAuto: z.enum(["planned", "reported", "both"]).optional(),
-}).strict().refine(i => Object.keys(i).some(k => !["requestId", "id", "revision", "operation"].includes(k)), "Нет изменений.")
-  .refine(i => !(i.restoreAuto && (i.plannedMinutes !== undefined || i.reportedMinutes !== undefined || i.reportedDate !== undefined)), "Возврат к календарю выполняется отдельно от ручного времени и его даты.")
-  .refine(i => !(i.operation === "add" && (i.plannedMinutes === null || i.reportedMinutes === null)), "Для добавления времени укажи число минут.");
+}).strict().refine(i => Object.keys(i).some(k => !["requestId", "id", "revision", "operation"].includes(k)), "No changes.")
+  .refine(i => !(i.restoreAuto && (i.plannedMinutes !== undefined || i.reportedMinutes !== undefined || i.reportedDate !== undefined)), "Restore automatic calendar time separately from manual time and its date.")
+  .refine(i => !(i.operation === "add" && (i.plannedMinutes === null || i.reportedMinutes === null)), "Specify the number of minutes to add.");
 export const dayCarrySchema = z.object({ requestId: z.uuid(), id, revision: z.number().int().min(0), date: dayDateSchema }).strict();
 export const dayHistorySchema = z.object({
   items: z.array(z.object({ sequence: z.number(), at: z.string(), actor: z.string(), action: z.string(), before: dayItemSchema.nullable(), after: dayItemSchema })),
@@ -88,7 +88,7 @@ export function weekStart(date: string) { const day = new Date(`${date}T12:00:00
 export function formatMinutes(minutes: number | null): string {
   if (minutes === null) return "—";
   const totalSeconds = Math.round(minutes * 60), hours = Math.floor(totalSeconds / 3600), mins = Math.floor(totalSeconds % 3600 / 60), seconds = totalSeconds % 60;
-  return [hours ? `${hours}ч` : "", mins ? `${mins}м` : "", seconds ? `${seconds}с` : ""].filter(Boolean).join(" ") || "0м";
+  return [hours ? `${hours}h` : "", mins ? `${mins}m` : "", seconds ? `${seconds}s` : ""].filter(Boolean).join(" ") || "0m";
 }
 export function parseMinutes(raw: string): number | null {
   const value = raw.trim().toLowerCase().replace(/,/g, ".");
@@ -97,8 +97,8 @@ export function parseMinutes(raw: string): number | null {
   if (/^\d+(?:\.\d+)?$/.test(value)) minutes = Number(value);
   else if ((m = value.match(/^(\d+):(\d{2})$/)) && Number(m[2]) < 60) minutes = Number(m[1]) * 60 + Number(m[2]);
   else if ((m = value.match(/^(?:(\d+(?:\.\d+)?)\s*(?:ч(?:ас(?:а|ов)?)?|h))?(?:\s*(\d+(?:\.\d+)?)\s*(?:м(?:ин(?:ут(?:а|ы)?)?)?|m))?(?:\s*(\d+)\s*(?:с(?:ек(?:унд(?:а|ы)?)?)?|s))?$/)) && m.slice(1).some(v => v !== undefined)) minutes = Number(m[1] ?? 0) * 60 + Number(m[2] ?? 0) + Number(m[3] ?? 0) / 60;
-  else throw new Error("Введи время: 10м, 3ч, 1ч 20м или 1:20.");
+  else throw new Error("Enter time as 10m, 3h, 1h 20m or 1:20.");
   const result = Math.round(minutes * 60) / 60;
-  if (result > 525600) throw new Error("Слишком большое значение времени.");
+  if (result > 525600) throw new Error("The time value is too large.");
   return result;
 }

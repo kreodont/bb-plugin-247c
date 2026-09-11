@@ -75,7 +75,7 @@ it("marks an export partial on missing pagination and unavailable sources withou
   } } };
   const bundle = await collectSources(sampleRun(), [], { connect: async () => connections });
   expect(bundle.reports.map(r => r.status)).toEqual(["partial", "unavailable", "unavailable"]);
-  expect(bundle.reports[0].detail).toContain("пагинации");
+  expect(bundle.reports[0].detail).toContain("pagination");
 });
 
 it("retries a transient MCP error payload and does not cite its failed body", async () => {
@@ -102,13 +102,13 @@ it("starts analysis with the chosen non-corporate model only after the export an
   const spawn = f.harness.inspection.sdk.callsTo("threads.spawn")[0][0] as Parameters<typeof f.bb.sdk.threads.spawn>[0];
   expect(spawn.providerId).toBe("codex");
   expect(spawn.model).toBe(input.request.model);
-  expect(JSON.stringify(spawn.input)).toContain("ГОТОВУЮ выгрузку");
+  expect(JSON.stringify(spawn.input)).toContain("PREPARED");
   expect(f.repo.list().total).toBe(0);
-  const config = await f.harness.behavior.resolveAgentConfiguration(makePluginAgentConfigurationContext({ origin: { pluginId: "247c", kind: null }, thread: { id: run.threadId!, title: `247C · обновления · ${run.id}` } }));
+  const config = await f.harness.behavior.resolveAgentConfiguration(makePluginAgentConfigurationContext({ origin: { pluginId: "247c", kind: null }, thread: { id: run.threadId!, title: `247C · updates · ${run.id}` } }));
   expect(config.tools.map(t => t.name)).toContain("c247_sync_data");
   const bundle = store.export(run.id)!;
   const submission = { suggestions: [], finalize: true };
-  await expect(f.harness.behavior.callAgentTool("c247_sync_submit", submission, ctx)).rejects.toThrow(/страницы выгрузки/);
+  await expect(f.harness.behavior.callAgentTool("c247_sync_submit", submission, ctx)).rejects.toThrow(/export pages/);
   const pages = sourceExportPage(bundle, 0).totalPages;
   for (let page = 1; page < pages; page++) await f.harness.behavior.callAgentTool("c247_sync_data", { page }, ctx);
   await f.harness.behavior.callAgentTool("c247_sync_submit", submission, ctx);

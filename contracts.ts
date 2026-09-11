@@ -21,7 +21,7 @@ export const changesSchema = z.object({
   openQuestions: proposed(z.array(text).max(30)).optional(),
   blockers: proposed(z.array(text).max(30)).optional(),
   artifacts: proposed(z.array(artifactSchema).max(20)).optional(),
-}).strict().refine((v) => Object.keys(v).length > 0, "Предложение не содержит изменений.");
+}).strict().refine((v) => Object.keys(v).length > 0, "The proposal contains no changes.");
 export const draftSchema = z.object({ rationale: text, confidence: z.number().min(0).max(1), changes: changesSchema }).strict();
 export const taskSchema = z.object({ id: idSchema, title: z.string(), status: statusSchema, revision: revisionSchema, createdAt: z.string(), updatedAt: z.string() });
 export const planningSchema = z.object({ urgent: axisSchema, important: axisSchema, revision: revisionSchema });
@@ -69,13 +69,13 @@ const conversationKnowledgeEntrySchema = knowledgeDraftSchema.extend({
   id: idSchema, taskId: idSchema, taskTitle: z.string(), sessionId: idSchema,
   threadId: idSchema, proposalId: idSchema, createdAt: z.string(),
 });
-const knowledgeFileBodySchema = z.string().max(131072).refine((value) => new TextEncoder().encode(value).length <= 131072 && new TextEncoder().encode(JSON.stringify(value)).length <= 262144, "Документ превышает 128 КиБ.");
+const knowledgeFileBodySchema = z.string().max(131072).refine((value) => new TextEncoder().encode(value).length <= 131072 && new TextEncoder().encode(JSON.stringify(value)).length <= 262144, "The document exceeds 128 KiB.");
 const knowledgeSourceSchema = z.object({
   label: z.string().trim().min(1).max(200), hostId: idSchema,
-  rootPath: z.string().min(1).max(2000).refine((value) => value.startsWith("/") && !value.includes("\0") && !value.split("/").some((part) => part === "." || part === ".."), "Нужен абсолютный путь к папке источника."),
+  rootPath: z.string().min(1).max(2000).refine((value) => value.startsWith("/") && !value.includes("\0") && !value.split("/").some((part) => part === "." || part === ".."), "An absolute path to the source folder is required."),
 }).strict();
 export const knowledgeFileInputSchema = z.object({
-  relativePath: z.string().min(1).max(2000).refine((value) => /\.md$/i.test(value) && !value.includes("\0") && !value.includes("\\") && value.split("/").every((part) => part !== "" && part !== "." && part !== ".."), "Нужен относительный путь Markdown-файла внутри источника."),
+  relativePath: z.string().min(1).max(2000).refine((value) => /\.md$/i.test(value) && !value.includes("\0") && !value.includes("\\") && value.split("/").every((part) => part !== "" && part !== "." && part !== ".."), "A relative path to a Markdown file within the source is required."),
   title: z.string().trim().min(1).max(200), body: knowledgeFileBodySchema,
   tags: z.array(z.string().trim().min(1).max(60)).max(10).default([]),
   modifiedAt: z.iso.datetime().nullable().default(null),
@@ -83,8 +83,8 @@ export const knowledgeFileInputSchema = z.object({
 export const knowledgeImportSchema = z.object({
   requestId: z.uuid(), source: knowledgeSourceSchema,
   documents: z.array(knowledgeFileInputSchema).min(1).max(500),
-}).strict().refine((value) => new Set(value.documents.map((document) => document.relativePath)).size === value.documents.length, "Один файл указан дважды.")
-  .refine((value) => new TextEncoder().encode(JSON.stringify(value)).length <= 4 * 1024 * 1024, "Импортируй документы пакетами до 4 МиБ.");
+}).strict().refine((value) => new Set(value.documents.map((document) => document.relativePath)).size === value.documents.length, "The same file is listed twice.")
+  .refine((value) => new TextEncoder().encode(JSON.stringify(value)).length <= 4 * 1024 * 1024, "Import documents in batches of up to 4 MiB.");
 export const fileKnowledgeEntrySchema = z.object({
   kind: z.literal("file"), id: idSchema, title: z.string(), body: knowledgeFileBodySchema,
   tags: z.array(z.string()), createdAt: z.string(), updatedAt: z.string(),
@@ -129,12 +129,12 @@ export const syncReportSchema = z.object({
 }).strict();
 export const syncSubmitSchema = z.object({
   reports: z.array(syncReportSchema).length(3), suggestions: z.array(syncDraftSchema).max(100),
-}).strict().refine((v) => new Set(v.reports.map((r) => r.source)).size === 3, "Нужен статус каждого из трёх источников.")
-  .refine((v) => new TextEncoder().encode(JSON.stringify(v)).length <= 1024 * 1024, "Результат проверки превышает 1 МиБ.");
+}).strict().refine((v) => new Set(v.reports.map((r) => r.source)).size === 3, "A status is required for each of the three sources.")
+  .refine((v) => new TextEncoder().encode(JSON.stringify(v)).length <= 1024 * 1024, "The check result exceeds 1 MiB.");
 export const syncSubmitToolSchema = z.object({
   reports: z.array(syncReportSchema).length(3).optional(), suggestions: z.array(syncDraftSchema).max(100),
   finalize: z.boolean().optional(),
-}).strict().refine((v) => new TextEncoder().encode(JSON.stringify(v)).length <= 1024 * 1024, "Результат проверки превышает 1 МиБ.");
+}).strict().refine((v) => new TextEncoder().encode(JSON.stringify(v)).length <= 1024 * 1024, "The check result exceeds 1 MiB.");
 export const syncRunSchema = z.object({
   id: idSchema, status: z.enum(["starting", "working", "completed", "partial", "blocked", "cancelled"]),
   threadId: idSchema.nullable(), provider: z.string(), model: z.string(),
@@ -190,7 +190,7 @@ export const requestSchema = z.object({
   reasoningLevel: z.enum(["low", "medium", "high", "xhigh", "max", "none", "ultra", "ultracode"]),
   permissionMode: z.enum(["accept-edits", "auto", "full"]), serviceTier: z.enum(["default", "fast"]).optional(),
   executionInputSources: z.object({ providerId: z.enum(["explicit", "client-preference"]).optional(), model: z.enum(["explicit", "client-preference"]).optional(), reasoningLevel: z.enum(["explicit", "client-preference"]).optional(), permissionMode: z.enum(["explicit", "client-preference"]).optional(), serviceTier: z.enum(["explicit", "client-preference"]).optional() }).strict(), environment: environmentSchema, input: z.array(inputSchema).min(1).max(40),
-}).strict().refine((v) => JSON.stringify(v).length <= 64000, "Задание слишком большое. Оставь только нужный контекст.");
+}).strict().refine((v) => JSON.stringify(v).length <= 64000, "The task input is too large. Keep only the necessary context.");
 export function nativeRequest(value: z.infer<typeof requestSchema>): NewThreadRequest {
   return value as unknown as NewThreadRequest;
 }

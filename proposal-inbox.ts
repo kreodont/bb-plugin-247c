@@ -14,9 +14,9 @@ export class ProposalInbox {
       const active = task ? this.repo.active().some(s => s.taskId === task.id) : false;
       const currentTask = task ? { revision: task.revision, status: task.status, activeSession: active ? "active" : null } : null;
       const duplicate = !task && this.repo.list(true).tasks.some(t => t.title.trim().toLocaleLowerCase() === candidate.title.trim().toLocaleLowerCase());
-      const blockedReason = task && (task.revision !== candidate.baseRevision || task.status !== "open") ? "Досье изменилось после проверки. Нужен обновлённый вариант предложения."
-        : active && candidate.changes.status ? "Сначала заверши рабочую сессию, чтобы изменить статус задачи."
-        : duplicate ? "Задача с таким названием уже создана. Проверь, не дубликат ли это." : null;
+      const blockedReason = task && (task.revision !== candidate.baseRevision || task.status !== "open") ? "The dossier changed after the check. An updated proposal is required."
+        : active && candidate.changes.status ? "Finish the work session before changing the task status."
+        : duplicate ? "A task with this title already exists. Check for a duplicate." : null;
       return { kind, candidate, currentTask, blockedReason };
     }
     const raw = this.repo.kernel.getProposal(id), dossier = this.repo.kernel.getDossier(raw.taskId);
@@ -25,9 +25,9 @@ export class ProposalInbox {
     const update = this.repo.db.prepare("SELECT value_json FROM session_updates WHERE proposal_id=?").get(id) as { value_json: string } | undefined;
     const used = new Set(Object.values(raw.changes).flatMap(change => change?.evidenceRefs ?? []));
     const context = reviewDossierSchema.parse({ ...dossier, facts: dossier.facts.filter(f => used.has(f.id)), sessions, sessionUpdates: update ? [JSON.parse(update.value_json)] : [] });
-    const blockedReason = raw.baseRevision !== dossier.task.revision ? "Досье изменилось после подготовки. Нужен результат по новой версии."
-      : sessions.some(s => s.discussionProposalId === id) ? "Сначала заверши обсуждение этого разбора."
-      : raw.changes.status && sessions.length ? "Сначала заверши рабочую сессию, чтобы изменить статус задачи." : null;
+    const blockedReason = raw.baseRevision !== dossier.task.revision ? "The dossier changed after this proposal was prepared. A result based on the new revision is required."
+      : sessions.some(s => s.discussionProposalId === id) ? "Finish discussing this review first."
+      : raw.changes.status && sessions.length ? "Finish the work session before changing the task status." : null;
     return { kind, proposal, dossier: context, blockedReason };
   }
   list(offset = 0) {
@@ -39,7 +39,7 @@ export class ProposalInbox {
     for (const row of rows) {
       const item = this.item(row.kind, row.id), size = Buffer.byteLength(JSON.stringify(item));
       if (items.length && bytes + size > 3 * 1024 * 1024) break;
-      if (size > 3 * 1024 * 1024) throw new PolicyError("Предложение слишком большое для общего списка. Открой его в досье задачи.");
+      if (size > 3 * 1024 * 1024) throw new PolicyError("The proposal is too large for the shared list. Open it in the task dossier.");
       items.push(item); bytes += size;
     }
     const total = this.repo.pendingTotal();
@@ -51,12 +51,12 @@ export class ProposalInbox {
     const taskIds = new Set<string>(), keys = new Set<string>();
     for (const item of items) {
       const key = `${item.kind}:${item.id}`;
-      if (keys.has(key)) throw new PolicyError("Одно предложение выбрано несколько раз.");
+      if (keys.has(key)) throw new PolicyError("The same proposal is selected more than once.");
       keys.add(key);
       let taskId: string | null;
       try { taskId = item.kind === "source" ? this.sync.candidate(item.id).taskId : this.repo.kernel.getProposal(item.id).taskId; }
       catch { continue; } // The per-item result below reports a missing entry.
-      if (taskId && taskIds.has(taskId)) throw new PolicyError("Для одной задачи выбрано несколько предложений. Выбери одно; после принятия остальные потребуют обновления.");
+      if (taskId && taskIds.has(taskId)) throw new PolicyError("Multiple proposals are selected for one task. Choose one; the others will need updating after it is accepted.");
       if (taskId) taskIds.add(taskId);
     }
     const applied: { kind: ReviewSelection["kind"]; id: string; taskId: string }[] = [];
@@ -64,7 +64,7 @@ export class ProposalInbox {
     for (const item of items) {
       try {
         const value = item.kind === "source" ? this.sync.candidate(item.id) : this.repo.kernel.getProposal(item.id);
-        if (value.baseRevision !== item.revision) throw new ConflictError("Предложение изменилось. Обнови список и проверь его ещё раз.");
+        if (value.baseRevision !== item.revision) throw new ConflictError("The proposal changed. Refresh the list and review it again.");
         const dossier = item.kind === "source" ? this.sync.accept(item.id) : await this.runtime.accept(item.id, item.revision!);
         applied.push({ kind: item.kind, id: item.id, taskId: dossier.task.id });
       } catch (error) { failed.push({ kind: item.kind, id: item.id, message: error instanceof Error ? error.message : String(error) }); }

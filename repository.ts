@@ -48,7 +48,7 @@ export class Repository {
       const fingerprint = digest(payload);
       const previous = this.db.prepare("SELECT * FROM requests WHERE id=?").get(id) as Row | undefined;
       if (previous) {
-        if (previous.fingerprint !== fingerprint) throw new PolicyError("Этот запрос уже использован с другими данными.");
+        if (previous.fingerprint !== fingerprint) throw new PolicyError("This request has already been used with different data.");
         return JSON.parse(String(previous.result_json)) as T;
       }
       const result = execute();
@@ -70,8 +70,8 @@ export class Repository {
 
   assertCurrent(taskId: string, revision: number, requireOpen = true) {
     const task = this.kernel.getTask(taskId);
-    if (task.revision !== revision) throw new ConflictError("Досье изменилось. Обнови его и проверь новые данные.");
-    if (requireOpen && task.status !== "open") throw new PolicyError("Задача закрыта. Сначала верни её в работу.");
+    if (task.revision !== revision) throw new ConflictError("The dossier changed. Refresh it and check the new data.");
+    if (requireOpen && task.status !== "open") throw new PolicyError("The task is closed. Reopen it first.");
     return task;
   }
 
@@ -91,7 +91,7 @@ export class Repository {
   classify(input: { taskId: string; revision: number; urgent: boolean | null; important: boolean | null }) {
     const result = this.store.transaction(() => {
       this.kernel.getTask(input.taskId);
-      if (this.planning(input.taskId).revision !== input.revision) throw new ConflictError("Приоритет уже изменён в другом окне. Обнови досье.");
+      if (this.planning(input.taskId).revision !== input.revision) throw new ConflictError("Priority changed in another window. Refresh the dossier.");
       const previous = this.planning(input.taskId);
       if (previous.urgent === input.urgent && previous.important === input.important) return previous;
       this.db.prepare("INSERT OR IGNORE INTO planning(task_id) VALUES (?)").run(input.taskId);
@@ -107,7 +107,7 @@ export class Repository {
   }
 
   status(taskId: string, status: TaskRecord["status"], revision: number) {
-    if (this.active().some((s) => s.taskId === taskId)) throw new PolicyError("Сначала останови текущую рабочую сессию.");
+    if (this.active().some((s) => s.taskId === taskId)) throw new PolicyError("Stop the current work session first.");
     const task = this.kernel.setTaskStatus(taskId, status, revision);
     this.changed();
     return task;
@@ -155,9 +155,9 @@ export class Repository {
     if (proposal.status === "applied") return this.detail(proposal.taskId);
     this.store.transaction(() => {
       this.assertCurrent(proposal.taskId, revision, false);
-      if (proposal.baseRevision !== revision) throw new ConflictError("Предложение относится к старой версии досье. Нужен новый результат.");
-      if (proposal.changes.status && this.active().some((s) => s.taskId === proposal.taskId)) throw new PolicyError("Сначала заверши текущую рабочую сессию этой задачи.");
-      if (this.active().some((s) => s.discussionProposalId === proposalId)) throw new PolicyError("Сначала заверши обсуждение этого разбора. Его уточнённое предложение появится после завершения сессии.");
+      if (proposal.baseRevision !== revision) throw new ConflictError("The proposal targets an old dossier revision. A new result is required.");
+      if (proposal.changes.status && this.active().some((s) => s.taskId === proposal.taskId)) throw new PolicyError("Finish this task's current work session first.");
+      if (this.active().some((s) => s.discussionProposalId === proposalId)) throw new PolicyError("Finish discussing this review first. Its revised proposal will appear after the session ends.");
       if (proposal.status === "pending") this.kernel.approveProposal(proposalId, "human:bb-panel");
       this.kernel.applyProposal(proposalId);
       this.applySessionUpdate(proposalId);
@@ -221,7 +221,7 @@ export class Repository {
       const value = knowledgeEntrySchema.parse({ ...entry, id: randomUUID(), taskId: task.id, taskTitle: task.title, sessionId: session.id, threadId: update.threadId, proposalId, createdAt: timestamp });
       this.db.prepare("INSERT OR IGNORE INTO knowledge_entries VALUES (?,?,?,?,?,?)").run(value.id, task.id, proposalId, fingerprint, [entry.title, entry.body, ...entry.tags].join("\n").toLocaleLowerCase(), JSON.stringify(value));
     }
-    this.sessionEvent(session.id, "knowledge-applied", "Записи разговора и база знаний сохранены вместе с досье.", { proposalId, facts: update.extraction.facts.length, knowledge: update.extraction.knowledge.length });
+    this.sessionEvent(session.id, "knowledge-applied", "Conversation records and knowledge were saved together with the dossier.", { proposalId, facts: update.extraction.facts.length, knowledge: update.extraction.knowledge.length });
   }
 
   importKnowledge(input: KnowledgeImport) {
@@ -273,7 +273,7 @@ export class Repository {
 
   session(id: string): Session {
     const row = this.db.prepare("SELECT value_json FROM sessions WHERE id=?").get(id) as Row | undefined;
-    if (!row) throw new PolicyError("Рабочая сессия не найдена.");
+    if (!row) throw new PolicyError("Work session not found.");
     return sessionSchema.parse(JSON.parse(String(row.value_json)));
   }
   sessions(taskId: string): Session[] {

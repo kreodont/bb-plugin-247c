@@ -6,12 +6,15 @@ import { normalizeCalendarEvent } from "./calendar-reader.js";
 it("a fresh installation has no personal identity or watched channels", async () => {
   const config = parseSourceConfig("{}");
   expect(config.expectedEmail).toBe("");
+  expect(config.profilePath).toBe("");
   expect(config.jiraSite).toBe("");
   expect(config.slackGroups).toEqual([]);
   const fetch = vi.spyOn(globalThis, "fetch");
   try {
     const result = await connectSources(new AbortController().signal, config);
     expect(result.gmail).toMatchObject({ error: expect.stringContaining("expectedEmail") });
+    const missingProfile = await connectSources(new AbortController().signal, { ...config, expectedEmail: "owner@example.com" });
+    expect(missingProfile.gmail).toMatchObject({ error: expect.stringContaining("profilePath") });
     expect(fetch).not.toHaveBeenCalled();
   } finally { fetch.mockRestore(); }
 });

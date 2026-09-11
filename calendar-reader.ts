@@ -11,12 +11,12 @@ const remoteEvent = z.object({
   attendees: z.array(z.object({ email: z.string().optional(), self: z.boolean().optional(), responseStatus: z.string().optional() })).optional(),
 });
 function jsonResult(value: unknown): unknown {
-  if (!value || typeof value !== "object") throw new Error("Неизвестный ответ календаря.");
+  if (!value || typeof value !== "object") throw new Error("Unrecognized calendar response.");
   const result = value as { isError?: boolean; structuredContent?: unknown; content?: { type: string; text?: string }[] };
   const text = result.content?.filter(c => c.type === "text").map(c => c.text ?? "").join("\n") ?? "";
-  if (result.isError) throw new Error(sourceError(text || "Google Calendar вернул ошибку."));
+  if (result.isError) throw new Error(sourceError(text || "Google Calendar returned an error."));
   if (result.structuredContent && typeof result.structuredContent === "object") return result.structuredContent;
-  try { return JSON.parse(text); } catch { throw new Error("Календарь вернул ответ без читаемых данных."); }
+  try { return JSON.parse(text); } catch { throw new Error("The calendar response contains no readable data."); }
 }
 function safeUrl(raw?: string) { try { const url = new URL(raw ?? ""); return url.protocol === "https:" ? url.href : null; } catch { return null; } }
 export function normalizeCalendarEvent(value: unknown, previous?: CalendarEvent, calendarId = WORK_CALENDAR): CalendarEvent | null {
@@ -27,14 +27,14 @@ export function normalizeCalendarEvent(value: unknown, previous?: CalendarEvent,
   if (cancelled || declined) return null;
   const excluded = raw.start?.date || raw.end?.date || raw.eventType && !["DEFAULT", "EVENT_TYPE_UNSPECIFIED", "default"].includes(raw.eventType);
   if (excluded) return previous ? { ...previous, title: raw.summary?.slice(0, 1000) || previous.title, status: "excluded" } : null;
-  if (!raw.start?.dateTime || !raw.end?.dateTime) throw new Error("У встречи нет времени начала или окончания. Импорт остановлен.");
-  if (raw.recurrence?.length && !raw.originalStartTime && !raw.recurringEventId) throw new Error("Календарь вернул серию вместо отдельных встреч. Импорт остановлен, чтобы не записать неверное время.");
+  if (!raw.start?.dateTime || !raw.end?.dateTime) throw new Error("A meeting has no start or end time. Import stopped.");
+  if (raw.recurrence?.length && !raw.originalStartTime && !raw.recurringEventId) throw new Error("The calendar returned a recurring series instead of individual meetings. Import stopped to avoid recording incorrect time.");
   // The service returns offset-bearing ISO timestamps. Refuse to interpret a
   // timezone-less timestamp in the BB server's local timezone.
   const startAt = z.iso.datetime({ offset: true }).parse(raw.start.dateTime), endAt = z.iso.datetime({ offset: true }).parse(raw.end.dateTime);
   return calendarEventSchema.parse({ key: previous?.key ?? `gcal:${createHash("sha256").update(`${calendarId}\0${raw.id}`).digest("hex")}`,
     calendarId, eventId: raw.id, occurrenceId: raw.originalStartTime?.dateTime ?? raw.originalStartTime?.date ?? null,
-    title: raw.summary?.slice(0, 1000) || "Встреча", startAt, endAt, status: "confirmed", url: safeUrl(raw.htmlLink),
+    title: raw.summary?.slice(0, 1000) || "Meeting", startAt, endAt, status: "confirmed", url: safeUrl(raw.htmlLink),
   });
 }
 async function call(connector: SourceConnector, name: string, args: Record<string, unknown>, signal: AbortSignal): Promise<unknown> {
@@ -67,11 +67,11 @@ export async function readCalendar(input: { from: string; through: string; known
         .parse(await call(connector, "list_calendars", { pageSize: 250, ...(pageToken ? { pageToken } : {}) }, signal));
       found ||= page.calendars.some(c => c.id.toLowerCase() === calendarId.toLowerCase());
       pageToken = page.nextPageToken || undefined;
-      if (pageToken && calendarTokens.has(pageToken)) throw new Error("Календарь повторяет страницу списка календарей.");
+      if (pageToken && calendarTokens.has(pageToken)) throw new Error("The calendar list repeats a page.");
       if (pageToken) calendarTokens.add(pageToken);
-      if (calendarTokens.size > 20) throw new Error("Слишком много страниц календарей.");
+      if (calendarTokens.size > 20) throw new Error("Too many calendar list pages.");
     } while (pageToken && !found);
-    if (!found) throw new Error(`В подключённом аккаунте не найден рабочий календарь ${calendarId}.`);
+    if (!found) throw new Error(`The connected account does not contain the work calendar ${calendarId}.`);
     pageToken = undefined;
     const tokens = new Set<string>(), seenIds = new Set<string>();
     do {
@@ -85,15 +85,15 @@ export async function readCalendar(input: { from: string; through: string; known
         if (normalized) events.set(normalized.key, normalized);
       }
       pageToken = page.nextPageToken || undefined;
-      if (pageToken && tokens.has(pageToken)) throw new Error("Календарь повторяет страницу встреч.");
+      if (pageToken && tokens.has(pageToken)) throw new Error("The calendar repeats a page of meetings.");
       if (pageToken) tokens.add(pageToken);
-      if (tokens.size > 20 || readCount > 3000) throw new Error("Слишком много встреч для одной проверки.");
+      if (tokens.size > 20 || readCount > 3000) throw new Error("Too many meetings for one check.");
     } while (pageToken);
     // Missing from a date query can mean moved, cancelled, declined, or hidden
     // by a filter. Read each known occurrence instead of treating absence as
     // cancellation. An error fails the batch without changing stored meetings.
     const missing = input.known.filter(i => i.calendar?.calendarId === calendarId && i.date >= from && i.date <= through && !seenIds.has(i.calendar.eventId));
-    if (missing.length > 500) throw new Error("Слишком много прежних встреч для перепроверки.");
+    if (missing.length > 500) throw new Error("Too many previous meetings to recheck.");
     for (let offset = 0; offset < missing.length; offset += 6) {
       await Promise.all(missing.slice(offset, offset + 6).map(async item => {
         const old = item.calendar!;
