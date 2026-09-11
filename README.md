@@ -4,7 +4,7 @@ Local tasks, durable dossiers, shared knowledge, work conversations and day plan
 
 ## Install on another computer
 
-Requires BB ≥ 0.42 with Plugin SDK ≥ 0.4.47 and a login for your chosen model provider. Compatible with the stable BB 0.42.1 npm release. Verified on macOS; integrations on other operating systems require separate validation.
+Requires BB ≥ 0.42 with Plugin SDK ≥ 0.4.47 and a login for your chosen model provider. Compatible with the stable BB 0.42.1 npm release. Installation and startup are verified on macOS and confirmed by user testing on Windows with Ubuntu/WSL. Configure and verify source integrations and backups on each computer.
 
 This repository is currently private. Authenticate Git with a GitHub account that has access before installing; with GitHub CLI, run `gh auth login` and `gh auth setup-git` once on the new computer.
 

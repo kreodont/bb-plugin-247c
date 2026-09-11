@@ -7,8 +7,10 @@ BB's supported Windows route is [Ubuntu on WSL2](https://github.com/get-bb/bb/bl
 BB, Git, Node.js and the model provider CLIs all run in that Linux distribution.
 The browser can run on Windows. Native PowerShell and CMD are not BB runtime
 environments. 247C 0.4.5 supports the SDK 0.4.47 bundled with stable BB 0.42.1.
-Installation has been verified in an isolated instance of that npm runtime on macOS;
-247C has not yet had an end-to-end verification on a Windows/WSL installation.
+Installation and startup have been confirmed by user testing on Windows with
+Ubuntu/WSL. The stable npm runtime was also verified in an isolated macOS instance.
+Verify model workflows, source integrations and backups on each installation
+using the setup checks below.
 
 ## 1. Prepare WSL and BB
 
