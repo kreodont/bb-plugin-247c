@@ -257,7 +257,7 @@ it("shows the proposed value and evidence before accepting a change", async () =
   const { slot } = await setup(task.id, f);
   fireEvent.click(await slot.findByRole("tab", { name: "Proposals · 1" }));
   await slot.findByText("Proposed");
-  expect(slot.getByText("Do now")).toBeTruthy();
+  expect(slot.getByText("Before")).toBeTruthy();
   expect(slot.getByText(/Supporting evidence/)).toBeTruthy();
   expect((await f.detail(task.id)).projection.summary).toBeNull();
   fireEvent.click(slot.getByRole("button", { name: "Accept changes" }));
@@ -444,4 +444,84 @@ it("uses the returned page boundary for large files and returns to the previous 
   fireEvent.change(slot.getByLabelText("Search the knowledge base"), { target: { value: "Document 5" } });
   await slot.findByText("Records 1–1 of 1");
   expect(slot.queryByRole("button", { name: "Back" })).toBeNull();
+});
+
+
+it("shows new and updated badges until a visible dossier is opened, excluding pending proposals", async () => {
+  const f = await fixture(), task = await f.create("Original");
+  const home = await setup(undefined, f);
+  expect(await home.slot.findByText("New", { exact: true })).toBeTruthy();
+  expect(home.slot.inspection.rpcCalls.some(c => c.method === "taskSeen")).toBe(false);
+  const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+  const page = await setup(task.id, f);
+  await page.slot.findByRole("heading", { name: task.title });
+  expect(page.slot.inspection.rpcCalls.some(c => c.method === "taskSeen")).toBe(false);
+  visibility.mockReturnValue("visible"); fireEvent(document, new Event("visibilitychange"));
+  await waitFor(() => expect(f.repo.list().tasks[0].unseen).toBeNull());
+  page.slot.lifecycle.unmount(); mounts.splice(mounts.indexOf(page.slot), 1);
+  const p = f.repo.propose({ taskId: task.id, revision: task.revision, requestId: randomUUID(), draft: {
+    rationale: "Updated summary", confidence: 1, changes: { summary: { value: "Accepted update", evidenceRefs: [f.repo.detail(task.id).facts[0].id] } },
+  } }, "test");
+  expect(f.repo.list().tasks[0].unseen).toBeNull();
+  f.repo.accept(p.id, task.revision);
+  await home.slot.behavior.emitRealtime("desk-changed", {});
+  expect(await home.slot.findByText("Updated", { exact: true })).toBeTruthy();
+  await setup(task.id, f);
+  await waitFor(() => expect(f.repo.list().tasks[0].unseen).toBeNull());
+});
+
+it("selects every source part by default and leaves unchecked parts pending after acceptance", async () => {
+  const f = await fixture(), task = await f.create("Original");
+  const { run } = await startSourceSync(f), { input } = await sourceData(f, run, task.id);
+  await submitSourceData(f, run, input);
+  const { slot } = await setup("updates", f);
+  const nextStep = await slot.findByRole("checkbox", { name: "Select part: Next step" });
+  expect((nextStep as HTMLInputElement).checked).toBe(true);
+  expect(slot.getByRole("button", { name: "Accept update" })).toBeTruthy();
+  fireEvent.click(nextStep);
+  fireEvent.click(slot.getByRole("button", { name: "Accept selected parts · 4" }));
+  await waitFor(() => expect(f.repo.kernel.getTask(task.id).revision).toBe(task.revision + 1));
+  expect(f.repo.detail(task.id).projection.nextStep).toBeNull();
+  await slot.findByText("Selected 1 of 1 parts");
+  expect(slot.inspection.rpcCalls.filter(c => c.method === "reviewParts")).toHaveLength(1);
+  expect((slot.getByRole("checkbox", { name: "Select part: Next step" }) as HTMLInputElement).checked).toBe(true);
+  fireEvent.click(slot.getByRole("button", { name: "Accept update" }));
+  await waitFor(() => expect(f.repo.pendingTotal()).toBe(0));
+  expect(f.repo.detail(task.id).projection.nextStep).toBe(input.suggestions[0].changes.nextStep!.value);
+});
+
+it("rejects selected dossier fields while preserving the unchecked fields for acceptance", async () => {
+  const f = await fixture(), task = await f.create("Original"), ref = f.repo.detail(task.id).facts[0].id;
+  f.repo.propose({ taskId: task.id, revision: task.revision, requestId: randomUUID(), draft: {
+    rationale: "Review fields", confidence: 1, changes: { summary: { value: "New summary", evidenceRefs: [ref] }, blockers: { value: [], evidenceRefs: [ref] } },
+  } }, "test");
+  const { slot } = await setup(task.id, f);
+  fireEvent.click(await slot.findByRole("tab", { name: /Proposals.*1/ }));
+  fireEvent.click(await slot.findByRole("checkbox", { name: "Select part: Blockers" }));
+  fireEvent.click(slot.getByRole("button", { name: "Reject selected parts · 1" }));
+  await slot.findByText("Selected 1 of 1 parts");
+  expect(slot.queryByRole("checkbox", { name: "Select part: Summary" })).toBeNull();
+  expect(f.repo.kernel.getTask(task.id).revision).toBe(task.revision);
+  fireEvent.click(slot.getByRole("button", { name: "Accept changes" }));
+  await waitFor(() => expect(f.repo.pendingTotal()).toBe(0));
+  expect(f.repo.detail(task.id).projection.summary).toBeNull();
+});
+
+
+it("honors individual part choices in bulk acceptance, including after collapse and reopening", async () => {
+  const f = await fixture(), task = await f.create("Original");
+  const { run } = await startSourceSync(f), { input } = await sourceData(f, run, task.id);
+  await submitSourceData(f, run, input);
+  const { slot } = await setup("proposals", f);
+  fireEvent.click(await slot.findByRole("button", { name: "Expand all" }));
+  fireEvent.click(await slot.findByRole("checkbox", { name: "Select part: Next step" }));
+  fireEvent.click(slot.getByRole("button", { name: "Collapse all" }));
+  fireEvent.click(slot.getByRole("button", { name: "Expand all" }));
+  expect((await slot.findByRole("checkbox", { name: "Select part: Next step" }) as HTMLInputElement).checked).toBe(false);
+  fireEvent.click(slot.getByRole("checkbox", { name: "Select all" }));
+  fireEvent.click(slot.getByRole("button", { name: "Accept selected · 1" }));
+  await slot.findByText("Accepted: 1.");
+  expect(f.repo.detail(task.id).projection.nextStep).toBeNull();
+  const remaining = new SourceSyncStore(f.repo).pendingCandidates();
+  expect(remaining).toHaveLength(1); expect(Object.keys(remaining[0].changes)).toEqual(["nextStep"]);
 });

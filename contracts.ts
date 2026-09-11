@@ -11,7 +11,7 @@ const text = z.string().trim().min(1).max(12000);
 export const artifactSchema = z.object({ label: z.string().min(1).max(300), uri: z.string().min(1).max(4096) }).strict();
 const refs = z.array(z.string().min(1).max(256)).min(1).max(80);
 const proposed = <T extends z.ZodType>(value: T) => z.object({ value, evidenceRefs: refs }).strict();
-export const changesSchema = z.object({
+const changesObjectSchema = z.object({
   title: proposed(z.string().trim().min(1).max(200)).optional(),
   status: proposed(statusSchema).optional(),
   urgent: proposed(axisSchema).optional(),
@@ -21,11 +21,12 @@ export const changesSchema = z.object({
   openQuestions: proposed(z.array(text).max(30)).optional(),
   blockers: proposed(z.array(text).max(30)).optional(),
   artifacts: proposed(z.array(artifactSchema).max(20)).optional(),
-}).strict().refine((v) => Object.keys(v).length > 0, "The proposal contains no changes.");
+}).strict();
+export const changesSchema = changesObjectSchema.refine((v) => Object.keys(v).length > 0, "The proposal contains no changes.");
 export const draftSchema = z.object({ rationale: text, confidence: z.number().min(0).max(1), changes: changesSchema }).strict();
 export const taskSchema = z.object({ id: idSchema, title: z.string(), status: statusSchema, revision: revisionSchema, createdAt: z.string(), updatedAt: z.string() });
 export const planningSchema = z.object({ urgent: axisSchema, important: axisSchema, revision: revisionSchema });
-export const taskCardSchema = taskSchema.extend({ planning: planningSchema, summary: z.string().nullable(), nextStep: z.string().nullable(), pendingCount: z.number(), activeSession: z.string().nullable() });
+export const taskCardSchema = taskSchema.extend({ planning: planningSchema, summary: z.string().nullable(), nextStep: z.string().nullable(), pendingCount: z.number(), activeSession: z.string().nullable(), unseen: z.enum(["new", "updated"]).nullable().default(null) });
 export const factSchema = z.object({ id: idSchema, taskId: idSchema, kind: factKindSchema, text: z.string(), source: z.string(), sourceRef: z.string().nullable(), occurredAt: z.string(), createdAt: z.string() });
 export const projectionSchema = z.object({ taskId: idSchema, summary: z.string().nullable(), nextStep: z.string().nullable(), openQuestions: z.array(z.string()), blockers: z.array(z.string()), artifacts: z.array(artifactSchema), updatedAt: z.string() });
 export const evidenceSchema = z.object({ ref: z.string(), kind: factKindSchema, text: z.string(), source: z.string(), sourceRef: z.string().nullable() });
@@ -33,7 +34,10 @@ export const proposalSchema = z.object({
   id: idSchema, taskId: idSchema, baseRevision: revisionSchema, model: z.string(), status: z.enum(["pending", "approved", "applied", "rejected", "conflicted"]),
   createdAt: z.string(), resolvedAt: z.string().nullable(), idempotencyKey: z.string().nullable(), rationale: z.string(), confidence: z.number(), changes: changesSchema,
 });
-export const proposalViewSchema = proposalSchema.extend({ evidence: z.array(evidenceSchema), receipt: z.object({ id: z.string(), beforeRevision: z.number(), afterRevision: z.number(), createdAt: z.string() }).nullable() });
+export const partReviewSchema = z.object({ accepted: z.array(z.string()), rejected: z.array(z.string()), remaining: z.array(z.string()), acceptedId: idSchema.nullable(), remainingId: idSchema.nullable(), createdAt: z.string() });
+export const partDecisionSchema = z.object({ kind: z.enum(["source", "proposal"]), id: idSchema, revision: revisionSchema.nullable(), decision: z.enum(["accept", "reject"]), parts: z.array(z.string().min(1).max(120)).min(1).max(400), requestId: z.uuid() }).strict();
+export const partDecisionResultSchema = z.object({ taskId: idSchema.nullable(), remainingId: idSchema.nullable() });
+export const proposalViewSchema = proposalSchema.extend({ partReview: partReviewSchema.optional(), evidence: z.array(evidenceSchema), receipt: z.object({ id: z.string(), beforeRevision: z.number(), afterRevision: z.number(), createdAt: z.string() }).nullable() });
 
 export const resultSchema = z.object({
   summary: text,
@@ -96,6 +100,7 @@ export const sessionSchema = z.object({
   id: idSchema, taskId: idSchema, baseRevision: revisionSchema, status: sessionStatusSchema, objective: z.string(), criteria: z.array(z.string()),
   mode: z.enum(["result", "conversation"]).default("result"), finishedAt: z.string().nullable().default(null),
   continuedFrom: idSchema.nullable().default(null),
+  acceptedPartProposalIds: z.array(idSchema).max(400).optional(),
   discussionProposalId: idSchema.nullable().default(null),
   extraction: extractionSchema.nullable().default(null),
   extractionRepair: z.object({ attempt: z.number().int().min(1).max(2), feedback: z.string().max(4000) }).nullable().default(null),
@@ -146,6 +151,10 @@ export const syncRunSchema = z.object({
   collection: z.object({ phase: z.enum(["collecting", "analyzing"]), calls: z.number().int().min(0), reads: z.number().int().min(0), elapsedMs: z.number().min(0) }).optional(),
 });
 export const syncCandidateSchema = syncDraftSchema.extend({
+  // Only human-created partial reviews can have records without field changes.
+  changes: changesObjectSchema,
+  recordFactIndexes: z.array(z.number().int().nonnegative().max(299)).max(300).optional(),
+  partReview: partReviewSchema.optional(),
   facts: z.array(syncFactSchema).min(1).max(300),
   id: idSchema, runId: idSchema, baseRevision: revisionSchema.nullable(),
   status: z.enum(["pending", "applied", "rejected", "superseded"]), createdAt: z.string(), resolvedAt: z.string().nullable(),
@@ -162,7 +171,7 @@ export const reviewItemSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("source"), candidate: syncCandidateSchema, currentTask: taskCardSchema.pick({ revision: true, status: true, activeSession: true }).nullable(), blockedReason: z.string().nullable() }),
   z.object({ kind: z.literal("proposal"), proposal: proposalViewSchema, dossier: reviewDossierSchema, blockedReason: z.string().nullable() }),
 ]);
-export const reviewSelectionSchema = z.object({ kind: z.enum(["source", "proposal"]), id: idSchema, revision: revisionSchema.nullable() }).strict();
+export const reviewSelectionSchema = z.object({ kind: z.enum(["source", "proposal"]), id: idSchema, revision: revisionSchema.nullable(), parts: z.array(z.string().min(1).max(120)).min(1).max(400).optional() }).strict();
 
 // BB validates the complete forwarded native-composer request again in spawn.
 // Here we bound its size, discriminate its routing, and reject extra top-level authority.
@@ -211,6 +220,8 @@ export const rpcContract = defineRpcContract({
   syncAccept: { input: z.object({ candidateId: idSchema }).strict(), output: dossierSchema },
   syncReject: { input: z.object({ candidateId: idSchema }).strict(), output: syncCandidateSchema },
   list: { input: z.object({ history: z.boolean().default(false) }).strict(), output: z.object({ tasks: z.array(taskCardSchema), total: z.number(), pendingTotal: z.number(), settings: settingsViewSchema }) },
+  taskSeen: { input: z.object({ id: idSchema, revision: revisionSchema }).strict(), output: z.object({ seenRevision: revisionSchema }) },
+  reviewParts: { input: partDecisionSchema, output: partDecisionResultSchema },
   detail: { input: z.object({ id: idSchema }).strict(), output: dossierSchema },
   threadSession: { input: z.object({ threadId: idSchema }).strict(), output: z.object({ session: sessionSchema.pick({ id: true, taskId: true, workerThreadId: true, mode: true, status: true }).nullable() }) },
   create: { input: z.object({ title: z.string().trim().min(1).max(200), description: z.string().trim().max(12000).default(""), requestId: z.uuid() }).strict(), output: taskSchema },
@@ -249,3 +260,6 @@ export type SyncCandidate = z.infer<typeof syncCandidateSchema>;
 export type SyncDraft = z.infer<typeof syncDraftSchema>;
 export type SyncSubmit = z.infer<typeof syncSubmitSchema>;
 export type SyncStart = z.infer<typeof syncStartSchema>;
+
+export type PartDecision = z.infer<typeof partDecisionSchema>;
+export type PartReview = z.infer<typeof partReviewSchema>;

@@ -38,9 +38,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
-// node_modules/ajv/dist/compile/codegen/code.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/codegen/code.js
 var require_code = __commonJS({
-  "node_modules/ajv/dist/compile/codegen/code.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/codegen/code.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.regexpCode = exports.getEsmExportName = exports.getProperty = exports.safeStringify = exports.stringify = exports.strConcat = exports.addCodeArg = exports.str = exports._ = exports.nil = exports._Code = exports.Name = exports.IDENTIFIER = exports._CodeOrName = void 0;
@@ -192,9 +192,9 @@ var require_code = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/compile/codegen/scope.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/codegen/scope.js
 var require_scope = __commonJS({
-  "node_modules/ajv/dist/compile/codegen/scope.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/codegen/scope.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ValueScope = exports.ValueScopeName = exports.Scope = exports.varKinds = exports.UsedValueState = void 0;
@@ -337,9 +337,9 @@ var require_scope = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/compile/codegen/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/codegen/index.js
 var require_codegen = __commonJS({
-  "node_modules/ajv/dist/compile/codegen/index.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/codegen/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.or = exports.and = exports.not = exports.CodeGen = exports.operators = exports.varKinds = exports.ValueScopeName = exports.ValueScope = exports.Scope = exports.Name = exports.regexpCode = exports.stringify = exports.getProperty = exports.nil = exports.strConcat = exports.str = exports._ = void 0;
@@ -1057,9 +1057,9 @@ var require_codegen = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/compile/util.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/util.js
 var require_util = __commonJS({
-  "node_modules/ajv/dist/compile/util.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/util.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.checkStrictMode = exports.getErrorPath = exports.Type = exports.useFunc = exports.setEvaluated = exports.evaluatedPropsToName = exports.mergeEvaluated = exports.eachItem = exports.unescapeJsonPointer = exports.escapeJsonPointer = exports.escapeFragment = exports.unescapeFragment = exports.schemaRefOrVal = exports.schemaHasRulesButRef = exports.schemaHasRules = exports.checkUnknownRules = exports.alwaysValidSchema = exports.toHash = void 0;
@@ -1224,9 +1224,9 @@ var require_util = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/compile/names.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/names.js
 var require_names = __commonJS({
-  "node_modules/ajv/dist/compile/names.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/names.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -1263,9 +1263,9 @@ var require_names = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/compile/errors.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/errors.js
 var require_errors = __commonJS({
-  "node_modules/ajv/dist/compile/errors.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/errors.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.extendErrors = exports.resetErrorsCount = exports.reportExtraError = exports.reportError = exports.keyword$DataError = exports.keywordError = void 0;
@@ -1385,9 +1385,9 @@ var require_errors = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/compile/validate/boolSchema.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/validate/boolSchema.js
 var require_boolSchema = __commonJS({
-  "node_modules/ajv/dist/compile/validate/boolSchema.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/validate/boolSchema.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.boolOrEmptySchema = exports.topBoolOrEmptySchema = void 0;
@@ -1436,9 +1436,9 @@ var require_boolSchema = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/compile/rules.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/rules.js
 var require_rules = __commonJS({
-  "node_modules/ajv/dist/compile/rules.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/rules.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getRules = exports.isJSONType = void 0;
@@ -1467,9 +1467,9 @@ var require_rules = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/compile/validate/applicability.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/validate/applicability.js
 var require_applicability = __commonJS({
-  "node_modules/ajv/dist/compile/validate/applicability.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/validate/applicability.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.shouldUseRule = exports.shouldUseGroup = exports.schemaHasRulesForType = void 0;
@@ -1490,9 +1490,9 @@ var require_applicability = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/compile/validate/dataType.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/validate/dataType.js
 var require_dataType = __commonJS({
-  "node_modules/ajv/dist/compile/validate/dataType.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/validate/dataType.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.reportTypeError = exports.checkDataTypes = exports.checkDataType = exports.coerceAndCheckDataType = exports.getJSONTypes = exports.getSchemaTypes = exports.DataType = void 0;
@@ -1674,9 +1674,9 @@ var require_dataType = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/compile/validate/defaults.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/validate/defaults.js
 var require_defaults = __commonJS({
-  "node_modules/ajv/dist/compile/validate/defaults.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/validate/defaults.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.assignDefaults = void 0;
@@ -1711,9 +1711,9 @@ var require_defaults = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/code.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/code.js
 var require_code2 = __commonJS({
-  "node_modules/ajv/dist/vocabularies/code.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/code.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.validateUnion = exports.validateArray = exports.usePattern = exports.callValidateCode = exports.schemaProperties = exports.allSchemaProperties = exports.noPropertyInData = exports.propertyInData = exports.isOwnProperty = exports.hasPropFunc = exports.reportMissingProp = exports.checkMissingProp = exports.checkReportMissingProp = void 0;
@@ -1844,9 +1844,9 @@ var require_code2 = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/compile/validate/keyword.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/validate/keyword.js
 var require_keyword = __commonJS({
-  "node_modules/ajv/dist/compile/validate/keyword.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/validate/keyword.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.validateKeywordUsage = exports.validSchemaType = exports.funcKeywordCode = exports.macroKeywordCode = void 0;
@@ -1962,9 +1962,9 @@ var require_keyword = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/compile/validate/subschema.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/validate/subschema.js
 var require_subschema = __commonJS({
-  "node_modules/ajv/dist/compile/validate/subschema.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/validate/subschema.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.extendSubschemaMode = exports.extendSubschemaData = exports.getSubschema = void 0;
@@ -2045,9 +2045,9 @@ var require_subschema = __commonJS({
   }
 });
 
-// node_modules/fast-deep-equal/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/fast-deep-equal/index.js
 var require_fast_deep_equal = __commonJS({
-  "node_modules/fast-deep-equal/index.js"(exports, module) {
+  "../../247c-wsl-sdk/plugin/node_modules/fast-deep-equal/index.js"(exports, module) {
     "use strict";
     module.exports = function equal(a, b) {
       if (a === b) return true;
@@ -2080,9 +2080,9 @@ var require_fast_deep_equal = __commonJS({
   }
 });
 
-// node_modules/json-schema-traverse/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/json-schema-traverse/index.js
 var require_json_schema_traverse = __commonJS({
-  "node_modules/json-schema-traverse/index.js"(exports, module) {
+  "../../247c-wsl-sdk/plugin/node_modules/json-schema-traverse/index.js"(exports, module) {
     "use strict";
     var traverse = module.exports = function(schema, opts, cb) {
       if (typeof opts == "function") {
@@ -2168,9 +2168,9 @@ var require_json_schema_traverse = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/compile/resolve.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/resolve.js
 var require_resolve = __commonJS({
-  "node_modules/ajv/dist/compile/resolve.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/resolve.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getSchemaRefs = exports.resolveUrl = exports.normalizeId = exports._getFullPath = exports.getFullPath = exports.inlineRef = void 0;
@@ -2324,9 +2324,9 @@ var require_resolve = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/compile/validate/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/validate/index.js
 var require_validate = __commonJS({
-  "node_modules/ajv/dist/compile/validate/index.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/validate/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getData = exports.KeywordCxt = exports.validateFunctionCode = void 0;
@@ -2832,9 +2832,9 @@ var require_validate = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/runtime/validation_error.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/runtime/validation_error.js
 var require_validation_error = __commonJS({
-  "node_modules/ajv/dist/runtime/validation_error.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/runtime/validation_error.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var ValidationError = class extends Error {
@@ -2848,9 +2848,9 @@ var require_validation_error = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/compile/ref_error.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/ref_error.js
 var require_ref_error = __commonJS({
-  "node_modules/ajv/dist/compile/ref_error.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/ref_error.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var resolve_1 = require_resolve();
@@ -2865,9 +2865,9 @@ var require_ref_error = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/compile/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/index.js
 var require_compile = __commonJS({
-  "node_modules/ajv/dist/compile/index.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.resolveSchema = exports.getCompilingSchema = exports.resolveRef = exports.compileSchema = exports.SchemaEnv = void 0;
@@ -3089,9 +3089,9 @@ var require_compile = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/refs/data.json
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/refs/data.json
 var require_data = __commonJS({
-  "node_modules/ajv/dist/refs/data.json"(exports, module) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/refs/data.json"(exports, module) {
     module.exports = {
       $id: "https://raw.githubusercontent.com/ajv-validator/ajv/master/lib/refs/data.json#",
       description: "Meta-schema for $data reference (JSON AnySchema extension proposal)",
@@ -3108,9 +3108,9 @@ var require_data = __commonJS({
   }
 });
 
-// node_modules/fast-uri/lib/utils.js
+// ../../247c-wsl-sdk/plugin/node_modules/fast-uri/lib/utils.js
 var require_utils = __commonJS({
-  "node_modules/fast-uri/lib/utils.js"(exports, module) {
+  "../../247c-wsl-sdk/plugin/node_modules/fast-uri/lib/utils.js"(exports, module) {
     "use strict";
     var isUUID = RegExp.prototype.test.bind(/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/iu);
     var isIPv4 = RegExp.prototype.test.bind(/^(?:(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]\d|\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]\d|\d)$/u);
@@ -3610,9 +3610,9 @@ var require_utils = __commonJS({
   }
 });
 
-// node_modules/fast-uri/lib/schemes.js
+// ../../247c-wsl-sdk/plugin/node_modules/fast-uri/lib/schemes.js
 var require_schemes = __commonJS({
-  "node_modules/fast-uri/lib/schemes.js"(exports, module) {
+  "../../247c-wsl-sdk/plugin/node_modules/fast-uri/lib/schemes.js"(exports, module) {
     "use strict";
     var { isUUID } = require_utils();
     var URN_REG = /^([\da-z][\d\-a-z]{0,31}):((?:[\w!$'()*+,\-./:;=@]|%[\da-f]{2})+)$/iu;
@@ -3821,9 +3821,9 @@ var require_schemes = __commonJS({
   }
 });
 
-// node_modules/fast-uri/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/fast-uri/index.js
 var require_fast_uri = __commonJS({
-  "node_modules/fast-uri/index.js"(exports, module) {
+  "../../247c-wsl-sdk/plugin/node_modules/fast-uri/index.js"(exports, module) {
     "use strict";
     var { normalizeIPv6, removeDotSegments, recomposeAuthority, normalizePercentEncoding, normalizePathEncoding, serializePathEncoding, normalizeQueryFragmentEncoding, encodeQuery, encodeFragment, reescapeHostDelimiters, isIPv4, nonSimpleDomain } = require_utils();
     var { SCHEMES, getSchemeHandler } = require_schemes();
@@ -4226,9 +4226,9 @@ var require_fast_uri = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/runtime/uri.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/runtime/uri.js
 var require_uri = __commonJS({
-  "node_modules/ajv/dist/runtime/uri.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/runtime/uri.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var uri = require_fast_uri();
@@ -4237,9 +4237,9 @@ var require_uri = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/core.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/core.js
 var require_core = __commonJS({
-  "node_modules/ajv/dist/core.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/core.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.CodeGen = exports.Name = exports.nil = exports.stringify = exports.str = exports._ = exports.KeywordCxt = void 0;
@@ -4848,9 +4848,9 @@ var require_core = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/core/id.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/core/id.js
 var require_id = __commonJS({
-  "node_modules/ajv/dist/vocabularies/core/id.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/core/id.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var def = {
@@ -4863,9 +4863,9 @@ var require_id = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/core/ref.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/core/ref.js
 var require_ref = __commonJS({
-  "node_modules/ajv/dist/vocabularies/core/ref.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/core/ref.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.callRef = exports.getValidate = void 0;
@@ -4985,9 +4985,9 @@ var require_ref = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/core/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/core/index.js
 var require_core2 = __commonJS({
-  "node_modules/ajv/dist/vocabularies/core/index.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/core/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var id_1 = require_id();
@@ -5006,9 +5006,9 @@ var require_core2 = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/validation/limitNumber.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/limitNumber.js
 var require_limitNumber = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/limitNumber.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/limitNumber.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -5038,9 +5038,9 @@ var require_limitNumber = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/validation/multipleOf.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/multipleOf.js
 var require_multipleOf = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/multipleOf.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/multipleOf.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -5066,9 +5066,9 @@ var require_multipleOf = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/runtime/ucs2length.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/runtime/ucs2length.js
 var require_ucs2length = __commonJS({
-  "node_modules/ajv/dist/runtime/ucs2length.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/runtime/ucs2length.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     function ucs2length(str) {
@@ -5092,9 +5092,9 @@ var require_ucs2length = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/validation/limitLength.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/limitLength.js
 var require_limitLength = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/limitLength.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/limitLength.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -5124,9 +5124,9 @@ var require_limitLength = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/validation/pattern.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/pattern.js
 var require_pattern = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/pattern.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/pattern.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var code_1 = require_code2();
@@ -5161,9 +5161,9 @@ var require_pattern = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/validation/limitProperties.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/limitProperties.js
 var require_limitProperties = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/limitProperties.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/limitProperties.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -5190,9 +5190,9 @@ var require_limitProperties = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/validation/required.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/required.js
 var require_required = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/required.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/required.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var code_1 = require_code2();
@@ -5272,9 +5272,9 @@ var require_required = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/validation/limitItems.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/limitItems.js
 var require_limitItems = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/limitItems.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/limitItems.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -5301,9 +5301,9 @@ var require_limitItems = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/runtime/equal.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/runtime/equal.js
 var require_equal = __commonJS({
-  "node_modules/ajv/dist/runtime/equal.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/runtime/equal.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var equal = require_fast_deep_equal();
@@ -5312,9 +5312,9 @@ var require_equal = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/validation/uniqueItems.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/uniqueItems.js
 var require_uniqueItems = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/uniqueItems.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/uniqueItems.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var dataType_1 = require_dataType();
@@ -5379,9 +5379,9 @@ var require_uniqueItems = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/validation/const.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/const.js
 var require_const = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/const.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/const.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -5408,9 +5408,9 @@ var require_const = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/validation/enum.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/enum.js
 var require_enum = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/enum.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/enum.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -5457,9 +5457,9 @@ var require_enum = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/validation/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/index.js
 var require_validation = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/index.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var limitNumber_1 = require_limitNumber();
@@ -5495,9 +5495,9 @@ var require_validation = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/additionalItems.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/additionalItems.js
 var require_additionalItems = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/additionalItems.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/additionalItems.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.validateAdditionalItems = void 0;
@@ -5548,9 +5548,9 @@ var require_additionalItems = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/items.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/items.js
 var require_items = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/items.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/items.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.validateTuple = void 0;
@@ -5605,9 +5605,9 @@ var require_items = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/prefixItems.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/prefixItems.js
 var require_prefixItems = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/prefixItems.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/prefixItems.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var items_1 = require_items();
@@ -5622,9 +5622,9 @@ var require_prefixItems = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/items2020.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/items2020.js
 var require_items2020 = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/items2020.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/items2020.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -5657,9 +5657,9 @@ var require_items2020 = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/contains.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/contains.js
 var require_contains = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/contains.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/contains.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -5751,9 +5751,9 @@ var require_contains = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/dependencies.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/dependencies.js
 var require_dependencies = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/dependencies.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/dependencies.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.validateSchemaDeps = exports.validatePropertyDeps = exports.error = void 0;
@@ -5845,9 +5845,9 @@ var require_dependencies = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/propertyNames.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/propertyNames.js
 var require_propertyNames = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/propertyNames.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/propertyNames.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -5888,9 +5888,9 @@ var require_propertyNames = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/additionalProperties.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/additionalProperties.js
 var require_additionalProperties = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/additionalProperties.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/additionalProperties.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var code_1 = require_code2();
@@ -5994,9 +5994,9 @@ var require_additionalProperties = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/properties.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/properties.js
 var require_properties = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/properties.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/properties.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var validate_1 = require_validate();
@@ -6052,9 +6052,9 @@ var require_properties = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/patternProperties.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/patternProperties.js
 var require_patternProperties = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/patternProperties.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/patternProperties.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var code_1 = require_code2();
@@ -6126,9 +6126,9 @@ var require_patternProperties = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/not.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/not.js
 var require_not = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/not.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/not.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var util_1 = require_util();
@@ -6157,9 +6157,9 @@ var require_not = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/anyOf.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/anyOf.js
 var require_anyOf = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/anyOf.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/anyOf.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var code_1 = require_code2();
@@ -6174,9 +6174,9 @@ var require_anyOf = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/oneOf.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/oneOf.js
 var require_oneOf = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/oneOf.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/oneOf.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -6232,9 +6232,9 @@ var require_oneOf = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/allOf.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/allOf.js
 var require_allOf = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/allOf.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/allOf.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var util_1 = require_util();
@@ -6259,9 +6259,9 @@ var require_allOf = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/if.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/if.js
 var require_if = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/if.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/if.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -6328,9 +6328,9 @@ var require_if = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/thenElse.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/thenElse.js
 var require_thenElse = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/thenElse.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/thenElse.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var util_1 = require_util();
@@ -6346,9 +6346,9 @@ var require_thenElse = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/index.js
 var require_applicator = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/index.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var additionalItems_1 = require_additionalItems();
@@ -6394,9 +6394,9 @@ var require_applicator = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/format/format.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/format/format.js
 var require_format = __commonJS({
-  "node_modules/ajv/dist/vocabularies/format/format.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/format/format.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -6484,9 +6484,9 @@ var require_format = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/format/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/format/index.js
 var require_format2 = __commonJS({
-  "node_modules/ajv/dist/vocabularies/format/index.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/format/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var format_1 = require_format();
@@ -6495,9 +6495,9 @@ var require_format2 = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/metadata.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/metadata.js
 var require_metadata = __commonJS({
-  "node_modules/ajv/dist/vocabularies/metadata.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/metadata.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.contentVocabulary = exports.metadataVocabulary = void 0;
@@ -6518,9 +6518,9 @@ var require_metadata = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/draft7.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/draft7.js
 var require_draft7 = __commonJS({
-  "node_modules/ajv/dist/vocabularies/draft7.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/draft7.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var core_1 = require_core2();
@@ -6540,9 +6540,9 @@ var require_draft7 = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/discriminator/types.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/discriminator/types.js
 var require_types = __commonJS({
-  "node_modules/ajv/dist/vocabularies/discriminator/types.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/discriminator/types.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.DiscrError = void 0;
@@ -6554,9 +6554,9 @@ var require_types = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/discriminator/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/discriminator/index.js
 var require_discriminator = __commonJS({
-  "node_modules/ajv/dist/vocabularies/discriminator/index.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/discriminator/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -6659,9 +6659,9 @@ var require_discriminator = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/refs/json-schema-draft-07.json
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/refs/json-schema-draft-07.json
 var require_json_schema_draft_07 = __commonJS({
-  "node_modules/ajv/dist/refs/json-schema-draft-07.json"(exports, module) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/refs/json-schema-draft-07.json"(exports, module) {
     module.exports = {
       $schema: "http://json-schema.org/draft-07/schema#",
       $id: "http://json-schema.org/draft-07/schema#",
@@ -6816,9 +6816,9 @@ var require_json_schema_draft_07 = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/ajv.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/ajv.js
 var require_ajv = __commonJS({
-  "node_modules/ajv/dist/ajv.js"(exports, module) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/ajv.js"(exports, module) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.MissingRefError = exports.ValidationError = exports.CodeGen = exports.Name = exports.nil = exports.stringify = exports.str = exports._ = exports.KeywordCxt = exports.Ajv = void 0;
@@ -6886,9 +6886,9 @@ var require_ajv = __commonJS({
   }
 });
 
-// node_modules/ajv-formats/dist/formats.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv-formats/dist/formats.js
 var require_formats = __commonJS({
-  "node_modules/ajv-formats/dist/formats.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv-formats/dist/formats.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.formatNames = exports.fastFormats = exports.fullFormats = void 0;
@@ -7089,9 +7089,9 @@ var require_formats = __commonJS({
   }
 });
 
-// node_modules/ajv-formats/dist/limit.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv-formats/dist/limit.js
 var require_limit = __commonJS({
-  "node_modules/ajv-formats/dist/limit.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv-formats/dist/limit.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.formatLimitDefinition = void 0;
@@ -7161,9 +7161,9 @@ var require_limit = __commonJS({
   }
 });
 
-// node_modules/ajv-formats/dist/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv-formats/dist/index.js
 var require_dist = __commonJS({
-  "node_modules/ajv-formats/dist/index.js"(exports, module) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv-formats/dist/index.js"(exports, module) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var formats_1 = require_formats();
@@ -7203,9 +7203,9 @@ var require_dist = __commonJS({
   }
 });
 
-// node_modules/content-type/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/content-type/index.js
 var require_content_type = __commonJS({
-  "node_modules/content-type/index.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/content-type/index.js"(exports) {
     "use strict";
     var PARAM_REGEXP = /; *([!#$%&'*+.^_`|~0-9A-Za-z-]+) *= *("(?:[\u000b\u0020\u0021\u0023-\u005b\u005d-\u007e\u0080-\u00ff]|\\[\u000b\u0020-\u00ff])*"|[!#$%&'*+.^_`|~0-9A-Za-z-]+) */g;
     var TEXT_REGEXP = /^[\u000b\u0020-\u007e\u0080-\u00ff]+$/;
@@ -7307,7 +7307,7 @@ var require_content_type = __commonJS({
   }
 });
 
-// node_modules/zod/v4/classic/external.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/classic/external.js
 var external_exports = {};
 __export(external_exports, {
   $brand: () => $brand,
@@ -7564,7 +7564,7 @@ __export(external_exports, {
   xor: () => xor
 });
 
-// node_modules/zod/v4/core/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/index.js
 var core_exports2 = {};
 __export(core_exports2, {
   $ZodAny: () => $ZodAny,
@@ -7871,7 +7871,7 @@ __export(core_exports2, {
   version: () => version
 });
 
-// node_modules/zod/v4/core/util.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/util.js
 var util_exports = {};
 __export(util_exports, {
   BIGINT_FORMAT_RANGES: () => BIGINT_FORMAT_RANGES,
@@ -8708,7 +8708,7 @@ function constantCatch(value) {
   return fn;
 }
 
-// node_modules/zod/v4/core/core.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/core.js
 var _a;
 var NEVER = /* @__PURE__ */ Object.freeze({
   status: "aborted"
@@ -8831,7 +8831,7 @@ function config(newConfig) {
   return globalConfig;
 }
 
-// node_modules/zod/v4/core/errors.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/errors.js
 function _getMessage() {
   const internals = this._zod;
   internals.message ?? (internals.message = JSON.stringify(internals.def, jsonStringifyReplacer, 2));
@@ -9027,7 +9027,7 @@ function prettifyError(error61) {
   return lines.join("\n");
 }
 
-// node_modules/zod/v4/core/parse.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/parse.js
 function finalizeParams(callee, params) {
   return { callee: params?.callee ?? callee, Err: params?.Err };
 }
@@ -9170,7 +9170,7 @@ var _safeDecodeAsync = (_Err) => async (schema, value, _ctx) => {
 };
 var safeDecodeAsync = /* @__PURE__ */ _safeDecodeAsync($ZodRealError);
 
-// node_modules/zod/v4/core/regexes.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/regexes.js
 var regexes_exports = {};
 __export(regexes_exports, {
   base64: () => base64,
@@ -9336,7 +9336,7 @@ var sha512_hex = /^[0-9a-fA-F]{128}$/;
 var sha512_base64 = /* @__PURE__ */ fixedBase64(86, "==");
 var sha512_base64url = /* @__PURE__ */ fixedBase64url(86);
 
-// node_modules/zod/v4/core/checks.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/checks.js
 var $ZodCheck = /* @__PURE__ */ $constructor("$ZodCheck", (inst, def) => {
   var _a3;
   inst._zod ?? (inst._zod = {});
@@ -9880,7 +9880,7 @@ var $ZodCheckOverwrite = /* @__PURE__ */ $constructor("$ZodCheckOverwrite", (ins
   };
 });
 
-// node_modules/zod/v4/core/doc.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/doc.js
 var Doc = class {
   constructor(args = [], closed = {}) {
     this.content = [];
@@ -9917,14 +9917,14 @@ ${content.join("\n")}
   }
 };
 
-// node_modules/zod/v4/core/versions.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/versions.js
 var version = {
   major: 4,
   minor: 5,
   patch: 4
 };
 
-// node_modules/zod/v4/core/schemas.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/schemas.js
 var $ZodType = /* @__PURE__ */ $constructor("$ZodType", (inst, def) => {
   var _a3;
   inst ?? (inst = {});
@@ -12188,7 +12188,7 @@ function handleRefineResult(result, payload, input2, inst) {
   }
 }
 
-// node_modules/zod/v4/core/memoizer.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/memoizer.js
 var $ZodCyclicError = class extends Error {
   constructor() {
     super(`Cannot parse a reference cycle that closes through a transform`);
@@ -12429,7 +12429,7 @@ function isBackEdge(ctx, value) {
   return backEdges !== void 0 && value !== null && typeof value === "object" && backEdges.has(value);
 }
 
-// node_modules/zod/v4/locales/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/index.js
 var locales_exports = {};
 __export(locales_exports, {
   ar: () => ar_default,
@@ -12496,7 +12496,7 @@ __export(locales_exports, {
   zhTW: () => zh_TW_default
 });
 
-// node_modules/zod/v4/locales/ar.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/ar.js
 var error = () => {
   const Sizable = {
     string: { unit: "\u062D\u0631\u0641", verb: "\u0623\u0646 \u064A\u062D\u0648\u064A" },
@@ -12606,7 +12606,7 @@ function ar_default() {
   };
 }
 
-// node_modules/zod/v4/locales/az.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/az.js
 var error2 = () => {
   const Sizable = {
     string: { unit: "simvol", verb: "olmal\u0131d\u0131r" },
@@ -12715,7 +12715,7 @@ function az_default() {
   };
 }
 
-// node_modules/zod/v4/locales/be.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/be.js
 function getBelarusianPlural(count, one, few, many) {
   const absCount = Math.abs(count);
   const lastDigit = absCount % 10;
@@ -12882,7 +12882,7 @@ function be_default() {
   };
 }
 
-// node_modules/zod/v4/locales/bg.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/bg.js
 var error4 = () => {
   const Sizable = {
     string: { unit: "\u0441\u0438\u043C\u0432\u043E\u043B\u0430", verb: "\u0434\u0430 \u0441\u044A\u0434\u044A\u0440\u0436\u0430" },
@@ -13006,7 +13006,7 @@ function bg_default() {
   };
 }
 
-// node_modules/zod/v4/locales/bn.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/bn.js
 var error5 = () => {
   const Sizable = {
     string: { unit: "\u0985\u0995\u09CD\u09B7\u09B0", verb: "\u09A5\u09BE\u0995\u09A4\u09C7 \u09B9\u09AC\u09C7" },
@@ -13118,7 +13118,7 @@ function bn_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ca.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/ca.js
 var error6 = () => {
   const Sizable = {
     string: { unit: "car\xE0cters", verb: "contenir" },
@@ -13230,7 +13230,7 @@ function ca_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ckb.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/ckb.js
 var error7 = () => {
   const Sizable = {
     string: { unit: "\u067E\u06CC\u062A", verb: "\u0628\u06CE\u062A" },
@@ -13361,7 +13361,7 @@ function ckb_default() {
   };
 }
 
-// node_modules/zod/v4/locales/cs.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/cs.js
 var error8 = () => {
   const Sizable = {
     string: { unit: "znak\u016F", verb: "m\xEDt" },
@@ -13476,7 +13476,7 @@ function cs_default() {
   };
 }
 
-// node_modules/zod/v4/locales/da.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/da.js
 var error9 = () => {
   const Sizable = {
     string: { unit: "tegn", verb: "havde" },
@@ -13595,7 +13595,7 @@ function da_default() {
   };
 }
 
-// node_modules/zod/v4/locales/de.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/de.js
 var error10 = () => {
   const Sizable = {
     string: { unit: "Zeichen", verb: "zu haben" },
@@ -13707,7 +13707,7 @@ function de_default() {
   };
 }
 
-// node_modules/zod/v4/locales/el.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/el.js
 var error11 = () => {
   const Sizable = {
     string: { unit: "\u03C7\u03B1\u03C1\u03B1\u03BA\u03C4\u03AE\u03C1\u03B5\u03C2", verb: "\u03BD\u03B1 \u03AD\u03C7\u03B5\u03B9" },
@@ -13818,7 +13818,7 @@ function el_default() {
   };
 }
 
-// node_modules/zod/v4/locales/en.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/en.js
 var error12 = () => {
   const Sizable = {
     string: { unit: "characters", verb: "to have" },
@@ -13941,7 +13941,7 @@ function en_default() {
   };
 }
 
-// node_modules/zod/v4/locales/eo.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/eo.js
 var error13 = () => {
   const Sizable = {
     string: { unit: "karaktrojn", verb: "havi" },
@@ -14054,7 +14054,7 @@ function eo_default() {
   };
 }
 
-// node_modules/zod/v4/locales/es.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/es.js
 var error14 = () => {
   const Sizable = {
     string: { unit: "caracteres", verb: "tener" },
@@ -14189,7 +14189,7 @@ function es_default() {
   };
 }
 
-// node_modules/zod/v4/locales/fa.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/fa.js
 var error15 = () => {
   const Sizable = {
     string: { unit: "\u06A9\u0627\u0631\u0627\u06A9\u062A\u0631", verb: "\u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F" },
@@ -14307,7 +14307,7 @@ function fa_default() {
   };
 }
 
-// node_modules/zod/v4/locales/fi.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/fi.js
 var error16 = () => {
   const Sizable = {
     string: { unit: "merkki\xE4", subject: "merkkijonon" },
@@ -14423,7 +14423,7 @@ function fi_default() {
   };
 }
 
-// node_modules/zod/v4/locales/fr.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/fr.js
 var error17 = () => {
   const Sizable = {
     string: { unit: "caract\xE8res", verb: "avoir" },
@@ -14551,7 +14551,7 @@ function fr_default() {
   };
 }
 
-// node_modules/zod/v4/locales/fr-CA.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/fr-CA.js
 var error18 = () => {
   const Sizable = {
     string: { unit: "caract\xE8res", verb: "avoir" },
@@ -14662,7 +14662,7 @@ function fr_CA_default() {
   };
 }
 
-// node_modules/zod/v4/locales/gu.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/gu.js
 var error19 = () => {
   const Sizable = {
     string: { unit: "\u0A85\u0A95\u0ACD\u0AB7\u0AB0", verb: "\u0AB9\u0ACB\u0AB5\u0ABE \u0A9C\u0ACB\u0A88\u0A8F" },
@@ -14774,7 +14774,7 @@ function gu_default() {
   };
 }
 
-// node_modules/zod/v4/locales/he.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/he.js
 var error20 = () => {
   const TypeNames = {
     string: { label: "\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA", gender: "f" },
@@ -14974,7 +14974,7 @@ function he_default() {
   };
 }
 
-// node_modules/zod/v4/locales/hi.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/hi.js
 var error21 = () => {
   const Sizable = {
     string: { unit: "\u0905\u0915\u094D\u0937\u0930", verb: "\u0930\u0916\u0928\u0947 \u0915\u0947 \u0932\u093F\u090F" },
@@ -15084,7 +15084,7 @@ function hi_default() {
   };
 }
 
-// node_modules/zod/v4/locales/hr.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/hr.js
 var error22 = () => {
   const Sizable = {
     string: { unit: "znakova", verb: "imati" },
@@ -15209,7 +15209,7 @@ function hr_default() {
   };
 }
 
-// node_modules/zod/v4/locales/hu.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/hu.js
 var error23 = () => {
   const Sizable = {
     string: { unit: "karakter", verb: "legyen" },
@@ -15321,7 +15321,7 @@ function hu_default() {
   };
 }
 
-// node_modules/zod/v4/locales/hy.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/hy.js
 function getArmenianPlural(count, one, many) {
   return Math.abs(count) === 1 ? one : many;
 }
@@ -15478,7 +15478,7 @@ function hy_default() {
   };
 }
 
-// node_modules/zod/v4/locales/id.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/id.js
 var error25 = () => {
   const Sizable = {
     string: { unit: "karakter", verb: "memiliki" },
@@ -15588,7 +15588,7 @@ function id_default() {
   };
 }
 
-// node_modules/zod/v4/locales/is.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/is.js
 var error26 = () => {
   const Sizable = {
     string: { unit: "stafi", verb: "a\xF0 hafa" },
@@ -15701,7 +15701,7 @@ function is_default() {
   };
 }
 
-// node_modules/zod/v4/locales/it.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/it.js
 var error27 = () => {
   const Sizable = {
     string: { unit: "caratteri", verb: "avere" },
@@ -15813,7 +15813,7 @@ function it_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ja.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/ja.js
 var error28 = () => {
   const Sizable = {
     string: { unit: "\u6587\u5B57", verb: "\u3067\u3042\u308B" },
@@ -15924,7 +15924,7 @@ function ja_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ka.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/ka.js
 var error29 = () => {
   const Sizable = {
     string: { unit: "\u10E1\u10D8\u10DB\u10D1\u10DD\u10DA\u10DD", verb: "\u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D8\u10EA\u10D0\u10D5\u10D3\u10D4\u10E1" },
@@ -16040,7 +16040,7 @@ function ka_default() {
   };
 }
 
-// node_modules/zod/v4/locales/km.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/km.js
 var error30 = () => {
   const Sizable = {
     string: { unit: "\u178F\u17BD\u17A2\u1780\u17D2\u179F\u179A", verb: "\u1782\u17BD\u179A\u1798\u17B6\u1793" },
@@ -16154,12 +16154,12 @@ function km_default() {
   };
 }
 
-// node_modules/zod/v4/locales/kh.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/kh.js
 function kh_default() {
   return km_default();
 }
 
-// node_modules/zod/v4/locales/kn.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/kn.js
 var error31 = () => {
   const Sizable = {
     string: { unit: "\u0C85\u0C95\u0CCD\u0CB7\u0CB0\u0C97\u0CB3\u0CC1", verb: "\u0CB9\u0CCA\u0C82\u0CA6\u0CB2\u0CC1" },
@@ -16273,7 +16273,7 @@ function kn_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ko.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/ko.js
 var error32 = () => {
   const Sizable = {
     string: { unit: "\uBB38\uC790", verb: "to have" },
@@ -16388,7 +16388,7 @@ function ko_default() {
   };
 }
 
-// node_modules/zod/v4/locales/lt.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/lt.js
 var capitalizeFirstCharacter = (text2) => {
   return text2.charAt(0).toUpperCase() + text2.slice(1);
 };
@@ -16594,7 +16594,7 @@ function lt_default() {
   };
 }
 
-// node_modules/zod/v4/locales/mk.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/mk.js
 var error34 = () => {
   const Sizable = {
     string: { unit: "\u0437\u043D\u0430\u0446\u0438", verb: "\u0434\u0430 \u0438\u043C\u0430\u0430\u0442" },
@@ -16707,7 +16707,7 @@ function mk_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ms.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/ms.js
 var error35 = () => {
   const Sizable = {
     string: { unit: "aksara", verb: "mempunyai" },
@@ -16818,7 +16818,7 @@ function ms_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ne.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/ne.js
 var error36 = () => {
   const Sizable = {
     string: { unit: "\u0905\u0915\u094D\u0937\u0930", verb: "\u0939\u0941\u0928\u0941\u092A\u0930\u094D\u091B" },
@@ -16928,7 +16928,7 @@ function ne_default() {
   };
 }
 
-// node_modules/zod/v4/locales/nl.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/nl.js
 var error37 = () => {
   const Sizable = {
     string: { unit: "tekens", verb: "heeft" },
@@ -17042,7 +17042,7 @@ function nl_default() {
   };
 }
 
-// node_modules/zod/v4/locales/nn.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/nn.js
 var error38 = () => {
   const Sizable = {
     string: { unit: "teikn", verb: "\xE5 ha" },
@@ -17154,7 +17154,7 @@ function nn_default() {
   };
 }
 
-// node_modules/zod/v4/locales/no.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/no.js
 var error39 = () => {
   const Sizable = {
     string: { unit: "tegn", verb: "\xE5 ha" },
@@ -17266,7 +17266,7 @@ function no_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ota.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/ota.js
 var error40 = () => {
   const Sizable = {
     string: { unit: "harf", verb: "olmal\u0131d\u0131r" },
@@ -17379,7 +17379,7 @@ function ota_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ps.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/ps.js
 var error41 = () => {
   const Sizable = {
     string: { unit: "\u062A\u0648\u06A9\u064A", verb: "\u0648\u0644\u0631\u064A" },
@@ -17497,7 +17497,7 @@ function ps_default() {
   };
 }
 
-// node_modules/zod/v4/locales/pl.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/pl.js
 var error42 = () => {
   const Sizable = {
     string: { unit: "znak\xF3w", verb: "mie\u0107" },
@@ -17610,7 +17610,7 @@ function pl_default() {
   };
 }
 
-// node_modules/zod/v4/locales/pt.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/pt.js
 var error43 = () => {
   const Sizable = {
     string: { unit: "caracteres" },
@@ -17752,7 +17752,7 @@ function pt_default() {
   };
 }
 
-// node_modules/zod/v4/locales/pt-BR.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/pt-BR.js
 var error44 = () => {
   const Sizable = {
     string: { unit: "caracteres" },
@@ -17895,7 +17895,7 @@ function pt_BR_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ro.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/ro.js
 var error45 = () => {
   const Sizable = {
     string: { unit: "caractere", verb: "s\u0103 aib\u0103" },
@@ -18016,7 +18016,7 @@ function ro_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ru.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/ru.js
 function getRussianPlural(count, one, few, many) {
   const absCount = Math.abs(count);
   const lastDigit = absCount % 10;
@@ -18183,7 +18183,7 @@ function ru_default() {
   };
 }
 
-// node_modules/zod/v4/locales/sk.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/sk.js
 var error47 = () => {
   const Sizable = {
     string: { unit: "znakov", verb: "ma\u0165" },
@@ -18298,7 +18298,7 @@ function sk_default() {
   };
 }
 
-// node_modules/zod/v4/locales/sl.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/sl.js
 var error48 = () => {
   const Sizable = {
     string: { unit: "znakov", verb: "imeti" },
@@ -18411,7 +18411,7 @@ function sl_default() {
   };
 }
 
-// node_modules/zod/v4/locales/sv.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/sv.js
 var error49 = () => {
   const Sizable = {
     string: { unit: "tecken", verb: "att ha" },
@@ -18525,7 +18525,7 @@ function sv_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ta.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/ta.js
 var error50 = () => {
   const Sizable = {
     string: { unit: "\u0B8E\u0BB4\u0BC1\u0BA4\u0BCD\u0BA4\u0BC1\u0B95\u0BCD\u0B95\u0BB3\u0BCD", verb: "\u0B95\u0BCA\u0BA3\u0BCD\u0B9F\u0BBF\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD" },
@@ -18639,7 +18639,7 @@ function ta_default() {
   };
 }
 
-// node_modules/zod/v4/locales/th.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/th.js
 var error51 = () => {
   const Sizable = {
     string: { unit: "\u0E15\u0E31\u0E27\u0E2D\u0E31\u0E01\u0E29\u0E23", verb: "\u0E04\u0E27\u0E23\u0E21\u0E35" },
@@ -18753,7 +18753,7 @@ function th_default() {
   };
 }
 
-// node_modules/zod/v4/locales/tk.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/tk.js
 var error52 = () => {
   const Sizable = {
     string: { unit: "simwol", verb: "bolmaly" },
@@ -18859,7 +18859,7 @@ function tk_default() {
   };
 }
 
-// node_modules/zod/v4/locales/tr.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/tr.js
 var error53 = () => {
   const Sizable = {
     string: { unit: "karakter", verb: "olmal\u0131" },
@@ -18968,7 +18968,7 @@ function tr_default() {
   };
 }
 
-// node_modules/zod/v4/locales/uk.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/uk.js
 var error54 = () => {
   const Sizable = {
     string: { unit: "\u0441\u0438\u043C\u0432\u043E\u043B\u0456\u0432", verb: "\u043C\u0430\u0442\u0438\u043C\u0435" },
@@ -19080,12 +19080,12 @@ function uk_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ua.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/ua.js
 function ua_default() {
   return uk_default();
 }
 
-// node_modules/zod/v4/locales/ur.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/ur.js
 var error55 = () => {
   const Sizable = {
     string: { unit: "\u062D\u0631\u0648\u0641", verb: "\u06C1\u0648\u0646\u0627" },
@@ -19199,7 +19199,7 @@ function ur_default() {
   };
 }
 
-// node_modules/zod/v4/locales/uz.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/uz.js
 var error56 = () => {
   const Sizable = {
     string: { unit: "belgi", verb: "bo\u2018lishi kerak" },
@@ -19311,7 +19311,7 @@ function uz_default() {
   };
 }
 
-// node_modules/zod/v4/locales/vi.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/vi.js
 var error57 = () => {
   const Sizable = {
     string: { unit: "k\xFD t\u1EF1", verb: "c\xF3" },
@@ -19423,7 +19423,7 @@ function vi_default() {
   };
 }
 
-// node_modules/zod/v4/locales/zh-CN.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/zh-CN.js
 var error58 = () => {
   const Sizable = {
     string: { unit: "\u5B57\u7B26", verb: "\u5305\u542B" },
@@ -19536,7 +19536,7 @@ function zh_CN_default() {
   };
 }
 
-// node_modules/zod/v4/locales/zh-TW.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/zh-TW.js
 var error59 = () => {
   const Sizable = {
     string: { unit: "\u5B57\u5143", verb: "\u64C1\u6709" },
@@ -19647,7 +19647,7 @@ function zh_TW_default() {
   };
 }
 
-// node_modules/zod/v4/locales/yo.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/yo.js
 var error60 = () => {
   const Sizable = {
     string: { unit: "\xE0mi", verb: "n\xED" },
@@ -19758,7 +19758,7 @@ function yo_default() {
   };
 }
 
-// node_modules/zod/v4/core/registries.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/registries.js
 var _a2;
 var $output = /* @__PURE__ */ Symbol("ZodOutput");
 var $input = /* @__PURE__ */ Symbol("ZodInput");
@@ -19808,7 +19808,7 @@ function registry() {
 (_a2 = globalThis).__zod_globalRegistry ?? (_a2.__zod_globalRegistry = registry());
 var globalRegistry = globalThis.__zod_globalRegistry;
 
-// node_modules/zod/v4/core/compile.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/compile.js
 var INVALID = /* @__PURE__ */ Symbol.for("zod.compile.invalid");
 var FALLBACK_FLAG = /* @__PURE__ */ Symbol.for("zod.compile.fallback");
 var ZodCompileAsyncError = class extends Error {
@@ -21351,7 +21351,7 @@ function generateTransformCheck(doc, ctx, schema, accessor) {
   return accessor;
 }
 
-// node_modules/zod/v4/core/api.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/api.js
 // @__NO_SIDE_EFFECTS__
 function _string(Class2, params) {
   return new Class2({
@@ -22407,7 +22407,7 @@ function _stringFormat(Class2, format, fnOrRegex, _params = {}) {
   return inst;
 }
 
-// node_modules/zod/v4/core/to-json-schema.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/to-json-schema.js
 function assignProps(target, ...sources) {
   for (const source of sources) {
     for (const key of Reflect.ownKeys(source)) {
@@ -22938,7 +22938,7 @@ var createStandardJSONSchemaMethod = (schema, io, processors = {}) => (params) =
   return finalize(ctx, schema);
 };
 
-// node_modules/zod/v4/core/json-schema-processors.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/json-schema-processors.js
 var formatMap = {
   guid: "uuid",
   url: "uri",
@@ -23596,7 +23596,7 @@ function toJSONSchema(input2, params) {
   return finalize(ctx, input2);
 }
 
-// node_modules/zod/v4/core/json-schema-generator.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/json-schema-generator.js
 var JSONSchemaGenerator = class {
   /** @deprecated Access via ctx instead */
   get metadataRegistry() {
@@ -23674,10 +23674,10 @@ var JSONSchemaGenerator = class {
   }
 };
 
-// node_modules/zod/v4/core/json-schema.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/json-schema.js
 var json_schema_exports = {};
 
-// node_modules/zod/v4/classic/schemas.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/classic/schemas.js
 var schemas_exports2 = {};
 __export(schemas_exports2, {
   ZodAny: () => ZodAny,
@@ -23854,7 +23854,7 @@ __export(schemas_exports2, {
   xor: () => xor
 });
 
-// node_modules/zod/v4/classic/checks.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/classic/checks.js
 var checks_exports2 = {};
 __export(checks_exports2, {
   endsWith: () => _endsWith,
@@ -23889,7 +23889,7 @@ __export(checks_exports2, {
   uppercase: () => _uppercase
 });
 
-// node_modules/zod/v4/classic/errors.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/classic/errors.js
 var _installedErrorProtos = /* @__PURE__ */ new WeakSet([Object.prototype, Error.prototype]);
 function _lazyMethod(proto, key, make) {
   Object.defineProperty(proto, key, {
@@ -23935,7 +23935,7 @@ var ZodRealError = /* @__PURE__ */ $constructor("ZodError", initializer2, void 0
   Parent: Error
 });
 
-// node_modules/zod/v4/classic/parse.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/classic/parse.js
 var parse2 = /* @__PURE__ */ _parse(ZodRealError);
 var parseAsync2 = /* @__PURE__ */ _parseAsync(ZodRealError);
 var safeParse2 = /* @__PURE__ */ _safeParse(ZodRealError);
@@ -23949,7 +23949,7 @@ var safeDecode2 = /* @__PURE__ */ _safeDecode(ZodRealError);
 var safeEncodeAsync2 = /* @__PURE__ */ _safeEncodeAsync(ZodRealError);
 var safeDecodeAsync2 = /* @__PURE__ */ _safeDecodeAsync(ZodRealError);
 
-// node_modules/zod/v4/classic/schemas.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/classic/schemas.js
 function _ensureDefaultLocale() {
   if (!globalConfig.localeError)
     config(en_default());
@@ -25360,7 +25360,7 @@ function preprocess(fn, schema) {
   });
 }
 
-// node_modules/zod/v4/classic/compat.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/classic/compat.js
 var ZodIssueCode = {
   invalid_type: "invalid_type",
   too_big: "too_big",
@@ -25386,7 +25386,7 @@ var ZodFirstPartyTypeKind;
 /* @__PURE__ */ (function(ZodFirstPartyTypeKind2) {
 })(ZodFirstPartyTypeKind || (ZodFirstPartyTypeKind = {}));
 
-// node_modules/zod/v4/classic/iso.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/classic/iso.js
 var iso_exports = {};
 __export(iso_exports, {
   ZodISODate: () => ZodISODate,
@@ -25411,7 +25411,7 @@ function duration2(params) {
   return _isoDuration(ZodISODuration, params);
 }
 
-// node_modules/zod/v4/classic/from-json-schema.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/classic/from-json-schema.js
 var z = {
   ...schemas_exports2,
   ...checks_exports2,
@@ -25951,7 +25951,7 @@ function fromJSONSchema(schema, params) {
   return convertSchema(normalized, ctx);
 }
 
-// node_modules/zod/v4/core/visit.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/visit.js
 var RESOLVING = /* @__PURE__ */ Symbol("z.visit/resolving");
 function visit(schema, fnOrHandlers) {
   const fn = typeof fnOrHandlers === "function" ? fnOrHandlers : (node2, rewritten) => {
@@ -26106,7 +26106,7 @@ function visit(schema, fnOrHandlers) {
   return run(schema);
 }
 
-// node_modules/zod/v4/classic/deep-partial.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/classic/deep-partial.js
 function deepPartial(schema) {
   return visit(schema, {
     object: (s) => s.partial(),
@@ -26118,7 +26118,7 @@ function deepPartial(schema) {
   });
 }
 
-// node_modules/zod/v4/classic/in-out.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/classic/in-out.js
 function withChecks(side, checks) {
   if (!checks?.length)
     return side;
@@ -26148,7 +26148,7 @@ function output(schema) {
   });
 }
 
-// node_modules/zod/v4/classic/coerce.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/classic/coerce.js
 var coerce_exports = {};
 __export(coerce_exports, {
   bigint: () => bigint3,
@@ -26209,7 +26209,7 @@ import { userInfo } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-compat.js
+// ../../247c-wsl-sdk/plugin/node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-compat.js
 function isZ4Schema(s) {
   const schema = s;
   return !!schema._zod;
@@ -26272,7 +26272,7 @@ function getLiteralValue(schema) {
   return void 0;
 }
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/types.js
+// ../../247c-wsl-sdk/plugin/node_modules/@modelcontextprotocol/sdk/dist/esm/types.js
 var LATEST_PROTOCOL_VERSION = "2025-11-25";
 var SUPPORTED_PROTOCOL_VERSIONS = [LATEST_PROTOCOL_VERSION, "2025-06-18", "2025-03-26", "2024-11-05", "2024-10-07"];
 var RELATED_TASK_META_KEY = "io.modelcontextprotocol/related-task";
@@ -27792,15 +27792,15 @@ var UrlElicitationRequiredError = class extends McpError {
   }
 };
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/interfaces.js
+// ../../247c-wsl-sdk/plugin/node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/interfaces.js
 function isTerminal(status) {
   return status === "completed" || status === "failed" || status === "cancelled";
 }
 
-// node_modules/zod-to-json-schema/dist/esm/parsers/string.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod-to-json-schema/dist/esm/parsers/string.js
 var ALPHA_NUMERIC = new Set("ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvxyz0123456789");
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-json-schema-compat.js
+// ../../247c-wsl-sdk/plugin/node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-json-schema-compat.js
 function getMethodLiteral(schema) {
   const shape = getObjectShape(schema);
   const methodSchema = shape?.method;
@@ -27821,7 +27821,7 @@ function parseWithCompat(schema, data) {
   return result.data;
 }
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/shared/protocol.js
+// ../../247c-wsl-sdk/plugin/node_modules/@modelcontextprotocol/sdk/dist/esm/shared/protocol.js
 var DEFAULT_REQUEST_TIMEOUT_MSEC = 6e4;
 var Protocol = class {
   constructor(_options) {
@@ -28775,7 +28775,7 @@ function mergeCapabilities(base, additional) {
   return result;
 }
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/validation/ajv-provider.js
+// ../../247c-wsl-sdk/plugin/node_modules/@modelcontextprotocol/sdk/dist/esm/validation/ajv-provider.js
 var import_ajv = __toESM(require_ajv(), 1);
 var import_ajv_formats = __toESM(require_dist(), 1);
 function createDefaultAjvInstance() {
@@ -28843,7 +28843,7 @@ var AjvJsonSchemaValidator = class {
   }
 };
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/client.js
+// ../../247c-wsl-sdk/plugin/node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/client.js
 var ExperimentalClientTasks = class {
   constructor(_client) {
     this._client = _client;
@@ -28997,7 +28997,7 @@ var ExperimentalClientTasks = class {
   }
 };
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/helpers.js
+// ../../247c-wsl-sdk/plugin/node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/helpers.js
 function assertToolsCallTaskCapability(requests, method, entityName) {
   if (!requests) {
     throw new Error(`${entityName} does not support task creation (required for ${method})`);
@@ -29032,7 +29032,7 @@ function assertClientRequestTaskCapability(requests, method, entityName) {
   }
 }
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/client/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/@modelcontextprotocol/sdk/dist/esm/client/index.js
 function applyElicitationDefaults(schema, data) {
   if (!schema || data === null || typeof data !== "object")
     return;
@@ -29543,7 +29543,7 @@ var Client = class extends Protocol {
   }
 };
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/shared/mediaType.js
+// ../../247c-wsl-sdk/plugin/node_modules/@modelcontextprotocol/sdk/dist/esm/shared/mediaType.js
 var import_content_type = __toESM(require_content_type(), 1);
 function mediaTypeEssence(header) {
   if (!header) {
@@ -29560,7 +29560,7 @@ function mediaTypeEssence(header) {
   }
 }
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/shared/transport.js
+// ../../247c-wsl-sdk/plugin/node_modules/@modelcontextprotocol/sdk/dist/esm/shared/transport.js
 function normalizeHeaders(headers) {
   if (!headers)
     return {};
@@ -29587,7 +29587,7 @@ function createFetchWithInit(baseFetch = fetch, baseInit) {
   };
 }
 
-// node_modules/pkce-challenge/dist/index.node.js
+// ../../247c-wsl-sdk/plugin/node_modules/pkce-challenge/dist/index.node.js
 var crypto;
 crypto = globalThis.crypto?.webcrypto ?? // Node.js [18-16] REPL
 globalThis.crypto ?? // Node.js >18
@@ -29630,7 +29630,7 @@ async function pkceChallenge(length) {
   };
 }
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/shared/auth.js
+// ../../247c-wsl-sdk/plugin/node_modules/@modelcontextprotocol/sdk/dist/esm/shared/auth.js
 var SafeUrlSchema = url().superRefine((val, ctx) => {
   if (!URL.canParse(val)) {
     ctx.addIssue({
@@ -29774,7 +29774,7 @@ var OAuthTokenRevocationRequestSchema = object({
   token_type_hint: string2().optional()
 }).strip();
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/shared/auth-utils.js
+// ../../247c-wsl-sdk/plugin/node_modules/@modelcontextprotocol/sdk/dist/esm/shared/auth-utils.js
 function resourceUrlFromServerUrl(url2) {
   const resourceURL = typeof url2 === "string" ? new URL(url2) : new URL(url2.href);
   resourceURL.hash = "";
@@ -29794,7 +29794,7 @@ function checkResourceAllowed({ requestedResource, configuredResource }) {
   return requestedPath.startsWith(configuredPath);
 }
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/server/auth/errors.js
+// ../../247c-wsl-sdk/plugin/node_modules/@modelcontextprotocol/sdk/dist/esm/server/auth/errors.js
 var OAuthError = class extends Error {
   constructor(message, errorUri) {
     super(message);
@@ -29889,7 +29889,7 @@ var OAUTH_ERRORS = {
   [InvalidTargetError.errorCode]: InvalidTargetError
 };
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/client/auth.js
+// ../../247c-wsl-sdk/plugin/node_modules/@modelcontextprotocol/sdk/dist/esm/client/auth.js
 var UnauthorizedError = class extends Error {
   constructor(message) {
     super(message ?? "Unauthorized");
@@ -30430,7 +30430,7 @@ async function registerClient(authorizationServerUrl, { metadata, clientMetadata
   return OAuthClientInformationFullSchema.parse(await response.json());
 }
 
-// node_modules/eventsource-parser/dist/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/eventsource-parser/dist/index.js
 var ParseError = class extends Error {
   constructor(message, options) {
     super(message), this.name = "ParseError", this.type = options.type, this.field = options.field, this.value = options.value, this.line = options.line;
@@ -30606,7 +30606,7 @@ function isEventPrefix(chunk, i, firstCharCode) {
   return firstCharCode === 101 && chunk.charCodeAt(i + 1) === 118 && chunk.charCodeAt(i + 2) === 101 && chunk.charCodeAt(i + 3) === 110 && chunk.charCodeAt(i + 4) === 116 && chunk.charCodeAt(i + 5) === 58;
 }
 
-// node_modules/eventsource-parser/dist/stream.js
+// ../../247c-wsl-sdk/plugin/node_modules/eventsource-parser/dist/stream.js
 var EventSourceParserStream = class extends TransformStream {
   constructor({ onError, onRetry, onComment, maxBufferSize } = {}) {
     let parser;
@@ -30631,7 +30631,7 @@ var EventSourceParserStream = class extends TransformStream {
   }
 };
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/client/streamableHttp.js
+// ../../247c-wsl-sdk/plugin/node_modules/@modelcontextprotocol/sdk/dist/esm/client/streamableHttp.js
 var DEFAULT_STREAMABLE_HTTP_RECONNECTION_OPTIONS = {
   initialReconnectionDelay: 1e3,
   maxReconnectionDelay: 3e4,
@@ -31439,7 +31439,7 @@ async function readCalendar(input2, connect = connectCalendar) {
 }
 
 // server.ts
-import { randomUUID as randomUUID7 } from "node:crypto";
+import { randomUUID as randomUUID8 } from "node:crypto";
 
 // core/schema.ts
 var CORE_SCHEMA = "\n      CREATE TABLE IF NOT EXISTS tasks (\n        id TEXT PRIMARY KEY,\n        title TEXT NOT NULL,\n        status TEXT NOT NULL CHECK(status IN ('open', 'done', 'archived')),\n        revision INTEGER NOT NULL DEFAULT 0,\n        created_at TEXT NOT NULL,\n        updated_at TEXT NOT NULL\n      );\n      CREATE TABLE IF NOT EXISTS task_facts (\n        id TEXT PRIMARY KEY,\n        task_id TEXT NOT NULL REFERENCES tasks(id),\n        kind TEXT NOT NULL,\n        text TEXT NOT NULL,\n        source TEXT NOT NULL,\n        source_ref TEXT,\n        occurred_at TEXT NOT NULL,\n        created_at TEXT NOT NULL\n      );\n      CREATE INDEX IF NOT EXISTS idx_task_facts_task ON task_facts(task_id, occurred_at);\n      CREATE TABLE IF NOT EXISTS task_projections (\n        task_id TEXT PRIMARY KEY REFERENCES tasks(id),\n        summary TEXT,\n        next_step TEXT,\n        open_questions_json TEXT NOT NULL DEFAULT '[]',\n        blockers_json TEXT NOT NULL DEFAULT '[]',\n        artifacts_json TEXT NOT NULL DEFAULT '[]',\n        updated_at TEXT NOT NULL\n      );\n      CREATE TABLE IF NOT EXISTS proposals (\n        id TEXT PRIMARY KEY,\n        task_id TEXT NOT NULL REFERENCES tasks(id),\n        base_revision INTEGER NOT NULL,\n        model TEXT NOT NULL,\n        rationale TEXT NOT NULL,\n        confidence REAL NOT NULL,\n        changes_json TEXT NOT NULL,\n        status TEXT NOT NULL CHECK(status IN ('pending', 'approved', 'applied', 'rejected', 'conflicted')),\n        created_at TEXT NOT NULL,\n        resolved_at TEXT\n        ,idempotency_key TEXT UNIQUE\n      );\n      CREATE INDEX IF NOT EXISTS idx_proposals_idempotency ON proposals(idempotency_key);\n      CREATE TABLE IF NOT EXISTS proposal_evidence (\n        proposal_id TEXT NOT NULL REFERENCES proposals(id),\n        evidence_ref TEXT NOT NULL,\n        kind TEXT NOT NULL,\n        text TEXT NOT NULL,\n        source TEXT NOT NULL,\n        source_ref TEXT,\n        PRIMARY KEY(proposal_id, evidence_ref)\n      );\n      CREATE TABLE IF NOT EXISTS proposal_approvals (\n        id TEXT PRIMARY KEY,\n        proposal_id TEXT NOT NULL UNIQUE REFERENCES proposals(id),\n        proposal_hash TEXT NOT NULL,\n        actor TEXT NOT NULL,\n        created_at TEXT NOT NULL\n      );\n      CREATE TABLE IF NOT EXISTS application_receipts (\n        id TEXT PRIMARY KEY,\n        proposal_id TEXT NOT NULL UNIQUE REFERENCES proposals(id),\n        approval_id TEXT NOT NULL REFERENCES proposal_approvals(id),\n        task_id TEXT NOT NULL REFERENCES tasks(id),\n        before_revision INTEGER NOT NULL,\n        after_revision INTEGER NOT NULL,\n        fields_json TEXT NOT NULL,\n        created_at TEXT NOT NULL\n      );\n      CREATE TABLE IF NOT EXISTS kernel_events (\n        sequence INTEGER PRIMARY KEY AUTOINCREMENT,\n        id TEXT NOT NULL UNIQUE,\n        task_id TEXT,\n        type TEXT NOT NULL,\n        payload_json TEXT NOT NULL,\n        created_at TEXT NOT NULL\n      );\n      CREATE TABLE IF NOT EXISTS application_snapshots (\n        proposal_id TEXT PRIMARY KEY REFERENCES proposals(id),\n        before_json TEXT NOT NULL,\n        after_json TEXT NOT NULL\n      );\n    ";
@@ -31466,7 +31466,7 @@ var text = external_exports.string().trim().min(1).max(12e3);
 var artifactSchema = external_exports.object({ label: external_exports.string().min(1).max(300), uri: external_exports.string().min(1).max(4096) }).strict();
 var refs = external_exports.array(external_exports.string().min(1).max(256)).min(1).max(80);
 var proposed = (value) => external_exports.object({ value, evidenceRefs: refs }).strict();
-var changesSchema = external_exports.object({
+var changesObjectSchema = external_exports.object({
   title: proposed(external_exports.string().trim().min(1).max(200)).optional(),
   status: proposed(statusSchema).optional(),
   urgent: proposed(axisSchema).optional(),
@@ -31476,11 +31476,12 @@ var changesSchema = external_exports.object({
   openQuestions: proposed(external_exports.array(text).max(30)).optional(),
   blockers: proposed(external_exports.array(text).max(30)).optional(),
   artifacts: proposed(external_exports.array(artifactSchema).max(20)).optional()
-}).strict().refine((v) => Object.keys(v).length > 0, "The proposal contains no changes.");
+}).strict();
+var changesSchema = changesObjectSchema.refine((v) => Object.keys(v).length > 0, "The proposal contains no changes.");
 var draftSchema = external_exports.object({ rationale: text, confidence: external_exports.number().min(0).max(1), changes: changesSchema }).strict();
 var taskSchema = external_exports.object({ id: idSchema, title: external_exports.string(), status: statusSchema, revision: revisionSchema, createdAt: external_exports.string(), updatedAt: external_exports.string() });
 var planningSchema = external_exports.object({ urgent: axisSchema, important: axisSchema, revision: revisionSchema });
-var taskCardSchema = taskSchema.extend({ planning: planningSchema, summary: external_exports.string().nullable(), nextStep: external_exports.string().nullable(), pendingCount: external_exports.number(), activeSession: external_exports.string().nullable() });
+var taskCardSchema = taskSchema.extend({ planning: planningSchema, summary: external_exports.string().nullable(), nextStep: external_exports.string().nullable(), pendingCount: external_exports.number(), activeSession: external_exports.string().nullable(), unseen: external_exports.enum(["new", "updated"]).nullable().default(null) });
 var factSchema = external_exports.object({ id: idSchema, taskId: idSchema, kind: factKindSchema, text: external_exports.string(), source: external_exports.string(), sourceRef: external_exports.string().nullable(), occurredAt: external_exports.string(), createdAt: external_exports.string() });
 var projectionSchema = external_exports.object({ taskId: idSchema, summary: external_exports.string().nullable(), nextStep: external_exports.string().nullable(), openQuestions: external_exports.array(external_exports.string()), blockers: external_exports.array(external_exports.string()), artifacts: external_exports.array(artifactSchema), updatedAt: external_exports.string() });
 var evidenceSchema = external_exports.object({ ref: external_exports.string(), kind: factKindSchema, text: external_exports.string(), source: external_exports.string(), sourceRef: external_exports.string().nullable() });
@@ -31497,7 +31498,10 @@ var proposalSchema = external_exports.object({
   confidence: external_exports.number(),
   changes: changesSchema
 });
-var proposalViewSchema = proposalSchema.extend({ evidence: external_exports.array(evidenceSchema), receipt: external_exports.object({ id: external_exports.string(), beforeRevision: external_exports.number(), afterRevision: external_exports.number(), createdAt: external_exports.string() }).nullable() });
+var partReviewSchema = external_exports.object({ accepted: external_exports.array(external_exports.string()), rejected: external_exports.array(external_exports.string()), remaining: external_exports.array(external_exports.string()), acceptedId: idSchema.nullable(), remainingId: idSchema.nullable(), createdAt: external_exports.string() });
+var partDecisionSchema = external_exports.object({ kind: external_exports.enum(["source", "proposal"]), id: idSchema, revision: revisionSchema.nullable(), decision: external_exports.enum(["accept", "reject"]), parts: external_exports.array(external_exports.string().min(1).max(120)).min(1).max(400), requestId: external_exports.uuid() }).strict();
+var partDecisionResultSchema = external_exports.object({ taskId: idSchema.nullable(), remainingId: idSchema.nullable() });
+var proposalViewSchema = proposalSchema.extend({ partReview: partReviewSchema.optional(), evidence: external_exports.array(evidenceSchema), receipt: external_exports.object({ id: external_exports.string(), beforeRevision: external_exports.number(), afterRevision: external_exports.number(), createdAt: external_exports.string() }).nullable() });
 var resultSchema = external_exports.object({
   summary: text,
   artifacts: external_exports.array(external_exports.object({ path: external_exports.string().min(1).max(4096), label: external_exports.string().min(1).max(300) }).strict()).max(20)
@@ -31583,6 +31587,7 @@ var sessionSchema = external_exports.object({
   mode: external_exports.enum(["result", "conversation"]).default("result"),
   finishedAt: external_exports.string().nullable().default(null),
   continuedFrom: idSchema.nullable().default(null),
+  acceptedPartProposalIds: external_exports.array(idSchema).max(400).optional(),
   discussionProposalId: idSchema.nullable().default(null),
   extraction: extractionSchema.nullable().default(null),
   extractionRepair: external_exports.object({ attempt: external_exports.number().int().min(1).max(2), feedback: external_exports.string().max(4e3) }).nullable().default(null),
@@ -31668,6 +31673,10 @@ var syncRunSchema = external_exports.object({
   collection: external_exports.object({ phase: external_exports.enum(["collecting", "analyzing"]), calls: external_exports.number().int().min(0), reads: external_exports.number().int().min(0), elapsedMs: external_exports.number().min(0) }).optional()
 });
 var syncCandidateSchema = syncDraftSchema.extend({
+  // Only human-created partial reviews can have records without field changes.
+  changes: changesObjectSchema,
+  recordFactIndexes: external_exports.array(external_exports.number().int().nonnegative().max(299)).max(300).optional(),
+  partReview: partReviewSchema.optional(),
   facts: external_exports.array(syncFactSchema).min(1).max(300),
   id: idSchema,
   runId: idSchema,
@@ -31698,7 +31707,7 @@ var reviewItemSchema = external_exports.discriminatedUnion("kind", [
   external_exports.object({ kind: external_exports.literal("source"), candidate: syncCandidateSchema, currentTask: taskCardSchema.pick({ revision: true, status: true, activeSession: true }).nullable(), blockedReason: external_exports.string().nullable() }),
   external_exports.object({ kind: external_exports.literal("proposal"), proposal: proposalViewSchema, dossier: reviewDossierSchema, blockedReason: external_exports.string().nullable() })
 ]);
-var reviewSelectionSchema = external_exports.object({ kind: external_exports.enum(["source", "proposal"]), id: idSchema, revision: revisionSchema.nullable() }).strict();
+var reviewSelectionSchema = external_exports.object({ kind: external_exports.enum(["source", "proposal"]), id: idSchema, revision: revisionSchema.nullable(), parts: external_exports.array(external_exports.string().min(1).max(120)).min(1).max(400).optional() }).strict();
 var environmentSchema = external_exports.discriminatedUnion("type", [
   external_exports.object({ type: external_exports.literal("reuse"), environmentId: idSchema }).strict(),
   external_exports.object({ type: external_exports.literal("project-default") }).strict(),
@@ -31749,6 +31758,8 @@ var rpcContract = defineRpcContract({
   syncAccept: { input: external_exports.object({ candidateId: idSchema }).strict(), output: dossierSchema },
   syncReject: { input: external_exports.object({ candidateId: idSchema }).strict(), output: syncCandidateSchema },
   list: { input: external_exports.object({ history: external_exports.boolean().default(false) }).strict(), output: external_exports.object({ tasks: external_exports.array(taskCardSchema), total: external_exports.number(), pendingTotal: external_exports.number(), settings: settingsViewSchema }) },
+  taskSeen: { input: external_exports.object({ id: idSchema, revision: revisionSchema }).strict(), output: external_exports.object({ seenRevision: revisionSchema }) },
+  reviewParts: { input: partDecisionSchema, output: partDecisionResultSchema },
   detail: { input: external_exports.object({ id: idSchema }).strict(), output: dossierSchema },
   threadSession: { input: external_exports.object({ threadId: idSchema }).strict(), output: external_exports.object({ session: sessionSchema.pick({ id: true, taskId: true, workerThreadId: true, mode: true, status: true }).nullable() }) },
   create: { input: external_exports.object({ title: external_exports.string().trim().min(1).max(200), description: external_exports.string().trim().max(12e3).default(""), requestId: external_exports.uuid() }).strict(), output: taskSchema },
@@ -32326,6 +32337,64 @@ var Store = class {
   }
 };
 
+// proposal-parts.ts
+function proposalParts(changes, extraction) {
+  return [
+    ...Object.keys(extraction ? extraction.changes ?? {} : changes).map((field) => `field:${field}`),
+    ...extraction?.facts.map((_, i) => `fact:${i}`) ?? [],
+    ...extraction?.knowledge.map((_, i) => `knowledge:${i}`) ?? []
+  ];
+}
+function sourceParts(candidate) {
+  return [
+    ...Object.keys(candidate.changes).map((field) => `field:${field}`),
+    ...(candidate.recordFactIndexes ?? candidate.facts.map((_, i) => i)).map((i) => `fact:${i}`)
+  ];
+}
+function partitionParts(all, input2) {
+  const selected = new Set(input2.parts);
+  if (!selected.size || selected.size !== input2.parts.length || input2.parts.some((part) => !all.includes(part))) {
+    throw new PolicyError("Select distinct parts from this proposal. Refresh if it changed.");
+  }
+  return {
+    accepted: input2.decision === "accept" ? input2.parts : [],
+    rejected: input2.decision === "reject" ? input2.parts : [],
+    remaining: all.filter((part) => !selected.has(part))
+  };
+}
+function pickChanges(changes, parts) {
+  return Object.fromEntries(Object.entries(changes).filter(([field]) => parts.includes(`field:${field}`)));
+}
+function extractionRefMap(extraction, parts, proposalId) {
+  let index = 0;
+  return new Map(extraction.facts.map((_, i) => [`fact:${i}`, parts.includes(`fact:${i}`) ? `fact:${index++}` : `review:${proposalId}:fact:${i}`]));
+}
+function pickExtraction(extraction, parts, proposalId) {
+  const refs2 = extractionRefMap(extraction, parts, proposalId);
+  const remap = (values) => values.map((ref) => refs2.get(ref) ?? ref);
+  const changes = Object.fromEntries(Object.entries(pickChanges(extraction.changes ?? {}, parts)).map(([field, change]) => [field, { ...change, evidenceRefs: remap(change.evidenceRefs) }]));
+  return {
+    ...extraction,
+    changes: Object.keys(changes).length ? changes : null,
+    facts: extraction.facts.filter((_, i) => parts.includes(`fact:${i}`)),
+    knowledge: extraction.knowledge.filter((_, i) => parts.includes(`knowledge:${i}`)).map((entry) => ({ ...entry, evidenceRefs: remap(entry.evidenceRefs) }))
+  };
+}
+function receiptDraft(changes, dossier, evidence2) {
+  if (Object.keys(changes).length) return { changes, evidence: evidence2 };
+  const ref = "partial-review:unchanged-summary";
+  return {
+    changes: { summary: { value: dossier.projection.summary, evidenceRefs: [ref] } },
+    evidence: [...evidence2.filter((e) => e.ref !== ref), {
+      ref,
+      kind: "description",
+      text: dossier.projection.summary ?? "Keep the accepted summary unchanged.",
+      source: "accepted-projection",
+      sourceRef: null
+    }]
+  };
+}
+
 // day-schema.ts
 var DAY_SCHEMA = [
   `CREATE TABLE day_items (id TEXT PRIMARY KEY, date TEXT NOT NULL, reported_date TEXT NOT NULL, task_id TEXT REFERENCES tasks(id), calendar_key TEXT UNIQUE, value_json TEXT NOT NULL)`,
@@ -32359,7 +32428,10 @@ var EXTRA_SCHEMA = [
   `CREATE TABLE source_sync_candidates (id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES source_sync_runs(id), task_id TEXT REFERENCES tasks(id), status TEXT NOT NULL, fingerprint TEXT NOT NULL UNIQUE, value_json TEXT NOT NULL)`,
   `CREATE INDEX source_sync_candidate_task ON source_sync_candidates(task_id,status)`,
   `CREATE TABLE source_sync_exports (run_id TEXT PRIMARY KEY REFERENCES source_sync_runs(id), value_json TEXT NOT NULL)`,
-  ...DAY_SCHEMA
+  ...DAY_SCHEMA,
+  `CREATE TABLE task_views (task_id TEXT PRIMARY KEY REFERENCES tasks(id), seen_revision INTEGER NOT NULL);
+   INSERT INTO task_views(task_id,seen_revision) SELECT id,revision FROM tasks;`,
+  `CREATE TABLE part_reviews (kind TEXT NOT NULL, id TEXT NOT NULL, value_json TEXT NOT NULL, PRIMARY KEY(kind,id))`
 ];
 var ACTIVE = /* @__PURE__ */ new Set(["starting", "working", "collecting", "review_starting", "reviewing", "repair_starting"]);
 var digest = (value) => createHash4("sha256").update(JSON.stringify(value)).digest("hex");
@@ -32442,12 +32514,13 @@ var Repository = class {
   list(history = false) {
     const where = history ? "" : "WHERE t.status='open'";
     const total = Number(this.db.prepare(`SELECT count(*) AS n FROM tasks t ${where}`).get().n);
-    const tasks = this.db.prepare(`SELECT t.*,p.summary,p.next_step,
+    const tasks = this.db.prepare(`SELECT t.*,p.summary,p.next_step,v.seen_revision,
       ((SELECT count(*) FROM proposals x WHERE x.task_id=t.id AND x.status IN ('pending','approved')) +
        (SELECT count(*) FROM source_sync_candidates c WHERE c.task_id=t.id AND c.status='pending')) AS pending_count,
       (SELECT id FROM sessions s WHERE s.task_id=t.id AND s.status IN ('starting','working','collecting','review_starting','reviewing','repair_starting') LIMIT 1) AS active_session
-      FROM tasks t JOIN task_projections p ON p.task_id=t.id ${where} ORDER BY t.updated_at DESC,t.id LIMIT 500`).all().map((row) => ({
+      FROM tasks t JOIN task_projections p ON p.task_id=t.id LEFT JOIN task_views v ON v.task_id=t.id ${where} ORDER BY t.updated_at DESC,t.id LIMIT 500`).all().map((row) => ({
       ...this.kernel.getTask(String(row.id)),
+      unseen: row.seen_revision == null ? "new" : Number(row.seen_revision) < Number(row.revision) ? "updated" : null,
       planning: this.planning(String(row.id)),
       summary: row.summary === null ? null : String(row.summary),
       nextStep: row.next_step === null ? null : String(row.next_step),
@@ -32460,12 +32533,79 @@ var Repository = class {
     const dossier = this.kernel.getDossier(taskId);
     const proposals = this.kernel.listProposals(taskId).map((proposal) => {
       const receipt = proposal.status === "applied" ? this.kernel.getApplicationReceipt(proposal.id) : null;
-      return { ...proposal, evidence: this.kernel.proposalEvidence(proposal.id), receipt: receipt ? { id: receipt.id, beforeRevision: receipt.beforeRevision, afterRevision: receipt.afterRevision, createdAt: receipt.createdAt } : null };
+      return { ...proposal, ...this.partReviewFields("proposal", proposal.id), evidence: this.kernel.proposalEvidence(proposal.id), receipt: receipt ? { id: receipt.id, beforeRevision: receipt.beforeRevision, afterRevision: receipt.afterRevision, createdAt: receipt.createdAt } : null };
     });
     const events = this.db.prepare("SELECT id,type,created_at,payload_json FROM kernel_events WHERE task_id=? ORDER BY sequence DESC LIMIT 100").all(taskId).map((r) => ({ id: String(r.id), kind: String(r.type), createdAt: String(r.created_at), detail: String(r.payload_json) }));
     const sessionUpdates = this.db.prepare("SELECT u.value_json FROM session_updates u JOIN proposals p ON p.id=u.proposal_id WHERE p.task_id=? ORDER BY p.created_at DESC LIMIT 200").all(taskId).map((r) => sessionUpdateSchema.parse(JSON.parse(String(r.value_json))));
-    const syncUpdates = this.db.prepare("SELECT value_json FROM source_sync_candidates WHERE task_id=? ORDER BY rowid DESC LIMIT 200").all(taskId).map((r) => syncCandidateSchema.parse(JSON.parse(String(r.value_json))));
+    const syncUpdates = this.db.prepare("SELECT value_json FROM source_sync_candidates WHERE task_id=? ORDER BY rowid DESC LIMIT 200").all(taskId).map((r) => syncCandidateSchema.parse(JSON.parse(String(r.value_json)))).map((candidate) => ({ ...candidate, ...this.partReviewFields("source", candidate.id) }));
     return { ...dossier, planning: this.planning(taskId), proposals, sessions: this.sessions(taskId), events, brief: this.kernel.prepareBrief(taskId).markdown, sessionUpdates, syncUpdates };
+  }
+  markSeen(taskId, revision) {
+    const current = this.kernel.getTask(taskId);
+    if (!Number.isSafeInteger(revision) || revision < 0 || revision > current.revision) throw new PolicyError("Invalid viewed task revision.");
+    const result = this.db.prepare(`INSERT INTO task_views(task_id,seen_revision) VALUES (?,?)
+      ON CONFLICT(task_id) DO UPDATE SET seen_revision=MAX(seen_revision,excluded.seen_revision)
+      WHERE seen_revision<excluded.seen_revision`).run(taskId, revision);
+    if (result.changes) this.changed();
+    return this.db.prepare("SELECT seen_revision AS seenRevision FROM task_views WHERE task_id=?").get(taskId);
+  }
+  partReview(kind, id2) {
+    const row = this.db.prepare("SELECT value_json FROM part_reviews WHERE kind=? AND id=?").get(kind, id2);
+    return row ? JSON.parse(row.value_json) : void 0;
+  }
+  partReviewFields(kind, id2) {
+    const partReview = this.partReview(kind, id2);
+    return partReview ? { partReview } : {};
+  }
+  savePartReview(kind, id2, review) {
+    this.db.prepare("INSERT INTO part_reviews VALUES (?,?,?)").run(kind, id2, JSON.stringify(review));
+  }
+  reviewParts(input2) {
+    const result = this.request(input2.requestId, { kind: "review-parts", input: input2 }, () => {
+      const proposal = this.kernel.getProposal(input2.id);
+      if (proposal.status !== "pending") throw new PolicyError("This proposal was already reviewed. Refresh the list.");
+      const task = this.assertCurrent(proposal.taskId, input2.revision, false);
+      if (task.revision !== proposal.baseRevision) throw new ConflictError("The proposal is stale. Request a new review.");
+      if (this.active().some((s) => s.discussionProposalId === proposal.id)) throw new PolicyError("Finish discussing this review first.");
+      const row = this.db.prepare("SELECT value_json FROM session_updates WHERE proposal_id=?").get(proposal.id);
+      const update = row ? sessionUpdateSchema.parse(JSON.parse(row.value_json)) : void 0;
+      const split = partitionParts(proposalParts(proposal.changes, update?.extraction), input2);
+      const evidence2 = this.kernel.proposalEvidence(proposal.id);
+      const make = (parts, suffix) => {
+        const extraction = update ? pickExtraction(update.extraction, parts, proposal.id) : void 0;
+        const picked = extraction ? extraction.changes ?? {} : pickChanges(proposal.changes, parts);
+        const refs2 = update ? extractionRefMap(update.extraction, parts, proposal.id) : /* @__PURE__ */ new Map();
+        const draft = receiptDraft(picked, this.kernel.getDossier(task.id), evidence2.map((e) => ({ ...e, ref: refs2.get(e.ref) ?? e.ref })));
+        const child = this.kernel.createProposal({
+          taskId: task.id,
+          baseRevision: this.kernel.getTask(task.id).revision,
+          model: proposal.model,
+          output: { rationale: proposal.rationale, confidence: proposal.confidence, changes: draft.changes },
+          additionalEvidence: draft.evidence,
+          idempotencyKey: `parts:${input2.requestId}:${suffix}`
+        });
+        if (update && extraction) this.db.prepare("INSERT INTO session_updates VALUES (?,?,?)").run(child.id, update.sessionId, JSON.stringify({ ...update, proposalId: child.id, extraction }));
+        return child;
+      };
+      const accepted = split.accepted.length ? make(split.accepted, "accepted") : null;
+      if (accepted) this.accept(accepted.id, task.revision);
+      const remaining = split.remaining.length ? make(split.remaining, "remaining") : null;
+      this.kernel.rejectProposal(proposal.id);
+      for (const session of this.sessions(task.id)) if (session.proposalId === proposal.id) {
+        this.saveSession({
+          ...session,
+          proposalId: remaining?.id ?? accepted?.id ?? proposal.id,
+          baseRevision: remaining?.baseRevision ?? session.baseRevision,
+          acceptedPartProposalIds: [...session.acceptedPartProposalIds ?? [], ...accepted ? [accepted.id] : []],
+          ...update ? { extraction: remaining ? pickExtraction(update.extraction, split.remaining, proposal.id) : accepted ? pickExtraction(update.extraction, split.accepted, proposal.id) : update.extraction } : {},
+          status: remaining ? "awaiting_approval" : accepted || session.acceptedPartProposalIds?.length ? "applied" : "rejected"
+        });
+      }
+      this.savePartReview("proposal", proposal.id, { ...split, acceptedId: accepted?.id ?? null, remainingId: remaining?.id ?? null, createdAt: now2() });
+      return { taskId: task.id, remainingId: remaining?.id ?? null };
+    });
+    this.changed();
+    return result;
   }
   propose(input2, model) {
     const proposal = this.request(input2.requestId, { kind: "propose", input: input2, model }, () => {
@@ -32496,7 +32636,7 @@ var Repository = class {
     if (proposal.status === "rejected") return proposal;
     const result = this.store.transaction(() => {
       const result2 = this.kernel.rejectProposal(proposalId);
-      for (const session of this.sessions(proposal.taskId)) if (session.proposalId === proposalId) this.saveSession({ ...session, status: "rejected" });
+      for (const session of this.sessions(proposal.taskId)) if (session.proposalId === proposalId) this.saveSession({ ...session, status: session.acceptedPartProposalIds?.length ? "applied" : "rejected" });
       return result2;
     });
     this.changed();
@@ -32806,8 +32946,8 @@ function continueTranscript(previous, current) {
 
 // prompts.ts
 var managementGuide = `247C keeps a durable task separate from its BB conversations. A task has a title, status (open/done/archived), urgency and importance (true/false/null = unclassified), accepted summary, explicit next step, questions, blockers, artifacts, and evidence. Red = urgent+important, orange = urgent only, yellow = important only, green = neither. Task priority is not the BB thread's pin or display order.
-Manage these fields through explicit evidence-backed proposals; mentioning a change in a summary does NOT change its field. Only human acceptance in the 247C panel applies the proposed fields and knowledge together. The panel shows before/after and supports rejection and a new proposal to undo applied fields.
-Sessions: working = open conversation; finish captures the dialogue and runs a separate recorder; awaiting_approval = a pending proposal; applied/rejected/blocked/completed are retained history. Accepting session results archives its BB chats even when the task stays open. Closing/archiving the task archives its finished sessions; it never deletes the dossier or transcript. A finished transcript is immutable. Discuss review starts a linked conversation carrying the source dialogue and previous proposal, including on a closed task without reopening it. Its next recorder considers the original dialogue plus later corrections and replaces an unaccepted old proposal only when a valid new one is ready. Retry review reprocesses the same frozen dialogue without new user corrections. To add corrections, use discussion instead. The user chooses the model and submits the new conversation in the native composer. Do not promise changes already happened, and do not create or cancel sessions merely from an inferred next step.`;
+Manage these fields through explicit evidence-backed proposals; mentioning a change in a summary does NOT change its field. Only human acceptance in the 247C panel applies changes. All parts are selected by default; the user can separately accept or reject fields, dossier records and knowledge notes. Unselected parts remain pending against the resulting revision. The panel shows before/after, preserves original drafts and decisions, and supports a new proposal to undo accepted fields. Read the accepted dossier to determine what actually changed.
+Sessions: working = open conversation; finish captures the dialogue and runs a separate recorder; awaiting_approval = a pending proposal; applied/rejected/blocked/completed are retained history. Resolving a session review with accepted results archives its BB chats even when the task stays open; a partially reviewed session keeps its remaining proposal. Closing/archiving the task archives its finished sessions; it never deletes the dossier or transcript. A finished transcript is immutable. Discuss review starts a linked conversation carrying the source dialogue and previous proposal, including on a closed task without reopening it. Its next recorder considers the original dialogue plus later corrections and replaces an unaccepted old proposal only when a valid new one is ready. Retry review reprocesses the same frozen dialogue without new user corrections. To add corrections, use discussion instead. The user chooses the model and submits the new conversation in the native composer. Do not promise changes already happened, and do not create or cancel sessions merely from an inferred next step.`;
 function workerInstructions(session, dossier, discussion) {
   if (session.mode === "conversation") return `247C conversation ${session.id}, task ${session.taskId}.
 ${languageGuide}
@@ -33674,6 +33814,16 @@ var SessionRuntime = class {
       this.repo.sessionEvent(session.id, "proposal", "Dossier changes await your approval.", { proposalId: proposal.id });
     });
   }
+  async reviewParts(input2) {
+    const proposal = this.repo.kernel.getProposal(input2.id);
+    if (input2.decision === "accept" && proposal.status === "pending") {
+      const session = this.repo.sessions(proposal.taskId).find((s) => s.proposalId === proposal.id);
+      if (session) await this.assertArtifacts(session);
+    }
+    const result = this.repo.reviewParts(input2);
+    await this.archiveFinishedThreads(proposal.taskId);
+    return result;
+  }
   async accept(proposalId, revision) {
     const proposal = this.repo.kernel.getProposal(proposalId);
     if (proposal.status !== "applied") {
@@ -33794,11 +33944,21 @@ function mergeSyncDraft(draft, parents, dossier) {
     return index;
   };
   const remap = (refs2, positions2) => refs2.map((ref) => /^fact:\d+$/.test(ref) && positions2[Number(ref.slice(5))] !== void 0 ? "fact:" + positions2[Number(ref.slice(5))] : ref);
-  const positions = draft.facts.map(add);
+  const omitted = new Set(parents.flatMap((parent) => parent.recordFactIndexes ? parent.facts.filter((_, i) => !parent.recordFactIndexes.includes(i)).map(factIdentity) : []));
+  const records = /* @__PURE__ */ new Set();
+  const positions = draft.facts.map((fact) => {
+    const i = add(fact);
+    if (!omitted.has(factIdentity(fact))) records.add(i);
+    return i;
+  });
   const changes = Object.fromEntries(Object.entries(draft.changes).map(([field, change]) => [field, { ...change, evidenceRefs: remap(change.evidenceRefs, positions) }]));
   const previous = /* @__PURE__ */ new Map();
   for (const parent of parents) {
-    const indices2 = parent.facts.map(add);
+    const indices2 = parent.facts.map((fact, index) => {
+      const i = add(fact);
+      if (!parent.recordFactIndexes || parent.recordFactIndexes.includes(index)) records.add(i);
+      return i;
+    });
     for (const [field, change] of Object.entries(parent.changes)) {
       const entries = previous.get(field) ?? [];
       entries.push({ parent, change: { ...change, evidenceRefs: remap(change.evidenceRefs, indices2) } });
@@ -33820,7 +33980,7 @@ function mergeSyncDraft(draft, parents, dossier) {
     } });
   }
   if (facts.length > 300) throw new PolicyError("The combined proposal exceeds 300 distinct facts. The pending proposals are preserved.");
-  return { ...draft, facts, changes, mergeCandidateIds: parents.map((p) => p.id) };
+  return { ...draft, facts, changes, mergeCandidateIds: parents.map((p) => p.id), ...parents.some((p) => p.recordFactIndexes) ? { recordFactIndexes: [...records].sort((a, b) => a - b) } : {} };
 }
 
 // source-sync.ts
@@ -34205,7 +34365,7 @@ ${JSON.stringify(bundle.reports.map(({ callRefs: _refs, ...report }) => report))
 
 Compare findings with ALL tasks in the snapshot, including current nextStep, waiting states and links. Combine all sources for one issue into one proposal.
 Update ONLY tasks with status=open; copy exact taskIds from the snapshot. Closed tasks are supplied only for matching and deduplication. Do not invent UUIDs or turn completed requests into new tasks.
-Reconcile new findings with the full pending proposals below, including proposals from missed earlier checks. See the merge rules below. A revised result receives a new approval ID.
+Reconcile new findings with the full pending proposals below, including proposals from missed earlier checks. A pending proposal may contain only the remainder of a human partial review. Its changes are the remaining fields; when recordFactIndexes is present, only those fact indexes remain proposed records and other facts are retained solely as evidence. Do not restore reviewed records merely because their quotes are still available. See the merge rules below. A revised result receives a new approval ID.
 If no matching task exists and there is a substantive open request to the user, propose a new task. Do not duplicate already proposed or closed issues.
 Do not propose changes without a relevant update. With a partial export, an absent reply or mention does not prove it never existed.
 Gmail: the latest message has the maximum internalDate. SENT on the latest message means the user replied. A new incoming message after that reply reopens the request.
@@ -34600,7 +34760,7 @@ var SourceSyncStore = class {
   candidate(id2) {
     const row = this.repo.db.prepare("SELECT value_json FROM source_sync_candidates WHERE id=?").get(id2);
     if (!row) throw new PolicyError("Update proposal not found.");
-    return syncCandidateSchema.parse(JSON.parse(String(row.value_json)));
+    return { ...syncCandidateSchema.parse(JSON.parse(String(row.value_json))), ...this.repo.partReviewFields("source", id2) };
   }
   candidates() {
     const candidates = [];
@@ -34609,7 +34769,8 @@ var SourceSyncStore = class {
       const raw = String(row.value_json);
       bytes += Buffer.byteLength(raw);
       if (candidates.length && bytes > 1024 * 1024) break;
-      candidates.push(syncCandidateSchema.parse(JSON.parse(raw)));
+      const candidate = syncCandidateSchema.parse(JSON.parse(raw));
+      candidates.push({ ...candidate, ...this.repo.partReviewFields("source", candidate.id) });
     }
     return candidates;
   }
@@ -34781,7 +34942,7 @@ ${errors.join("\n").slice(0, 16e3)}`);
       if (candidate.status === "applied") return this.repo.detail(candidate.resultTaskId);
       if (candidate.status !== "pending") throw new PolicyError("This proposal was already rejected or superseded by a new check.");
       let taskId = candidate.taskId;
-      if (taskId) this.repo.assertCurrent(taskId, candidate.baseRevision);
+      if (taskId) this.repo.assertCurrent(taskId, candidate.baseRevision, false);
       else {
         const duplicate = this.repo.list(true).tasks.find((task) => normalize2(task.title) === normalize2(candidate.title));
         if (duplicate) throw new ConflictError("This task was created while the check was running. Reject the duplicate and check again.");
@@ -34789,17 +34950,19 @@ ${errors.join("\n").slice(0, 16e3)}`);
       }
       const dossier = this.repo.kernel.getDossier(taskId);
       const run = this.run(candidate.runId);
+      const draft = receiptDraft(candidate.changes, dossier, syncEvidence(candidate, run.id, dossier));
       const proposal = this.repo.kernel.createProposal({
         taskId,
         baseRevision: dossier.task.revision,
         model: `external-sync:${run.provider}:${run.model}`,
-        output: { rationale: candidate.rationale, confidence: candidate.confidence, changes: candidate.changes },
-        additionalEvidence: syncEvidence(candidate, run.id, dossier),
+        output: { rationale: candidate.rationale, confidence: candidate.confidence, changes: draft.changes },
+        additionalEvidence: draft.evidence,
         idempotencyKey: `sync:${candidate.id}`
       });
       this.repo.accept(proposal.id, dossier.task.revision);
       const timestamp = now3();
       for (const [index, fact] of candidate.facts.entries()) {
+        if (candidate.recordFactIndexes && !candidate.recordFactIndexes.includes(index)) continue;
         const exists = this.repo.db.prepare("SELECT kind,text FROM task_facts WHERE task_id=?").all(taskId).some((row) => row.kind === fact.kind && normalize2(String(row.text)) === normalize2(fact.text));
         if (exists) continue;
         const citation = fact.citations[0];
@@ -34807,6 +34970,44 @@ ${errors.join("\n").slice(0, 16e3)}`);
       }
       this.saveCandidate({ ...candidate, status: "applied", resolvedAt: timestamp, proposalId: proposal.id, resultTaskId: taskId });
       return this.repo.detail(taskId);
+    });
+    this.repo.changed();
+    return result;
+  }
+  reviewParts(input2) {
+    const result = this.repo.request(input2.requestId, { kind: "review-source-parts", input: input2 }, () => {
+      const candidate = this.candidate(input2.id);
+      if (candidate.status !== "pending") throw new PolicyError("This proposal was already reviewed. Refresh the list.");
+      if (candidate.baseRevision !== input2.revision) throw new ConflictError("The proposal changed. Refresh the list.");
+      if (candidate.taskId) this.repo.assertCurrent(candidate.taskId, candidate.baseRevision, false);
+      const split = partitionParts(sourceParts(candidate), input2);
+      const make = (parts, suffix, taskId2 = candidate.taskId) => {
+        const dossier = taskId2 ? this.repo.kernel.getDossier(taskId2) : null;
+        const child = syncCandidateSchema.parse({
+          ...candidate,
+          id: randomUUID5(),
+          partReview: void 0,
+          taskId: taskId2,
+          baseRevision: dossier?.task.revision ?? null,
+          before: dossier ? { ...dossier.projection, ...dossier.planning, title: dossier.task.title, status: dossier.task.status } : null,
+          title: dossier?.task.title ?? candidate.title,
+          changes: pickChanges(candidate.changes, parts),
+          recordFactIndexes: parts.filter((p) => p.startsWith("fact:")).map((p) => Number(p.slice(5))),
+          createdAt: now3(),
+          resolvedAt: null,
+          status: "pending",
+          proposalId: null,
+          resultTaskId: null
+        });
+        this.repo.db.prepare("INSERT INTO source_sync_candidates VALUES (?,?,?,?,?,?)").run(child.id, child.runId, child.taskId, child.status, `parts:${input2.requestId}:${suffix}`, JSON.stringify(child));
+        return child;
+      };
+      const accepted = split.accepted.length ? make(split.accepted, "accepted") : null;
+      const taskId = accepted ? this.accept(accepted.id).task.id : candidate.taskId;
+      const remaining = split.remaining.length ? make(split.remaining, "remaining", taskId) : null;
+      this.saveCandidate({ ...candidate, status: "superseded", resolvedAt: now3(), resultTaskId: taskId });
+      this.repo.savePartReview("source", candidate.id, { ...split, acceptedId: accepted?.id ?? null, remainingId: remaining?.id ?? null, createdAt: now3() });
+      return { taskId, remainingId: remaining?.id ?? null };
     });
     this.repo.changed();
     return result;
@@ -35056,6 +35257,7 @@ var SourceSyncRuntime = class {
 };
 
 // proposal-inbox.ts
+import { randomUUID as randomUUID6 } from "node:crypto";
 var ProposalInbox = class {
   constructor(repo, sync, runtime) {
     this.repo = repo;
@@ -35072,11 +35274,11 @@ var ProposalInbox = class {
       const active = task ? this.repo.active().some((s) => s.taskId === task.id) : false;
       const currentTask = task ? { revision: task.revision, status: task.status, activeSession: active ? "active" : null } : null;
       const duplicate = !task && this.repo.list(true).tasks.some((t) => t.title.trim().toLocaleLowerCase() === candidate.title.trim().toLocaleLowerCase());
-      const blockedReason2 = task && (task.revision !== candidate.baseRevision || task.status !== "open") ? "The dossier changed after the check. An updated proposal is required." : active && candidate.changes.status ? "Finish the work session before changing the task status." : duplicate ? "A task with this title already exists. Check for a duplicate." : null;
+      const blockedReason2 = task && task.revision !== candidate.baseRevision ? "The dossier changed after the check. An updated proposal is required." : active && candidate.changes.status ? "Finish the work session before changing the task status." : duplicate ? "A task with this title already exists. Check for a duplicate." : null;
       return { kind, candidate, currentTask, blockedReason: blockedReason2 };
     }
     const raw = this.repo.kernel.getProposal(id2), dossier = this.repo.kernel.getDossier(raw.taskId);
-    const proposal = { ...raw, evidence: this.repo.kernel.proposalEvidence(id2), receipt: null };
+    const proposal = { ...raw, ...this.repo.partReviewFields("proposal", raw.id), evidence: this.repo.kernel.proposalEvidence(id2), receipt: null };
     const sessions = this.repo.sessions(raw.taskId).filter((s) => ACTIVE.has(s.status)).map(({ id: id3, status, discussionProposalId }) => ({ id: id3, status, discussionProposalId }));
     const update = this.repo.db.prepare("SELECT value_json FROM session_updates WHERE proposal_id=?").get(id2);
     const used = new Set(Object.values(raw.changes).flatMap((change) => change?.evidenceRefs ?? []));
@@ -35122,8 +35324,16 @@ var ProposalInbox = class {
       try {
         const value = item.kind === "source" ? this.sync.candidate(item.id) : this.repo.kernel.getProposal(item.id);
         if (value.baseRevision !== item.revision) throw new ConflictError("The proposal changed. Refresh the list and review it again.");
-        const dossier = item.kind === "source" ? this.sync.accept(item.id) : await this.runtime.accept(item.id, item.revision);
-        applied.push({ kind: item.kind, id: item.id, taskId: dossier.task.id });
+        let taskId;
+        if (item.parts) {
+          const input2 = { ...item, parts: item.parts, decision: "accept", requestId: randomUUID6() };
+          const result = item.kind === "source" ? this.sync.reviewParts(input2) : await this.runtime.reviewParts(input2);
+          taskId = result.taskId;
+        } else {
+          const dossier = item.kind === "source" ? this.sync.accept(item.id) : await this.runtime.accept(item.id, item.revision);
+          taskId = dossier.task.id;
+        }
+        applied.push({ kind: item.kind, id: item.id, taskId });
       } catch (error61) {
         failed.push({ kind: item.kind, id: item.id, message: error61 instanceof Error ? error61.message : String(error61) });
       }
@@ -35133,7 +35343,7 @@ var ProposalInbox = class {
 };
 
 // day-planning.ts
-import { randomUUID as randomUUID6 } from "node:crypto";
+import { randomUUID as randomUUID7 } from "node:crypto";
 var EMPTY_CALENDAR = { status: "idle", startedAt: null, completedAt: null, message: null, events: 0, from: null, through: null };
 var same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 var plannedCounts = (item) => !item.removed && (!item.calendar || item.calendar.status === "confirmed");
@@ -35176,7 +35386,7 @@ var DayPlanning = class {
     const count = this.repo.db.prepare("SELECT count(*) AS n FROM day_items WHERE date=?").get(date5);
     if (count.n >= 1e3) throw new PolicyError("This day already has 1,000 entries.");
     return {
-      id: randomUUID6(),
+      id: randomUUID7(),
       date: date5,
       reportedDate: date5,
       kind: taskId ? "task" : "meeting",
@@ -35607,6 +35817,12 @@ async function plugin(bb) {
     syncReject: ({ candidateId }) => sync.store.reject(candidateId),
     list: async ({ history }) => ({ ...repo.list(history), settings: await getSettings() }),
     detail: ({ id: id2 }) => repo.detail(id2),
+    taskSeen: ({ id: id2, revision }) => repo.markSeen(id2, revision),
+    reviewParts: async (input2) => {
+      const result = input2.kind === "source" ? sync.store.reviewParts(input2) : await runtime.reviewParts(input2);
+      if (input2.kind === "source" && result.taskId) await runtime.archiveFinishedThreads(result.taskId);
+      return result;
+    },
     threadSession: ({ threadId }) => {
       const session = repo.forThread(threadId);
       if (!session || session.workerThreadId !== threadId || session.mode !== "conversation") return { session: null };
@@ -35619,7 +35835,11 @@ async function plugin(bb) {
     status: ({ taskId, status, revision }) => runtime.status(taskId, status, revision),
     propose: (input2) => repo.propose(input2, "human:bb-panel"),
     accept: ({ proposalId, revision }) => runtime.accept(proposalId, revision),
-    reject: ({ proposalId }) => repo.reject(proposalId),
+    reject: async ({ proposalId }) => {
+      const proposal = repo.reject(proposalId);
+      await runtime.archiveFinishedThreads(proposal.taskId);
+      return proposal;
+    },
     revert: ({ proposalId }) => {
       const proposal = repo.kernel.proposeRevert(proposalId);
       changed();
@@ -35941,10 +36161,10 @@ Use the 247C panel to approve, archive, start or finish sessions.
           value = repo.knowledge(input2.query, input2.offset);
         } else if (command === "new" && args.length) {
           independentCaller(ctx.threadId);
-          value = repo.create(rpcContract.create.input.parse({ title: args.join(" "), description: "", requestId: randomUUID7() }));
+          value = repo.create(rpcContract.create.input.parse({ title: args.join(" "), description: "", requestId: randomUUID8() }));
         } else if (command === "propose" && args.length === 3) {
           independentCaller(ctx.threadId);
-          value = repo.propose(rpcContract.propose.input.parse({ taskId: args[0], revision: Number(args[1]), draft: draftSchema.parse(JSON.parse(args[2])), requestId: randomUUID7() }), ctx.threadId ? `bb-thread:${ctx.threadId}` : "cli");
+          value = repo.propose(rpcContract.propose.input.parse({ taskId: args[0], revision: Number(args[1]), draft: draftSchema.parse(JSON.parse(args[2])), requestId: randomUUID8() }), ctx.threadId ? `bb-thread:${ctx.threadId}` : "cli");
         } else return { exitCode: 1, stderr: usage };
         return { exitCode: 0, stdout: boundedJson(value) };
       } catch (error61) {

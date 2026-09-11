@@ -9,7 +9,7 @@ function factIdentity(fact: SyncDraft["facts"][number]): string {
     [c.source, c.url, c.messageId, c.occurredAt, c.quote]).sort()]);
 }
 
-export function mergeSyncDraft(draft: SyncDraft, parents: SyncCandidate[], dossier: TaskDossier): SyncDraft {
+export function mergeSyncDraft(draft: SyncDraft, parents: SyncCandidate[], dossier: TaskDossier): SyncDraft & { recordFactIndexes?: number[] } {
   if (!parents.length) return draft;
   const facts: SyncDraft["facts"] = [];
   const indices = new Map<string, number>();
@@ -23,12 +23,15 @@ export function mergeSyncDraft(draft: SyncDraft, parents: SyncCandidate[], dossi
   const remap = (refs: string[], positions: number[]) => refs.map(ref =>
     /^fact:\d+$/.test(ref) && positions[Number(ref.slice(5))] !== undefined
       ? "fact:" + positions[Number(ref.slice(5))] : ref);
-  const positions = draft.facts.map(add);
+  const omitted = new Set(parents.flatMap(parent => parent.recordFactIndexes
+    ? parent.facts.filter((_, i) => !parent.recordFactIndexes!.includes(i)).map(factIdentity) : []));
+  const records = new Set<number>();
+  const positions = draft.facts.map(fact => { const i = add(fact); if (!omitted.has(factIdentity(fact))) records.add(i); return i; });
   const changes = Object.fromEntries(Object.entries(draft.changes).map(([field, change]) =>
     [field, { ...change, evidenceRefs: remap(change!.evidenceRefs, positions) }])) as SyncDraft["changes"];
   const previous = new Map<string, { change: NonNullable<SyncDraft["changes"][keyof SyncDraft["changes"]]>; parent: SyncCandidate }[]>();
   for (const parent of parents) {
-    const indices = parent.facts.map(add);
+    const indices = parent.facts.map((fact, index) => { const i = add(fact); if (!parent.recordFactIndexes || parent.recordFactIndexes.includes(index)) records.add(i); return i; });
     for (const [field, change] of Object.entries(parent.changes)) {
       const entries = previous.get(field) ?? [];
       entries.push({ parent, change: { ...change!, evidenceRefs: remap(change!.evidenceRefs, indices) } });
@@ -49,5 +52,5 @@ export function mergeSyncDraft(draft: SyncDraft, parents: SyncCandidate[], dossi
       evidenceRefs: [...new Set(unresolved.flatMap(({ change }) => change.evidenceRefs))] } });
   }
   if (facts.length > 300) throw new PolicyError("The combined proposal exceeds 300 distinct facts. The pending proposals are preserved.");
-  return { ...draft, facts, changes, mergeCandidateIds: parents.map(p => p.id) };
+  return { ...draft, facts, changes, mergeCandidateIds: parents.map(p => p.id), ...(parents.some(p => p.recordFactIndexes) ? { recordFactIndexes: [...records].sort((a, b) => a - b) } : {}) };
 }

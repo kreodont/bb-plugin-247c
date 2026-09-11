@@ -5,8 +5,9 @@ import { Kernel } from "./core/kernel.js";
 import { Store } from "./core/database.js";
 import { ConflictError, PolicyError } from "./core/errors.js";
 import type { FactKind, StewardProposalDraft, TaskRecord } from "./core/types.js";
+import { extractionRefMap, partitionParts, pickChanges, pickExtraction, proposalParts, receiptDraft } from "./proposal-parts.js";
 import { DAY_SCHEMA } from "./day-schema.js";
-import { sessionSchema, sessionUpdateSchema, transcriptSchema, knowledgeEntrySchema, fileKnowledgeEntrySchema, knowledgeImportSchema, syncCandidateSchema, type Dossier, type Session, type TaskCard, type Transcript, type Extraction, type KnowledgeEntry, type KnowledgeImport } from "./contracts.js";
+import { sessionSchema, sessionUpdateSchema, transcriptSchema, knowledgeEntrySchema, fileKnowledgeEntrySchema, knowledgeImportSchema, syncCandidateSchema, type Dossier, type Session, type TaskCard, type Transcript, type Extraction, type KnowledgeEntry, type KnowledgeImport, type PartDecision, type PartReview } from "./contracts.js";
 
 export const EXTRA_SCHEMA = [
   `CREATE TABLE planning (task_id TEXT PRIMARY KEY REFERENCES tasks(id), urgent INTEGER, important INTEGER, revision INTEGER NOT NULL DEFAULT 0)`,
@@ -29,6 +30,9 @@ export const EXTRA_SCHEMA = [
   `CREATE INDEX source_sync_candidate_task ON source_sync_candidates(task_id,status)`,
   `CREATE TABLE source_sync_exports (run_id TEXT PRIMARY KEY REFERENCES source_sync_runs(id), value_json TEXT NOT NULL)`,
   ...DAY_SCHEMA,
+  `CREATE TABLE task_views (task_id TEXT PRIMARY KEY REFERENCES tasks(id), seen_revision INTEGER NOT NULL);
+   INSERT INTO task_views(task_id,seen_revision) SELECT id,revision FROM tasks;`,
+  `CREATE TABLE part_reviews (kind TEXT NOT NULL, id TEXT NOT NULL, value_json TEXT NOT NULL, PRIMARY KEY(kind,id))`,
 ];
 export const ACTIVE = new Set<Session["status"]>(["starting", "working", "collecting", "review_starting", "reviewing", "repair_starting"]);
 export const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -119,12 +123,12 @@ export class Repository {
   list(history = false): { tasks: TaskCard[]; total: number; pendingTotal: number } {
     const where = history ? "" : "WHERE t.status='open'";
     const total = Number((this.db.prepare(`SELECT count(*) AS n FROM tasks t ${where}`).get() as Row).n);
-    const tasks = (this.db.prepare(`SELECT t.*,p.summary,p.next_step,
+    const tasks = (this.db.prepare(`SELECT t.*,p.summary,p.next_step,v.seen_revision,
       ((SELECT count(*) FROM proposals x WHERE x.task_id=t.id AND x.status IN ('pending','approved')) +
        (SELECT count(*) FROM source_sync_candidates c WHERE c.task_id=t.id AND c.status='pending')) AS pending_count,
       (SELECT id FROM sessions s WHERE s.task_id=t.id AND s.status IN ('starting','working','collecting','review_starting','reviewing','repair_starting') LIMIT 1) AS active_session
-      FROM tasks t JOIN task_projections p ON p.task_id=t.id ${where} ORDER BY t.updated_at DESC,t.id LIMIT 500`).all() as Row[]).map((row) => ({
-        ...this.kernel.getTask(String(row.id)), planning: this.planning(String(row.id)), summary: row.summary === null ? null : String(row.summary), nextStep: row.next_step === null ? null : String(row.next_step), pendingCount: Number(row.pending_count), activeSession: row.active_session === null ? null : String(row.active_session),
+      FROM tasks t JOIN task_projections p ON p.task_id=t.id LEFT JOIN task_views v ON v.task_id=t.id ${where} ORDER BY t.updated_at DESC,t.id LIMIT 500`).all() as Row[]).map((row) => ({
+        ...this.kernel.getTask(String(row.id)), unseen: row.seen_revision == null ? "new" as const : Number(row.seen_revision) < Number(row.revision) ? "updated" as const : null, planning: this.planning(String(row.id)), summary: row.summary === null ? null : String(row.summary), nextStep: row.next_step === null ? null : String(row.next_step), pendingCount: Number(row.pending_count), activeSession: row.active_session === null ? null : String(row.active_session),
       }));
     return { tasks, total, pendingTotal: this.pendingTotal() };
   }
@@ -133,12 +137,75 @@ export class Repository {
     const dossier = this.kernel.getDossier(taskId);
     const proposals = this.kernel.listProposals(taskId).map((proposal) => {
       const receipt = proposal.status === "applied" ? this.kernel.getApplicationReceipt(proposal.id) : null;
-      return { ...proposal, evidence: this.kernel.proposalEvidence(proposal.id), receipt: receipt ? { id: receipt.id, beforeRevision: receipt.beforeRevision, afterRevision: receipt.afterRevision, createdAt: receipt.createdAt } : null };
+      return { ...proposal, ...this.partReviewFields("proposal", proposal.id), evidence: this.kernel.proposalEvidence(proposal.id), receipt: receipt ? { id: receipt.id, beforeRevision: receipt.beforeRevision, afterRevision: receipt.afterRevision, createdAt: receipt.createdAt } : null };
     });
     const events = (this.db.prepare("SELECT id,type,created_at,payload_json FROM kernel_events WHERE task_id=? ORDER BY sequence DESC LIMIT 100").all(taskId) as Row[]).map((r) => ({ id: String(r.id), kind: String(r.type), createdAt: String(r.created_at), detail: String(r.payload_json) }));
     const sessionUpdates = (this.db.prepare("SELECT u.value_json FROM session_updates u JOIN proposals p ON p.id=u.proposal_id WHERE p.task_id=? ORDER BY p.created_at DESC LIMIT 200").all(taskId) as Row[]).map((r) => sessionUpdateSchema.parse(JSON.parse(String(r.value_json))));
-    const syncUpdates = (this.db.prepare("SELECT value_json FROM source_sync_candidates WHERE task_id=? ORDER BY rowid DESC LIMIT 200").all(taskId) as Row[]).map((r) => syncCandidateSchema.parse(JSON.parse(String(r.value_json))));
+    const syncUpdates = (this.db.prepare("SELECT value_json FROM source_sync_candidates WHERE task_id=? ORDER BY rowid DESC LIMIT 200").all(taskId) as Row[]).map((r) => syncCandidateSchema.parse(JSON.parse(String(r.value_json)))).map(candidate => ({ ...candidate, ...this.partReviewFields("source", candidate.id) }));
     return { ...dossier, planning: this.planning(taskId), proposals, sessions: this.sessions(taskId), events, brief: this.kernel.prepareBrief(taskId).markdown, sessionUpdates, syncUpdates };
+  }
+
+  markSeen(taskId: string, revision: number) {
+    const current = this.kernel.getTask(taskId);
+    if (!Number.isSafeInteger(revision) || revision < 0 || revision > current.revision) throw new PolicyError("Invalid viewed task revision.");
+    const result = this.db.prepare(`INSERT INTO task_views(task_id,seen_revision) VALUES (?,?)
+      ON CONFLICT(task_id) DO UPDATE SET seen_revision=MAX(seen_revision,excluded.seen_revision)
+      WHERE seen_revision<excluded.seen_revision`).run(taskId, revision);
+    if (result.changes) this.changed();
+    return this.db.prepare("SELECT seen_revision AS seenRevision FROM task_views WHERE task_id=?").get(taskId) as { seenRevision: number };
+  }
+
+  partReview(kind: string, id: string): PartReview | undefined {
+    const row = this.db.prepare("SELECT value_json FROM part_reviews WHERE kind=? AND id=?").get(kind, id) as { value_json: string } | undefined;
+    return row ? JSON.parse(row.value_json) : undefined;
+  }
+  partReviewFields(kind: string, id: string): { partReview?: PartReview } {
+    const partReview = this.partReview(kind, id);
+    return partReview ? { partReview } : {};
+  }
+  savePartReview(kind: string, id: string, review: PartReview) {
+    this.db.prepare("INSERT INTO part_reviews VALUES (?,?,?)").run(kind, id, JSON.stringify(review));
+  }
+
+  reviewParts(input: PartDecision) {
+    const result = this.request(input.requestId, { kind: "review-parts", input }, () => {
+      const proposal = this.kernel.getProposal(input.id);
+      if (proposal.status !== "pending") throw new PolicyError("This proposal was already reviewed. Refresh the list.");
+      const task = this.assertCurrent(proposal.taskId, input.revision!, false);
+      if (task.revision !== proposal.baseRevision) throw new ConflictError("The proposal is stale. Request a new review.");
+      if (this.active().some(s => s.discussionProposalId === proposal.id)) throw new PolicyError("Finish discussing this review first.");
+      const row = this.db.prepare("SELECT value_json FROM session_updates WHERE proposal_id=?").get(proposal.id) as { value_json: string } | undefined;
+      const update = row ? sessionUpdateSchema.parse(JSON.parse(row.value_json)) : undefined;
+      const split = partitionParts(proposalParts(proposal.changes, update?.extraction), input);
+      const evidence = this.kernel.proposalEvidence(proposal.id);
+      const make = (parts: string[], suffix: string) => {
+        const extraction = update ? pickExtraction(update.extraction, parts, proposal.id) : undefined;
+        const picked = extraction ? extraction.changes ?? {} : pickChanges(proposal.changes, parts);
+        const refs = update ? extractionRefMap(update.extraction, parts, proposal.id) : new Map<string, string>();
+        const draft = receiptDraft(picked, this.kernel.getDossier(task.id), evidence.map(e => ({ ...e, ref: refs.get(e.ref) ?? e.ref })));
+        const child = this.kernel.createProposal({ taskId: task.id, baseRevision: this.kernel.getTask(task.id).revision,
+          model: proposal.model, output: { rationale: proposal.rationale, confidence: proposal.confidence, changes: draft.changes },
+          additionalEvidence: draft.evidence, idempotencyKey: `parts:${input.requestId}:${suffix}` });
+        if (update && extraction) this.db.prepare("INSERT INTO session_updates VALUES (?,?,?)").run(child.id, update.sessionId, JSON.stringify({ ...update, proposalId: child.id, extraction }));
+        return child;
+      };
+      // The original draft and its evidence remain intact in history. Only exact
+      // selected subsets receive approvals; the rest get a fresh pending identity.
+      const accepted = split.accepted.length ? make(split.accepted, "accepted") : null;
+      if (accepted) this.accept(accepted.id, task.revision);
+      const remaining = split.remaining.length ? make(split.remaining, "remaining") : null;
+      this.kernel.rejectProposal(proposal.id);
+      for (const session of this.sessions(task.id)) if (session.proposalId === proposal.id) {
+        this.saveSession({ ...session, proposalId: remaining?.id ?? accepted?.id ?? proposal.id,
+          baseRevision: remaining?.baseRevision ?? session.baseRevision,
+          acceptedPartProposalIds: [...(session.acceptedPartProposalIds ?? []), ...(accepted ? [accepted.id] : [])],
+          ...(update ? { extraction: remaining ? pickExtraction(update.extraction, split.remaining, proposal.id) : accepted ? pickExtraction(update.extraction, split.accepted, proposal.id) : update.extraction } : {}),
+          status: remaining ? "awaiting_approval" : accepted || session.acceptedPartProposalIds?.length ? "applied" : "rejected" });
+      }
+      this.savePartReview("proposal", proposal.id, { ...split, acceptedId: accepted?.id ?? null, remainingId: remaining?.id ?? null, createdAt: now() });
+      return { taskId: task.id, remainingId: remaining?.id ?? null };
+    });
+    this.changed(); return result;
   }
 
   propose(input: { taskId: string; revision: number; draft: StewardProposalDraft; requestId: string }, model: string) {
@@ -172,7 +239,7 @@ export class Repository {
     if (proposal.status === "rejected") return proposal;
     const result = this.store.transaction(() => {
       const result = this.kernel.rejectProposal(proposalId);
-      for (const session of this.sessions(proposal.taskId)) if (session.proposalId === proposalId) this.saveSession({ ...session, status: "rejected" });
+      for (const session of this.sessions(proposal.taskId)) if (session.proposalId === proposalId) this.saveSession({ ...session, status: session.acceptedPartProposalIds?.length ? "applied" : "rejected" });
       return result;
     });
     this.changed();

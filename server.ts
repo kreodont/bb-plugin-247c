@@ -87,6 +87,12 @@ export default async function plugin(bb: BbPluginApi) {
     syncReject: ({ candidateId }) => sync.store.reject(candidateId),
     list: async ({ history }) => ({ ...repo.list(history), settings: await getSettings() }),
     detail: ({ id }) => repo.detail(id),
+    taskSeen: ({ id, revision }) => repo.markSeen(id, revision),
+    reviewParts: async (input) => {
+      const result = input.kind === "source" ? sync.store.reviewParts(input) : await runtime.reviewParts(input);
+      if (input.kind === "source" && result.taskId) await runtime.archiveFinishedThreads(result.taskId);
+      return result;
+    },
     threadSession: ({ threadId }) => {
       const session = repo.forThread(threadId);
       if (!session || session.workerThreadId !== threadId || session.mode !== "conversation") return { session: null };
@@ -99,7 +105,7 @@ export default async function plugin(bb: BbPluginApi) {
     status: ({ taskId, status, revision }) => runtime.status(taskId, status, revision),
     propose: (input) => repo.propose(input, "human:bb-panel"),
     accept: ({ proposalId, revision }) => runtime.accept(proposalId, revision),
-    reject: ({ proposalId }) => repo.reject(proposalId),
+    reject: async ({ proposalId }) => { const proposal = repo.reject(proposalId); await runtime.archiveFinishedThreads(proposal.taskId); return proposal; },
     revert: ({ proposalId }) => { const proposal = repo.kernel.proposeRevert(proposalId); changed(); return proposal; },
     start: (input) => runtime.start(input),
     finish: ({ sessionId, recorder }) => runtime.finish(sessionId, recorder),

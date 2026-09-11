@@ -1,10 +1,11 @@
+import { partitionParts, pickChanges, receiptDraft, sourceParts } from "./proposal-parts.js";
 import { jiraReferences } from "./source-links.js";
 import { mergeSyncDraft } from "./source-sync-merge.js";
 import { defaultSourceConfig, type SourceConfig } from "./source-config.js";
 import { randomUUID } from "node:crypto";
 import { ThreadRouting } from "./thread-routing.js";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
-import { nativeRequest, syncCandidateSchema, syncRunSchema, syncStartSchema, syncSubmitSchema, type SyncCandidate, type SyncDraft, type SyncRun, type SyncSource, type SyncStart, type SyncSubmit } from "./contracts.js";
+import { nativeRequest, syncCandidateSchema, syncRunSchema, syncStartSchema, syncSubmitSchema, type SyncCandidate, type SyncDraft, type SyncRun, type SyncSource, type SyncStart, type SyncSubmit, type PartDecision } from "./contracts.js";
 import type { ProposalEvidence, TaskDossier } from "./core/types.js";
 import { ConflictError, PolicyError } from "./core/errors.js";
 import { validateEvidence } from "./core/validation.js";
@@ -229,14 +230,15 @@ export class SourceSyncStore {
   candidate(id: string): SyncCandidate {
     const row = this.repo.db.prepare("SELECT value_json FROM source_sync_candidates WHERE id=?").get(id) as Row | undefined;
     if (!row) throw new PolicyError("Update proposal not found.");
-    return syncCandidateSchema.parse(JSON.parse(String(row.value_json)));
+    return { ...syncCandidateSchema.parse(JSON.parse(String(row.value_json))), ...this.repo.partReviewFields("source", id) };
   }
   candidates(): SyncCandidate[] {
     const candidates: SyncCandidate[] = []; let bytes = 0;
     for (const row of this.repo.db.prepare("SELECT value_json FROM source_sync_candidates ORDER BY (status='pending') DESC,rowid DESC LIMIT 300").all() as Row[]) {
       const raw = String(row.value_json); bytes += Buffer.byteLength(raw);
       if (candidates.length && bytes > 1024 * 1024) break;
-      candidates.push(syncCandidateSchema.parse(JSON.parse(raw)));
+      const candidate = syncCandidateSchema.parse(JSON.parse(raw));
+      candidates.push({ ...candidate, ...this.repo.partReviewFields("source", candidate.id) });
     }
     return candidates;
   }
@@ -367,7 +369,7 @@ ${errors.join("\n").slice(0, 16000)}`);
       if (candidate.status === "applied") return this.repo.detail(candidate.resultTaskId!);
       if (candidate.status !== "pending") throw new PolicyError("This proposal was already rejected or superseded by a new check.");
       let taskId = candidate.taskId;
-      if (taskId) this.repo.assertCurrent(taskId, candidate.baseRevision!);
+      if (taskId) this.repo.assertCurrent(taskId, candidate.baseRevision!, false);
       else {
         const duplicate = this.repo.list(true).tasks.find((task) => normalize(task.title) === normalize(candidate.title));
         if (duplicate) throw new ConflictError("This task was created while the check was running. Reject the duplicate and check again.");
@@ -375,13 +377,15 @@ ${errors.join("\n").slice(0, 16000)}`);
       }
       const dossier = this.repo.kernel.getDossier(taskId);
       const run = this.run(candidate.runId);
+      const draft = receiptDraft(candidate.changes, dossier, syncEvidence(candidate, run.id, dossier));
       const proposal = this.repo.kernel.createProposal({ taskId, baseRevision: dossier.task.revision,
-        model: `external-sync:${run.provider}:${run.model}`, output: { rationale: candidate.rationale, confidence: candidate.confidence, changes: candidate.changes },
-        additionalEvidence: syncEvidence(candidate, run.id, dossier), idempotencyKey: `sync:${candidate.id}` });
+        model: `external-sync:${run.provider}:${run.model}`, output: { rationale: candidate.rationale, confidence: candidate.confidence, changes: draft.changes },
+        additionalEvidence: draft.evidence, idempotencyKey: `sync:${candidate.id}` });
       this.repo.accept(proposal.id, dossier.task.revision);
       // These facts belong to this human-approved receipt, without extra revisions.
       const timestamp = now();
       for (const [index, fact] of candidate.facts.entries()) {
+        if (candidate.recordFactIndexes && !candidate.recordFactIndexes.includes(index)) continue;
         const exists = (this.repo.db.prepare("SELECT kind,text FROM task_facts WHERE task_id=?").all(taskId) as Row[]).some((row) => row.kind === fact.kind && normalize(String(row.text)) === normalize(fact.text));
         if (exists) continue;
         const citation = fact.citations[0];
@@ -389,6 +393,33 @@ ${errors.join("\n").slice(0, 16000)}`);
       }
       this.saveCandidate({ ...candidate, status: "applied", resolvedAt: timestamp, proposalId: proposal.id, resultTaskId: taskId });
       return this.repo.detail(taskId);
+    });
+    this.repo.changed(); return result;
+  }
+  reviewParts(input: PartDecision) {
+    const result = this.repo.request(input.requestId, { kind: "review-source-parts", input }, () => {
+      const candidate = this.candidate(input.id);
+      if (candidate.status !== "pending") throw new PolicyError("This proposal was already reviewed. Refresh the list.");
+      if (candidate.baseRevision !== input.revision) throw new ConflictError("The proposal changed. Refresh the list.");
+      if (candidate.taskId) this.repo.assertCurrent(candidate.taskId, candidate.baseRevision!, false);
+      const split = partitionParts(sourceParts(candidate), input);
+      const make = (parts: string[], suffix: string, taskId = candidate.taskId) => {
+        const dossier = taskId ? this.repo.kernel.getDossier(taskId) : null;
+        const child = syncCandidateSchema.parse({ ...candidate, id: randomUUID(), partReview: undefined,
+          taskId, baseRevision: dossier?.task.revision ?? null,
+          before: dossier ? { ...dossier.projection, ...dossier.planning, title: dossier.task.title, status: dossier.task.status } : null,
+          title: dossier?.task.title ?? candidate.title, changes: pickChanges(candidate.changes, parts),
+          recordFactIndexes: parts.filter(p => p.startsWith("fact:")).map(p => Number(p.slice(5))),
+          createdAt: now(), resolvedAt: null, status: "pending", proposalId: null, resultTaskId: null });
+        this.repo.db.prepare("INSERT INTO source_sync_candidates VALUES (?,?,?,?,?,?)").run(child.id, child.runId, child.taskId, child.status, `parts:${input.requestId}:${suffix}`, JSON.stringify(child));
+        return child;
+      };
+      const accepted = split.accepted.length ? make(split.accepted, "accepted") : null;
+      const taskId = accepted ? this.accept(accepted.id).task.id : candidate.taskId;
+      const remaining = split.remaining.length ? make(split.remaining, "remaining", taskId) : null;
+      this.saveCandidate({ ...candidate, status: "superseded", resolvedAt: now(), resultTaskId: taskId });
+      this.repo.savePartReview("source", candidate.id, { ...split, acceptedId: accepted?.id ?? null, remainingId: remaining?.id ?? null, createdAt: now() });
+      return { taskId, remainingId: remaining?.id ?? null };
     });
     this.repo.changed(); return result;
   }

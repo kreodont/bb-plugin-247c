@@ -3,7 +3,7 @@ import { posix } from "node:path";
 import { pathToFileURL } from "node:url";
 import { ZodError } from "zod";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
-import { nativeRequest, resultSchema, reviewSchema, type Extraction, type ObservedArtifact, type Review, type Session, type SettingsView, type StartInput, type WorkerResult } from "./contracts.js";
+import { nativeRequest, resultSchema, reviewSchema, type Extraction, type ObservedArtifact, type Review, type Session, type SettingsView, type StartInput, type WorkerResult, type PartDecision } from "./contracts.js";
 import { ACTIVE, Repository, digest } from "./repository.js";
 import { PolicyError } from "./core/errors.js";
 import type { ProposalEvidence, StewardChanges, TaskRecord } from "./core/types.js";
@@ -583,6 +583,16 @@ export class SessionRuntime {
     });
   }
 
+  async reviewParts(input: PartDecision) {
+    const proposal = this.repo.kernel.getProposal(input.id);
+    if (input.decision === "accept" && proposal.status === "pending") {
+      const session = this.repo.sessions(proposal.taskId).find(s => s.proposalId === proposal.id);
+      if (session) await this.assertArtifacts(session);
+    }
+    const result = this.repo.reviewParts(input);
+    await this.archiveFinishedThreads(proposal.taskId);
+    return result;
+  }
   async accept(proposalId: string, revision: number) {
     const proposal = this.repo.kernel.getProposal(proposalId);
     if (proposal.status !== "applied") {

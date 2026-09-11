@@ -26,7 +26,7 @@ ${JSON.stringify(bundle.reports.map(({ callRefs: _refs, ...report }) => report))
 
 Compare findings with ALL tasks in the snapshot, including current nextStep, waiting states and links. Combine all sources for one issue into one proposal.
 Update ONLY tasks with status=open; copy exact taskIds from the snapshot. Closed tasks are supplied only for matching and deduplication. Do not invent UUIDs or turn completed requests into new tasks.
-Reconcile new findings with the full pending proposals below, including proposals from missed earlier checks. See the merge rules below. A revised result receives a new approval ID.
+Reconcile new findings with the full pending proposals below, including proposals from missed earlier checks. A pending proposal may contain only the remainder of a human partial review. Its changes are the remaining fields; when recordFactIndexes is present, only those fact indexes remain proposed records and other facts are retained solely as evidence. Do not restore reviewed records merely because their quotes are still available. See the merge rules below. A revised result receives a new approval ID.
 If no matching task exists and there is a substantive open request to the user, propose a new task. Do not duplicate already proposed or closed issues.
 Do not propose changes without a relevant update. With a partial export, an absent reply or mention does not prove it never existed.
 Gmail: the latest message has the maximum internalDate. SENT on the latest message means the user replied. A new incoming message after that reply reopens the request.

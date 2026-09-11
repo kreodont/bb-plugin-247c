@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { reviewDossierSchema, type ReviewItem, type ReviewSelection } from "./contracts.js";
 import { ACTIVE, Repository } from "./repository.js";
 import { SourceSyncStore } from "./source-sync.js";
@@ -6,7 +7,7 @@ import type { SessionRuntime } from "./runtime.js";
 
 type Row = { kind: "source" | "proposal"; id: string };
 export class ProposalInbox {
-  constructor(readonly repo: Repository, readonly sync: SourceSyncStore, readonly runtime: Pick<SessionRuntime, "accept">) {}
+  constructor(readonly repo: Repository, readonly sync: SourceSyncStore, readonly runtime: Pick<SessionRuntime, "accept" | "reviewParts">) {}
   item(kind: Row["kind"], id: string): ReviewItem {
     if (kind === "source") {
       const candidate = this.sync.candidate(id);
@@ -14,13 +15,13 @@ export class ProposalInbox {
       const active = task ? this.repo.active().some(s => s.taskId === task.id) : false;
       const currentTask = task ? { revision: task.revision, status: task.status, activeSession: active ? "active" : null } : null;
       const duplicate = !task && this.repo.list(true).tasks.some(t => t.title.trim().toLocaleLowerCase() === candidate.title.trim().toLocaleLowerCase());
-      const blockedReason = task && (task.revision !== candidate.baseRevision || task.status !== "open") ? "The dossier changed after the check. An updated proposal is required."
+      const blockedReason = task && task.revision !== candidate.baseRevision ? "The dossier changed after the check. An updated proposal is required."
         : active && candidate.changes.status ? "Finish the work session before changing the task status."
         : duplicate ? "A task with this title already exists. Check for a duplicate." : null;
       return { kind, candidate, currentTask, blockedReason };
     }
     const raw = this.repo.kernel.getProposal(id), dossier = this.repo.kernel.getDossier(raw.taskId);
-    const proposal = { ...raw, evidence: this.repo.kernel.proposalEvidence(id), receipt: null };
+    const proposal = { ...raw, ...this.repo.partReviewFields("proposal", raw.id), evidence: this.repo.kernel.proposalEvidence(id), receipt: null };
     const sessions = this.repo.sessions(raw.taskId).filter(s => ACTIVE.has(s.status)).map(({ id, status, discussionProposalId }) => ({ id, status, discussionProposalId }));
     const update = this.repo.db.prepare("SELECT value_json FROM session_updates WHERE proposal_id=?").get(id) as { value_json: string } | undefined;
     const used = new Set(Object.values(raw.changes).flatMap(change => change?.evidenceRefs ?? []));
@@ -65,8 +66,16 @@ export class ProposalInbox {
       try {
         const value = item.kind === "source" ? this.sync.candidate(item.id) : this.repo.kernel.getProposal(item.id);
         if (value.baseRevision !== item.revision) throw new ConflictError("The proposal changed. Refresh the list and review it again.");
-        const dossier = item.kind === "source" ? this.sync.accept(item.id) : await this.runtime.accept(item.id, item.revision!);
-        applied.push({ kind: item.kind, id: item.id, taskId: dossier.task.id });
+        let taskId: string;
+        if (item.parts) {
+          const input = { ...item, parts: item.parts, decision: "accept" as const, requestId: randomUUID() };
+          const result = item.kind === "source" ? this.sync.reviewParts(input) : await this.runtime.reviewParts(input);
+          taskId = result.taskId!;
+        } else {
+          const dossier = item.kind === "source" ? this.sync.accept(item.id) : await this.runtime.accept(item.id, item.revision!);
+          taskId = dossier.task.id;
+        }
+        applied.push({ kind: item.kind, id: item.id, taskId });
       } catch (error) { failed.push({ kind: item.kind, id: item.id, message: error instanceof Error ? error.message : String(error) }); }
     }
     return { applied, failed };
