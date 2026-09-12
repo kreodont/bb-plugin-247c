@@ -9,7 +9,7 @@ Requires BB ≥ 0.42 with Plugin SDK ≥ 0.4.47 and a login for your chosen mode
 This repository is currently private. Authenticate Git with a GitHub account that has access before installing; with GitHub CLI, run `gh auth login` and `gh auth setup-git` once on the new computer.
 
 ```sh
-bb plugin install git:https://github.com/kreodont/bb-plugin-247c.git@v0.4.6
+bb plugin install git:https://github.com/kreodont/bb-plugin-247c.git@v0.4.7
 ```
 
 The package includes source code and a ready build. It contains no author tasks, history, accounts or personal settings. **247C** appears in the sidebar with an empty database. Configure Gmail, Slack, Jira and calendar access separately; tasks, dossiers and conversations work without those integrations. The interface and public documentation are in English. Existing task content and conversations retain their original language.
@@ -65,6 +65,8 @@ Collection starts only on request or through the enabled schedule. It does not m
 A durable task retains context, accepted results, its next step and history across BB work sessions. Work happens in ordinary BB threads with your chosen model. Set **Thread project** in plugin settings to group all new work conversations, review discussions, recorders, verification threads and source checks in one BB project using its default local folder. The composer opens in that project. Existing threads keep their original project. See the [setup-agent guide](docs/setup-agent.md#project-for-247c-threads) for configuration and recovery.
 
 Open **247C** in BB's sidebar. Create a task and add its initial context. The dossier can hold observations, decisions, constraints and an explicitly agreed next step. Importance and urgency are separate choices; an unknown priority remains unclassified.
+
+The **Sources** bar directly below the task title opens the original Gmail message, Slack message or Jira issue in a new tab. Original task sources come first, followed by links from accepted records and changes. Repeated URLs appear once; use **+N more** to expand longer lists. Saved source links also appear on existing tasks, without a new check or approval. Pending or rejected suggestions do not add links to this bar.
 
 Task cards show a blue **New** badge until first opened, or **Updated** after accepted changes since the last visit. Opening the visible dossier clears its badge. Pending proposals retain their separate approval count; they do not trigger **Updated**. Background checks and agent reads never mark a task as viewed. View state is stored in the local database and included in backups. Tracking starts with version 0.4.6: existing tasks begin without badges because earlier visits were not recorded.
 

@@ -23,6 +23,43 @@ async function setup(taskId?: string, supplied?: Awaited<ReturnType<typeof fixtu
   return { f, slot };
 }
 
+it("shows the saved source directly below the title across dossier tabs", async () => {
+  const f = await fixture(); const { run } = await startSourceSync(f); const { input } = await sourceData(f, run);
+  await submitSourceData(f, run, input);
+  const candidate = new SourceSyncStore(f.repo).candidates()[0];
+  await f.harness.behavior.callRpc("syncAccept", { candidateId: candidate.id });
+  const task = f.repo.list().tasks[0];
+  const { slot } = await setup(task.id, f);
+  const sources = await slot.findByRole("navigation", { name: "Task sources" });
+  const links = within(sources).getAllByRole("link");
+  expect(links).toHaveLength(1);
+  expect(links[0].textContent).toContain("Gmail message");
+  expect(links[0].getAttribute("href")).toBe(input.suggestions[0].facts[0].citations[0].url);
+  expect(links[0].getAttribute("target")).toBe("_blank");
+  expect(links[0].getAttribute("rel")).toBe("noopener noreferrer");
+  expect(links[0].getAttribute("title")).toContain("Original task source");
+  expect(slot.getByRole("heading", { name: task.title }).compareDocumentPosition(sources) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(sources.compareDocumentPosition(slot.getByRole("tablist", { name: "Task sections" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  fireEvent.click(slot.getByRole("tab", { name: "History" }));
+  expect(within(slot.getByRole("navigation", { name: "Task sources" })).getAllByRole("link")).toHaveLength(1);
+});
+
+it("expands additional saved sources and omits an empty source bar", async () => {
+  const f = await fixture(); const task = await f.create(); const { slot } = await setup(task.id, f);
+  await slot.findByRole("heading", { name: task.title });
+  expect(slot.queryByRole("navigation", { name: "Task sources" })).toBeNull();
+  for (let n = 0; n < 5; n++) f.repo.kernel.appendFact({ taskId: task.id, kind: "description", text: `Imported context ${n}`, source: "imported", sourceRef: `https://example.com/message/${n}` });
+  await slot.behavior.emitRealtime("desk-changed", {});
+  const sources = await slot.findByRole("navigation", { name: "Task sources" });
+  expect(within(sources).getAllByRole("link")).toHaveLength(3);
+  const more = within(sources).getByRole("button", { name: "+2 more" });
+  expect(more.getAttribute("aria-expanded")).toBe("false");
+  fireEvent.click(more);
+  expect(within(sources).getAllByRole("link")).toHaveLength(5);
+  fireEvent.click(within(sources).getByRole("button", { name: "Show less" }));
+  expect(within(sources).getAllByRole("link")).toHaveLength(3);
+});
+
 it.each(["work", "updates"])("opens the %s composer in the configured thread project", async page => {
   const f = await fixture(); const task = await f.create();
   await f.harness.behavior.setSettings({ threadProjectId: "proj_tasks" });

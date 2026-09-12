@@ -163,7 +163,8 @@ export const syncCandidateSchema = syncDraftSchema.extend({
   proposalId: idSchema.nullable(), resultTaskId: idSchema.nullable(),
 });
 export const sessionUpdateSchema = z.object({ proposalId: idSchema, sessionId: idSchema, threadId: idSchema, extraction: extractionSchema, warnings: z.array(z.string()), speakers: z.record(z.string(), z.enum(["user", "assistant", "context"])).default({}), sources: z.record(z.string(), z.object({ threadId: idSchema, messageRef: idSchema })).default({}) });
-export const dossierSchema = z.object({ task: taskSchema, projection: projectionSchema, facts: z.array(factSchema), planning: planningSchema, proposals: z.array(proposalViewSchema), sessions: z.array(sessionSchema), events: z.array(eventSchema), brief: z.string(), sessionUpdates: z.array(sessionUpdateSchema).default([]), syncUpdates: z.array(syncCandidateSchema).default([]) });
+export const taskSourceLinkSchema = z.object({ url: z.url().max(4096), label: z.string(), occurredAt: z.string().nullable(), origin: z.boolean() });
+export const dossierSchema = z.object({ task: taskSchema, projection: projectionSchema, facts: z.array(factSchema), planning: planningSchema, proposals: z.array(proposalViewSchema), sessions: z.array(sessionSchema), events: z.array(eventSchema), brief: z.string(), sessionUpdates: z.array(sessionUpdateSchema).default([]), syncUpdates: z.array(syncCandidateSchema).default([]), sourceLinks: z.array(taskSourceLinkSchema).default([]) });
 export const reviewDossierSchema = dossierSchema.pick({ task: true, projection: true, planning: true, facts: true, sessionUpdates: true }).extend({
   sessions: z.array(sessionSchema.pick({ id: true, status: true, discussionProposalId: true })),
 });
@@ -241,6 +242,7 @@ export const rpcContract = defineRpcContract({
 });
 export type TaskCard = z.infer<typeof taskCardSchema>;
 export type Dossier = z.infer<typeof dossierSchema>;
+export type TaskSourceLink = z.infer<typeof taskSourceLinkSchema>;
 export type ReviewDossier = z.infer<typeof reviewDossierSchema>;
 export type ReviewItem = z.infer<typeof reviewItemSchema>;
 export type ReviewSelection = z.infer<typeof reviewSelectionSchema>;

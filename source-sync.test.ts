@@ -35,6 +35,7 @@ it("keeps found changes outside the dossier until human acceptance, with one app
   expect(store.checkpoints()).toEqual({ gmail: run.until, slack: run.until, jira: run.until });
   expect((await f.detail(task.id)).projection).toEqual(before.projection);
   expect((await f.detail(task.id)).facts).toEqual(before.facts);
+  expect((await f.detail(task.id)).sourceLinks).toEqual([]);
   expect(f.repo.list().tasks[0].pendingCount).toBe(1);
   expect(f.repo.sessions(task.id)).toHaveLength(0);
   await f.harness.behavior.callRpc("syncAccept", { candidateId: candidate.id });
@@ -46,6 +47,7 @@ it("keeps found changes outside the dossier until human acceptance, with one app
   expect(after.facts.filter((fact) => fact.source.startsWith("approved-external-sync:"))).toHaveLength(2);
   expect(after.syncUpdates[0]).toMatchObject({ status: "applied", resultTaskId: task.id });
   expect(after.proposals[0].receipt).not.toBeNull();
+  expect(after.sourceLinks).toMatchObject([{ url: input.suggestions[0].facts[0].citations[0].url, label: "Gmail message", origin: false }]);
   expect(f.repo.db.prepare("SELECT count(*) AS n FROM application_receipts").get()).toEqual({ n: 1 });
   expect(f.repo.list().tasks[0].pendingCount).toBe(0);
 });
@@ -60,7 +62,20 @@ it("creates a new task only when its proposal is accepted and retains its citati
   await f.harness.behavior.callRpc("syncAccept", { candidateId: candidate.id });
   expect(f.repo.list().total).toBe(1);
   expect(f.repo.list().tasks[0]).toEqual(first);
-  expect((await f.detail(first.id)).syncUpdates[0].facts[0].citations[0].quote).toBe(input.suggestions[0].facts[0].citations[0].quote);
+  const detail = await f.detail(first.id);
+  expect(detail.syncUpdates[0].facts[0].citations[0].quote).toBe(input.suggestions[0].facts[0].citations[0].quote);
+  expect(detail.sourceLinks).toMatchObject([{ url: input.suggestions[0].facts[0].citations[0].url, origin: true }]);
+  // The accepted origin remains accessible after it leaves the recent-history window.
+  for (let n = 0; n < 201; n++) {
+    const later = { ...detail.syncUpdates[0], id: `later-${n}`, taskId: first.id, status: "rejected" };
+    f.repo.db.prepare("INSERT INTO source_sync_candidates VALUES (?,?,?,?,?,?)").run(later.id, later.runId, first.id, later.status, later.id, JSON.stringify(later));
+  }
+  await f.reload();
+  const reloaded = await f.detail(first.id);
+  expect(reloaded.syncUpdates).toHaveLength(200);
+  expect(reloaded.syncUpdates.some(update => update.id === candidate.id)).toBe(false);
+  expect(reloaded.sourceLinks).toEqual(detail.sourceLinks);
+  expect(reloaded.task).toEqual(detail.task);
 });
 
 it("rejects fabricated quotes, unknown calls, wrong sources, future messages and unsafe links atomically", async () => {

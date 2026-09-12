@@ -1,6 +1,7 @@
 import { proposalParts, sourceParts } from "./proposal-parts.js";
 import { usePartSelection, PartReviewNote, partOutcome } from "./review-parts-ui.js";
 import { TaskViewMarker } from "./task-view-marker.js";
+import { TaskSources } from "./task-sources-ui.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ComponentProps, FormEvent, ReactNode } from "react";
 import { definePluginApp, useRpc, useRealtime, useRealtimeConnectionState, useBbNavigate, ThreadChat, Markdown, experimental_NewThreadComposer as NewThreadComposer, experimental_FileLink as FileLink } from "@get-bb/plugin-sdk/app";
@@ -413,6 +414,7 @@ function TaskPage({ taskId, returnTo }: { taskId: string; returnTo?: string }) {
   return <div className="relative h-full min-h-0 overflow-y-auto"><TaskViewMarker id={dossier.task.id} revision={dossier.task.revision} /><div className="mx-auto max-w-6xl space-y-5 p-5 md:p-8">
     <Button variant="ghost" size="sm" className="-ml-3" onClick={() => navigate.toPluginPanel("desk", { subPath: returnTo ?? "" })}><Icon name="ChevronLeft" /> {backLabel}</Button>
     <div className="flex flex-wrap items-start justify-between gap-4"><div className="min-w-0 flex-1"><div className="mb-2 flex items-center gap-2"><Pill>{dossier.task.status === "open" ? "Open" : dossier.task.status === "done" ? "Done" : "Archived"}</Pill><span className="text-xs text-muted-foreground">Revision {dossier.task.revision}</span></div><h1 className="break-words text-2xl font-medium leading-snug tracking-tight">{dossier.task.title}</h1></div><div className="flex gap-2">{dossier.task.status === "open" ? <><Button variant="outline" size="sm" disabled={busy || active} onClick={() => void action(() => rpc.call("status", { taskId, status: "done", revision: dossier.task.revision }))}><Icon name="Check" /> Complete</Button><Button variant="ghost" size="icon" aria-label="Archive task" disabled={busy || active} onClick={() => void action(() => rpc.call("status", { taskId, status: "archived", revision: dossier.task.revision }))}><Icon name="Archive" /></Button></> : <Button variant="outline" size="sm" disabled={busy} onClick={() => void action(() => rpc.call("status", { taskId, status: "open", revision: dossier.task.revision }))}>Reopen task</Button>}</div></div>
+    <TaskSources key={taskId} links={dossier.sourceLinks} />
     <TaskTimeSummary taskId={taskId} />
     <div role="tablist" aria-label="Task sections" className="flex gap-1 overflow-x-auto border-b border-border">{([{ id: "overview", name: "Dossier" }, { id: "work", name: "Work" }, { id: "proposals", name: `Proposals${pendingCount ? ` · ${pendingCount}` : ""}` }, { id: "history", name: "History" }] as const).map((item) => <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} onClick={() => { setDiscussionId(null); setTab(item.id); }} className={cn("whitespace-nowrap border-b-2 px-4 py-3 text-sm transition-colors", tab === item.id ? "border-foreground font-medium" : "border-transparent text-muted-foreground hover:text-foreground")}>{item.name}</button>)}</div>
     <ErrorNotice error={mutationError ?? error} retry={() => void refresh()} />

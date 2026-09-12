@@ -7,6 +7,7 @@ import { ConflictError, PolicyError } from "./core/errors.js";
 import type { FactKind, StewardProposalDraft, TaskRecord } from "./core/types.js";
 import { extractionRefMap, partitionParts, pickChanges, pickExtraction, proposalParts, receiptDraft } from "./proposal-parts.js";
 import { DAY_SCHEMA } from "./day-schema.js";
+import { taskSourceLinks } from "./task-sources.js";
 import { sessionSchema, sessionUpdateSchema, transcriptSchema, knowledgeEntrySchema, fileKnowledgeEntrySchema, knowledgeImportSchema, syncCandidateSchema, type Dossier, type Session, type TaskCard, type Transcript, type Extraction, type KnowledgeEntry, type KnowledgeImport, type PartDecision, type PartReview } from "./contracts.js";
 
 export const EXTRA_SCHEMA = [
@@ -142,7 +143,12 @@ export class Repository {
     const events = (this.db.prepare("SELECT id,type,created_at,payload_json FROM kernel_events WHERE task_id=? ORDER BY sequence DESC LIMIT 100").all(taskId) as Row[]).map((r) => ({ id: String(r.id), kind: String(r.type), createdAt: String(r.created_at), detail: String(r.payload_json) }));
     const sessionUpdates = (this.db.prepare("SELECT u.value_json FROM session_updates u JOIN proposals p ON p.id=u.proposal_id WHERE p.task_id=? ORDER BY p.created_at DESC LIMIT 200").all(taskId) as Row[]).map((r) => sessionUpdateSchema.parse(JSON.parse(String(r.value_json))));
     const syncUpdates = (this.db.prepare("SELECT value_json FROM source_sync_candidates WHERE task_id=? ORDER BY rowid DESC LIMIT 200").all(taskId) as Row[]).map((r) => syncCandidateSchema.parse(JSON.parse(String(r.value_json)))).map(candidate => ({ ...candidate, ...this.partReviewFields("source", candidate.id) }));
-    return { ...dossier, planning: this.planning(taskId), proposals, sessions: this.sessions(taskId), events, brief: this.kernel.prepareBrief(taskId).markdown, sessionUpdates, syncUpdates };
+    // Read accepted provenance independently of the recent review-history limit,
+    // so the original source remains visible after many later checks.
+    const acceptedSources = this.db.prepare("SELECT value_json FROM source_sync_candidates WHERE task_id=? AND status='applied' ORDER BY rowid").iterate(taskId) as Iterable<{ value_json: string }>;
+    function* sources() { for (const row of acceptedSources) yield syncCandidateSchema.parse(JSON.parse(row.value_json)); }
+    const sourceLinks = taskSourceLinks({ ...dossier, proposals }, sources());
+    return { ...dossier, planning: this.planning(taskId), proposals, sessions: this.sessions(taskId), events, brief: this.kernel.prepareBrief(taskId).markdown, sessionUpdates, syncUpdates, sourceLinks };
   }
 
   markSeen(taskId: string, revision: number) {

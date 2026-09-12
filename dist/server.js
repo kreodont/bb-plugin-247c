@@ -31699,7 +31699,8 @@ var syncCandidateSchema = syncDraftSchema.extend({
   resultTaskId: idSchema.nullable()
 });
 var sessionUpdateSchema = external_exports.object({ proposalId: idSchema, sessionId: idSchema, threadId: idSchema, extraction: extractionSchema, warnings: external_exports.array(external_exports.string()), speakers: external_exports.record(external_exports.string(), external_exports.enum(["user", "assistant", "context"])).default({}), sources: external_exports.record(external_exports.string(), external_exports.object({ threadId: idSchema, messageRef: idSchema })).default({}) });
-var dossierSchema = external_exports.object({ task: taskSchema, projection: projectionSchema, facts: external_exports.array(factSchema), planning: planningSchema, proposals: external_exports.array(proposalViewSchema), sessions: external_exports.array(sessionSchema), events: external_exports.array(eventSchema), brief: external_exports.string(), sessionUpdates: external_exports.array(sessionUpdateSchema).default([]), syncUpdates: external_exports.array(syncCandidateSchema).default([]) });
+var taskSourceLinkSchema = external_exports.object({ url: external_exports.url().max(4096), label: external_exports.string(), occurredAt: external_exports.string().nullable(), origin: external_exports.boolean() });
+var dossierSchema = external_exports.object({ task: taskSchema, projection: projectionSchema, facts: external_exports.array(factSchema), planning: planningSchema, proposals: external_exports.array(proposalViewSchema), sessions: external_exports.array(sessionSchema), events: external_exports.array(eventSchema), brief: external_exports.string(), sessionUpdates: external_exports.array(sessionUpdateSchema).default([]), syncUpdates: external_exports.array(syncCandidateSchema).default([]), sourceLinks: external_exports.array(taskSourceLinkSchema).default([]) });
 var reviewDossierSchema = dossierSchema.pick({ task: true, projection: true, planning: true, facts: true, sessionUpdates: true }).extend({
   sessions: external_exports.array(sessionSchema.pick({ id: true, status: true, discussionProposalId: true }))
 });
@@ -32407,6 +32408,66 @@ var DAY_SCHEMA = [
   `CREATE TABLE calendar_sync_state (id INTEGER PRIMARY KEY CHECK(id=1), value_json TEXT NOT NULL)`
 ];
 
+// task-sources.ts
+function sourceUrl(value) {
+  if (!value || value.length > 4096 || /[\u0000-\u001f\u007f]/.test(value)) return null;
+  try {
+    const url2 = new URL(value);
+    return ["https:", "http:"].includes(url2.protocol) && !url2.username && !url2.password && url2.href.length <= 4096 ? url2 : null;
+  } catch {
+    return null;
+  }
+}
+function sourceLabel(url2, hint) {
+  const host = url2.hostname.toLowerCase();
+  if (host === "mail.google.com") return "Gmail message";
+  if (host === "slack.com" || host.endsWith(".slack.com")) return "Slack message";
+  const issue2 = url2.pathname.match(/\/browse\/([A-Z][A-Z0-9_]*-\d+)(?:\/|$)/i)?.[1];
+  if (issue2) return `Jira \xB7 ${issue2.toUpperCase()}`;
+  if (hint === "jira") return "Jira issue";
+  return host;
+}
+function taskSourceLinks(dossier, candidates) {
+  const links = /* @__PURE__ */ new Map();
+  const add = (value, occurredAt, acceptedAt, origin = false, hint) => {
+    const url2 = sourceUrl(value);
+    if (!url2) return;
+    const existing = links.get(url2.href);
+    const validDate = occurredAt && Number.isFinite(Date.parse(occurredAt)) ? occurredAt : null;
+    if (existing) {
+      existing.origin ||= origin;
+      if (acceptedAt < existing.acceptedAt) existing.acceptedAt = acceptedAt;
+      existing.occurredAt ??= validDate;
+      return;
+    }
+    links.set(url2.href, { url: url2.href, label: sourceLabel(url2, hint), occurredAt: validDate, origin, acceptedAt });
+  };
+  for (const candidate of candidates) {
+    if (candidate.status !== "applied" || candidate.resultTaskId !== dossier.task.id) continue;
+    const records = new Set(candidate.recordFactIndexes ?? candidate.facts.map((_, i) => i));
+    const refs2 = new Set(Object.values(candidate.changes).flatMap((change) => change?.evidenceRefs ?? []));
+    candidate.facts.forEach((fact, index) => {
+      if (!records.has(index) && !refs2.has(`fact:${index}`)) return;
+      for (const citation of fact.citations) add(
+        citation.url,
+        citation.occurredAt,
+        candidate.resolvedAt ?? candidate.createdAt,
+        candidate.taskId === null,
+        citation.source
+      );
+    });
+  }
+  for (const fact of dossier.facts) add(fact.sourceRef, fact.occurredAt, fact.createdAt);
+  for (const proposal of dossier.proposals) {
+    if (proposal.status !== "applied" || !proposal.receipt) continue;
+    const refs2 = new Set(Object.values(proposal.changes).flatMap((change) => change?.evidenceRefs ?? []));
+    for (const evidence2 of proposal.evidence) if (refs2.has(evidence2.ref)) {
+      add(evidence2.sourceRef, null, proposal.receipt.createdAt);
+    }
+  }
+  return [...links.values()].sort((a, b) => Number(b.origin) - Number(a.origin) || a.acceptedAt.localeCompare(b.acceptedAt)).map(({ acceptedAt: _, ...link }) => link);
+}
+
 // repository.ts
 var EXTRA_SCHEMA = [
   `CREATE TABLE planning (task_id TEXT PRIMARY KEY REFERENCES tasks(id), urgent INTEGER, important INTEGER, revision INTEGER NOT NULL DEFAULT 0)`,
@@ -32538,7 +32599,12 @@ var Repository = class {
     const events = this.db.prepare("SELECT id,type,created_at,payload_json FROM kernel_events WHERE task_id=? ORDER BY sequence DESC LIMIT 100").all(taskId).map((r) => ({ id: String(r.id), kind: String(r.type), createdAt: String(r.created_at), detail: String(r.payload_json) }));
     const sessionUpdates = this.db.prepare("SELECT u.value_json FROM session_updates u JOIN proposals p ON p.id=u.proposal_id WHERE p.task_id=? ORDER BY p.created_at DESC LIMIT 200").all(taskId).map((r) => sessionUpdateSchema.parse(JSON.parse(String(r.value_json))));
     const syncUpdates = this.db.prepare("SELECT value_json FROM source_sync_candidates WHERE task_id=? ORDER BY rowid DESC LIMIT 200").all(taskId).map((r) => syncCandidateSchema.parse(JSON.parse(String(r.value_json)))).map((candidate) => ({ ...candidate, ...this.partReviewFields("source", candidate.id) }));
-    return { ...dossier, planning: this.planning(taskId), proposals, sessions: this.sessions(taskId), events, brief: this.kernel.prepareBrief(taskId).markdown, sessionUpdates, syncUpdates };
+    const acceptedSources = this.db.prepare("SELECT value_json FROM source_sync_candidates WHERE task_id=? AND status='applied' ORDER BY rowid").iterate(taskId);
+    function* sources() {
+      for (const row of acceptedSources) yield syncCandidateSchema.parse(JSON.parse(row.value_json));
+    }
+    const sourceLinks2 = taskSourceLinks({ ...dossier, proposals }, sources());
+    return { ...dossier, planning: this.planning(taskId), proposals, sessions: this.sessions(taskId), events, brief: this.kernel.prepareBrief(taskId).markdown, sessionUpdates, syncUpdates, sourceLinks: sourceLinks2 };
   }
   markSeen(taskId, revision) {
     const current = this.kernel.getTask(taskId);
