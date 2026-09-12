@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeAll, expect, it } from "vitest";
+import { afterEach, beforeAll, expect, it, vi } from "vitest";
 import { act, fireEvent, waitFor, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot, type CapturedPluginApp, type RenderedSlot } from "@get-bb/plugin-sdk/testing/app";
 import { randomUUID } from "node:crypto";
@@ -11,7 +11,7 @@ import { normalizeCalendarEvent } from "./calendar-reader.js";
 let app: CapturedPluginApp;
 const mounts: RenderedSlot[] = [], hosts: Awaited<ReturnType<typeof fixture>>[] = [];
 beforeAll(async () => { app = await loadPluginApp(() => import("./app.js")); }, 60000);
-afterEach(async () => { for (const slot of mounts.splice(0)) slot.lifecycle.unmount(); for (const f of hosts.splice(0)) await f.harness.lifecycle.dispose(); });
+afterEach(async () => { for (const slot of mounts.splice(0)) slot.lifecycle.unmount(); for (const f of hosts.splice(0)) await f.harness.lifecycle.dispose(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 async function setup() {
   const f = await fixture(); hosts.push(f); const task = await f.create(), days = new DayPlanning(f.repo);
   const item = days.add({ date: "2026-09-10", taskId: task.id, requestId: randomUUID() });
@@ -21,6 +21,35 @@ async function setup() {
   }
   return { f, task, days, item, mount };
 }
+
+it.each(["Back", "Forward"] as const)("saves time and day settings before %s traverses history", async direction => {
+  vi.stubGlobal("navigation", Object.assign(new EventTarget(), { canGoBack: true, canGoForward: true }));
+  const { task, days, item, mount } = await setup(); const slot = mount("day/2026-09-10");
+  const traverse = vi.spyOn(window.history, direction === "Back" ? "back" : "forward").mockImplementation(() => {
+    expect(days.get(item.id)).toMatchObject({ plannedMinutes: 15, reportedMinutes: 30 });
+    expect(days.config("2026-09-10").capacityMinutes).toBe(300);
+  });
+  fireEvent.change(await slot.findByLabelText(`Planned: ${task.title}`), { target: { value: "15m" } });
+  fireEvent.change(slot.getByLabelText(`Reported: ${task.title}`), { target: { value: "30m" } });
+  fireEvent.click(slot.getByText("Day settings"));
+  fireEvent.change(slot.getByLabelText("Available time"), { target: { value: "5h" } });
+  fireEvent.click(slot.getByRole("button", { name: direction }));
+  await waitFor(() => expect(traverse).toHaveBeenCalledOnce());
+});
+
+it("keeps a conflicting time edit on the page when Back is clicked", async () => {
+  vi.stubGlobal("navigation", Object.assign(new EventTarget(), { canGoBack: true, canGoForward: true }));
+  const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
+  const { task, days, item, mount } = await setup(); const slot = mount("day/2026-09-10");
+  fireEvent.change(await slot.findByLabelText(`Reported: ${task.title}`), { target: { value: "3h" } });
+  days.edit({ id: item.id, revision: item.revision, reportedMinutes: 20, requestId: randomUUID() });
+  await slot.behavior.emitRealtime("desk-changed", {});
+  fireEvent.click(slot.getByRole("button", { name: "Back" }));
+  await slot.findByRole("alert");
+  expect(back).not.toHaveBeenCalled();
+  expect(days.get(item.id).reportedMinutes).toBe(20);
+  expect((slot.getByLabelText(`Reported: ${task.title}`) as HTMLInputElement).value).toBe("3h");
+});
 
 it("saves 10 minutes planned and 3 hours reported before opening a task and returning to the same day", async () => {
   const { f, task, days, item, mount } = await setup(); const original = f.repo.detail(task.id);

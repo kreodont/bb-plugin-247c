@@ -7,6 +7,7 @@ import { Button } from "./components/ui/button.js";
 import { Input } from "./components/ui/input.js";
 import { Icon } from "./components/ui/icon.js";
 import { cn } from "./lib/utils.js";
+import { useNavigationGuard } from "./navigation.js";
 
 function useDaySnapshot<T>(read: () => Promise<T>) {
   const [data, setData] = useState<T | null>(null), [error, setError] = useState<string | null>(null);
@@ -149,6 +150,7 @@ export function DayPage({ date, report = false, period = "week" }: { date: strin
   const register = useCallback((id: string, flush: Flush | null) => { if (flush) flushers.current.set(id, flush); else flushers.current.delete(id); }, []);
   const route = report ? `report/${period}/${date}` : `day/${date}`;
   async function flushAll() { for (const flush of [...flushers.current.values()]) if (!await flush()) return false; return true; }
+  useNavigationGuard(flushAll);
   async function go(path: string) { if (await flushAll()) navigate.toPluginPanel("desk", { subPath: path }); }
   async function openTask(id: string) { await go(`${id}/from/${route}`); }
   async function openDay(next: string) { if (dayDateSchema.safeParse(next).success) await go(`day/${next}`); }

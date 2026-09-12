@@ -2,6 +2,7 @@ import { proposalParts, sourceParts } from "./proposal-parts.js";
 import { usePartSelection, PartReviewNote, partOutcome } from "./review-parts-ui.js";
 import { TaskViewMarker } from "./task-view-marker.js";
 import { TaskSources } from "./task-sources-ui.js";
+import { NavigationFrame } from "./navigation.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ComponentProps, FormEvent, ReactNode } from "react";
 import { definePluginApp, useRpc, useRealtime, useRealtimeConnectionState, useBbNavigate, ThreadChat, Markdown, experimental_NewThreadComposer as NewThreadComposer, experimental_FileLink as FileLink } from "@get-bb/plugin-sdk/app";
@@ -457,7 +458,7 @@ function KnowledgePage() {
     {!data ? <p role="status" className="text-sm text-muted-foreground">Opening the knowledge base…</p> : !data.entries.length ? <div className="rounded-xl border border-dashed border-border p-8 text-center"><h2 className="font-medium">{query ? "No matches" : "Knowledge will appear after a conversation"}</h2><p className="mt-2 text-sm text-muted-foreground">{query ? "Try different words." : "Finish a work session and accept useful records in Proposals."}</p></div> : <>
       <p className="text-xs text-muted-foreground">Records {offset + 1}–{offset + data.entries.length} of {data.total}</p>
       <div className="space-y-4">{data.entries.map((entry) => <article key={entry.id} className="rounded-xl border border-border bg-card p-5"><h2 className="font-medium">{entry.title}</h2><KnowledgeBody entry={entry} />{entry.tags.length > 0 && <p className="mt-3 text-xs text-muted-foreground">{entry.tags.join(" · ")}</p>}<div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-3"><span className="mr-auto text-xs text-muted-foreground">{date(entry.createdAt)}</span>{entry.kind === "file" ? <FileLink className="text-xs underline underline-offset-4" target={{ kind: "host", hostId: entry.source.hostId, path: entry.source.path }}>Source file</FileLink> : <><Button size="sm" variant="ghost" onClick={() => navigate.toPluginPanel("desk", { subPath: entry.taskId })}>Task dossier</Button><Button size="sm" variant="ghost" onClick={() => navigate.toThread(entry.threadId)}>Source conversation</Button></>}</div><p className="mt-2 break-words text-xs text-muted-foreground">{entry.kind === "file" ? `${entry.source.label} · ${entry.source.relativePath}` : entry.taskTitle}</p></article>)}</div>
-      {(offset > 0 || data.nextOffset !== null) && <div className="flex justify-between"><Button variant="outline" disabled={previousOffsets.length === 0} onClick={() => { setOffset(previousOffsets.at(-1) ?? 0); setPreviousOffsets(previousOffsets.slice(0, -1)); }}>Back</Button><Button variant="outline" disabled={data.nextOffset === null} onClick={() => { if (data.nextOffset !== null) { setPreviousOffsets([...previousOffsets, offset]); setOffset(data.nextOffset); } }}>Next</Button></div>}
+      {(offset > 0 || data.nextOffset !== null) && <div className="flex justify-between"><Button variant="outline" disabled={previousOffsets.length === 0} onClick={() => { setOffset(previousOffsets.at(-1) ?? 0); setPreviousOffsets(previousOffsets.slice(0, -1)); }}>Previous page</Button><Button variant="outline" disabled={data.nextOffset === null} onClick={() => { if (data.nextOffset !== null) { setPreviousOffsets([...previousOffsets, offset]); setOffset(data.nextOffset); } }}>Next page</Button></div>}
     </>}
   </div></div>;
 }
@@ -545,11 +546,15 @@ function ProposalInboxPage() {
       </section>;
     })}
     {data && !visible.length && <div className="rounded-xl border border-dashed border-border p-10 text-center"><Icon name="CircleCheck" className="mx-auto mb-3 size-7 text-muted-foreground" /><h2 className="font-medium">{data.total ? "No proposals in this section" : "Everything reviewed"}</h2><p className="mt-2 text-sm text-muted-foreground">{data.total ? "Choose another proposal type or the next page." : "New proposals will appear after checking sources or finishing sessions."}</p></div>}
-    {data && (offset > 0 || data.nextOffset !== null) && <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="outline" disabled={busy || !previousOffsets.length} onClick={() => { setOffset(previousOffsets.at(-1) ?? 0); setPreviousOffsets(previousOffsets.slice(0, -1)); setSelected(new Set()); }}>Back</Button><span className="text-xs text-muted-foreground">On this page {items.length} of {data.total}. The rest are on the next page.</span><Button variant="outline" disabled={busy || data.nextOffset === null} onClick={() => { if (data.nextOffset !== null) { setPreviousOffsets([...previousOffsets, offset]); setOffset(data.nextOffset); setSelected(new Set()); } }}>Next</Button></div>}
+    {data && (offset > 0 || data.nextOffset !== null) && <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="outline" disabled={busy || !previousOffsets.length} onClick={() => { setOffset(previousOffsets.at(-1) ?? 0); setPreviousOffsets(previousOffsets.slice(0, -1)); setSelected(new Set()); }}>Previous page</Button><span className="text-xs text-muted-foreground">On this page {items.length} of {data.total}. The rest are on the next page.</span><Button variant="outline" disabled={busy || data.nextOffset === null} onClick={() => { if (data.nextOffset !== null) { setPreviousOffsets([...previousOffsets, offset]); setOffset(data.nextOffset); setSelected(new Set()); } }}>Next page</Button></div>}
   </div></div>;
 }
 
 function Page({ subPath }: PluginNavPanelProps) {
+  return <NavigationFrame subPath={subPath}><PageContent subPath={subPath} /></NavigationFrame>;
+}
+
+function PageContent({ subPath }: PluginNavPanelProps) {
   const path = subPath.replace(/^\/+|\/+$/g, "");
   if (path === "proposals") return <ProposalInboxPage />;
   if (path === "updates") return <SyncPage />;

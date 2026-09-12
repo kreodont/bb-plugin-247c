@@ -521,14 +521,14 @@ it("uses the returned page boundary for large files and returns to the previous 
   await f.harness.behavior.callRpc("importKnowledge", { requestId: randomUUID(), source: { label: "ExampleCo", hostId: "host_test", rootPath: "/Knowledge Base" }, documents });
   const { slot } = await setup("knowledge", f);
   await slot.findByText("Records 1–5 of 6");
-  fireEvent.click(slot.getByRole("button", { name: "Next" }));
+  fireEvent.click(slot.getByRole("button", { name: "Next page" }));
   await slot.findByText("Records 6–6 of 6");
   expect(slot.inspection.rpcCalls).toContainEqual({ method: "knowledge", input: { query: "", offset: 5 } });
-  fireEvent.click(slot.getByRole("button", { name: "Back" }));
+  fireEvent.click(slot.getByRole("button", { name: "Previous page" }));
   await slot.findByText("Records 1–5 of 6");
   fireEvent.change(slot.getByLabelText("Search the knowledge base"), { target: { value: "Document 5" } });
   await slot.findByText("Records 1–1 of 1");
-  expect(slot.queryByRole("button", { name: "Back" })).toBeNull();
+  expect(slot.queryByRole("button", { name: "Previous page" })).toBeNull();
 });
 
 
