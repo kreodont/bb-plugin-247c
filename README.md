@@ -9,7 +9,7 @@ Requires BB ≥ 0.42 with Plugin SDK ≥ 0.4.47 and a login for your chosen mode
 This repository is currently private. Authenticate Git with a GitHub account that has access before installing; with GitHub CLI, run `gh auth login` and `gh auth setup-git` once on the new computer.
 
 ```sh
-bb plugin install git:https://github.com/kreodont/bb-plugin-247c.git@v0.4.7
+bb plugin install git:https://github.com/kreodont/bb-plugin-247c.git@v0.4.8
 ```
 
 The package includes source code and a ready build. It contains no author tasks, history, accounts or personal settings. **247C** appears in the sidebar with an empty database. Configure Gmail, Slack, Jira and calendar access separately; tasks, dossiers and conversations work without those integrations. The interface and public documentation are in English. Existing task content and conversations retain their original language.
@@ -74,11 +74,11 @@ Cards and filters use quadrant colors: red for urgent and important, orange for 
 
 Choose an available provider and model in the native composer when starting a conversation. A review discussion uses the original session's account and model, which you can change in the composer before sending.
 
-In Threads, the work conversation is named **247C · task title**, making its dossier easy to identify. Manually edited thread titles are preserved.
+In Threads, the work conversation is named **247C · task title**, making its dossier easy to identify. Manually edited thread titles are preserved. Click **Open task** in the thread header to return to its dossier at any time, including during work and after completion. This button also appears on linked review and verification threads. On narrow screens it becomes a target icon with the same tooltip. Opening the task does not finish the session or accept changes.
 
 In the **Work** tab, start a conversation using BB's embedded composer: choose an account, model and workspace, then send your first message. No acceptance criteria are required. The assistant receives the dossier and responds normally. You can keep talking between responses and after pauses, without a conversation time limit.
 
-When finished, click **Finish session** in the **Work** tab or on the right side of the 247C work thread header. On narrow screens the button becomes a checkmark; after completion it becomes a link to the session dossier. Finishing stops the current response, closes the chat to new messages and saves the full text conversation, including answers to BB questions. A separate session prepares dossier and knowledge records.
+When finished, click **Finish session** in the **Work** tab or on the right side of the 247C work thread header, beside **Open task**. On narrow screens the finish button becomes a checkmark. After completion, **Open task** remains available. Finishing stops the current response, closes the chat to new messages and saves the full text conversation, including answers to BB questions. A separate session prepares dossier and knowledge records.
 
 The review model is selected automatically from those available in BB: Codex Sol after any Claude model (Sonnet, Opus or Fable), and personal Sonnet after Codex. Spark, Luna, Haiku, mini/nano and unknown models are excluded, including as fallbacks or prior manual choices. Selection uses the model active when the conversation finishes; changing an account, alias or context window does not count as changing the model. Sol and Sonnet remain preferred on retries, even when that uses the worker's model family. Terra is the first fallback, followed by Fable, Opus or Astra. Models outside this explicit list are never substituted automatically. Reasoning is set to low when supported. The selected model appears in the review tab and the selection reason in task history.
 

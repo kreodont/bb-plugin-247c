@@ -95,7 +95,7 @@ export default async function plugin(bb: BbPluginApi) {
     },
     threadSession: ({ threadId }) => {
       const session = repo.forThread(threadId);
-      if (!session || session.workerThreadId !== threadId || session.mode !== "conversation") return { session: null };
+      if (!session) return { session: null };
       const { id, taskId, workerThreadId, mode, status } = session;
       return { session: { id, taskId, workerThreadId, mode, status } };
     },

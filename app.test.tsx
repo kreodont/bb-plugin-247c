@@ -166,13 +166,49 @@ it("disables stale source proposals and shows source failures without a successf
   expect(slot.getByText(/The dossier changed after this check/)).toBeTruthy();
 });
 
-function setupThread(f: Awaited<ReturnType<typeof fixture>>, threadId: string, isCompactViewport = false) {
+function setupThread(f: Awaited<ReturnType<typeof fixture>>, threadId: string, isCompactViewport = false, action: "task" | "session" = "session") {
   if (!hosts.includes(f)) hosts.push(f);
   const rpc = Object.fromEntries(Object.keys(rpcContract).map((name) => [name, (input: unknown) => f.harness.behavior.callRpc(name, input)]));
-  const slot = renderSlot(app.threadHeaderActions[0], { threadId, projectId: "proj_personal", isCompactViewport }, { rpc });
+  const slot = renderSlot(app.threadHeaderActions.find(slot => slot.id === action)!, { threadId, projectId: "proj_personal", isCompactViewport }, { rpc });
   mounts.push(slot);
   return slot;
 }
+
+it("opens each thread's own task without finishing either conversation, including on compact screens", async () => {
+  const f = await fixture(); const firstTask = await f.create(); const secondTask = await f.create();
+  for (const task of [firstTask, secondTask]) await f.harness.behavior.callRpc("start", { ...f.startInput(task.id, task.revision), criteria: [] });
+  const first = f.repo.sessions(firstTask.id)[0]; const second = f.repo.sessions(secondTask.id)[0];
+  const slots = [setupThread(f, first.workerThreadId!, false, "task"), setupThread(f, second.workerThreadId!, true, "task")];
+  for (const [index, slot] of slots.entries()) {
+    const button = await within(slot.container).findByRole("button", { name: "Open task" });
+    expect(button.textContent).toBe(index === 0 ? "Open task" : "");
+    expect(button.closest("[title]")?.getAttribute("title")).toBe("Open task");
+    fireEvent.click(button);
+    expect(JSON.stringify(slot.inspection.navigateCalls)).toContain([firstTask, secondTask][index].id);
+    expect(JSON.stringify(slot.inspection.navigateCalls)).not.toContain([secondTask, firstTask][index].id);
+    expect(slot.inspection.rpcCalls.every(call => call.method === "threadSession")).toBe(true);
+  }
+  expect(f.harness.inspection.sdk.callsTo("threads.stop")).toHaveLength(0);
+  expect(f.repo.session(first.id).status).toBe("working");
+  expect(f.repo.session(second.id).status).toBe("working");
+  expect(f.repo.kernel.getTask(firstTask.id)).toEqual(firstTask);
+  expect(f.repo.kernel.getTask(secondTask.id)).toEqual(secondTask);
+});
+
+it("keeps the task link on archived conversations after reloading the plugin", async () => {
+  const f = await fixture(); const task = await f.create();
+  await f.harness.behavior.callRpc("start", { ...f.startInput(task.id, task.revision), criteria: [] });
+  const session = f.repo.sessions(task.id)[0];
+  await f.harness.behavior.callRpc("cancel", { sessionId: session.id });
+  await f.harness.behavior.callRpc("status", { taskId: task.id, status: "archived", revision: task.revision });
+  await f.reload();
+  const slot = setupThread(f, session.workerThreadId!, false, "task");
+  fireEvent.click(await slot.findByRole("button", { name: "Open task" }));
+  expect(JSON.stringify(slot.inspection.navigateCalls)).toContain(task.id);
+  expect(f.repo.kernel.getTask(task.id).status).toBe("archived");
+  expect(f.repo.session(session.id).status).toBe("cancelled");
+  expect(slot.inspection.rpcCalls.every(call => call.method === "threadSession")).toBe(true);
+});
 
 it("finishes only its own conversation from one of two thread headers", async () => {
   const f = await fixture(); const firstTask = await f.create(); const secondTask = await f.create();
@@ -190,31 +226,42 @@ it("finishes only its own conversation from one of two thread headers", async ()
   expect(f.harness.inspection.sdk.callsTo("threads.stop").flat()).not.toContainEqual({ threadId: second.workerThreadId });
   expect(slot.inspection.rpcCalls.filter((call) => call.method === "finish")).toEqual([{ method: "finish", input: { sessionId: first.id } }]);
   expect(other.inspection.rpcCalls.some((call) => call.method === "finish")).toBe(false);
-  const dossier = await within(slot.container).findByRole("button", { name: "Session dossier" });
+  const taskLink = setupThread(f, first.workerThreadId!, false, "task");
+  const dossier = await taskLink.findByRole("button", { name: "Open task" });
   await waitFor(() => expect((dossier as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(dossier);
-  expect(JSON.stringify(slot.inspection.navigateCalls)).toContain(firstTask.id);
+  expect(JSON.stringify(taskLink.inspection.navigateCalls)).toContain(firstTask.id);
   expect(f.repo.kernel.getTask(firstTask.id)).toMatchObject({ status: "open", revision: firstTask.revision });
   expect((await f.detail(firstTask.id)).projection.summary).toBeNull();
 });
 
-it("hides the session control on unrelated, reviewer, and criterion-based threads", async () => {
+it("links review and criterion-based threads to their task while restricting Finish session to work conversations", async () => {
   const f = await fixture(); const legacyTask = await f.create(); const task = await f.create();
   const legacy = await f.start(legacyTask.id, legacyTask.revision);
   await f.harness.behavior.callRpc("start", { ...f.startInput(task.id, task.revision), criteria: [] });
   const conversation = f.repo.sessions(task.id)[0];
   await f.harness.behavior.callRpc("finish", { sessionId: conversation.id });
   const reviewerId = f.repo.session(conversation.id).reviewerThreadId!;
-  for (const threadId of ["unrelated-thread", legacy.workerThreadId!, reviewerId]) {
+  for (const [threadId, taskId] of [[legacy.workerThreadId!, legacyTask.id], [reviewerId, task.id]]) {
     const slot = setupThread(f, threadId);
     await waitFor(() => expect(slot.inspection.rpcCalls).toContainEqual({ method: "threadSession", input: { threadId } }));
     await slot.behavior.emitRealtime("desk-changed", {});
-    expect(slot.queryByRole("button")).toBeNull();
-    expect(await f.harness.behavior.callRpc("threadSession", { threadId })).toEqual({ session: null });
+    expect(within(slot.container).queryByRole("button")).toBeNull();
+    expect(await f.harness.behavior.callRpc("threadSession", { threadId })).toMatchObject({ session: { taskId } });
+    const taskLink = setupThread(f, threadId, false, "task");
+    fireEvent.click(await within(taskLink.container).findByRole("button", { name: "Open task" }));
+    expect(JSON.stringify(taskLink.inspection.navigateCalls)).toContain(taskId);
+    expect(taskLink.inspection.rpcCalls.some(call => call.method === "finish")).toBe(false);
   }
-  const ended = setupThread(f, conversation.workerThreadId!);
-  await ended.findByRole("button", { name: "Session dossier" });
-  expect(ended.queryByRole("button", { name: "Finish session" })).toBeNull();
+  const ended = setupThread(f, conversation.workerThreadId!, false, "task");
+  await within(ended.container).findByRole("button", { name: "Open task" });
+  expect(within(ended.container).queryByRole("button", { name: "Finish session" })).toBeNull();
+  for (const action of ["task", "session"] as const) {
+    const unrelated = setupThread(f, "unrelated-thread", false, action);
+    await unrelated.behavior.emitRealtime("desk-changed", {});
+    expect(within(unrelated.container).queryByRole("button")).toBeNull();
+  }
+  expect(await f.harness.behavior.callRpc("threadSession", { threadId: "unrelated-thread" })).toEqual({ session: null });
 });
 
 it("refreshes the header when the session is finished in another window", async () => {
@@ -222,11 +269,12 @@ it("refreshes the header when the session is finished in another window", async 
   await f.harness.behavior.callRpc("start", { ...f.startInput(task.id, task.revision), criteria: [] });
   const session = f.repo.sessions(task.id)[0];
   const slot = setupThread(f, session.workerThreadId!);
+  const taskLink = setupThread(f, session.workerThreadId!, false, "task");
   await slot.findByRole("button", { name: "Finish session" });
   await f.harness.behavior.callRpc("finish", { sessionId: session.id });
   await slot.behavior.emitRealtime("desk-changed", {});
-  await slot.findByRole("button", { name: "Session dossier" });
-  expect(slot.queryByRole("button", { name: "Finish session" })).toBeNull();
+  await taskLink.findByRole("button", { name: "Open task" });
+  await waitFor(() => expect(slot.queryByRole("button", { name: "Finish session" })).toBeNull());
   expect(slot.inspection.rpcCalls.some((call) => call.method === "finish")).toBe(false);
 });
 
@@ -244,7 +292,7 @@ it("keeps the conversation open after a failed finish and lets the user retry", 
   f.harness.inspection.sdk.stub("providers.models", () => catalog);
   fireEvent.click(slot.getByRole("button", { name: "Finish session" }));
   await waitFor(() => expect(f.repo.session(session.id).status).toBe("reviewing"));
-  await slot.findByRole("button", { name: "Session dossier" });
+  await waitFor(() => expect(slot.queryByRole("button", { name: "Finish session" })).toBeNull());
 });
 
 it("starts with an empty desk, creates a real task, and navigates to its dossier", async () => {

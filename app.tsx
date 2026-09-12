@@ -82,7 +82,7 @@ function ProjectThreadComposer(props: ComponentProps<typeof NewThreadComposer>) 
   return <NewThreadComposer {...props} defaultProjectId={data.projectId ?? undefined} defaultEnvironment={data.projectId ? { type: "project-default" } : undefined} />;
 }
 
-function ThreadSessionControl({ threadId, isCompactViewport }: PluginThreadHeaderActionProps) {
+function ThreadSessionControl({ threadId, isCompactViewport, action }: PluginThreadHeaderActionProps & { action: "task" | "finish" }) {
   const rpc = useRpc<typeof rpcContract>();
   const navigate = useBbNavigate();
   const load = useCallback(() => rpc.call("threadSession", { threadId }), [rpc, threadId]);
@@ -90,10 +90,11 @@ function ThreadSessionControl({ threadId, isCompactViewport }: PluginThreadHeade
   const [busy, setBusy] = useState(false);
   const finishing = useRef(false);
   const session = data?.session;
-  if (!session || session.workerThreadId !== threadId) return null;
+  if (!session) return null;
 
-  const canFinish = session.status === "working";
-  const label = busy ? "Finishing…" : error ? "Refresh session" : canFinish ? "Finish session" : session.status === "awaiting_approval" ? "247C proposals" : "Session dossier";
+  const canFinish = session.mode === "conversation" && session.workerThreadId === threadId && session.status === "working";
+  if (action === "finish" && !canFinish) return null;
+  const label = action === "task" ? "Open task" : busy ? "Finishing…" : error ? "Refresh session" : "Finish session";
   async function finish() {
     if (!session || finishing.current) return;
     finishing.current = true; setBusy(true);
@@ -101,16 +102,20 @@ function ThreadSessionControl({ threadId, isCompactViewport }: PluginThreadHeade
     catch (cause) { toast.error("Could not finish the session", { description: cause instanceof Error ? cause.message : String(cause) }); }
     finally { await refresh(); finishing.current = false; setBusy(false); }
   }
-  return <Button type="button" size="sm" variant={canFinish ? "outline" : "ghost"}
+  return <span title={label} className="inline-flex"><Button type="button" size="sm" variant="outline"
     className={cn("h-7 shrink-0", isCompactViewport ? "w-7 px-0" : "px-2")}
-    aria-label={label} aria-description={canFinish ? "Stop the current response and review the conversation" : sessionLabel(session)}
-    disabled={busy} onClick={() => { if (error) void refresh(); else if (canFinish) void finish(); else navigate.toPluginPanel("desk", { subPath: session.taskId }); }}>
-    <Icon name={canFinish ? "Check" : "Target"} />{!isCompactViewport && label}
-  </Button>;
+    aria-label={label} aria-description={action === "task" ? "Open the linked 247C task dossier" : "Stop the current response and review the conversation"}
+    disabled={action === "finish" && busy} onClick={() => { if (action === "task") navigate.toPluginPanel("desk", { subPath: session.taskId }); else if (error) void refresh(); else void finish(); }}>
+    <Icon name={action === "task" ? "Target" : "Check"} aria-hidden="true" />{!isCompactViewport && label}
+  </Button></span>;
 }
 
 function ThreadSessionAction(props: PluginThreadHeaderActionProps) {
-  return <ThreadSessionControl key={props.threadId} {...props} />;
+  return <ThreadSessionControl key={props.threadId} {...props} action="finish" />;
+}
+
+function ThreadTaskAction(props: PluginThreadHeaderActionProps) {
+  return <ThreadSessionControl key={props.threadId} {...props} action="task" />;
 }
 
 function CreateTask({ done, cancel }: { done: (id: string) => void; cancel: () => void }) {
@@ -572,5 +577,6 @@ function SidebarCount() {
 }
 export default definePluginApp((app) => {
   app.slots.navPanel({ id: "desk", title: "247C", icon: "Target", path: "desk", component: Page, experimental_sidebarAccessory: SidebarCount });
+  app.slots.experimental_threadHeaderAction({ id: "task", title: "247C task", component: ThreadTaskAction });
   app.slots.experimental_threadHeaderAction({ id: "session", title: "247C session", component: ThreadSessionAction });
 });
