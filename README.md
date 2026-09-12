@@ -9,7 +9,7 @@ Requires BB ≥ 0.42 with Plugin SDK ≥ 0.4.47 and a login for your chosen mode
 This repository is currently private. Authenticate Git with a GitHub account that has access before installing; with GitHub CLI, run `gh auth login` and `gh auth setup-git` once on the new computer.
 
 ```sh
-bb plugin install git:https://github.com/kreodont/bb-plugin-247c.git@v0.5.0
+bb plugin install git:https://github.com/kreodont/bb-plugin-247c.git@v0.5.1
 ```
 
 The package includes source code and a ready build. It contains no author tasks, history, accounts or personal settings. **247C** appears in the sidebar with an empty database. Configure Gmail, Slack, Jira and calendar access separately; tasks, dossiers and conversations work without those integrations. The interface and public documentation are in English. Existing task content and conversations retain their original language.
@@ -25,6 +25,8 @@ To update, install a newer release through BB's supported update mechanism. Make
 If an accepted next step has been completed or canceled, a review can propose clearing it based on a result or decision in the conversation, even while the overall task remains open. Assigning a new next step requires an explicit user instruction. All proposed changes require acceptance.
 
 After an error, **Retry review** first revalidates saved responses from the same session against the current rules. A response can be recovered without new generation only when the transcript and accepted dossier are unchanged. Previously proposed or rejected responses are not reused. The result still awaits your acceptance. If no suitable response exists, or you explicitly selected a model, a new review starts.
+
+Use **Sort by** above the task cards to choose **Recently updated** (default), **Oldest update**, or **Priority**. The choice is remembered in this browser and works with search, priority filters and completed tasks. Each card shows its last saved update time, including when it has a next step. Pending proposals and time-journal updates do not change the task's saved update timestamp.
 
 ## Day planning and time
 

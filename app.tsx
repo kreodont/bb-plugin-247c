@@ -35,6 +35,14 @@ const groups = [
 ] as const;
 type GroupKey = typeof groups[number]["key"];
 const groupFor = (task: TaskCard): GroupKey => task.planning.urgent === null || task.planning.important === null ? "inbox" : task.planning.urgent ? task.planning.important ? "focus" : "delegate" : task.planning.important ? "plan" : "later";
+type TaskSort = "updated" | "oldest" | "priority";
+const TASK_SORT_KEY = "247c:task-sort";
+function savedTaskSort(): TaskSort {
+  try {
+    const value = window.localStorage.getItem(TASK_SORT_KEY);
+    return value === "oldest" || value === "priority" ? value : "updated";
+  } catch { return "updated"; }
+}
 const date = (value: string) => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 const textareaClass = "w-full resize-y rounded-lg border border-input bg-transparent px-3 py-2 text-sm leading-relaxed placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50";
 const sourceNames: Record<SyncSource, string> = { gmail: "Gmail", slack: "Slack", jira: "Jira" };
@@ -228,6 +236,17 @@ function Desk() {
   const [history, setHistory] = useState(false);
   const [query, setQuery] = useState("");
   const [group, setGroup] = useState<GroupKey | null>(null);
+  const [sort, setSort] = useState<TaskSort>(savedTaskSort);
+  function chooseSort(value: string) {
+    if (value !== "updated" && value !== "oldest" && value !== "priority") return;
+    setSort(value);
+    try { window.localStorage.setItem(TASK_SORT_KEY, value); } catch { /* Sorting still works when browser storage is unavailable. */ }
+  }
+  useEffect(() => {
+    const changed = (event: StorageEvent) => { if (event.key === TASK_SORT_KEY || event.key === null) setSort(savedTaskSort()); };
+    window.addEventListener("storage", changed);
+    return () => window.removeEventListener("storage", changed);
+  }, []);
   const [creating, setCreating] = useState(false);
   const load = useCallback(() => rpc.call("list", { history }), [rpc, history]);
   const { data, error, refresh } = useSnapshot(load);
@@ -235,7 +254,11 @@ function Desk() {
   const open = tasks.filter((t) => t.status === "open");
   const pending = data?.pendingTotal ?? 0;
   const visible = tasks.filter((t) => (!group || groupFor(t) === group) && `${t.title} ${t.summary ?? ""} ${t.nextStep ?? ""}`.toLocaleLowerCase("ru").includes(query.toLocaleLowerCase("ru")))
-    .sort((a, b) => groups.findIndex((g) => g.key === groupFor(a)) - groups.findIndex((g) => g.key === groupFor(b)));
+    .sort((a, b) => {
+      const priority = sort === "priority" ? groups.findIndex((g) => g.key === groupFor(a)) - groups.findIndex((g) => g.key === groupFor(b)) : 0;
+      const updated = Date.parse(b.updatedAt) - Date.parse(a.updatedAt);
+      return priority || (sort === "oldest" ? -updated : updated) || a.id.localeCompare(b.id);
+    });
   return <div className="h-full min-h-0 overflow-y-auto"><div className="mx-auto max-w-6xl space-y-6 p-5 md:p-8">
     <div className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-2xl font-medium tracking-tight">What shall we work on next?</h1><p className="mt-1.5 text-sm text-muted-foreground">Tasks retain their context. Each session moves the work forward.</p></div><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => navigate.toPluginPanel("desk", { subPath: `day/${localDay()}` })}>Day</Button><Button variant={pending ? "default" : "outline"} onClick={() => navigate.toPluginPanel("desk", { subPath: "proposals" })}>Proposals{pending ? ` · ${pending}` : ""}</Button><Button variant="outline" onClick={() => navigate.toPluginPanel("desk", { subPath: "updates" })}>Check for updates</Button><Button variant="outline" onClick={() => navigate.toPluginPanel("desk", { subPath: "knowledge" })}>Knowledge base</Button><Button onClick={() => setCreating(true)}><span aria-hidden="true">＋</span> New task</Button></div></div>
     <ErrorNotice error={error} retry={() => void refresh()} />
@@ -243,13 +266,13 @@ function Desk() {
     <div className="grid grid-cols-2 gap-2 lg:grid-cols-5" aria-label="Task quadrants">
       {groups.map((g) => <button key={g.key} type="button" aria-pressed={group === g.key} onClick={() => setGroup(group === g.key ? null : g.key)} className={cn("rounded-xl border border-l-4 p-3.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", g.card, group === g.key && g.selected)}><div className="flex items-center justify-between gap-2"><span className="text-sm font-medium">{g.title}</span><span className="font-mono text-lg tabular-nums">{open.filter((t) => groupFor(t) === g.key).length}</span></div><p className="mt-1 text-xs text-muted-foreground">{g.subtitle}</p></button>)}
     </div>
-    <div className="flex flex-wrap items-center gap-3"><div className="relative min-w-48 flex-1"><Icon name="Search" className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" /><Input className="pl-9" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a task" aria-label="Find a task" /></div><label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground"><input type="checkbox" checked={history} onChange={(e) => setHistory(e.target.checked)} className="accent-current" /> Show completed tasks</label></div>
+    <div className="flex flex-wrap items-center gap-3"><div className="relative min-w-48 flex-1"><Icon name="Search" className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" /><Input className="pl-9" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a task" aria-label="Find a task" /></div><label className="flex items-center gap-2 text-sm text-muted-foreground">Sort by<select aria-label="Sort tasks" className="h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground" value={sort} onChange={e => chooseSort(e.target.value)}><option value="updated">Recently updated</option><option value="oldest">Oldest update</option><option value="priority">Priority</option></select></label><label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground"><input type="checkbox" checked={history} onChange={(e) => setHistory(e.target.checked)} className="accent-current" /> Show completed tasks</label></div>
     {!data && !error ? <div role="status" className="py-16 text-center text-sm text-muted-foreground">Opening your workspace…</div> : visible.length === 0 ? <div className="rounded-2xl border border-dashed border-border px-6 py-16 text-center"><div className="mx-auto mb-5 flex size-12 items-center justify-center rounded-xl bg-muted"><Icon name="Target" className="size-6 text-muted-foreground" /></div><h2 className="text-lg font-medium">{tasks.length ? "Nothing here yet" : "A place for what matters"}</h2><p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">{tasks.length ? "Try another search or priority." : "Start with one task. Save its context, delegate work to agents and return to the result without repeating the background."}</p>{!tasks.length && !creating && <Button className="mt-6" variant="outline" onClick={() => setCreating(true)}>Add your first task</Button>}</div> : <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
       {visible.map((task) => { const quadrant = groups.find((g) => g.key === groupFor(task))!; return <button key={task.id} type="button" onClick={() => navigate.toPluginPanel("desk", { subPath: task.id })} className={cn("group flex min-h-44 flex-col rounded-xl border border-l-4 p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", quadrant.card)}>
         <div className="mb-3 flex min-h-5 items-center gap-2 text-xs text-muted-foreground"><span aria-hidden="true" className={cn("size-2 shrink-0 rounded-full", quadrant.dot)} />{task.activeSession ? <><span className="size-1.5 animate-pulse rounded-full bg-primary" /> Session open</> : task.pendingCount ? <span className="text-primary">Awaiting a decision · {task.pendingCount}</span> : task.status === "open" ? quadrant.subtitle : task.status === "done" ? "Done" : "Archived"}</div>
         <h2 className={cn("break-words text-base font-medium leading-snug", task.status !== "open" && "text-muted-foreground")}>{task.title}{task.unseen && <span className="ml-2 inline-flex align-middle rounded-full bg-blue-500/15 px-2 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-300" title={task.unseen === "new" ? "You have not opened this task yet" : "Accepted changes since your last visit"}>{task.unseen === "new" ? "New" : "Updated"}</span>}</h2>
         {task.summary && <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-muted-foreground">{task.summary}</p>}
-        <div className="mt-auto pt-4">{task.nextStep ? <p className="line-clamp-2 text-xs"><span className="text-muted-foreground">Next: </span>{task.nextStep}</p> : <p className="text-xs text-muted-foreground">{date(task.updatedAt)}</p>}</div>
+        <div className="mt-auto pt-4">{task.nextStep && <p className="line-clamp-2 text-xs"><span className="text-muted-foreground">Next: </span>{task.nextStep}</p>}<p className={cn("text-xs text-muted-foreground", task.nextStep && "mt-2")}><time dateTime={task.updatedAt}>Updated {date(task.updatedAt)}</time></p></div>
       </button>; })}
     </div>}
     {data && data.total > tasks.length && <p className="text-sm text-muted-foreground">Showing the latest {tasks.length} of {data.total} tasks.</p>}
