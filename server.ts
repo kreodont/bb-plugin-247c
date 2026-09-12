@@ -113,6 +113,7 @@ export default async function plugin(bb: BbPluginApi) {
     start: (input) => runtime.start(input),
     finish: ({ sessionId, recorder }) => runtime.finish(sessionId, recorder),
     retry: ({ sessionId, recorder }) => runtime.retry(sessionId, recorder),
+    resume: ({ sessionId }) => runtime.resume(sessionId),
     cancel: ({ sessionId }) => runtime.cancel(sessionId),
     knowledge: ({ query, offset }) => repo.knowledge(query, offset),
     importKnowledge: (input) => repo.importKnowledge(input),

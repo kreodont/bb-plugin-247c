@@ -236,6 +236,7 @@ export const rpcContract = defineRpcContract({
   start: { input: sessionStartSchema, output: sessionSchema },
   finish: { input: z.object({ sessionId: idSchema, recorder: z.enum(["auto", "same", "personal-claude"]).default("auto") }).strict(), output: sessionSchema },
   retry: { input: z.object({ sessionId: idSchema, recorder: z.enum(["auto", "same", "personal-claude"]).default("auto") }).strict(), output: sessionSchema },
+  resume: { input: z.object({ sessionId: idSchema }).strict(), output: sessionSchema },
   cancel: { input: z.object({ sessionId: idSchema }).strict(), output: sessionSchema },
   knowledge: { input: z.object({ query: z.string().max(300).default(""), offset: z.number().int().min(0).default(0) }).strict(), output: z.object({ entries: z.array(knowledgeEntrySchema), total: z.number(), nextOffset: z.number().int().nonnegative().nullable() }) },
   importKnowledge: { input: knowledgeImportSchema, output: z.object({ imported: z.number(), updated: z.number(), unchanged: z.number(), documents: z.number() }) },

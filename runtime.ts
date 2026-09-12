@@ -37,6 +37,7 @@ export function validateReview(value: unknown, session: Session): Review {
 export class SessionRuntime {
   private readonly processing = new Set<string>();
   private readonly archiving = new Set<string>();
+  private readonly unavailableMonitors = new Set<string>();
   private disposed = false;
   constructor(readonly bb: BbPluginApi, readonly repo: Repository, readonly settings: () => Promise<SettingsView>, readonly threadRouting = new ThreadRouting(bb, async () => "")) {}
 
@@ -334,6 +335,7 @@ export class SessionRuntime {
     if (session.finishedAt || !ACTIVE.has(session.status)) return session;
     // Freeze dispatch before awaiting anything that can deliver an idle event.
     session = this.repo.saveSession({ ...this.current(id), ...selection, status: "collecting", finishedAt: new Date().toISOString(), deadlineAt: Date.now() + options.sessionMinutes * 60000 });
+    this.unavailableMonitors.delete(id);
     this.repo.sessionEvent(id, "conversation-finished", "The user ended the conversation; a separate review is starting.");
     this.repo.sessionEvent(id, "recorder-selected", selectionReason, selection);
     this.processing.add(id);
@@ -370,6 +372,38 @@ export class SessionRuntime {
     } finally { this.processing.delete(id); }
     await this.tick(id);
     return this.repo.session(id);
+  }
+
+  async resume(id: string) {
+    const session = this.repo.session(id);
+    if (session.mode === "conversation" && session.status === "working" && !session.finishedAt) return this.current(id);
+    const assertResumable = (value: Session) => {
+      if (this.disposed || value.mode !== "conversation" || value.status !== "blocked" || value.finishedAt || !value.workerThreadId ||
+          value.reviewerThreadId || value.proposalId || value.extraction || value.extractionRepair || value.result || value.review || this.repo.transcript(id)) {
+        throw new PolicyError("Only a blocked, unfinished conversation with its original chat can be resumed. Finished conversations stay frozen; use Retry review or Discuss review.");
+      }
+      if (!value.continuedFrom && this.repo.kernel.getTask(value.taskId).status !== "open") throw new PolicyError("The task is already closed.");
+      if (this.repo.active().some((other) => other.taskId === value.taskId)) throw new PolicyError("Finish this task's other open session first.");
+    };
+    assertResumable(session);
+    if (this.processing.has(id)) throw new PolicyError("The session is still being checked. Try again in a few seconds.");
+    this.processing.add(id);
+    try {
+      // Recovery is explicit and only re-enables this existing conversation.
+      // Never create a replacement agent, resend a message or unfreeze a review.
+      const thread = await this.bb.sdk.threads.get({ threadId: session.workerThreadId! });
+      if (thread.id !== session.workerThreadId || thread.originPluginId !== this.bb.pluginId || this.repo.forThread(thread.id)?.id !== id || thread.archivedAt || thread.deletedAt || ["archived", "deleted"].includes(thread.status)) {
+        throw new PolicyError("The original work chat is unavailable or archived. Open its saved history before choosing how to continue.");
+      }
+      return this.repo.store.transaction(() => {
+        const current = this.repo.session(id);
+        if (JSON.stringify(current) !== JSON.stringify(session)) throw new PolicyError("The session changed while checking the chat. Refresh the dossier and try again.");
+        assertResumable(current);
+        const resumed = this.repo.saveSession({ ...current, status: "working", error: null });
+        this.repo.sessionEvent(id, "conversation-resumed", "The user resumed the existing unfinished conversation; no message was sent.", { threadId: thread.id, previousError: current.error });
+        return resumed;
+      });
+    } finally { this.processing.delete(id); }
   }
 
   private async recoverExtraction(session: Session) {
@@ -423,9 +457,23 @@ export class SessionRuntime {
       session = this.repo.saveSession({ ...session, ...(worker ? { workerThreadId: found.id, environmentId: found.environmentId, status: "working" as const } : { reviewerThreadId: found.id, status: "reviewing" as const }) });
     }
     if (session.status === "working") {
-      const thread = await this.bb.sdk.threads.get({ threadId: session.workerThreadId! });
+      let thread;
+      try { thread = await this.bb.sdk.threads.get({ threadId: session.workerThreadId! }); }
+      catch (error) {
+        // A failed read says nothing about whether the user ended the chat.
+        // The monitor retries; it must never stop an agent on this evidence.
+        if (!this.disposed && this.repo.session(session.id).status === "working" && !this.unavailableMonitors.has(session.id)) {
+          this.unavailableMonitors.add(session.id);
+          const message = (error instanceof Error ? error.message : String(error)).slice(0, 4000);
+          this.bb.log.warn(`Could not check conversation ${session.id}; keeping it open and retrying: ${message}`);
+          this.repo.sessionEvent(session.id, "monitor-unavailable", "The chat status could not be read. The conversation remains open; the check will retry.", { error: message });
+        }
+        return;
+      }
+      if (this.current(session.id).status !== "working") return;
+      if (this.unavailableMonitors.delete(session.id)) this.repo.sessionEvent(session.id, "monitor-restored", "The chat status is available again; the conversation stayed open.");
       await this.nameWorkerThread(session, thread);
-      if (thread.archivedAt || thread.deletedAt) throw new PolicyError("The work chat was archived. The transcript is preserved.");
+      if (thread.archivedAt || thread.deletedAt || ["archived", "deleted"].includes(thread.status)) throw new PolicyError("The work chat was archived or deleted. The saved conversation is preserved.");
       // Idle, failed turns and pauses are normal in a human conversation. Neither
       // an answer nor the old session timer is an instruction to finish it.
       return;
@@ -637,6 +685,7 @@ export class SessionRuntime {
     const session = this.repo.session(id);
     if (!ACTIVE.has(session.status)) return session;
     this.repo.saveSession({ ...session, status: "cancelled", error: "The user stopped the session." });
+    this.unavailableMonitors.delete(id);
     await this.stopSession(id);
     return this.repo.session(id);
   }
@@ -645,6 +694,7 @@ export class SessionRuntime {
     if (!ACTIVE.has(session.status)) return session;
     const message = error instanceof Error ? error.message : String(error);
     this.repo.saveSession({ ...session, status: "blocked", error: message.slice(0, 4000) });
+    this.unavailableMonitors.delete(id);
     this.repo.sessionEvent(id, "blocked", message.slice(0, 4000));
     await this.stopSession(id);
     return this.repo.session(id);
@@ -661,6 +711,12 @@ export class SessionRuntime {
     const session = this.repo.forThread(threadId);
     if (!session) return { action: "proceed" as const };
     try {
+      if (session.status === "blocked") {
+        const next = session.mode === "conversation" && !session.finishedAt && session.workerThreadId
+          ? "Open the task in 247C and click Resume chat."
+          : session.mode === "conversation" && session.finishedAt ? "Open the task in 247C and click Retry review or Discuss review." : "Open the task in 247C to inspect the session.";
+        throw new PolicyError(`The session is blocked${session.error ? ` (${session.error})` : ""}. ${next}`);
+      }
       this.current(session.id);
       const chatting = session.mode === "conversation" && ["starting", "working"].includes(session.status);
       if (!ACTIVE.has(session.status) || (!chatting && Date.now() > session.deadlineAt)) throw new PolicyError("This session has finished. Click Discuss review in the 247C dossier to continue with its context.");
@@ -671,6 +727,7 @@ export class SessionRuntime {
   }
   async dispose() {
     this.disposed = true;
+    this.unavailableMonitors.clear();
     for (const session of this.repo.active()) {
       if (session.mode === "conversation" && ["starting", "working"].includes(session.status)) continue;
       if (session.mode === "conversation") {

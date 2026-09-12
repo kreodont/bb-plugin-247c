@@ -351,6 +351,24 @@ it("shows the proposed value and evidence before accepting a change", async () =
   expect(slot.inspection.rpcCalls).toContainEqual({ method: "accept", input: { proposalId: proposal.id, revision: task.revision } });
 });
 
+it("resumes an unfinished blocked conversation from Work in its existing thread", async () => {
+  const f = await fixture(); const task = await f.create();
+  await f.harness.behavior.callRpc("start", { ...f.startInput(task.id, task.revision), criteria: [] });
+  const session = f.repo.sessions(task.id)[0];
+  f.repo.saveSession({ ...session, status: "blocked", error: "fetch failed" });
+  const { slot } = await setup(task.id, f);
+  fireEvent.click(await slot.findByRole("tab", { name: "Work" }));
+  expect(await slot.findByText("fetch failed")).toBeTruthy();
+  fireEvent.click(await slot.findByRole("button", { name: "Resume chat" }));
+  await slot.findByRole("button", { name: "Finish session" });
+  expect(slot.queryByRole("button", { name: "Resume chat" })).toBeNull();
+  expect(slot.queryByText("fetch failed")).toBeNull();
+  expect(slot.inspection.rpcCalls).toContainEqual({ method: "resume", input: { sessionId: session.id } });
+  expect(f.repo.session(session.id)).toMatchObject({ workerThreadId: session.workerThreadId, status: "working", finishedAt: null, error: null });
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
+  expect(f.harness.inspection.sdk.callsTo("threads.send")).toHaveLength(0);
+});
+
 it("opens an ordinary conversation from BB's native composer and finishes only by button", async () => {
   const f = await fixture(); const task = await f.create();
   const { slot } = await setup(task.id, f);

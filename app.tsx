@@ -374,7 +374,7 @@ function Work({ dossier, refresh, showProposals, discussionId }: { dossier: Doss
       setSelected(result.id); setStarting(false); setContinuing(null); setReviewer(false); requestId.current = crypto.randomUUID(); await refresh();
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); throw cause; }
   }
-  async function change(method: "finish" | "retry" | "cancel") {
+  async function change(method: "finish" | "retry" | "resume" | "cancel") {
     if (!session || busy) return;
     setBusy(true); setError(null);
     try {
@@ -386,6 +386,7 @@ function Work({ dossier, refresh, showProposals, discussionId }: { dossier: Doss
   }
   const threadId = reviewer ? session?.reviewerThreadId : session?.workerThreadId;
   const conversation = session?.mode === "conversation";
+  const canResume = conversation && session.status === "blocked" && !session.finishedAt && session.workerThreadId && !session.reviewerThreadId && !session.proposalId && (dossier.task.status === "open" || session.continuedFrom);
   const canRetry = conversation && session.finishedAt && !dossier.sessions.some((s) => s.continuedFrom === session.id && s.proposalId) && (session.status === "blocked" || session.status === "rejected" || (session.status === "awaiting_approval" && session.baseRevision !== dossier.task.revision));
   return <div className="space-y-4"><ErrorNotice error={error} />
     <div className="flex flex-wrap items-center gap-2">{dossier.sessions.map((s, i) => <button type="button" key={s.id} className={cn("rounded-lg border px-3 py-2 text-xs", !showComposer && session?.id === s.id ? "border-primary/30 bg-primary/5" : "border-border text-muted-foreground")} onClick={() => { setSelected(s.id); setStarting(false); setContinuing(null); setReviewer(false); }}>Session {dossier.sessions.length - i} · {sessionLabel(s)}</button>)}{!active && dossier.task.status === "open" && session && <Button size="sm" variant="outline" onClick={() => { setContinuing(null); setStarting(true); }}>New session</Button>}</div>
@@ -399,6 +400,7 @@ function Work({ dossier, refresh, showProposals, discussionId }: { dossier: Doss
           <div className="flex flex-wrap items-center gap-2">
             {conversation && session.finishedAt && !ACTIVE.has(session.status) && <Button size="sm" variant="outline" disabled={busy || Boolean(active)} onClick={() => { setContinuing(session.id); setStarting(true); }}>Discuss review</Button>}
             {canRetry && <Button size="sm" variant="outline" disabled={busy || Boolean(active)} onClick={() => void change("retry")}>Retry review</Button>}
+            {canResume && <Button size="sm" variant="outline" disabled={busy || Boolean(active)} onClick={() => void change("resume")}>Resume chat</Button>}
             {ACTIVE.has(session.status) && <Button size="sm" variant="ghost" disabled={busy} onClick={() => void change("cancel")}>{conversation ? "Cancel session" : "Stop session"}</Button>}
             {conversation && session.status === "working" && <Button size="sm" disabled={busy} onClick={() => void change("finish")}>{busy ? "Finishing…" : "Finish session"}</Button>}
           </div>

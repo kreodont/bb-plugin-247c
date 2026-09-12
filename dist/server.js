@@ -31783,6 +31783,7 @@ var rpcContract = defineRpcContract({
   start: { input: sessionStartSchema, output: sessionSchema },
   finish: { input: external_exports.object({ sessionId: idSchema, recorder: external_exports.enum(["auto", "same", "personal-claude"]).default("auto") }).strict(), output: sessionSchema },
   retry: { input: external_exports.object({ sessionId: idSchema, recorder: external_exports.enum(["auto", "same", "personal-claude"]).default("auto") }).strict(), output: sessionSchema },
+  resume: { input: external_exports.object({ sessionId: idSchema }).strict(), output: sessionSchema },
   cancel: { input: external_exports.object({ sessionId: idSchema }).strict(), output: sessionSchema },
   knowledge: { input: external_exports.object({ query: external_exports.string().max(300).default(""), offset: external_exports.number().int().min(0).default(0) }).strict(), output: external_exports.object({ entries: external_exports.array(knowledgeEntrySchema), total: external_exports.number(), nextOffset: external_exports.number().int().nonnegative().nullable() }) },
   importKnowledge: { input: knowledgeImportSchema, output: external_exports.object({ imported: external_exports.number(), updated: external_exports.number(), unchanged: external_exports.number(), documents: external_exports.number() }) }
@@ -33296,6 +33297,7 @@ var SessionRuntime = class {
   threadRouting;
   processing = /* @__PURE__ */ new Set();
   archiving = /* @__PURE__ */ new Set();
+  unavailableMonitors = /* @__PURE__ */ new Set();
   disposed = false;
   current(id2) {
     const session = this.repo.session(id2);
@@ -33612,6 +33614,7 @@ var SessionRuntime = class {
     session = this.repo.session(id2);
     if (session.finishedAt || !ACTIVE.has(session.status)) return session;
     session = this.repo.saveSession({ ...this.current(id2), ...selection, status: "collecting", finishedAt: (/* @__PURE__ */ new Date()).toISOString(), deadlineAt: Date.now() + options.sessionMinutes * 6e4 });
+    this.unavailableMonitors.delete(id2);
     this.repo.sessionEvent(id2, "conversation-finished", "The user ended the conversation; a separate review is starting.");
     this.repo.sessionEvent(id2, "recorder-selected", selectionReason, selection);
     this.processing.add(id2);
@@ -33652,6 +33655,36 @@ var SessionRuntime = class {
     }
     await this.tick(id2);
     return this.repo.session(id2);
+  }
+  async resume(id2) {
+    const session = this.repo.session(id2);
+    if (session.mode === "conversation" && session.status === "working" && !session.finishedAt) return this.current(id2);
+    const assertResumable = (value) => {
+      if (this.disposed || value.mode !== "conversation" || value.status !== "blocked" || value.finishedAt || !value.workerThreadId || value.reviewerThreadId || value.proposalId || value.extraction || value.extractionRepair || value.result || value.review || this.repo.transcript(id2)) {
+        throw new PolicyError("Only a blocked, unfinished conversation with its original chat can be resumed. Finished conversations stay frozen; use Retry review or Discuss review.");
+      }
+      if (!value.continuedFrom && this.repo.kernel.getTask(value.taskId).status !== "open") throw new PolicyError("The task is already closed.");
+      if (this.repo.active().some((other) => other.taskId === value.taskId)) throw new PolicyError("Finish this task's other open session first.");
+    };
+    assertResumable(session);
+    if (this.processing.has(id2)) throw new PolicyError("The session is still being checked. Try again in a few seconds.");
+    this.processing.add(id2);
+    try {
+      const thread = await this.bb.sdk.threads.get({ threadId: session.workerThreadId });
+      if (thread.id !== session.workerThreadId || thread.originPluginId !== this.bb.pluginId || this.repo.forThread(thread.id)?.id !== id2 || thread.archivedAt || thread.deletedAt || ["archived", "deleted"].includes(thread.status)) {
+        throw new PolicyError("The original work chat is unavailable or archived. Open its saved history before choosing how to continue.");
+      }
+      return this.repo.store.transaction(() => {
+        const current = this.repo.session(id2);
+        if (JSON.stringify(current) !== JSON.stringify(session)) throw new PolicyError("The session changed while checking the chat. Refresh the dossier and try again.");
+        assertResumable(current);
+        const resumed = this.repo.saveSession({ ...current, status: "working", error: null });
+        this.repo.sessionEvent(id2, "conversation-resumed", "The user resumed the existing unfinished conversation; no message was sent.", { threadId: thread.id, previousError: current.error });
+        return resumed;
+      });
+    } finally {
+      this.processing.delete(id2);
+    }
   }
   async recoverExtraction(session) {
     const transcript = this.repo.transcript(session.id);
@@ -33715,9 +33748,22 @@ var SessionRuntime = class {
       session = this.repo.saveSession({ ...session, ...worker ? { workerThreadId: found.id, environmentId: found.environmentId, status: "working" } : { reviewerThreadId: found.id, status: "reviewing" } });
     }
     if (session.status === "working") {
-      const thread2 = await this.bb.sdk.threads.get({ threadId: session.workerThreadId });
+      let thread2;
+      try {
+        thread2 = await this.bb.sdk.threads.get({ threadId: session.workerThreadId });
+      } catch (error61) {
+        if (!this.disposed && this.repo.session(session.id).status === "working" && !this.unavailableMonitors.has(session.id)) {
+          this.unavailableMonitors.add(session.id);
+          const message = (error61 instanceof Error ? error61.message : String(error61)).slice(0, 4e3);
+          this.bb.log.warn(`Could not check conversation ${session.id}; keeping it open and retrying: ${message}`);
+          this.repo.sessionEvent(session.id, "monitor-unavailable", "The chat status could not be read. The conversation remains open; the check will retry.", { error: message });
+        }
+        return;
+      }
+      if (this.current(session.id).status !== "working") return;
+      if (this.unavailableMonitors.delete(session.id)) this.repo.sessionEvent(session.id, "monitor-restored", "The chat status is available again; the conversation stayed open.");
       await this.nameWorkerThread(session, thread2);
-      if (thread2.archivedAt || thread2.deletedAt) throw new PolicyError("The work chat was archived. The transcript is preserved.");
+      if (thread2.archivedAt || thread2.deletedAt || ["archived", "deleted"].includes(thread2.status)) throw new PolicyError("The work chat was archived or deleted. The saved conversation is preserved.");
       return;
     }
     if (session.status === "collecting") {
@@ -33949,6 +33995,7 @@ var SessionRuntime = class {
     const session = this.repo.session(id2);
     if (!ACTIVE.has(session.status)) return session;
     this.repo.saveSession({ ...session, status: "cancelled", error: "The user stopped the session." });
+    this.unavailableMonitors.delete(id2);
     await this.stopSession(id2);
     return this.repo.session(id2);
   }
@@ -33957,6 +34004,7 @@ var SessionRuntime = class {
     if (!ACTIVE.has(session.status)) return session;
     const message = error61 instanceof Error ? error61.message : String(error61);
     this.repo.saveSession({ ...session, status: "blocked", error: message.slice(0, 4e3) });
+    this.unavailableMonitors.delete(id2);
     this.repo.sessionEvent(id2, "blocked", message.slice(0, 4e3));
     await this.stopSession(id2);
     return this.repo.session(id2);
@@ -33976,6 +34024,10 @@ var SessionRuntime = class {
     const session = this.repo.forThread(threadId);
     if (!session) return { action: "proceed" };
     try {
+      if (session.status === "blocked") {
+        const next = session.mode === "conversation" && !session.finishedAt && session.workerThreadId ? "Open the task in 247C and click Resume chat." : session.mode === "conversation" && session.finishedAt ? "Open the task in 247C and click Retry review or Discuss review." : "Open the task in 247C to inspect the session.";
+        throw new PolicyError(`The session is blocked${session.error ? ` (${session.error})` : ""}. ${next}`);
+      }
       this.current(session.id);
       const chatting = session.mode === "conversation" && ["starting", "working"].includes(session.status);
       if (!ACTIVE.has(session.status) || !chatting && Date.now() > session.deadlineAt) throw new PolicyError("This session has finished. Click Discuss review in the 247C dossier to continue with its context.");
@@ -33988,6 +34040,7 @@ var SessionRuntime = class {
   }
   async dispose() {
     this.disposed = true;
+    this.unavailableMonitors.clear();
     for (const session of this.repo.active()) {
       if (session.mode === "conversation" && ["starting", "working"].includes(session.status)) continue;
       if (session.mode === "conversation") {
@@ -36228,6 +36281,7 @@ async function plugin(bb) {
     start: (input2) => runtime.start(input2),
     finish: ({ sessionId, recorder }) => runtime.finish(sessionId, recorder),
     retry: ({ sessionId, recorder }) => runtime.retry(sessionId, recorder),
+    resume: ({ sessionId }) => runtime.resume(sessionId),
     cancel: ({ sessionId }) => runtime.cancel(sessionId),
     knowledge: ({ query, offset }) => repo.knowledge(query, offset),
     importKnowledge: (input2) => repo.importKnowledge(input2)
