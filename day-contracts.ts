@@ -16,15 +16,18 @@ export type CalendarEvent = z.infer<typeof calendarEventSchema>;
 export const dayItemSchema = z.object({
   id, date: dayDateSchema, reportedDate: dayDateSchema, kind: z.enum(["task", "meeting"]), taskId: id.nullable(),
   title: z.string().max(1000), step: z.string().max(2000), ordinal: z.number(), revision: z.number().int().min(0),
-  plannedMinutes: dayMinutesSchema, reportedMinutes: dayMinutesSchema,
-  plannedMode: z.enum(["manual", "calendar"]), reportedMode: z.enum(["manual", "calendar"]),
+  plannedMinutes: dayMinutesSchema, actualMinutes: dayMinutesSchema.default(null), reportedMinutes: dayMinutesSchema,
+  plannedMode: z.enum(["manual", "calendar"]), reportedMode: z.enum(["manual", "calendar", "estimate"]),
+  reportedEstimate: z.object({ factor: z.number().gt(1).max(3), reason: z.string().max(2000), source: z.string().max(400) }).nullable().default(null),
+  reportedLocked: z.boolean().default(false),
   state: z.enum(["open", "done", "carried"]), removed: z.boolean(), carriedTo: dayDateSchema.nullable(),
   calendar: calendarEventSchema.nullable(), createdAt: z.iso.datetime(), updatedAt: z.iso.datetime(),
 });
 export type DayItem = z.infer<typeof dayItemSchema>;
 export const dayViewItemSchema = dayItemSchema.extend({ taskStatus: z.enum(["open", "done", "archived"]).nullable(), reportOnly: z.boolean() });
 export const dayConfigSchema = z.object({ date: dayDateSchema, capacityMinutes: dayMinutesSchema, note: z.string().max(4000), revision: z.number().int().min(0) });
-export const dayTotalsSchema = z.object({ plannedMinutes: z.number(), reportedMinutes: z.number(), missingReported: z.number().int() });
+export const dayTotalsSchema = z.object({ plannedMinutes: z.number(), actualMinutes: z.number().default(0), reportedMinutes: z.number(), missingReported: z.number().int(), estimatedReported: z.number().int().default(0) });
+export const agentTimeStateSchema = z.object({ from: dayDateSchema.nullable(), checkedAt: z.string().nullable(), errors: z.array(z.string()), running: z.boolean() });
 export const calendarStateSchema = z.object({
   status: z.enum(["idle", "running", "complete", "error"]), startedAt: z.string().nullable(), completedAt: z.string().nullable(),
   message: z.string().max(3000).nullable(), events: z.number().int().min(0), from: dayDateSchema.nullable(), through: dayDateSchema.nullable(),
@@ -33,6 +36,7 @@ export type CalendarState = z.infer<typeof calendarStateSchema>;
 export const dayViewSchema = z.object({
   date: dayDateSchema, today: dayDateSchema, timeZone: z.string(), config: dayConfigSchema,
   items: z.array(dayViewItemSchema), totals: dayTotalsSchema, calendar: calendarStateSchema,
+  agentTime: agentTimeStateSchema.optional(),
 });
 export type DayView = z.infer<typeof dayViewSchema>;
 export const dayAddSchema = z.object({
@@ -57,11 +61,12 @@ export const dayHistorySchema = z.object({
 export const timeReportSchema = z.object({
   from: dayDateSchema, through: dayDateSchema, timeZone: z.string(), totals: dayTotalsSchema,
   rows: z.array(z.object({ key: id, taskId: id.nullable(), title: z.string(), kind: z.enum(["task", "meeting"]),
-    plannedMinutes: dayMinutesSchema, reportedMinutes: dayMinutesSchema,
-    days: z.array(z.object({ date: dayDateSchema, itemId: id, plannedMinutes: dayMinutesSchema, reportedMinutes: dayMinutesSchema })),
+    plannedMinutes: dayMinutesSchema, actualMinutes: dayMinutesSchema.default(null), reportedMinutes: dayMinutesSchema, estimatedReported: z.boolean().default(false),
+    days: z.array(z.object({ date: dayDateSchema, itemId: id, plannedMinutes: dayMinutesSchema, actualMinutes: dayMinutesSchema.default(null), reportedMinutes: dayMinutesSchema, estimatedReported: z.boolean().default(false) })),
   })),
 });
 export type TimeReport = z.infer<typeof timeReportSchema>;
+export const dayEstimateSchema = z.object({ requestId: z.uuid(), id, revision: z.number().int().min(0), factor: z.number().gt(1).max(3), reason: z.string().trim().min(1).max(2000) }).strict();
 
 export const dayRpcContract = {
   day: { input: z.object({ date: dayDateSchema.optional() }).strict(), output: dayViewSchema },
@@ -75,6 +80,7 @@ export const dayRpcContract = {
   taskTime: { input: z.object({ taskId: id }).strict(), output: dayTotalsSchema },
   calendarState: { input: z.object({}).strict(), output: calendarStateSchema },
   calendarSync: { input: z.object({ date: dayDateSchema.optional() }).strict(), output: calendarStateSchema },
+  agentTimeSync: { input: z.object({}).strict(), output: agentTimeStateSchema },
 } as const;
 
 export function localDay(date = new Date()) {

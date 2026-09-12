@@ -19,7 +19,7 @@ it("retains a legacy collector's chosen account, idempotency and read-only task 
   await expect(f.harness.behavior.callRpc("syncStart", { ...input, since: "2026-01-01T00:00:00Z" })).rejects.toThrow(/launch key/);
   await expect(startSourceSync(f)).rejects.toThrow(/already running/);
   const config = await f.harness.behavior.resolveAgentConfiguration(makePluginAgentConfigurationContext({ origin: { pluginId: "247c", kind: null }, thread: { id: run.threadId!, title: `247C · updates · ${run.id}` } }));
-  expect(config.tools.map((t) => t.name)).toEqual(["c247_sync_calls", "c247_sync_submit", "c247_knowledge", "c247_tasks", "c247_read"]);
+  expect(config.tools.map((t) => t.name)).toEqual(["c247_day_review", "c247_day_estimate", "c247_sync_calls", "c247_sync_submit", "c247_knowledge", "c247_tasks", "c247_read"]);
   const ctx = { threadId: run.threadId!, projectId: "proj_personal", signal: new AbortController().signal };
   await expect(f.harness.behavior.callAgentTool("c247_create", { title: "Новая", description: "", requestId: randomUUID() }, ctx)).rejects.toThrow(/A worker/);
   expect(f.repo.list().total).toBe(0);

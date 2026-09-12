@@ -1,3 +1,4 @@
+import { DAY_REVIEW_INSTRUCTIONS } from "./agent-time.js";
 import { partitionParts, pickChanges, receiptDraft, sourceParts } from "./proposal-parts.js";
 import { jiraReferences } from "./source-links.js";
 import { mergeSyncDraft } from "./source-sync-merge.js";
@@ -505,7 +506,7 @@ export class SourceSyncRuntime {
       if (!SYNC_ACTIVE.has(run.status) || controller.signal.aborted) return;
       run = this.store.save({ ...run, reports: validateSyncReports(bundle.reports, bundle.calls, context.snapshots, context.pendingCandidates), collection: { phase: "analyzing", calls: bundle.calls.length, reads: bundle.documents.length, elapsedMs: bundle.elapsedMs } });
       if (bundle.reports.every(r => r.status === "unavailable")) throw new PolicyError("Could not load sources. See the Gmail, Slack and Jira cards for details; analysis was not started.");
-      const prompt = syncAnalysisInstructions(run, context.snapshots, [...(context.pendingCandidates ?? this.store.pendingCandidates()), ...this.store.candidates().filter(c => c.status !== "pending")], bundle, config);
+      const prompt = DAY_REVIEW_INSTRUCTIONS + "\n\n" + syncAnalysisInstructions(run, context.snapshots, [...(context.pendingCandidates ?? this.store.pendingCandidates()), ...this.store.candidates().filter(c => c.status !== "pending")], bundle, config);
       if (Buffer.byteLength(prompt) > 768 * 1024) throw new PolicyError("The task snapshot is too large for one analysis.");
       this.store.recordDataPage(id, 0);
       const request = nativeRequest(input.request);

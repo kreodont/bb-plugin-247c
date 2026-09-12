@@ -1,6 +1,6 @@
 # 247C day planning and time journal
 
-Planned and reported time are stored in 247C SQLite separately from the accepted task dossier. Time edits do not accept proposals, complete tasks or change priority.
+Planned, actual and reported time are stored in 247C SQLite separately from the accepted task dossier. Time edits do not accept proposals, complete tasks or change priority.
 
 ## Tools
 
@@ -20,10 +20,25 @@ The calendar script uses the configured Claude profile, verifies the account in 
 
 Import accepts individual occurrences of ordinary events with start and end times. All-day and special event types are excluded. If a previous event is missing from the list, its ID is read separately so a move is not mistaken for cancellation. A failed page or recheck prevents partial application. Reimport updates the same entries. Stopping the related source check or reloading the plugin cancels an unfinished import.
 
-Each time field has its own automatic or manual mode. Automatic planned time equals calendar duration; reported time equals the current planned time after an active meeting ends. This is a reporting convention, not proof of attendance. A background check runs every 30 seconds while BB is running and when the plugin loads.
+Planned and reported fields have their own automatic or manual mode. Actual always equals reported for a meeting, including a manual zero or corrected date. Automatic planned time equals calendar duration; reported time equals the current planned time after an active meeting ends. This is a reporting convention, not proof of attendance. A background check runs every 30 seconds while BB is running and when the plugin loads.
 
 Manual reported time, including zero and blank values, survives updates. `restoreAuto=planned|reported|both` explicitly restores automatic behavior; send it separately from manual time and `reportedDate`. A moved meeting retains the previous manually reported date until explicitly edited. Cancellation, declining or conversion to an excluded event removes automatic hours while preserving manual reports. Do not create a separate task for a calendar event.
 
+## Automatic agent time and reported estimates
+
+Hourly source updates reconcile measured task work before source analysis, even when a previous source run is active. Tracking also catches up when BB restarts with hourly updates enabled. The panel's **Refresh agent time** uses the same process. Tracking begins with the current local day on its first run, including already completed work; it does not infer older untracked time.
+
+`actualMinutes` is read-only. BB turn start/completion timestamps, recorded provider blocking interactions and per-agent workflow duration receipts supply the measurements. Completed runs are summed across linked worker/reviewer threads, embedded subagents and BB child threads, including hidden or archived ones. Known waits for provider approvals and questions are subtracted; idle gaps and unfinished runs are excluded. A running turn appears once completed. Missing start/end or subagent duration telemetry is not guessed. Parallel agents sum rather than being merged into wall-clock time. Fork-inherited receipts are excluded by their source thread identity. Source check chats and unrelated conversations never acquire a task association from title similarity.
+
+An existing task gets at most one entry per date, with planned = 0 when the engine adds it. Existing planned time, day notes, state and removal choices are preserved. Measurements use durable event IDs/cursors and are recomputed as totals, not blindly added on each check. Cross-midnight runs split by Europe/Athens, including DST. Failed reads retain the previous journal and show a measurement error.
+
+Automatic reported values use `reportedMode=estimate`. They are draft estimates for the user's work report, not measured human effort or submitted timesheets. The provisional factor is 1.25. The active source analyst has two additional tools:
+
+- `c247_day_review({offset?})` reconciles work on page zero and lists eligible entries and accepted task context. Follow `nextOffset` until null.
+- `c247_day_estimate({requestId,id,revision,factor,reason})` sets the estimate allowance and explains its assumptions. Use a factor greater than 1 and at most 3, appropriate for the work type; do not claim the allowance measures time the user actually spent. The server computes minutes, rounds within the cap, enforces current revisions and rejects manual or removed entries. Skip unchanged estimates. Review before finalizing source analysis.
+
+The UI labels estimates, displays their rationale and flags them in day/week reports. **Confirm reported** or an explicit manual correction locks the value, including zero or blank, against automation. **Use automatic estimate** restores estimation for measured task work. New manual corrections cannot exceed 3 × known actual. Pre-existing manual values are preserved and flagged if measurement subsequently reveals an excess; they are never silently clamped. Manual time tools retain their explicit-user-instruction requirements and cannot edit actual.
+
 ## Storage and history
 
-Sequential migrations add `day_items`, `day_configs`, `day_item_events`, `day_config_events` and `calendar_sync_state`. Entries have their own revisions. Time changes, history and request keys are saved transactionally. History records actor, source, time and before/after values. Removing an entry from the plan preserves it and its reported time. Completing or archiving a task does not delete its hours. Reports are calculated from the saved journal rather than stored separately.
+Sequential migrations add `day_items`, `day_configs`, `day_item_events`, `day_config_events` and `calendar_sync_state`. Additive agent-time migrations add `agent_time_state`, `agent_time_threads` and `agent_time_events`, containing measurement checkpoints and minimal timestamp/ID receipts rather than message contents. Full database backups preserve them. Entries have their own revisions. Time changes, history and request keys are saved transactionally. History records actor, source, time and before/after values. Removing an entry from the plan preserves it and its reported time. Completing or archiving a task does not delete its hours. Reports are calculated from the saved journal rather than stored separately.

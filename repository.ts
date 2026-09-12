@@ -7,6 +7,7 @@ import { ConflictError, PolicyError } from "./core/errors.js";
 import type { FactKind, StewardProposalDraft, TaskRecord } from "./core/types.js";
 import { extractionRefMap, partitionParts, pickChanges, pickExtraction, proposalParts, receiptDraft } from "./proposal-parts.js";
 import { DAY_SCHEMA } from "./day-schema.js";
+import { AGENT_TIME_SCHEMA } from "./agent-time-schema.js";
 import { taskSourceLinks } from "./task-sources.js";
 import { sessionSchema, sessionUpdateSchema, transcriptSchema, knowledgeEntrySchema, fileKnowledgeEntrySchema, knowledgeImportSchema, syncCandidateSchema, type Dossier, type Session, type TaskCard, type Transcript, type Extraction, type KnowledgeEntry, type KnowledgeImport, type PartDecision, type PartReview } from "./contracts.js";
 
@@ -34,6 +35,7 @@ export const EXTRA_SCHEMA = [
   `CREATE TABLE task_views (task_id TEXT PRIMARY KEY REFERENCES tasks(id), seen_revision INTEGER NOT NULL);
    INSERT INTO task_views(task_id,seen_revision) SELECT id,revision FROM tasks;`,
   `CREATE TABLE part_reviews (kind TEXT NOT NULL, id TEXT NOT NULL, value_json TEXT NOT NULL, PRIMARY KEY(kind,id))`,
+  ...AGENT_TIME_SCHEMA,
 ];
 export const ACTIVE = new Set<Session["status"]>(["starting", "working", "collecting", "review_starting", "reviewing", "repair_starting"]);
 export const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");

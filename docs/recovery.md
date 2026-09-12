@@ -4,7 +4,7 @@
 
 ## Included data
 
-- A consistent snapshot of the entire 247C database: tasks, fields, facts, proposals, approvals, knowledge, time journal, calendar and saved exports.
+- A consistent snapshot of the entire 247C database: tasks, fields, facts, proposals, approvals, knowledge, time journal, agent runtime receipts/checkpoints, calendar and saved exports.
 - Installed source code and build output, plus source code for related local provider plugins.
 - Plugin settings excluding secret fields.
 - Event exports for related BB threads, including open conversations, and text artifacts previously embedded in 247C.

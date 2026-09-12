@@ -2,13 +2,22 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { Repository } from "./repository.js";
 import { ConflictError, PolicyError } from "./core/errors.js";
-import { calendarEventSchema, calendarStateSchema, dayAddSchema, dayConfigSchema, dayDateSchema, dayEditSchema, dayItemSchema, dayRpcContract,
+import { calendarEventSchema, calendarStateSchema, dayAddSchema, dayConfigSchema, dayDateSchema, dayEditSchema, dayEstimateSchema, dayItemSchema, dayRpcContract,
   DAY_TIME_ZONE, localDay, shiftDay, weekStart, type CalendarEvent, type CalendarState, type DayItem, type DayView, type TimeReport } from "./day-contracts.js";
 
 type JsonRow = { value_json: string };
 export const EMPTY_CALENDAR: CalendarState = { status: "idle", startedAt: null, completedAt: null, message: null, events: 0, from: null, through: null };
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 const plannedCounts = (item: DayItem) => !item.removed && (!item.calendar || item.calendar.status === "confirmed");
+const actualDate = (item: DayItem) => item.kind === "meeting" ? item.reportedDate : item.date;
+function decode(raw: unknown): DayItem {
+  const item = dayItemSchema.parse(raw);
+  if (item.kind === "meeting") item.actualMinutes = item.reportedMinutes;
+  return item;
+}
+export function estimatedMinutes(actual: number, factor: number) {
+  return Math.min(actual * 3, 525600, Math.max(actual + 1 / 60, Math.ceil(actual * factor)));
+}
 
 export class DayPlanning {
   constructor(readonly repo: Repository, readonly clock: () => Date = () => new Date()) {}
@@ -17,15 +26,15 @@ export class DayPlanning {
   get(id: string): DayItem {
     const row = this.repo.db.prepare("SELECT value_json FROM day_items WHERE id=?").get(id) as JsonRow | undefined;
     if (!row) throw new PolicyError("Day entry not found. Refresh the plan.");
-    return dayItemSchema.parse(JSON.parse(row.value_json));
+    return decode(JSON.parse(row.value_json));
   }
   private rows(sql: string, ...args: string[]) {
     const rows = this.repo.db.prepare(`SELECT value_json FROM day_items ${sql}`).all(...args) as JsonRow[];
     if (rows.length > 5000) throw new PolicyError("Too many entries for one response. Choose a shorter period or a single task.");
-    return rows.map(row => dayItemSchema.parse(JSON.parse(row.value_json)));
+    return rows.map(row => decode(JSON.parse(row.value_json)));
   }
   private write(raw: DayItem, before: DayItem | null, actor: string, action: string): DayItem {
-    const next = dayItemSchema.parse({ ...raw, revision: before ? before.revision + 1 : 0, updatedAt: this.now() });
+    const next = decode({ ...raw, revision: before ? before.revision + 1 : 0, updatedAt: this.now() });
     this.repo.db.prepare(`INSERT INTO day_items(id,date,reported_date,task_id,calendar_key,value_json) VALUES (?,?,?,?,?,?)
       ON CONFLICT(id) DO UPDATE SET date=excluded.date,reported_date=excluded.reported_date,value_json=excluded.value_json`).run(next.id, next.date, next.reportedDate, next.taskId, next.calendar?.key ?? null, JSON.stringify(next));
     this.repo.db.prepare("INSERT INTO day_item_events(item_id,at,actor,action,before_json,after_json) VALUES (?,?,?,?,?,?)")
@@ -41,12 +50,12 @@ export class DayPlanning {
     const count = this.repo.db.prepare("SELECT count(*) AS n FROM day_items WHERE date=?").get(date) as { n: number };
     if (count.n >= 1000) throw new PolicyError("This day already has 1,000 entries.");
     return { id: randomUUID(), date, reportedDate: date, kind: taskId ? "task" : "meeting", taskId, title, step: "", ordinal: count.n,
-      revision: 0, plannedMinutes: null, reportedMinutes: null, plannedMode: "manual", reportedMode: "manual", state: "open", removed: false,
+      revision: 0, plannedMinutes: null, actualMinutes: null, reportedMinutes: null, plannedMode: "manual", reportedMode: "manual", reportedEstimate: null, reportedLocked: false, state: "open", removed: false,
       carriedTo: null, calendar: null, createdAt: this.now(), updatedAt: this.now() };
   }
   taskItem(taskId: string, date: string): DayItem | null {
     const row = this.repo.db.prepare("SELECT value_json FROM day_items WHERE task_id=? AND date=?").get(taskId, date) as JsonRow | undefined;
-    return row ? dayItemSchema.parse(JSON.parse(row.value_json)) : null;
+    return row ? decode(JSON.parse(row.value_json)) : null;
   }
   add(raw: z.input<typeof dayAddSchema>, actor = "human:panel"): DayItem {
     const input = dayAddSchema.parse(raw);
@@ -61,6 +70,7 @@ export class DayPlanning {
       const item = this.blank(input.date, task.id, task.title);
       item.step = input.step ?? this.repo.kernel.getDossier(task.id).projection.nextStep ?? "";
       item.plannedMinutes = input.plannedMinutes ?? null; item.reportedMinutes = input.reportedMinutes ?? null;
+      item.reportedLocked = input.reportedMinutes !== undefined;
       return this.write(item, null, actor, "added");
     });
     this.repo.changed(); return item;
@@ -73,6 +83,7 @@ export class DayPlanning {
       item.reportedDate = item.date;
       item.reportedMinutes = !item.removed && event.status === "confirmed" && Date.parse(event.endAt) <= this.clock().getTime() ? item.plannedMinutes : null;
     }
+    item.actualMinutes = item.reportedMinutes;
     return item;
   }
   edit(raw: z.input<typeof dayEditSchema>, actor = "human:panel"): DayItem {
@@ -83,6 +94,7 @@ export class DayPlanning {
         if (input[field] !== undefined) {
           item[field] = input.operation === "add" ? (item[field] ?? 0) + input[field]! : input[field]!;
           item[field === "plannedMinutes" ? "plannedMode" : "reportedMode"] = "manual";
+          if (field === "reportedMinutes") { item.reportedLocked = true; item.reportedEstimate = null; }
           // Explicit reporting is assigned to this date, and stays on that date
           // if the calendar subsequently moves the meeting elsewhere.
           if (field === "reportedMinutes" && before.reportedMode === "calendar") item.reportedDate = item.date;
@@ -99,13 +111,66 @@ export class DayPlanning {
         if (item.removed && item.reportedMinutes !== null) item.reportedMode = "manual";
       }
       if (input.restoreAuto) {
-        if (!item.calendar) throw new PolicyError("Automatic time is available only for calendar meetings.");
-        if (input.restoreAuto !== "reported") item.plannedMode = "calendar";
-        if (input.restoreAuto !== "planned") item.reportedMode = "calendar";
+        if (!item.calendar) {
+          if (input.restoreAuto !== "reported" || item.actualMinutes === null || item.actualMinutes <= 0) throw new PolicyError("Automatic estimates need measured agent time. Planned task time stays manual.");
+          item.reportedLocked = false; this.estimateDefault(item);
+        } else {
+          if (input.restoreAuto !== "reported") item.plannedMode = "calendar";
+          if (input.restoreAuto !== "planned") { item.reportedMode = "calendar"; item.reportedLocked = false; }
+        }
       }
+      if (input.reportedMinutes !== undefined && item.kind === "task" && item.actualMinutes !== null && item.reportedMinutes !== null && item.reportedMinutes > item.actualMinutes * 3 + 1e-8)
+        throw new PolicyError("Reported time cannot exceed 3 × actual agent time.");
       return this.write(this.automatic(item), before, actor, input.restoreAuto ? "auto_restored" : "edited");
     });
     this.repo.changed(); return result;
+  }
+  private estimateDefault(item: DayItem) {
+    item.reportedMode = "estimate";
+    item.reportedEstimate ??= { factor: 1.25, reason: "Provisional estimate using measured agent time × 1.25. Review the allowance for checking the result before using it in a work report.", source: "agent-time:default" };
+    item.reportedMinutes = estimatedMinutes(item.actualMinutes!, item.reportedEstimate.factor);
+  }
+  canEstimate(item: DayItem) {
+    if (!item.taskId || item.removed || item.reportedLocked || !item.actualMinutes) return false;
+    if (item.reportedMode === "estimate") return true;
+    if (item.reportedMinutes !== null) return false;
+    // Preserve explicit blank corrections saved before reportedLocked existed.
+    return !this.repo.db.prepare(`SELECT 1 FROM day_item_events WHERE item_id=? AND action='edited'
+      AND json_extract(after_json,'$.reportedLocked') IS NULL
+      AND json_extract(before_json,'$.reportedMinutes') IS NOT NULL AND json_extract(after_json,'$.reportedMinutes') IS NULL LIMIT 1`).get(item.id);
+  }
+  reconcileActual(totals: { taskId: string; date: string; minutes: number }[]) {
+    const result = this.repo.store.transaction(() => {
+      let changed = 0;
+      for (const total of totals) {
+        dayDateSchema.parse(total.date);
+        if (!Number.isFinite(total.minutes) || total.minutes < 0 || total.minutes > 525600) throw new PolicyError("Invalid measured agent duration.");
+        const before = this.taskItem(total.taskId, total.date);
+        if (!before && total.minutes === 0) continue;
+        const task = this.repo.kernel.getTask(total.taskId);
+        const item = before ? structuredClone(before) : { ...this.blank(total.date, task.id, task.title), plannedMinutes: 0, step: this.repo.kernel.getDossier(task.id).projection.nextStep ?? "" };
+        item.actualMinutes = total.minutes;
+        if (item.reportedMode === "estimate" && total.minutes === 0) item.reportedMinutes = 0;
+        if (this.canEstimate(item)) this.estimateDefault(item);
+        if (!before || !same(item, before)) { this.write(item, before, "agent-time:bb", "agent_time_updated"); changed++; }
+      }
+      return changed;
+    });
+    if (result) this.repo.changed(); return result;
+  }
+  estimate(raw: z.input<typeof dayEstimateSchema>, actor: string) {
+    const input = dayEstimateSchema.parse(raw);
+    const result = this.repo.request(input.requestId, { kind: "day.estimate", input, actor }, () => {
+      const before = this.current(input.id, input.revision);
+      if (!this.canEstimate(before)) throw new PolicyError("This entry has no measured work, was removed, or its reported time is manual. Leave it unchanged.");
+      const item = { ...before, reportedMode: "estimate" as const, reportedEstimate: { factor: input.factor, reason: input.reason, source: actor }, reportedMinutes: estimatedMinutes(before.actualMinutes!, input.factor) };
+      return this.write(item, before, actor, "reported_estimated");
+    });
+    this.repo.changed(); return result;
+  }
+  estimateCandidates(offset = 0) {
+    const items = this.rows("WHERE task_id IS NOT NULL AND date<=?", this.today()).filter(i => this.canEstimate(i));
+    return { items: items.slice(offset, offset + 50).map(item => ({ ...item, title: this.repo.kernel.getTask(item.taskId!).title, summary: this.repo.kernel.getDossier(item.taskId!).projection.summary })), nextOffset: items.length > offset + 50 ? offset + 50 : null };
   }
   carry(raw: z.infer<typeof dayRpcContract.dayCarry.input>, actor = "human:panel") {
     const input = dayRpcContract.dayCarry.input.parse(raw);
@@ -166,7 +231,9 @@ export class DayPlanning {
   private totals(items: DayItem[], from?: string, through?: string) {
     const inPeriod = (date: string) => !from || date >= from && date <= through!;
     return { plannedMinutes: items.reduce((n, i) => n + (inPeriod(i.date) && plannedCounts(i) ? i.plannedMinutes ?? 0 : 0), 0),
+      actualMinutes: items.reduce((n, i) => n + (inPeriod(actualDate(i)) ? i.actualMinutes ?? 0 : 0), 0),
       reportedMinutes: items.reduce((n, i) => n + (inPeriod(i.reportedDate) ? i.reportedMinutes ?? 0 : 0), 0),
+      estimatedReported: items.filter(i => inPeriod(i.reportedDate) && i.reportedMode === "estimate" && i.reportedMinutes !== null).length,
       missingReported: items.filter(i => inPeriod(i.date) && plannedCounts(i) && i.reportedMinutes === null && i.date <= this.today()).length };
   }
   day(raw = this.today()): DayView {
@@ -185,14 +252,18 @@ export class DayPlanning {
       const key = item.taskId ?? item.id;
       const planned = item.date >= from && item.date <= through && plannedCounts(item) ? item.plannedMinutes : null;
       const reported = item.reportedDate >= from && item.reportedDate <= through ? item.reportedMinutes : null;
-      if (planned === null && reported === null) continue;
-      const group = groups.get(key) ?? { key, taskId: item.taskId, title: item.taskId ? this.repo.kernel.getTask(item.taskId).title : item.title, kind: item.kind, plannedMinutes: null, reportedMinutes: null, days: [] };
+      const actual = actualDate(item) >= from && actualDate(item) <= through ? item.actualMinutes : null;
+      const estimatedReported = item.reportedMode === "estimate" && reported !== null;
+      if (planned === null && reported === null && actual === null) continue;
+      const group = groups.get(key) ?? { key, taskId: item.taskId, title: item.taskId ? this.repo.kernel.getTask(item.taskId).title : item.title, kind: item.kind, plannedMinutes: null, actualMinutes: null, reportedMinutes: null, estimatedReported: false, days: [] };
       if (planned !== null) group.plannedMinutes = (group.plannedMinutes ?? 0) + planned;
+      if (actual !== null) group.actualMinutes = (group.actualMinutes ?? 0) + actual;
       if (reported !== null) group.reportedMinutes = (group.reportedMinutes ?? 0) + reported;
-      if (item.date === item.reportedDate) group.days.push({ date: item.date, itemId: item.id, plannedMinutes: planned, reportedMinutes: reported });
+      group.estimatedReported ||= estimatedReported;
+      if (item.date === item.reportedDate) group.days.push({ date: item.date, itemId: item.id, plannedMinutes: planned, actualMinutes: actual, reportedMinutes: reported, estimatedReported });
       else {
-        if (planned !== null) group.days.push({ date: item.date, itemId: item.id, plannedMinutes: planned, reportedMinutes: null });
-        if (reported !== null) group.days.push({ date: item.reportedDate, itemId: item.id, plannedMinutes: null, reportedMinutes: reported });
+        if (planned !== null) group.days.push({ date: item.date, itemId: item.id, plannedMinutes: planned, actualMinutes: null, reportedMinutes: null, estimatedReported: false });
+        if (reported !== null || actual !== null) group.days.push({ date: item.reportedDate, itemId: item.id, plannedMinutes: null, actualMinutes: actual, reportedMinutes: reported, estimatedReported });
       }
       groups.set(key, group);
     }
@@ -203,7 +274,7 @@ export class DayPlanning {
   history(id: string, offset = 0) {
     this.get(id);
     const rows = this.repo.db.prepare("SELECT * FROM day_item_events WHERE item_id=? ORDER BY sequence DESC LIMIT 51 OFFSET ?").all(id, offset) as { sequence: number; at: string; actor: string; action: string; before_json: string | null; after_json: string }[];
-    return { items: rows.slice(0, 50).map(r => ({ sequence: r.sequence, at: r.at, actor: r.actor, action: r.action, before: r.before_json ? dayItemSchema.parse(JSON.parse(r.before_json)) : null, after: dayItemSchema.parse(JSON.parse(r.after_json)) })), nextOffset: rows.length > 50 ? offset + 50 : null };
+    return { items: rows.slice(0, 50).map(r => ({ sequence: r.sequence, at: r.at, actor: r.actor, action: r.action, before: r.before_json ? decode(JSON.parse(r.before_json)) : null, after: decode(JSON.parse(r.after_json)) })), nextOffset: rows.length > 50 ? offset + 50 : null };
   }
   calendarItems(from?: string, through?: string): DayItem[] {
     return this.rows(`WHERE calendar_key IS NOT NULL${from && through ? " AND date BETWEEN ? AND ?" : ""}`, ...(from && through ? [from, through] : []));
@@ -215,7 +286,7 @@ export class DayPlanning {
       let changed = 0;
       for (const event of events) {
         const row = this.repo.db.prepare("SELECT value_json FROM day_items WHERE calendar_key=?").get(event.key) as JsonRow | undefined;
-        const before = row ? dayItemSchema.parse(JSON.parse(row.value_json)) : null;
+        const before = row ? decode(JSON.parse(row.value_json)) : null;
         if (!before && event.status !== "confirmed") continue;
         const date = localDay(new Date(event.startAt));
         const initial = before ?? { ...this.blank(date, null, event.title), plannedMode: "calendar" as const, reportedMode: "calendar" as const };

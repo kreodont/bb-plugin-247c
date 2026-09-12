@@ -124,6 +124,13 @@ def verify_drive_upload(path):
     return {"verified": False, "source": "macOS File Provider", "reason": "upload-pending"}
 
 
+def related_thread_ids(db):
+    ids = {r[0] for r in db.execute("SELECT thread_id FROM session_threads UNION SELECT thread_id FROM source_sync_runs WHERE thread_id IS NOT NULL")}
+    if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='agent_time_threads'").fetchone():
+        ids.update(r[0] for r in db.execute("SELECT thread_id FROM agent_time_threads"))
+    return sorted(ids)
+
+
 def create_snapshot(binary, data_dir, destination, machine):
     destination = Path(destination).resolve()
     destination.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -147,7 +154,7 @@ def create_snapshot(binary, data_dir, destination, machine):
         if any(digest(root / "plugins/247c" / name) != value for name, value in source_hashes.items()):
             raise RuntimeError("Plugin source changed during snapshot")
         with readonly(root / "database/data.db") as db:
-            ids = sorted({r[0] for r in db.execute("SELECT thread_id FROM session_threads UNION SELECT thread_id FROM source_sync_runs WHERE thread_id IS NOT NULL")})
+            ids = related_thread_ids(db)
             sessions = [json.loads(r[0]) for r in db.execute("SELECT value_json FROM sessions")]
             providers = {s.get(k) for s in sessions for k in ("workerProvider", "reviewerProvider")}
         companions = []

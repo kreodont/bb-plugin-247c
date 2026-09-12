@@ -22,6 +22,32 @@ async function setup() {
   return { f, task, days, item, mount };
 }
 
+it("shows measured actual, flags estimates in reports, and lets the user confirm reported time", async () => {
+  const { task, days, item, mount } = await setup();
+  days.reconcileActual([{ taskId: task.id, date: item.date, minutes: 10 }]);
+  const report = mount(`report/day/${item.date}`);
+  expect(await report.findByText(/Reported time includes 1 automatic estimate/)).toBeTruthy();
+  expect(report.getByRole("columnheader", { name: "Actual" })).toBeTruthy();
+  expect(report.getByText("includes estimate")).toBeTruthy(); report.lifecycle.unmount();
+  const slot = mount(`day/${item.date}`);
+  const actual = await slot.findByLabelText(`Actual: ${task.title}`);
+  expect(actual.textContent).toBe("10m"); expect(actual.tagName).toBe("OUTPUT");
+  fireEvent.click(slot.getByRole("button", { name: "Confirm reported" }));
+  await waitFor(() => expect(days.get(item.id)).toMatchObject({ actualMinutes: 10, reportedMinutes: 13, reportedMode: "manual", reportedLocked: true }));
+  expect(days.report({ date: item.date, period: "day" }).totals.estimatedReported).toBe(0);
+  days.reconcileActual([{ taskId: task.id, date: item.date, minutes: 12 }]);
+  expect(days.get(item.id).reportedMinutes).toBe(13);
+});
+
+it("keeps an excessive reported edit visible and rejects it against measured actual", async () => {
+  const { task, days, item, mount } = await setup();
+  days.reconcileActual([{ taskId: task.id, date: item.date, minutes: 10 }]);
+  const slot = mount(`day/${item.date}`), reported = await slot.findByLabelText(`Reported: ${task.title}`);
+  fireEvent.change(reported, { target: { value: "31m" } }); fireEvent.click(slot.getByRole("button", { name: "Save time" }));
+  expect(await slot.findByText(/Reported time cannot exceed 3 × actual/)).toBeTruthy();
+  expect((reported as HTMLInputElement).value).toBe("31m"); expect(days.get(item.id).reportedMinutes).toBe(13);
+});
+
 it.each(["Back", "Forward"] as const)("saves time and day settings before %s traverses history", async direction => {
   vi.stubGlobal("navigation", Object.assign(new EventTarget(), { canGoBack: true, canGoForward: true }));
   const { task, days, item, mount } = await setup(); const slot = mount("day/2026-09-10");
@@ -62,7 +88,7 @@ it("saves 10 minutes planned and 3 hours reported before opening a task and retu
   slot.lifecycle.unmount();
   const dossier = mount(`${task.id}/from/day/2026-09-10`);
   await dossier.findByRole("heading", { name: task.title });
-  expect(await dossier.findByText("Planned: 10m · Reported: 3h")).toBeTruthy();
+  expect(await dossier.findByText("Planned: 10m · Actual: 0m · Reported: 3h")).toBeTruthy();
   fireEvent.click(dossier.getByRole("button", { name: "Back to day plan" }));
   expect(JSON.stringify(dossier.inspection.navigateCalls)).toContain("day/2026-09-10");
   dossier.lifecycle.unmount(); const returned = mount("day/2026-09-10");

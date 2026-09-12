@@ -8,6 +8,13 @@ import backup
 
 
 class RecoveryTests(unittest.TestCase):
+    def test_related_history_includes_measured_children_and_supports_older_databases(self):
+        with sqlite3.connect(":memory:") as db:
+            db.executescript("CREATE TABLE session_threads(thread_id TEXT); CREATE TABLE source_sync_runs(thread_id TEXT); INSERT INTO session_threads VALUES('worker'); INSERT INTO source_sync_runs VALUES('analyst');")
+            self.assertEqual(backup.related_thread_ids(db), ["analyst", "worker"])
+            db.executescript("CREATE TABLE agent_time_threads(thread_id TEXT); INSERT INTO agent_time_threads VALUES('worker'),('hidden-child');")
+            self.assertEqual(backup.related_thread_ids(db), ["analyst", "hidden-child", "worker"])
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

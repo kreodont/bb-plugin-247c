@@ -31,6 +31,10 @@ checks, with personal workspaces for reviews. Store the actual project ID and
 folder only in local BB settings. On another computer, create or select a project
 there and configure its new ID. Prepared recovery settings clear the old ID.
 
+## Automatic day-plan accounting
+
+With `hourlyUpdates` enabled, each hourly check also reconciles the day plan with completed work in linked 247C task chats and their agents. Actual sums measured agent runtime; reported estimates are marked for user review and capped at 3 × actual. Existing manual values are preserved. On a fresh machine, tracking starts with that local day and its own BB history. See [Time journal rules](../skills/day-planning.md) for measurement boundaries, manual overrides and recovery behavior.
+
 ## Corporate source-read policy
 
 During an authorized corporate setup, configure new corporate conversations to

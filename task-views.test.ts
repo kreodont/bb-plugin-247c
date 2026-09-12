@@ -43,10 +43,11 @@ it("acknowledges only rendered revisions and never regresses a later visit", asy
 it("baselines existing tasks at migration without changing their durable records", () => {
   const db = new Database(":memory:");
   try {
-    db.exec(CORE_SCHEMA); for (const migration of EXTRA_SCHEMA.slice(0, -2)) db.exec(migration);
+    const viewMigration = EXTRA_SCHEMA.findIndex(sql => sql.startsWith("CREATE TABLE task_views"));
+    db.exec(CORE_SCHEMA); for (const migration of EXTRA_SCHEMA.slice(0, viewMigration)) db.exec(migration);
     const repo = new Repository(db, () => {}), task = repo.create({ title: "Existing task", description: "Original", requestId: randomUUID() });
     const before = repo.kernel.getDossier(task.id);
-    for (const migration of EXTRA_SCHEMA.slice(-2)) db.exec(migration);
+    for (const migration of EXTRA_SCHEMA.slice(viewMigration)) db.exec(migration);
     expect(repo.list().tasks[0].unseen).toBeNull(); expect(repo.kernel.getDossier(task.id)).toEqual(before);
     const fresh = repo.create({ title: "New task", description: "", requestId: randomUUID() });
     expect(repo.list().tasks.find(t => t.id === fresh.id)?.unseen).toBe("new");
