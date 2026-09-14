@@ -35,6 +35,31 @@ there and configure its new ID. Prepared recovery settings clear the old ID.
 
 With `hourlyUpdates` enabled, each hourly check also reconciles the day plan with completed work in linked 247C task chats and their agents. Actual sums measured agent runtime; reported estimates are marked for user review and capped at 3 × actual. Existing manual values are preserved. On a fresh machine, tracking starts with that local day and its own BB history. See [Time journal rules](../skills/day-planning.md) for measurement boundaries, manual overrides and recovery behavior.
 
+## Weekday morning planning
+
+The optional BB agent automation uses [the weekday planning prompt](../automation-prompts/weekday-day-plan.md) to save a short day plan from accepted task context, current meetings and unfinished daily steps. It preserves existing entries and time values. It does not estimate manual hours or execute the planned work.
+
+During an authorized setup, inspect `bb automation list --project <project-id>` first and update an existing planner instead of creating a duplicate. Schedule `30 7 * * 1-5` with timezone `Europe/Athens`. Choose an available provider/model on that computer; Codex Sol with medium reasoning is a suitable default. Use the local 247C project and a ready environment in its project folder, with permission mode `auto`. Omit `--target-thread` so each occurrence creates a separate conversation.
+
+For example, run this from the repository after replacing the generic local IDs:
+
+```python
+from pathlib import Path
+import subprocess
+
+subprocess.run([
+    "bb", "automation", "create", "--project", "proj_example",
+    "--name", "247C weekday day plan",
+    "--cron", "30 7 * * 1-5", "--timezone", "Europe/Athens",
+    "--provider", "codex", "--model", "gpt-5.6-sol", "--reasoning", "medium",
+    "--permission-mode", "auto", "--environment", "env_example",
+    "--prompt", Path("automation-prompts/weekday-day-plan.md").read_text(),
+    "--json",
+], check=True)
+```
+
+Verify the saved timezone, next run, project, model and environment with `bb automation show <automation-id> --project <project-id> --json`. BB must be running for scheduled work to launch. BB stores a copy of the prompt; after editing the portable prompt, explicitly update the existing automation with `--prompt`. The automation and its local IDs belong to BB's private settings, not Git; configure it separately on each computer rather than copying another machine's IDs.
+
 ## Corporate source-read policy
 
 During an authorized corporate setup, configure new corporate conversations to
