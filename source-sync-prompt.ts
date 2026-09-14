@@ -99,7 +99,7 @@ For an existing task, the user's reply may change a waiting state or next step: 
 A sent reply alone does not prove the entire task is complete.
 
 SLACK COLLECTION
-Check DMs and group DMs (is:dm / is:mpim searches), to:me, configured channels ${config.slackChannels.join(", ")} and group chats ${config.slackGroups.join(", ")}.
+Check DMs and group DMs (is:dm / is:mpim searches), to:me, ${config.slackUserId ? `direct mentions with the literal query <@${config.slackUserId}>, ` : ""}configured channels ${config.slackChannels.join(", ")} and group chats ${config.slackGroups.join(", ")}. Do not rely on to:me alone for direct mentions outside configured channels.
 Complete pagination and the history interval. Use slack_read_thread for every candidate, including replies.
 Also read threads referenced by phrases such as in that thread, see thread or updating there.
 FLAG only open requests to the user. A latest message from the user, thanks/got it or a closing reply is not an open request.

@@ -1,0 +1,63 @@
+import { expect, it } from "vitest";
+import { randomUUID } from "node:crypto";
+import { collectSources } from "./source-collector.js";
+import { defaultSourceConfig } from "./source-config.js";
+import type { SourceConnections } from "./source-connectors.js";
+import type { SyncRun } from "./contracts.js";
+
+const since = "2026-09-10T10:00:00.000Z", until = "2026-09-10T11:00:00.000Z";
+const mentionQuery = "<@U123OWNER>";
+const parent = "1789034000.123456";
+function run(): SyncRun {
+  return { id: randomUUID(), status: "starting", threadId: null, provider: "codex", model: "test", startedAt: until, finishedAt: null, until, manualSince: null,
+    ranges: { gmail: { since, previous: since }, slack: { since, previous: since }, jira: { since, previous: since } }, reports: [], error: null, suggestions: 0, duplicates: 0, fingerprint: "test" };
+}
+function response(data: unknown) { return { content: [{ type: "text", text: JSON.stringify(data) }] }; }
+function connections(slack: SourceConnections["slack"]): SourceConnections {
+  return { gmail: { error: "Not part of this check" }, jira: { error: "Not part of this check" }, slack };
+}
+
+it("finds mentions outside watched channels when to:me is empty, follows pages and reads each parent once", async () => {
+  const seen: { tool: string; args: Record<string, unknown> }[] = [];
+  const bundle = await collectSources(run(), [], {
+    config: { ...defaultSourceConfig, slackUserId: "U123OWNER", slackChannels: ["support"] },
+    connect: async () => connections({ close: async () => {}, async call(tool, args) {
+      seen.push({ tool, args });
+      if (tool === "slack_read_thread") return response({ messages: `Message TS: ${parent}\nPlease review the next change.\nMessage TS: 1789034700.654321\nNon-urgent.`, pagination_info: "There are no more messages in this thread." });
+      if (args.query !== mentionQuery) return response({ results: "No results found.", pagination_info: "End of results - No more pages available." });
+      const ts = args.cursor ? "1789034700654321" : "1789034400123456";
+      return response({ results: `### Result 1 of 2\nChannel: #engineering (ID: C987ENG)\nPermalink: https://example.slack.com/archives/C987ENG/p${ts}?thread_ts=${parent}\nText: <@U123OWNER> Please review.`,
+        pagination_info: args.cursor ? "End of results - No more pages available." : "For the next page of results use cursor `mentions-page-2`" });
+    } }),
+  });
+  const searches = seen.filter(c => c.args.query === mentionQuery);
+  expect(searches).toHaveLength(2);
+  expect(searches[1].args.cursor).toBe("mentions-page-2");
+  expect(searches.every(c => c.args.after === String(Date.parse(since) / 1000 - 300) && c.args.before === String(Date.parse(until) / 1000))).toBe(true);
+  expect(seen.filter(c => c.tool === "slack_read_thread")).toEqual([{ tool: "slack_read_thread", args: { channel_id: "C987ENG", message_ts: parent, limit: 1000, latest: String(Date.parse(until) / 1000) } }]);
+  expect(bundle.documents).toHaveLength(1);
+  expect(bundle.documents[0].content).toContain("Non-urgent.");
+  expect(bundle.reports.find(r => r.source === "slack")).toMatchObject({ status: "complete", paginationComplete: true, threadsRead: 1 });
+});
+
+it("reports partial coverage when the explicit mention search fails despite successful empty searches", async () => {
+  const bundle = await collectSources(run(), [], {
+    config: { ...defaultSourceConfig, slackUserId: "U123OWNER" },
+    connect: async () => connections({ close: async () => {}, async call(_tool, args) {
+      if (args.query === mentionQuery) return { isError: true, content: [{ type: "text", text: "Mention search permission denied." }] };
+      return response({ results: "No results found.", pagination_info: "End of results - No more pages available." });
+    } }),
+  });
+  expect(bundle.reports.find(r => r.source === "slack")).toMatchObject({ status: "partial", paginationComplete: false });
+  expect(bundle.reports.find(r => r.source === "slack")?.detail).toContain("Mention search permission denied");
+  expect(bundle.documents).toEqual([]);
+});
+
+it("does not send an invalid mention query when the Slack member ID is not configured", async () => {
+  const queries: unknown[] = [];
+  await collectSources(run(), [], { connect: async () => connections({ close: async () => {}, async call(_tool, args) {
+    queries.push(args.query);
+    return response({ results: "No results found.", pagination_info: "End of results - No more pages available." });
+  } }) });
+  expect(queries).toEqual(["is:dm", "is:mpim", "to:me"]);
+});

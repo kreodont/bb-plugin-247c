@@ -29,7 +29,7 @@ The user selects the analysis account and model in BB's native composer; the def
 
 Gmail: unread and active searches, complete pagination, including SENT and archived messages. Check every candidate with a fresh get_thread; read message bodies for facts.
 
-Slack: DMs, group DMs, mentions and configured channels. Read replies and the latest message, including the account owner's own responses.
+Slack: DMs, group DMs, mentions and configured channels. Set `slackUserId` to enable an explicit `<@USER_ID>` mention search across accessible channels; `to:me` alone can miss direct mentions outside the configured channel list. Read replies and the latest message, including the account owner's own responses.
 
 Jira: updates, actual statuses, comments, known keys and mentions. In addition to general results, check links for every open task and pending source proposal, including proposed new tasks.
 

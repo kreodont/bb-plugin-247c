@@ -34586,7 +34586,8 @@ async function collectSources(run, dossiers, options = {}) {
   }
   async function slack() {
     const after = String(Math.floor(Date.parse(run.ranges.slack.since) / 1e3 - 300)), before = String(Date.parse(run.until) / 1e3);
-    await pool(["is:dm", "is:mpim", "to:me", ...config2.slackChannels.map((c) => `in:${c}`)], async (query) => {
+    const mentions = config2.slackUserId ? [`<@${config2.slackUserId}>`] : [];
+    await pool(["is:dm", "is:mpim", "to:me", ...mentions, ...config2.slackChannels.map((c) => `in:${c}`)], async (query) => {
       await pages("slack", "slack_search_public_and_private", { query, after, before, limit: 20, include_context: false, include_bots: true, sort: "timestamp" }, (data) => {
         const text2 = String(data.results ?? data.text ?? "");
         addLinks(text2);
@@ -34795,7 +34796,7 @@ For an existing task, the user's reply may change a waiting state or next step: 
 A sent reply alone does not prove the entire task is complete.
 
 SLACK COLLECTION
-Check DMs and group DMs (is:dm / is:mpim searches), to:me, configured channels ${config2.slackChannels.join(", ")} and group chats ${config2.slackGroups.join(", ")}.
+Check DMs and group DMs (is:dm / is:mpim searches), to:me, ${config2.slackUserId ? `direct mentions with the literal query <@${config2.slackUserId}>, ` : ""}configured channels ${config2.slackChannels.join(", ")} and group chats ${config2.slackGroups.join(", ")}. Do not rely on to:me alone for direct mentions outside configured channels.
 Complete pagination and the history interval. Use slack_read_thread for every candidate, including replies.
 Also read threads referenced by phrases such as in that thread, see thread or updating there.
 FLAG only open requests to the user. A latest message from the user, thanks/got it or a closing reply is not an open request.
