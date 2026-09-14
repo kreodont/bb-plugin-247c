@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { makeThreadResponse } from "@get-bb/plugin-sdk/testing";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { AgentTimeRuntime, dayStart, intervalDays, measuredIntervals, timeReceipt, type TimeReceipt } from "./agent-time.js";
-import { DayPlanning, estimatedMinutes } from "./day-planning.js";
+import { DayPlanning } from "./day-planning.js";
 import { dayItemSchema } from "./day-contracts.js";
 import { fixture } from "./test-support.js";
 import { startSourceSync } from "./source-sync-test-support.js";
@@ -77,7 +77,7 @@ it("adds unplanned work once, includes hidden/archived children, and catches up 
   f.threads.set(child.id, child); events.set(child.id, [event(child.id, 1, 2, "turn/started"), event(child.id, 2, 7, "turn/completed")]);
   const result = await runtime.refresh(); expect(result.errors).toEqual([]);
   const item = days.taskItem(task.id, date)!;
-  expect(item).toMatchObject({ plannedMinutes: 0, actualMinutes: 15, reportedMinutes: 19, reportedMode: "estimate" });
+  expect(item).toMatchObject({ plannedMinutes: 0, actualMinutes: 15, reportedMinutes: null });
   await runtime.refresh(); expect(days.get(item.id)).toEqual(item); expect(days.history(item.id).items).toHaveLength(1);
   expect(f.repo.detail(task.id)).toEqual(before);
   await runtime.dispose(); await f.reload();
@@ -125,26 +125,76 @@ it("serializes concurrent refreshes and stops safely during reload", async () =>
   expect(f.repo.db.prepare("SELECT count(*) AS n FROM day_items").get()).toEqual({ n: 0 });
 });
 
-it("enforces estimate caps in seconds, rounds within the cap, and locks a confirmed estimate", async () => {
-  for (const actual of [0.001, 0.2, 1, 4.2, 80]) for (const factor of [1.01, 1.25, 2, 3]) {
-    const value = estimatedMinutes(actual, factor); expect(value).toBeGreaterThan(actual); expect(value).toBeLessThanOrEqual(actual * 3);
-  }
+it("saves explicit estimates idempotently and locks a confirmed estimate", async () => {
   const { task, days, runtime } = await setup(); await runtime.refresh(); let item = days.taskItem(task.id, date)!;
-  const estimate = { id: item.id, revision: item.revision, factor: 2, reason: "Allow for checking the result; this is an estimate.", requestId: randomUUID() };
+  const estimate = { id: item.id, revision: item.revision, reportedMinutes: 20, reason: "Review a short implementation and verify two examples; estimated effort, not measured hours.", requestId: randomUUID() };
   item = days.estimate(estimate, "agent-time:test"); expect(days.estimate(estimate, "agent-time:test")).toEqual(item);
   expect(item.reportedMinutes).toBe(20);
-  expect(() => days.estimate({ ...estimate, requestId: randomUUID(), revision: item.revision, factor: 3.1 }, "agent-time:test")).toThrow();
-  expect(() => days.edit({ id: item.id, revision: item.revision, reportedMinutes: 31, requestId: randomUUID() })).toThrow(/3 × actual/);
+  expect(() => days.estimate({ ...estimate, requestId: randomUUID(), revision: item.revision, reportedMinutes: -1 }, "agent-time:test")).toThrow();
   item = days.edit({ id: item.id, revision: item.revision, reportedMinutes: item.reportedMinutes, requestId: randomUUID() });
   expect(item.reportedLocked).toBe(true); expect(item.reportedMode).toBe("manual");
   expect(() => days.estimate({ ...estimate, requestId: randomUUID(), revision: item.revision }, "agent-time:test")).toThrow(/manual/);
   item = days.edit({ id: item.id, revision: item.revision, restoreAuto: "reported", requestId: randomUUID() });
-  expect(item.reportedMode).toBe("estimate"); expect(item.reportedMinutes).toBe(13);
+  expect(item).toMatchObject({ reportedMode: "estimate", reportedMinutes: null, reportedEstimate: null, reportedLocked: false });
+  expect(days.estimateCandidates().items).toContainEqual(expect.objectContaining({ id: item.id }));
+});
+
+it.each([0, 2, 10])("preserves manual reported time above the estimate cap with %i measured minutes", async actual => {
+  const { f, task, days } = await setup();
+  let item = days.add({ date, taskId: task.id, requestId: randomUUID(), reportedMinutes: 60 });
+  days.reconcileActual([{ taskId: task.id, date, minutes: actual }]); item = days.get(item.id);
+  const request = { id: item.id, revision: item.revision, reportedMinutes: 30, operation: "add" as const, requestId: randomUUID() };
+  item = days.edit(request); expect(days.edit(request)).toEqual(item);
+  expect(item).toMatchObject({ actualMinutes: actual, reportedMinutes: 90, reportedMode: "manual", reportedLocked: true, reportedEstimate: null });
+  days.reconcileActual([{ taskId: task.id, date, minutes: actual + 1 }]);
+  const saved = new DayPlanning(f.repo).get(item.id);
+  expect(saved).toMatchObject({ actualMinutes: actual + 1, reportedMinutes: 90, reportedMode: "manual", reportedLocked: true });
+  expect(days.estimateCandidates().items).not.toContainEqual(expect.objectContaining({ id: item.id }));
+});
+
+it("keeps work-based and legacy estimates unchanged when measured runtime changes or reaches zero", async () => {
+  const { f, task, days, runtime } = await setup(); await runtime.refresh();
+  let item = days.taskItem(task.id, date)!;
+  item = days.estimate({ id: item.id, revision: item.revision, reportedMinutes: 20, reason: "Read the implementation and check two examples.", requestId: randomUUID() }, "agent-time:test");
+  days.reconcileActual([{ taskId: task.id, date, minutes: 1 }]);
+  expect(new DayPlanning(f.repo).get(item.id)).toMatchObject({ actualMinutes: 1, reportedMinutes: 20, reportedEstimate: { basis: "work" } });
+  const legacy = { ...days.get(item.id), reportedMinutes: 13, reportedEstimate: { factor: 1.25, reason: "Previous automatic estimate.", source: "agent-time:default" } };
+  f.repo.db.prepare("UPDATE day_items SET value_json=? WHERE id=?").run(JSON.stringify(legacy), item.id);
+  days.reconcileActual([{ taskId: task.id, date, minutes: 0 }]);
+  expect(new DayPlanning(f.repo).get(item.id)).toMatchObject({ actualMinutes: 0, reportedMinutes: 13, reportedEstimate: { factor: 1.25 } });
+  expect(days.history(item.id).items[0].before?.reportedEstimate?.factor).toBe(1.25);
+});
+
+it.each([0, 5, 90])("accepts an explicit %i-minute work estimate independently of ten measured minutes", async reportedMinutes => {
+  const { task, days, runtime } = await setup(); await runtime.refresh();
+  const before = days.taskItem(task.id, date)!;
+  const input = { id: before.id, revision: before.revision, reportedMinutes, reason: "Estimated human effort for reviewing and verifying the documented work.", requestId: randomUUID() };
+  expect(days.estimate(input, "agent-time:test")).toMatchObject({ actualMinutes: 10, reportedMinutes, reportedEstimate: { basis: "work" } });
+  expect(() => days.estimate({ ...input, requestId: randomUUID() }, "agent-time:test")).toThrow(/another window/);
+});
+
+it("returns dated work evidence with stable pagination without changing task records", async () => {
+  const { f, task, days, session } = await setup();
+  const original = f.repo.session(f.repo.forThread(session.workerThreadId)!.id);
+  f.repo.saveSession({ ...original, finishedAt: "2026-09-12T09:00:00Z", result: { summary: "Reviewed two validation paths and verified a regression case.", artifacts: [] } });
+  const before = f.repo.detail(task.id);
+  for (let i = 0; i < 6; i++) {
+    const taskId = i === 0 ? task.id : (await f.create(`Task ${i}`)).id;
+    days.reconcileActual([{ taskId, date, minutes: 10 }]);
+  }
+  const first = days.estimateCandidates(), second = days.estimateCandidates(first.nextOffset!);
+  expect(first.items).toHaveLength(5); expect(first.nextOffset).toBe(5);
+  expect(second.items).toHaveLength(1); expect(second.nextOffset).toBeNull();
+  const all = [...first.items, ...second.items]; expect(new Set(all.map(i => i.id)).size).toBe(6);
+  expect(all.find(i => i.taskId === task.id)?.workContext.sessions).toContainEqual(expect.objectContaining({
+    id: original.id, resultSummary: "Reviewed two validation paths and verified a regression case.", finishedAt: "2026-09-12T09:00:00Z",
+  }));
+  expect(f.repo.detail(task.id)).toEqual(before);
 });
 
 it("restricts estimate tools to the active analyst and leaves manual time tools restricted", async () => {
   const { f, days, runtime, task } = await setup(); await runtime.refresh(); const item = days.taskItem(task.id, date)!;
-  const input = { requestId: randomUUID(), id: item.id, revision: item.revision, factor: 2, reason: "Estimated checking allowance." };
+  const input = { requestId: randomUUID(), id: item.id, revision: item.revision, reportedMinutes: 20, reason: "Estimated checking allowance." };
   await expect(f.harness.behavior.callAgentTool("c247_day_estimate", input, { threadId: "unrelated" })).rejects.toThrow(/active source analyst/);
   const { run } = await startSourceSync(f), ctx = { threadId: run.threadId! };
   expect(dayItemSchema.parse(JSON.parse(await f.harness.behavior.callAgentTool("c247_day_estimate", input, ctx) as string)).reportedMinutes).toBe(20);

@@ -18,7 +18,8 @@ export const dayItemSchema = z.object({
   title: z.string().max(1000), step: z.string().max(2000), ordinal: z.number(), revision: z.number().int().min(0),
   plannedMinutes: dayMinutesSchema, actualMinutes: dayMinutesSchema.default(null), reportedMinutes: dayMinutesSchema,
   plannedMode: z.enum(["manual", "calendar"]), reportedMode: z.enum(["manual", "calendar", "estimate"]),
-  reportedEstimate: z.object({ factor: z.number().gt(1).max(3), reason: z.string().max(2000), source: z.string().max(400) }).nullable().default(null),
+  // Keep legacy factor metadata readable in saved entries and their audit history.
+  reportedEstimate: z.object({ basis: z.literal("work").optional(), factor: z.number().gt(1).max(3).optional(), reason: z.string().max(2000), source: z.string().max(400) }).nullable().default(null),
   reportedLocked: z.boolean().default(false),
   state: z.enum(["open", "done", "carried"]), removed: z.boolean(), carriedTo: dayDateSchema.nullable(),
   calendar: calendarEventSchema.nullable(), createdAt: z.iso.datetime(), updatedAt: z.iso.datetime(),
@@ -66,7 +67,7 @@ export const timeReportSchema = z.object({
   })),
 });
 export type TimeReport = z.infer<typeof timeReportSchema>;
-export const dayEstimateSchema = z.object({ requestId: z.uuid(), id, revision: z.number().int().min(0), factor: z.number().gt(1).max(3), reason: z.string().trim().min(1).max(2000) }).strict();
+export const dayEstimateSchema = z.object({ requestId: z.uuid(), id, revision: z.number().int().min(0), reportedMinutes: dayMinutesSchema.unwrap(), reason: z.string().trim().min(1).max(2000) }).strict();
 
 export const dayRpcContract = {
   day: { input: z.object({ date: dayDateSchema.optional() }).strict(), output: dayViewSchema },

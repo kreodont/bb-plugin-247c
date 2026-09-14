@@ -25,6 +25,7 @@ async function setup() {
 it("shows measured actual, flags estimates in reports, and lets the user confirm reported time", async () => {
   const { task, days, item, mount } = await setup();
   days.reconcileActual([{ taskId: task.id, date: item.date, minutes: 10 }]);
+  days.estimate({ id: item.id, revision: days.get(item.id).revision, reportedMinutes: 20, reason: "Review the implementation and verify the results.", requestId: randomUUID() }, "agent-time:test");
   const report = mount(`report/day/${item.date}`);
   expect(await report.findByText(/Reported time includes 1 automatic estimate/)).toBeTruthy();
   expect(report.getByRole("columnheader", { name: "Actual" })).toBeTruthy();
@@ -33,19 +34,39 @@ it("shows measured actual, flags estimates in reports, and lets the user confirm
   const actual = await slot.findByLabelText(`Actual: ${task.title}`);
   expect(actual.textContent).toBe("10m"); expect(actual.tagName).toBe("OUTPUT");
   fireEvent.click(slot.getByRole("button", { name: "Confirm reported" }));
-  await waitFor(() => expect(days.get(item.id)).toMatchObject({ actualMinutes: 10, reportedMinutes: 13, reportedMode: "manual", reportedLocked: true }));
+  await waitFor(() => expect(days.get(item.id)).toMatchObject({ actualMinutes: 10, reportedMinutes: 20, reportedMode: "manual", reportedLocked: true }));
   expect(days.report({ date: item.date, period: "day" }).totals.estimatedReported).toBe(0);
   days.reconcileActual([{ taskId: task.id, date: item.date, minutes: 12 }]);
-  expect(days.get(item.id).reportedMinutes).toBe(13);
+  expect(days.get(item.id).reportedMinutes).toBe(20);
 });
 
-it("keeps an excessive reported edit visible and rejects it against measured actual", async () => {
+it("saves manual reported time above measured actual without a cap warning, including after reopening", async () => {
   const { task, days, item, mount } = await setup();
   days.reconcileActual([{ taskId: task.id, date: item.date, minutes: 10 }]);
   const slot = mount(`day/${item.date}`), reported = await slot.findByLabelText(`Reported: ${task.title}`);
   fireEvent.change(reported, { target: { value: "31m" } }); fireEvent.click(slot.getByRole("button", { name: "Save time" }));
-  expect(await slot.findByText(/Reported time cannot exceed 3 × actual/)).toBeTruthy();
-  expect((reported as HTMLInputElement).value).toBe("31m"); expect(days.get(item.id).reportedMinutes).toBe(13);
+  await waitFor(() => expect(days.get(item.id)).toMatchObject({ reportedMinutes: 31, reportedMode: "manual", reportedLocked: true }));
+  await waitFor(() => expect(slot.queryByText("Unsaved edit")).toBeNull());
+  expect((reported as HTMLInputElement).value).toBe("31m");
+  expect(slot.queryByText(/Saved manual time exceeds|Reported time cannot exceed/)).toBeNull();
+  slot.lifecycle.unmount();
+  days.reconcileActual([{ taskId: task.id, date: item.date, minutes: 5 }]);
+  const reopened = mount(`day/${item.date}`);
+  expect((await reopened.findByLabelText(`Reported: ${task.title}`) as HTMLInputElement).value).toBe("31m");
+  expect(reopened.queryByText(/Saved manual time exceeds|Reported time cannot exceed/)).toBeNull();
+});
+
+it("requests a new AI estimate without manufacturing a value or offering to confirm a blank", async () => {
+  const { task, days, item, mount } = await setup();
+  days.reconcileActual([{ taskId: task.id, date: item.date, minutes: 10 }]);
+  days.edit({ id: item.id, revision: days.get(item.id).revision, reportedMinutes: 90, requestId: randomUUID() });
+  const slot = mount(`day/${item.date}`);
+  fireEvent.click(await slot.findByRole("button", { name: "Details" }));
+  fireEvent.click(slot.getByRole("button", { name: "Request AI estimate" }));
+  await waitFor(() => expect(days.get(item.id)).toMatchObject({ reportedMinutes: null, reportedLocked: false, reportedEstimate: null }));
+  await slot.findByText("awaiting AI estimate");
+  expect(slot.queryByRole("button", { name: "Confirm reported" })).toBeNull();
+  expect(days.report({ date: item.date, period: "day" }).totals.estimatedReported).toBe(0);
 });
 
 it.each(["Back", "Forward"] as const)("saves time and day settings before %s traverses history", async direction => {

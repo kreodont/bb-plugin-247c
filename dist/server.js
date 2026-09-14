@@ -31196,7 +31196,8 @@ var dayItemSchema = external_exports.object({
   reportedMinutes: dayMinutesSchema,
   plannedMode: external_exports.enum(["manual", "calendar"]),
   reportedMode: external_exports.enum(["manual", "calendar", "estimate"]),
-  reportedEstimate: external_exports.object({ factor: external_exports.number().gt(1).max(3), reason: external_exports.string().max(2e3), source: external_exports.string().max(400) }).nullable().default(null),
+  // Keep legacy factor metadata readable in saved entries and their audit history.
+  reportedEstimate: external_exports.object({ basis: external_exports.literal("work").optional(), factor: external_exports.number().gt(1).max(3).optional(), reason: external_exports.string().max(2e3), source: external_exports.string().max(400) }).nullable().default(null),
   reportedLocked: external_exports.boolean().default(false),
   state: external_exports.enum(["open", "done", "carried"]),
   removed: external_exports.boolean(),
@@ -31271,7 +31272,7 @@ var timeReportSchema = external_exports.object({
     days: external_exports.array(external_exports.object({ date: dayDateSchema, itemId: id, plannedMinutes: dayMinutesSchema, actualMinutes: dayMinutesSchema.default(null), reportedMinutes: dayMinutesSchema, estimatedReported: external_exports.boolean().default(false) }))
   }))
 });
-var dayEstimateSchema = external_exports.object({ requestId: external_exports.uuid(), id, revision: external_exports.number().int().min(0), factor: external_exports.number().gt(1).max(3), reason: external_exports.string().trim().min(1).max(2e3) }).strict();
+var dayEstimateSchema = external_exports.object({ requestId: external_exports.uuid(), id, revision: external_exports.number().int().min(0), reportedMinutes: dayMinutesSchema.unwrap(), reason: external_exports.string().trim().min(1).max(2e3) }).strict();
 var dayRpcContract = {
   day: { input: external_exports.object({ date: dayDateSchema.optional() }).strict(), output: dayViewSchema },
   dayAdd: { input: dayAddSchema, output: dayItemSchema },
@@ -34262,7 +34263,7 @@ var AgentTimeRuntime = class {
     });
   }
 };
-var DAY_REVIEW_INSTRUCTIONS = `Before finalizing source analysis, also review the saved day plan through c247_day_review, paging through all entries. Measured work has already been reconciled deterministically; do not create tasks or edit manual time. For eligible entries, use c247_day_estimate to choose a reasonable reported-time allowance for the type of work, with a short explanation of the estimate and its assumptions. The factor must be greater than 1 and at most 3. These are visibly marked estimates for the user's work report, not measured human hours or approved timesheets. Preserve manual corrections; skip unchanged estimates. Never claim the user actually spent the allowance. The plugin computes minutes and enforces the cap. Finish source analysis normally even if no entries need an estimate.`;
+var DAY_REVIEW_INSTRUCTIONS = `Before finalizing source analysis, also review the saved day plan through c247_day_review, paging through all entries. Measured work has already been reconciled deterministically; do not create tasks or edit manual time. For eligible entries, use c247_day_estimate to propose reportedMinutes as the TOTAL for that task on that date, based on the volume, complexity and type of work actually supported by the evidence. Allow for the user's reading, understanding, checking and testing of the results. Explain the concrete work and the assumed effort in a short reason. There is no required ratio to actual: no floor or ceiling based on agent runtime. Never derive minutes by multiplying agent runtime or by measuring chat age, message gaps or response length alone. Objectives and planned next steps are not proof that work was done. The supplied workContext may be incomplete; use c247_read for fuller task context when necessary. Session results and recorded facts may still await approval and must not be presented as accepted changes. Do not charge the whole multi-day task to each day; separate that day's incremental work and avoid counting duplicate agent results. If evidence cannot support a useful estimate for the date, leave reported blank or keep the previous estimate instead of guessing. These are visibly marked estimates for the user's review, not measured human hours or approved timesheets. Preserve manual corrections, including zero and blank; skip unchanged estimates. Never claim the user actually spent the estimated time. Finish source analysis normally even if no entries need an estimate.`;
 
 // source-links.ts
 function jiraReferences(text2) {
@@ -35700,9 +35701,6 @@ function decode3(raw) {
   if (item.kind === "meeting") item.actualMinutes = item.reportedMinutes;
   return item;
 }
-function estimatedMinutes(actual, factor) {
-  return Math.min(actual * 3, 525600, Math.max(actual + 1 / 60, Math.ceil(actual * factor)));
-}
 var DayPlanning = class {
   constructor(repo, clock = () => /* @__PURE__ */ new Date()) {
     this.repo = repo;
@@ -35832,7 +35830,9 @@ var DayPlanning = class {
         if (!item.calendar) {
           if (input2.restoreAuto !== "reported" || item.actualMinutes === null || item.actualMinutes <= 0) throw new PolicyError("Automatic estimates need measured agent time. Planned task time stays manual.");
           item.reportedLocked = false;
-          this.estimateDefault(item);
+          item.reportedMode = "estimate";
+          item.reportedMinutes = null;
+          item.reportedEstimate = null;
         } else {
           if (input2.restoreAuto !== "reported") item.plannedMode = "calendar";
           if (input2.restoreAuto !== "planned") {
@@ -35841,17 +35841,10 @@ var DayPlanning = class {
           }
         }
       }
-      if (input2.reportedMinutes !== void 0 && item.kind === "task" && item.actualMinutes !== null && item.reportedMinutes !== null && item.reportedMinutes > item.actualMinutes * 3 + 1e-8)
-        throw new PolicyError("Reported time cannot exceed 3 \xD7 actual agent time.");
       return this.write(this.automatic(item), before, actor, input2.restoreAuto ? "auto_restored" : "edited");
     });
     this.repo.changed();
     return result;
-  }
-  estimateDefault(item) {
-    item.reportedMode = "estimate";
-    item.reportedEstimate ??= { factor: 1.25, reason: "Provisional estimate using measured agent time \xD7 1.25. Review the allowance for checking the result before using it in a work report.", source: "agent-time:default" };
-    item.reportedMinutes = estimatedMinutes(item.actualMinutes, item.reportedEstimate.factor);
   }
   canEstimate(item) {
     if (!item.taskId || item.removed || item.reportedLocked || !item.actualMinutes) return false;
@@ -35872,8 +35865,6 @@ var DayPlanning = class {
         const task = this.repo.kernel.getTask(total.taskId);
         const item = before ? structuredClone(before) : { ...this.blank(total.date, task.id, task.title), plannedMinutes: 0, step: this.repo.kernel.getDossier(task.id).projection.nextStep ?? "" };
         item.actualMinutes = total.minutes;
-        if (item.reportedMode === "estimate" && total.minutes === 0) item.reportedMinutes = 0;
-        if (this.canEstimate(item)) this.estimateDefault(item);
         if (!before || !same(item, before)) {
           this.write(item, before, "agent-time:bb", "agent_time_updated");
           changed++;
@@ -35889,15 +35880,47 @@ var DayPlanning = class {
     const result = this.repo.request(input2.requestId, { kind: "day.estimate", input: input2, actor }, () => {
       const before = this.current(input2.id, input2.revision);
       if (!this.canEstimate(before)) throw new PolicyError("This entry has no measured work, was removed, or its reported time is manual. Leave it unchanged.");
-      const item = { ...before, reportedMode: "estimate", reportedEstimate: { factor: input2.factor, reason: input2.reason, source: actor }, reportedMinutes: estimatedMinutes(before.actualMinutes, input2.factor) };
+      const item = { ...before, reportedMode: "estimate", reportedEstimate: { basis: "work", reason: input2.reason, source: actor }, reportedMinutes: input2.reportedMinutes };
       return this.write(item, before, actor, "reported_estimated");
     });
     this.repo.changed();
     return result;
   }
   estimateCandidates(offset = 0) {
-    const items = this.rows("WHERE task_id IS NOT NULL AND date<=?", this.today()).filter((i) => this.canEstimate(i));
-    return { items: items.slice(offset, offset + 50).map((item) => ({ ...item, title: this.repo.kernel.getTask(item.taskId).title, summary: this.repo.kernel.getDossier(item.taskId).projection.summary })), nextOffset: items.length > offset + 50 ? offset + 50 : null };
+    const items = this.rows("WHERE task_id IS NOT NULL AND date<=? ORDER BY date,id", this.today()).filter((i) => this.canEstimate(i));
+    const page = [];
+    let bytes = 0;
+    for (const item of items.slice(offset, offset + 5)) {
+      const dossier = this.repo.kernel.getDossier(item.taskId);
+      const onDay = (at) => Number.isFinite(Date.parse(at)) && localDay(new Date(at)) === item.date;
+      const facts = dossier.facts.filter((f) => onDay(f.occurredAt));
+      const sessions = this.repo.sessions(item.taskId).filter((s) => onDay(s.finishedAt ?? s.updatedAt));
+      const candidate = {
+        ...item,
+        title: dossier.task.title,
+        summary: dossier.projection.summary?.slice(0, 4e3) ?? null,
+        workContext: {
+          date: item.date,
+          acceptedFacts: facts.slice(-20).map((f) => ({ id: f.id, kind: f.kind, text: f.text.slice(0, 1500), occurredAt: f.occurredAt })),
+          // Session results are evidence for estimation, not accepted task changes.
+          sessions: sessions.slice(0, 5).map((s) => ({
+            id: s.id,
+            status: s.status,
+            finishedAt: s.finishedAt,
+            objective: s.objective.slice(0, 1e3),
+            resultSummary: s.result?.summary.slice(0, 3e3) ?? null,
+            recordedFacts: (s.extraction?.facts ?? []).slice(0, 10).map((f) => ({ kind: f.kind, text: f.text.slice(0, 1e3) }))
+          })),
+          contextMayBeIncomplete: true
+        }
+      };
+      const size = Buffer.byteLength(JSON.stringify(candidate, null, 2));
+      if (page.length && bytes + size > 650 * 1024) break;
+      page.push(candidate);
+      bytes += size;
+    }
+    const next = offset + page.length;
+    return { items: page, nextOffset: next < items.length ? next : null };
   }
   carry(raw, actor = "human:panel") {
     const input2 = dayRpcContract.dayCarry.input.parse(raw);
@@ -36303,7 +36326,7 @@ async function plugin(bb) {
   };
   bb.agents.registerTool({
     name: "c247_day_review",
-    description: "For the active 247C source analyst only: reconcile completed agent runs with the day plan and read eligible reported-time estimates with actual/planned time, accepted context, IDs and revisions. Manual reports are excluded. Paginate with nextOffset. No task changes or external reports are sent.",
+    description: "For the active 247C source analyst only: reconcile completed agent runs with the day plan and read eligible reported-time estimates with actual/planned time, accepted context, dated work records and session results, IDs and revisions. Manual reports are excluded. Paginate with nextOffset. No task changes or external reports are sent.",
     parameters: external_exports.object({ offset: external_exports.number().int().min(0).default(0) }).strict(),
     async execute({ offset }, ctx) {
       timeAnalyst(ctx.threadId);
@@ -36313,14 +36336,14 @@ async function plugin(bb) {
   });
   bb.agents.registerTool({
     name: "c247_day_estimate",
-    description: "For the active 247C source analyst only: set an explicitly labeled, editable reported-time estimate for measured work. factor must be >1 and <=3; the plugin computes minutes and enforces the cap. Include a short rationale and assumptions. Read c247_day_review first; use its full ID/revision and a stable requestId. Never records manual hours, modifies tasks or submits an external timesheet.",
+    description: "For the active 247C source analyst only: set an explicitly labeled, editable reported-time estimate for measured work. Set reportedMinutes as the total for this task and date based on the volume and type of completed work, including estimated human reading and checking. Include a short rationale and assumptions; skip entries without sufficient evidence. Read c247_day_review first; use its full ID/revision and a stable requestId. Never records manual hours, modifies tasks or submits an external timesheet.",
     parameters: dayEstimateSchema,
     execute(input2, ctx) {
       const run = timeAnalyst(ctx.threadId);
       return boundedJson(days.estimate(input2, `agent-time:source:${run.id}`));
     }
   });
-  const timeInstructions = "247C day planning keeps plannedMinutes and reportedMinutes independent for tasks. These tools record manual time only from an explicit user instruction, including its date and whether to SET a total or ADD minutes. Never infer hours from chat duration, task completion, a model's guess, or external content. Read c247_day first; use the returned full item ID and revision. A stable requestId prevents duplicate additions. Times are a separate journal; task fields and knowledge still go through approved proposals. Meetings are imported by the calendar script, with automatic reported=planned after the meeting; manual overrides always win. Never create a task just to represent an imported meeting. actualMinutes is read-only measured agent runtime (summed across agents), or equals reported for meetings. Hourly analysis uses separate, explicitly labeled reported estimates capped at 3 times actual; these tools never invent manual hours. Manual corrections win.";
+  const timeInstructions = "247C day planning keeps plannedMinutes and reportedMinutes independent for tasks. These tools record manual time only from an explicit user instruction, including its date and whether to SET a total or ADD minutes. Never infer hours from chat duration, task completion, a model's guess, or external content. Read c247_day first; use the returned full item ID and revision. A stable requestId prevents duplicate additions. Times are a separate journal; task fields and knowledge still go through approved proposals. Meetings are imported by the calendar script, with automatic reported=planned after the meeting; manual overrides always win. Never create a task just to represent an imported meeting. actualMinutes is read-only measured agent runtime (summed across agents), or equals reported for meetings. Hourly analysis separately proposes reported minutes from the volume, complexity and type of work, including estimated human reading and checking, with an explanation for user review. Estimates are independent of agent runtime, with no ratio floor or ceiling; these tools never invent manual hours. Manual reported time has no ratio limit because agent runtime excludes human reading and other work. Manual corrections win.";
   bb.agents.registerTool({
     name: "c247_day",
     description: "Read the saved 247C plan and time entries for a date (default today in Europe/Athens). Returns item IDs and revisions for manual edits. This does not start a calendar sync or change tasks.",

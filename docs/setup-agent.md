@@ -33,7 +33,7 @@ there and configure its new ID. Prepared recovery settings clear the old ID.
 
 ## Automatic day-plan accounting
 
-With `hourlyUpdates` enabled, each hourly check also reconciles the day plan with completed work in linked 247C task chats and their agents. Actual sums measured agent runtime; reported estimates are marked for user review and capped at 3 × actual. Existing manual values are preserved. On a fresh machine, tracking starts with that local day and its own BB history. See [Time journal rules](../skills/day-planning.md) for measurement boundaries, manual overrides and recovery behavior.
+With `hourlyUpdates` enabled, each hourly check also reconciles the day plan with completed work in linked 247C task chats and their agents. Actual sums measured agent runtime; reported estimates use the volume and type of work, including human reading and checking, and are marked for user review without a ratio limit relative to actual. Existing manual values are preserved. On a fresh machine, tracking starts with that local day and its own BB history. See [Time journal rules](../skills/day-planning.md) for measurement boundaries, manual overrides and recovery behavior.
 
 ## Weekday morning planning
 

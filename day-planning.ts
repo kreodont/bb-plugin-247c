@@ -15,9 +15,6 @@ function decode(raw: unknown): DayItem {
   if (item.kind === "meeting") item.actualMinutes = item.reportedMinutes;
   return item;
 }
-export function estimatedMinutes(actual: number, factor: number) {
-  return Math.min(actual * 3, 525600, Math.max(actual + 1 / 60, Math.ceil(actual * factor)));
-}
 
 export class DayPlanning {
   constructor(readonly repo: Repository, readonly clock: () => Date = () => new Date()) {}
@@ -113,22 +110,16 @@ export class DayPlanning {
       if (input.restoreAuto) {
         if (!item.calendar) {
           if (input.restoreAuto !== "reported" || item.actualMinutes === null || item.actualMinutes <= 0) throw new PolicyError("Automatic estimates need measured agent time. Planned task time stays manual.");
-          item.reportedLocked = false; this.estimateDefault(item);
+          item.reportedLocked = false; item.reportedMode = "estimate";
+          item.reportedMinutes = null; item.reportedEstimate = null;
         } else {
           if (input.restoreAuto !== "reported") item.plannedMode = "calendar";
           if (input.restoreAuto !== "planned") { item.reportedMode = "calendar"; item.reportedLocked = false; }
         }
       }
-      if (input.reportedMinutes !== undefined && item.kind === "task" && item.actualMinutes !== null && item.reportedMinutes !== null && item.reportedMinutes > item.actualMinutes * 3 + 1e-8)
-        throw new PolicyError("Reported time cannot exceed 3 × actual agent time.");
       return this.write(this.automatic(item), before, actor, input.restoreAuto ? "auto_restored" : "edited");
     });
     this.repo.changed(); return result;
-  }
-  private estimateDefault(item: DayItem) {
-    item.reportedMode = "estimate";
-    item.reportedEstimate ??= { factor: 1.25, reason: "Provisional estimate using measured agent time × 1.25. Review the allowance for checking the result before using it in a work report.", source: "agent-time:default" };
-    item.reportedMinutes = estimatedMinutes(item.actualMinutes!, item.reportedEstimate.factor);
   }
   canEstimate(item: DayItem) {
     if (!item.taskId || item.removed || item.reportedLocked || !item.actualMinutes) return false;
@@ -150,8 +141,8 @@ export class DayPlanning {
         const task = this.repo.kernel.getTask(total.taskId);
         const item = before ? structuredClone(before) : { ...this.blank(total.date, task.id, task.title), plannedMinutes: 0, step: this.repo.kernel.getDossier(task.id).projection.nextStep ?? "" };
         item.actualMinutes = total.minutes;
-        if (item.reportedMode === "estimate" && total.minutes === 0) item.reportedMinutes = 0;
-        if (this.canEstimate(item)) this.estimateDefault(item);
+        // Measurement does not invent or rescale reported time. The source
+        // analyst proposes a separate estimate after reviewing work evidence.
         if (!before || !same(item, before)) { this.write(item, before, "agent-time:bb", "agent_time_updated"); changed++; }
       }
       return changed;
@@ -163,14 +154,36 @@ export class DayPlanning {
     const result = this.repo.request(input.requestId, { kind: "day.estimate", input, actor }, () => {
       const before = this.current(input.id, input.revision);
       if (!this.canEstimate(before)) throw new PolicyError("This entry has no measured work, was removed, or its reported time is manual. Leave it unchanged.");
-      const item = { ...before, reportedMode: "estimate" as const, reportedEstimate: { factor: input.factor, reason: input.reason, source: actor }, reportedMinutes: estimatedMinutes(before.actualMinutes!, input.factor) };
+      const item = { ...before, reportedMode: "estimate" as const, reportedEstimate: { basis: "work" as const, reason: input.reason, source: actor }, reportedMinutes: input.reportedMinutes };
       return this.write(item, before, actor, "reported_estimated");
     });
     this.repo.changed(); return result;
   }
   estimateCandidates(offset = 0) {
-    const items = this.rows("WHERE task_id IS NOT NULL AND date<=?", this.today()).filter(i => this.canEstimate(i));
-    return { items: items.slice(offset, offset + 50).map(item => ({ ...item, title: this.repo.kernel.getTask(item.taskId!).title, summary: this.repo.kernel.getDossier(item.taskId!).projection.summary })), nextOffset: items.length > offset + 50 ? offset + 50 : null };
+    const items = this.rows("WHERE task_id IS NOT NULL AND date<=? ORDER BY date,id", this.today()).filter(i => this.canEstimate(i));
+    const page = [];
+    let bytes = 0;
+    for (const item of items.slice(offset, offset + 5)) {
+      const dossier = this.repo.kernel.getDossier(item.taskId!);
+      const onDay = (at: string) => Number.isFinite(Date.parse(at)) && localDay(new Date(at)) === item.date;
+      const facts = dossier.facts.filter(f => onDay(f.occurredAt));
+      const sessions = this.repo.sessions(item.taskId!).filter(s => onDay(s.finishedAt ?? s.updatedAt));
+      const candidate = { ...item, title: dossier.task.title, summary: dossier.projection.summary?.slice(0, 4000) ?? null,
+        workContext: {
+          date: item.date,
+          acceptedFacts: facts.slice(-20).map(f => ({ id: f.id, kind: f.kind, text: f.text.slice(0, 1500), occurredAt: f.occurredAt })),
+          // Session results are evidence for estimation, not accepted task changes.
+          sessions: sessions.slice(0, 5).map(s => ({ id: s.id, status: s.status, finishedAt: s.finishedAt,
+            objective: s.objective.slice(0, 1000), resultSummary: s.result?.summary.slice(0, 3000) ?? null,
+            recordedFacts: (s.extraction?.facts ?? []).slice(0, 10).map(f => ({ kind: f.kind, text: f.text.slice(0, 1000) })) })),
+          contextMayBeIncomplete: true,
+        } };
+      const size = Buffer.byteLength(JSON.stringify(candidate, null, 2));
+      if (page.length && bytes + size > 650 * 1024) break;
+      page.push(candidate); bytes += size;
+    }
+    const next = offset + page.length;
+    return { items: page, nextOffset: next < items.length ? next : null };
   }
   carry(raw: z.infer<typeof dayRpcContract.dayCarry.input>, actor = "human:panel") {
     const input = dayRpcContract.dayCarry.input.parse(raw);
