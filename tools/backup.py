@@ -5,6 +5,7 @@ The restore command only writes a NEW directory. It never replaces a running DB.
 """
 import argparse
 import concurrent.futures
+import contextlib
 import hashlib
 import json
 import os
@@ -38,7 +39,7 @@ def dump(path, value):
 
 
 def readonly(path):
-    return sqlite3.connect(Path(path).resolve().as_uri() + "?mode=ro", uri=True, timeout=10)
+    return contextlib.closing(sqlite3.connect(Path(path).resolve().as_uri() + "?mode=ro", uri=True, timeout=10))
 
 
 def check_db(path):
@@ -60,7 +61,7 @@ def copy_database(source, destination):
         if time.monotonic() - start > 120:
             raise TimeoutError("SQLite snapshot exceeded two minutes")
 
-    with readonly(source) as src, sqlite3.connect(destination) as dst:
+    with readonly(source) as src, contextlib.closing(sqlite3.connect(destination)) as dst, dst:
         src.backup(dst, pages=256, progress=progress, sleep=0.05)
         dst.execute("PRAGMA journal_mode=DELETE")
     return check_db(destination)
@@ -268,7 +269,7 @@ def restore_to_new(path, destination):
         shutil.copyfile(root / "database/data.db", portable)
         message = "Restored from backup. Choose a workspace and start a new conversation; previous history is preserved in the archive."
         recovered = 0
-        with sqlite3.connect(portable) as db:
+        with contextlib.closing(sqlite3.connect(portable)) as db, db:
             for session_id, status, raw in db.execute("SELECT id,status,value_json FROM sessions").fetchall():
                 if status in ACTIVE_SESSIONS:
                     value = json.loads(raw)

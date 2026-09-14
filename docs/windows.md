@@ -6,7 +6,7 @@ synchronize another computer's tasks, conversations or accounts.
 BB's supported Windows route is [Ubuntu on WSL2](https://github.com/get-bb/bb/blob/main/docs/platform-support.md).
 BB, Git, Node.js and the model provider CLIs all run in that Linux distribution.
 The browser can run on Windows. Native PowerShell and CMD are not BB runtime
-environments. 247C 0.4.5 supports the SDK 0.4.47 bundled with stable BB 0.42.1.
+environments. 247C 0.5.2 supports the SDK 0.4.47 bundled with stable BB 0.42.1.
 Installation and startup have been confirmed by user testing on Windows with
 Ubuntu/WSL. The stable npm runtime was also verified in an isolated macOS instance.
 Verify model workflows, source integrations and backups on each installation
@@ -61,14 +61,16 @@ Authenticate with a GitHub account that can access this repository:
 ```sh
 gh auth login
 gh auth setup-git
-bb plugin install 'git:https://github.com/kreodont/bb-plugin-247c.git@^0.4.5'
+bb plugin install 'git:https://github.com/kreodont/bb-plugin-247c.git@main'
 bb plugin list
 bb 247c list --json
 ```
 
-`^0.4.5` tracks stable 0.4.x releases starting at 0.4.5. Use `@v0.4.5` instead
-only when an exact, pinned release is desired; pinned installs do not follow
-new releases through `bb plugin update`.
+`main` follows the latest repository code through `bb plugin update`. Use
+`@v0.5.2` only when an exact, pinned release is desired. A semver range such as
+`^0.5.2` follows 0.5.x release tags only; it will not cross to 0.6.x. Earlier
+instructions used `^0.4.5`, which cannot receive 0.5.x features. See the migration
+below for an existing installation.
 
 If an older 247C release fails with `requires bb plugin SDK >=0.4.53, running
 SDK is 0.4.47`, install 0.4.5 or later. BB 0.42.1 is already sufficient; the
@@ -137,12 +139,43 @@ requires BB and 247C to be running. `tools/schedule_macos.py` is for macOS only.
 
 ## Updates and setup verification
 
-Back up before updating, then use:
+For an installation tracking `main`, back up before updating, then use:
 
 ```sh
 bb plugin outdated
 bb plugin update 247c
 ```
+
+For an older Git range such as `^0.4.5`, first switch the installation to `main`.
+BB 0.42.1 requires removing the old registration, which clears plugin settings.
+Use the supplied helper so local settings are saved and restored around this
+operation. Run these commands in Ubuntu/WSL while BB remains running:
+
+```sh
+(
+  set -e
+  c247_upgrade_dir=$(mktemp -d)
+  git clone --depth 1 https://github.com/kreodont/bb-plugin-247c.git "$c247_upgrade_dir/plugin"
+  python3 "$c247_upgrade_dir/plugin/tools/upgrade.py"
+)
+```
+
+The Python 3.11+ helper checks Git access and active reviews/imports, saves the
+old code, an online SQLite snapshot and private settings under
+`<dataDir>/247c-upgrade-backups/`, then installs `main`. It verifies accepted
+task records, saved transcripts, manual day-plan values and local settings.
+The local database stays on this computer; no data from another installation
+is imported. Provider accounts and separate BB automations are preserved.
+
+If a check fails, keep the printed backup directory and report the error.
+The helper restores the original enabled state on failures before removal;
+after removal it retains the database and backup for recovery and never
+automatically overwrites a migrated database. Do not remove the plugin again
+or discard the backup to retry a failed migration.
+
+After success, future updates use `bb plugin update 247c`. The optional weekday
+planner is configured separately on each computer; see the
+[setup-agent guide](setup-agent.md#weekday-morning-planning).
 
 Before treating setup as complete, check that the plugin is running, the task
 list is initially empty, a user-requested conversation receives its dossier in
