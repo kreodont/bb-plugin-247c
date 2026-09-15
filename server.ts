@@ -100,7 +100,10 @@ export default async function plugin(bb: BbPluginApi) {
       const session = repo.forThread(threadId);
       if (!session) return { session: null };
       const { id, taskId, workerThreadId, mode, status } = session;
-      return { session: { id, taskId, workerThreadId, mode, status } };
+      const date = days.today(), item = days.taskItem(taskId, date);
+      return { session: { id, taskId, workerThreadId, mode, status }, reportedToday: {
+        date, minutes: item?.reportedMinutes ?? null, estimated: item?.reportedMode === "estimate" && item.reportedMinutes !== null,
+      } };
     },
     create: (input) => repo.create(input),
     note: (input) => repo.note(input),

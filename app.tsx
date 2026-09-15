@@ -15,7 +15,7 @@ import { Input } from "./components/ui/input.js";
 import { Icon } from "./components/ui/icon.js";
 import { cn } from "./lib/utils.js";
 import { CalendarStatus, DayPage, TaskTimeSummary } from "./day-app.js";
-import { dayDateSchema, localDay } from "./day-contracts.js";
+import { dayDateSchema, formatMinutes, localDay, DAY_TIME_ZONE } from "./day-contracts.js";
 
 const ACTIVE = new Set(["starting", "working", "collecting", "review_starting", "reviewing", "repair_starting"]);
 const statusNames: Record<Session["status"], string> = { starting: "Starting", working: "In progress", collecting: "Reading the result", review_starting: "Starting verification", reviewing: "Independent verification", repair_starting: "Addressing findings", awaiting_approval: "Awaiting your decision", applied: "Dossier updated", rejected: "Proposal rejected", blocked: "Needs attention", cancelled: "Stopped", completed: "Review completed" };
@@ -126,6 +126,26 @@ function ThreadSessionAction(props: PluginThreadHeaderActionProps) {
 
 function ThreadTaskAction(props: PluginThreadHeaderActionProps) {
   return <ThreadSessionControl key={props.threadId} {...props} action="task" />;
+}
+
+function ThreadReportedTime({ threadId, isCompactViewport }: PluginThreadHeaderActionProps) {
+  const rpc = useRpc<typeof rpcContract>();
+  const load = useCallback(() => rpc.call("threadSession", { threadId }), [rpc, threadId]);
+  const { data, error } = useSnapshot(load);
+  if (!data?.session || !data.reportedToday) return null;
+  const { date, minutes, estimated } = data.reportedToday;
+  const value = error ? "unavailable" : formatMinutes(minutes);
+  const label = `Reported today: ${value}${!error && estimated ? " (estimate)" : ""}`;
+  const title = error ? `Could not refresh reported time: ${error}` : `${label} · ${date} · ${DAY_TIME_ZONE}${minutes === null ? " · No reported time entered" : ""}`;
+  return <span title={title} className="inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap px-1 text-xs text-muted-foreground">
+    {isCompactViewport ? <Icon name="Clock" aria-hidden="true" /> : <span>Reported today:</span>}
+    <output aria-label={label} className="font-medium tabular-nums text-foreground">{value}</output>
+    {!error && estimated && <span>estimate</span>}
+  </span>;
+}
+
+function ThreadReportedAction(props: PluginThreadHeaderActionProps) {
+  return <ThreadReportedTime key={props.threadId} {...props} />;
 }
 
 function CreateTask({ done, cancel }: { done: (id: string) => void; cancel: () => void }) {
@@ -610,5 +630,6 @@ function SidebarCount() {
 export default definePluginApp((app) => {
   app.slots.navPanel({ id: "desk", title: "247C", icon: "Target", path: "desk", component: Page, experimental_sidebarAccessory: SidebarCount });
   app.slots.experimental_threadHeaderAction({ id: "task", title: "247C task", component: ThreadTaskAction });
+  app.slots.experimental_threadHeaderAction({ id: "reported", title: "247C reported today", component: ThreadReportedAction });
   app.slots.experimental_threadHeaderAction({ id: "session", title: "247C session", component: ThreadSessionAction });
 });

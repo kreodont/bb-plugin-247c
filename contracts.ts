@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { defineRpcContract, type NewThreadRequest } from "@get-bb/plugin-sdk";
-import { dayRpcContract } from "./day-contracts.js";
+import { dayDateSchema, dayMinutesSchema, dayRpcContract } from "./day-contracts.js";
 
 export const idSchema = z.string().min(1).max(120);
 export const revisionSchema = z.number().int().nonnegative();
@@ -224,7 +224,7 @@ export const rpcContract = defineRpcContract({
   taskSeen: { input: z.object({ id: idSchema, revision: revisionSchema }).strict(), output: z.object({ seenRevision: revisionSchema }) },
   reviewParts: { input: partDecisionSchema, output: partDecisionResultSchema },
   detail: { input: z.object({ id: idSchema }).strict(), output: dossierSchema },
-  threadSession: { input: z.object({ threadId: idSchema }).strict(), output: z.object({ session: sessionSchema.pick({ id: true, taskId: true, workerThreadId: true, mode: true, status: true }).nullable() }) },
+  threadSession: { input: z.object({ threadId: idSchema }).strict(), output: z.object({ session: sessionSchema.pick({ id: true, taskId: true, workerThreadId: true, mode: true, status: true }).nullable(), reportedToday: z.object({ date: dayDateSchema, minutes: dayMinutesSchema, estimated: z.boolean() }).optional() }) },
   create: { input: z.object({ title: z.string().trim().min(1).max(200), description: z.string().trim().max(12000).default(""), requestId: z.uuid() }).strict(), output: taskSchema },
   note: { input: z.object({ taskId: idSchema, revision: revisionSchema, kind: factKindSchema, text, requestId: z.uuid() }).strict(), output: factSchema },
   classify: { input: z.object({ taskId: idSchema, revision: revisionSchema, urgent: axisSchema, important: axisSchema }).strict(), output: planningSchema },

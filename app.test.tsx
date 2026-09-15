@@ -8,13 +8,14 @@ import { randomUUID } from "node:crypto";
 import { fixture } from "./test-support.js";
 import { rpcContract } from "./contracts.js";
 import { SourceSyncStore } from "./source-sync.js";
+import { DayPlanning } from "./day-planning.js";
 import { sourceData, startSourceSync, submitSourceData } from "./source-sync-test-support.js";
 
 let app: CapturedPluginApp;
 const mounts: RenderedSlot[] = [];
 const hosts: Awaited<ReturnType<typeof fixture>>[] = [];
 beforeAll(async () => { app = await loadPluginApp(() => import("./app.js")); }, 60000);
-afterEach(async () => { for (const m of mounts.splice(0)) m.lifecycle.unmount(); for (const f of hosts.splice(0)) await f.harness.lifecycle.dispose(); vi.restoreAllMocks(); });
+afterEach(async () => { for (const m of mounts.splice(0)) m.lifecycle.unmount(); for (const f of hosts.splice(0)) await f.harness.lifecycle.dispose(); vi.restoreAllMocks(); vi.useRealTimers(); });
 async function setup(taskId?: string, supplied?: Awaited<ReturnType<typeof fixture>>) {
   const f = supplied ?? await fixture(); hosts.push(f);
   const rpc = Object.fromEntries(Object.keys(rpcContract).map((name) => [name, (input: unknown) => f.harness.behavior.callRpc(name, input)]));
@@ -166,13 +167,68 @@ it("disables stale source proposals and shows source failures without a successf
   expect(slot.getByText(/The dossier changed after this check/)).toBeTruthy();
 });
 
-function setupThread(f: Awaited<ReturnType<typeof fixture>>, threadId: string, isCompactViewport = false, action: "task" | "session" = "session") {
+function setupThread(f: Awaited<ReturnType<typeof fixture>>, threadId: string, isCompactViewport = false, action: "task" | "session" | "reported" = "session") {
   if (!hosts.includes(f)) hosts.push(f);
   const rpc = Object.fromEntries(Object.keys(rpcContract).map((name) => [name, (input: unknown) => f.harness.behavior.callRpc(name, input)]));
   const slot = renderSlot(app.threadHeaderActions.find(slot => slot.id === action)!, { threadId, projectId: "proj_personal", isCompactViewport }, { rpc });
   mounts.push(slot);
   return slot;
 }
+
+it("shows today's task report in all linked headers, refreshes manual changes and excludes other tasks and dates", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-09-15T09:00:00Z"));
+  const f = await fixture(), task = await f.create(), otherTask = await f.create();
+  await f.harness.behavior.callRpc("start", { ...f.startInput(task.id, task.revision), criteria: [] });
+  const session = f.repo.sessions(task.id)[0]; f.repo.saveSession({ ...session, reviewerThreadId: "thr_reviewer" });
+  const days = new DayPlanning(f.repo);
+  days.add({ date: "2026-09-14", taskId: task.id, reportedMinutes: 240, requestId: randomUUID() });
+  days.add({ date: "2026-09-15", taskId: otherTask.id, reportedMinutes: 300, requestId: randomUUID() });
+  const item = days.add({ date: "2026-09-15", taskId: task.id, plannedMinutes: 180, reportedMinutes: 80, requestId: randomUUID() });
+  const before = f.repo.detail(task.id), history = days.history(item.id);
+  const worker = setupThread(f, session.workerThreadId!, false, "reported"), reviewer = setupThread(f, "thr_reviewer", true, "reported");
+  expect((await within(worker.container).findByLabelText("Reported today: 1h 20m")).textContent).toBe("1h 20m");
+  expect((await within(reviewer.container).findByLabelText("Reported today: 1h 20m")).textContent).toBe("1h 20m");
+  expect(within(reviewer.container).queryByText("Reported today:")).toBeNull();
+  expect(days.history(item.id)).toEqual(history); expect(f.repo.detail(task.id)).toEqual(before);
+  days.edit({ id: item.id, revision: item.revision, reportedMinutes: 95, requestId: randomUUID() });
+  await worker.behavior.emitRealtime("desk-changed", {}); await reviewer.behavior.setRealtimeConnectionState("reconnecting");
+  await within(worker.container).findByLabelText("Reported today: 1h 35m");
+  await within(reviewer.container).findByLabelText("Reported today: 1h 35m");
+  expect(worker.inspection.rpcCalls.every(call => call.method === "threadSession")).toBe(true);
+});
+
+it("distinguishes unspecified, estimated and confirmed zero reported time in the header", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-09-15T09:00:00Z"));
+  const f = await fixture(), task = await f.create();
+  await f.harness.behavior.callRpc("start", { ...f.startInput(task.id, task.revision), criteria: [] });
+  const threadId = f.repo.sessions(task.id)[0].workerThreadId!, days = new DayPlanning(f.repo), slot = setupThread(f, threadId, false, "reported");
+  await slot.findByLabelText("Reported today: —"); expect(days.taskItem(task.id, "2026-09-15")).toBeNull();
+  days.reconcileActual([{ taskId: task.id, date: "2026-09-15", minutes: 10 }]);
+  let item = days.taskItem(task.id, "2026-09-15")!;
+  item = days.estimate({ id: item.id, revision: item.revision, reportedMinutes: 45, reason: "Review the documented work.", requestId: randomUUID() }, "agent-time:test");
+  await slot.behavior.emitRealtime("desk-changed", {}); await slot.findByLabelText("Reported today: 45m (estimate)");
+  days.edit({ id: item.id, revision: item.revision, reportedMinutes: 0, requestId: randomUUID() });
+  await slot.behavior.emitRealtime("desk-changed", {}); await slot.findByLabelText("Reported today: 0m");
+  expect(slot.queryByText("estimate")).toBeNull();
+  const unrelated = setupThread(f, "thr_unrelated", false, "reported");
+  await unrelated.behavior.emitRealtime("desk-changed", {}); expect(unrelated.container.querySelector("output")).toBeNull();
+});
+
+it("rolls the header over at Athens midnight and does not present stale time after a failed refresh", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-09-14T20:59:59Z"));
+  const f = await fixture(), task = await f.create(), days = new DayPlanning(f.repo);
+  await f.harness.behavior.callRpc("start", { ...f.startInput(task.id, task.revision), criteria: [] });
+  days.add({ date: "2026-09-14", taskId: task.id, reportedMinutes: 90, requestId: randomUUID() });
+  days.add({ date: "2026-09-15", taskId: task.id, reportedMinutes: 20, requestId: randomUUID() });
+  const slot = setupThread(f, f.repo.sessions(task.id)[0].workerThreadId!, false, "reported");
+  await slot.findByLabelText("Reported today: 1h 30m");
+  vi.setSystemTime(new Date("2026-09-14T21:00:01Z")); fireEvent(window, new Event("focus"));
+  await slot.findByLabelText("Reported today: 20m");
+  vi.spyOn(f.harness.behavior, "callRpc").mockRejectedValueOnce(new Error("Temporarily offline"));
+  await slot.behavior.emitRealtime("desk-changed", {}); await slot.findByLabelText("Reported today: unavailable");
+  expect(slot.queryByText("20m")).toBeNull();
+  await slot.behavior.emitRealtime("desk-changed", {}); await slot.findByLabelText("Reported today: 20m");
+});
 
 it("opens each thread's own task without finishing either conversation, including on compact screens", async () => {
   const f = await fixture(); const firstTask = await f.create(); const secondTask = await f.create();

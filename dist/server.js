@@ -31772,7 +31772,7 @@ var rpcContract = defineRpcContract({
   taskSeen: { input: external_exports.object({ id: idSchema, revision: revisionSchema }).strict(), output: external_exports.object({ seenRevision: revisionSchema }) },
   reviewParts: { input: partDecisionSchema, output: partDecisionResultSchema },
   detail: { input: external_exports.object({ id: idSchema }).strict(), output: dossierSchema },
-  threadSession: { input: external_exports.object({ threadId: idSchema }).strict(), output: external_exports.object({ session: sessionSchema.pick({ id: true, taskId: true, workerThreadId: true, mode: true, status: true }).nullable() }) },
+  threadSession: { input: external_exports.object({ threadId: idSchema }).strict(), output: external_exports.object({ session: sessionSchema.pick({ id: true, taskId: true, workerThreadId: true, mode: true, status: true }).nullable(), reportedToday: external_exports.object({ date: dayDateSchema, minutes: dayMinutesSchema, estimated: external_exports.boolean() }).optional() }) },
   create: { input: external_exports.object({ title: external_exports.string().trim().min(1).max(200), description: external_exports.string().trim().max(12e3).default(""), requestId: external_exports.uuid() }).strict(), output: taskSchema },
   note: { input: external_exports.object({ taskId: idSchema, revision: revisionSchema, kind: factKindSchema, text, requestId: external_exports.uuid() }).strict(), output: factSchema },
   classify: { input: external_exports.object({ taskId: idSchema, revision: revisionSchema, urgent: axisSchema, important: axisSchema }).strict(), output: planningSchema },
@@ -36284,7 +36284,12 @@ async function plugin(bb) {
       const session = repo.forThread(threadId);
       if (!session) return { session: null };
       const { id: id2, taskId, workerThreadId, mode, status } = session;
-      return { session: { id: id2, taskId, workerThreadId, mode, status } };
+      const date5 = days.today(), item = days.taskItem(taskId, date5);
+      return { session: { id: id2, taskId, workerThreadId, mode, status }, reportedToday: {
+        date: date5,
+        minutes: item?.reportedMinutes ?? null,
+        estimated: item?.reportedMode === "estimate" && item.reportedMinutes !== null
+      } };
     },
     create: (input2) => repo.create(input2),
     note: (input2) => repo.note(input2),
