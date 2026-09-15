@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, expect, it, vi } from "vitest";
 import * as collector from "./source-collector.js";
-import { fireEvent, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, waitFor, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { CapturedPluginApp, RenderedSlot } from "@get-bb/plugin-sdk/testing/app";
 import { randomUUID } from "node:crypto";
@@ -228,6 +228,110 @@ it("rolls the header over at Athens midnight and does not present stale time aft
   await slot.behavior.emitRealtime("desk-changed", {}); await slot.findByLabelText("Reported today: unavailable");
   expect(slot.queryByText("20m")).toBeNull();
   await slot.behavior.emitRealtime("desk-changed", {}); await slot.findByLabelText("Reported today: 20m");
+});
+
+it("opens today's existing row from the reported button, focuses time and returns to the exact review thread", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-09-14T20:59:59Z"));
+  const f = await fixture(), task = await f.create(), days = new DayPlanning(f.repo);
+  await f.harness.behavior.callRpc("start", { ...f.startInput(task.id, task.revision), criteria: [] });
+  const session = f.repo.sessions(task.id)[0], threadId = "thr_review_origin";
+  f.repo.saveSession({ ...session, reviewerThreadId: threadId });
+  days.add({ date: "2026-09-14", taskId: task.id, reportedMinutes: 90, requestId: randomUUID() });
+  const item = days.add({ date: "2026-09-15", taskId: task.id, plannedMinutes: 45, reportedMinutes: 20, requestId: randomUUID() });
+  const before = f.repo.detail(task.id), history = days.history(item.id);
+  const header = setupThread(f, threadId, true, "reported");
+  const button = await header.findByRole("button", { name: "Reported today: 1h 30m. Open Day Plan" });
+  vi.setSystemTime(new Date("2026-09-14T21:00:01Z"));
+  fireEvent.click(button);
+  const path = `day/2026-09-15/task/${task.id}/thread/${threadId}`;
+  await waitFor(() => expect(JSON.stringify(header.inspection.navigateCalls)).toContain(path));
+  expect(header.inspection.rpcCalls.some(call => call.method === "dayAdd")).toBe(false);
+  expect(days.history(item.id)).toEqual(history);
+  header.lifecycle.unmount();
+  const rpc = Object.fromEntries(Object.keys(rpcContract).map(name => [name, (input: unknown) => f.harness.behavior.callRpc(name, input)]));
+  const day = renderSlot(app.navPanels[0], { subPath: path }, { rpc }); mounts.push(day);
+  const reported = await day.findByLabelText(`Reported: ${task.title}`);
+  await waitFor(() => expect(document.activeElement).toBe(reported));
+  expect((reported as HTMLInputElement).value).toBe("20m");
+  fireEvent.change(reported, { target: { value: "1h" } });
+  fireEvent.click(day.getByRole("button", { name: "Return to thread" }));
+  await waitFor(() => expect(JSON.stringify(day.inspection.navigateCalls)).toContain(threadId));
+  expect(days.get(item.id)).toMatchObject({ reportedMinutes: 60, plannedMinutes: 45 });
+  expect(f.repo.detail(task.id)).toEqual(before);
+  expect(f.harness.inspection.sdk.callsTo("threads.stop")).toHaveLength(0);
+});
+
+it("adds a missing day row only on clicking reported time and prevents repeated clicks from duplicating it", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-09-15T09:00:00Z"));
+  const f = await fixture(), task = await f.create(), days = new DayPlanning(f.repo);
+  await f.harness.behavior.callRpc("start", { ...f.startInput(task.id, task.revision), criteria: [] });
+  const threadId = f.repo.sessions(task.id)[0].workerThreadId!, before = f.repo.detail(task.id);
+  const header = setupThread(f, threadId, false, "reported");
+  const button = await header.findByRole("button", { name: "Reported today: —. Open Day Plan" });
+  expect(days.taskItem(task.id, "2026-09-15")).toBeNull();
+  fireEvent.click(button); fireEvent.click(button);
+  await waitFor(() => expect(header.inspection.navigateCalls).toHaveLength(1));
+  const item = days.taskItem(task.id, "2026-09-15")!;
+  expect(item).toMatchObject({ plannedMinutes: 0, reportedMinutes: null, reportedLocked: false });
+  expect(JSON.stringify(header.inspection.navigateCalls)).toContain(`day/2026-09-15/task/${task.id}/thread/${threadId}`);
+  fireEvent.click(button);
+  await waitFor(() => expect(header.inspection.navigateCalls).toHaveLength(2));
+  expect(header.inspection.rpcCalls.filter(call => call.method === "dayAdd")).toHaveLength(1);
+  expect(days.history(item.id).items).toHaveLength(1);
+  expect(f.repo.detail(task.id)).toEqual(before);
+});
+
+it("opens a concurrently added row or a saved row with a lost response without overwriting time", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-09-15T09:00:00Z"));
+  const f = await fixture(), days = new DayPlanning(f.repo);
+  const call = f.harness.behavior.callRpc.bind(f.harness.behavior);
+  for (const lostResponse of [false, true]) {
+    const task = await f.create();
+    await call("start", { ...f.startInput(task.id, task.revision), criteria: [] });
+    const threadId = f.repo.sessions(task.id)[0].workerThreadId!;
+    const header = setupThread(f, threadId, false, "reported");
+    const button = await header.findByRole("button", { name: "Reported today: —. Open Day Plan" });
+    const spy = vi.spyOn(f.harness.behavior, "callRpc").mockImplementation(async (method, input) => {
+      if (method === "dayAdd") {
+        if (lostResponse) { await call(method, input); throw new Error("Response lost"); }
+        days.add({ date: "2026-09-15", taskId: task.id, plannedMinutes: 25, reportedMinutes: 35, requestId: randomUUID() });
+      }
+      return call(method, input);
+    });
+    fireEvent.click(button);
+    await waitFor(() => expect(header.inspection.navigateCalls).toHaveLength(1));
+    const item = days.taskItem(task.id, "2026-09-15")!;
+    expect(item).toMatchObject(lostResponse ? { plannedMinutes: 0, reportedMinutes: null } : { plannedMinutes: 25, reportedMinutes: 35 });
+    expect(days.history(item.id).items).toHaveLength(1);
+    spy.mockRestore(); header.lifecycle.unmount();
+  }
+});
+
+it("allows retry after a failed day addition and ignores a late response after leaving the thread", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-09-15T09:00:00Z"));
+  const f = await fixture(), task = await f.create(), days = new DayPlanning(f.repo);
+  await f.harness.behavior.callRpc("start", { ...f.startInput(task.id, task.revision), criteria: [] });
+  const threadId = f.repo.sessions(task.id)[0].workerThreadId!;
+  const header = setupThread(f, threadId, false, "reported");
+  const button = await header.findByRole("button", { name: "Reported today: —. Open Day Plan" }) as HTMLButtonElement;
+  const call = f.harness.behavior.callRpc.bind(f.harness.behavior);
+  const spy = vi.spyOn(f.harness.behavior, "callRpc").mockImplementation((method, input) => {
+    if (method === "dayAdd") return Promise.reject(new Error("Temporarily offline"));
+    return call(method, input);
+  });
+  fireEvent.click(button);
+  await waitFor(() => expect(button.disabled).toBe(false));
+  expect(header.inspection.navigateCalls).toHaveLength(0); expect(days.taskItem(task.id, "2026-09-15")).toBeNull();
+  spy.mockRestore(); fireEvent.click(button);
+  await waitFor(() => expect(header.inspection.navigateCalls).toHaveLength(1));
+  const requests = header.inspection.rpcCalls.filter(call => call.method === "dayAdd");
+  expect(requests).toHaveLength(2); expect(requests[0].input).toEqual(requests[1].input);
+  let release!: () => void;
+  const pending = new Promise<void>(resolve => { release = resolve; });
+  vi.spyOn(f.harness.behavior, "callRpc").mockImplementation(async (method, input) => { if (method === "day") await pending; return call(method, input); });
+  fireEvent.click(button); header.lifecycle.unmount();
+  await act(async () => { release(); await pending; });
+  expect(header.inspection.navigateCalls).toHaveLength(1);
 });
 
 it("opens each thread's own task without finishing either conversation, including on compact screens", async () => {

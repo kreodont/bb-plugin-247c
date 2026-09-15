@@ -18,4 +18,6 @@ Reviews can propose title, status, urgency and importance alongside other dossie
 
 **Work source updates** check Gmail, Slack and Jira from a saved or selected date. Since 0.2.16, a script exports data in parallel through configured connectors without running a model. The model selected in BB's native composer then analyzes the prepared export; its account does not need source access. Quotes are checked against saved script responses in the plugin database; legacy runs retain validation through `threads.events.list`. Partial exports do not advance source checkpoints. Task updates and new tasks await the user's decision. [Instructions](https://github.com/kreodont/bb-plugin-247c/blob/main/skills/source-sync.md).
 
+**Reported today** in a linked thread opens today's Day Plan at the task, ready to enter time. Missing rows are added without inventing reported hours. **Return to thread** saves edits and returns to the same conversation.
+
 Each computer has a separate database. Accounts and sources are configured locally. The backup utility captures a consistent SQLite snapshot, code, settings and related chat text. Recovery verifies checksums and writes a new directory. Requires Python 3.11 or newer.

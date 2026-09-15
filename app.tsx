@@ -3,7 +3,7 @@ import { usePartSelection, PartReviewNote, partOutcome } from "./review-parts-ui
 import { TaskViewMarker } from "./task-view-marker.js";
 import { TaskSources } from "./task-sources-ui.js";
 import { NavigationFrame } from "./navigation.js";
-import { deskRoute, withThread } from "./desk-routes.js";
+import { deskRoute, taskDayPath, withThread } from "./desk-routes.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ComponentProps, FormEvent, ReactNode } from "react";
 import { definePluginApp, useRpc, useRealtime, useRealtimeConnectionState, useBbNavigate, ThreadChat, Markdown, experimental_NewThreadComposer as NewThreadComposer, experimental_FileLink as FileLink } from "@get-bb/plugin-sdk/app";
@@ -130,18 +130,51 @@ function ThreadTaskAction(props: PluginThreadHeaderActionProps) {
 
 function ThreadReportedTime({ threadId, isCompactViewport }: PluginThreadHeaderActionProps) {
   const rpc = useRpc<typeof rpcContract>();
+  const navigate = useBbNavigate();
   const load = useCallback(() => rpc.call("threadSession", { threadId }), [rpc, threadId]);
   const { data, error } = useSnapshot(load);
+  const [busy, setBusy] = useState(false);
+  const opening = useRef(false), mounted = useRef(true);
+  const request = useRef<{ date: string; id: string } | null>(null);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  async function openDay() {
+    const taskId = data?.session?.taskId;
+    if (!taskId || opening.current) return;
+    opening.current = true; setBusy(true);
+    try {
+      // Resolve today at click time, even when the header was loaded before midnight.
+      const day = await rpc.call("day", {});
+      if (!mounted.current) return;
+      if (!day.items.some(item => item.taskId === taskId)) {
+        if (request.current?.date !== day.date) request.current = { date: day.date, id: crypto.randomUUID() };
+        try { await rpc.call("dayAdd", { date: day.date, taskId, plannedMinutes: 0, requestId: request.current.id }); }
+        catch (cause) {
+          // Another window may have added the row, or the successful response was lost.
+          const current = await rpc.call("day", { date: day.date });
+          if (!current.items.some(item => item.taskId === taskId)) throw cause;
+        }
+      }
+      if (mounted.current) navigate.toPluginPanel("desk", { subPath: taskDayPath(day.date, taskId, threadId) });
+    } catch (cause) {
+      if (mounted.current) toast.error("Could not open Day Plan", { description: cause instanceof Error ? cause.message : String(cause) });
+    } finally {
+      opening.current = false;
+      if (mounted.current) setBusy(false);
+    }
+  }
   if (!data?.session || !data.reportedToday) return null;
   const { date, minutes, estimated } = data.reportedToday;
   const value = error ? "unavailable" : formatMinutes(minutes);
   const label = `Reported today: ${value}${!error && estimated ? " (estimate)" : ""}`;
   const title = error ? `Could not refresh reported time: ${error}` : `${label} · ${date} · ${DAY_TIME_ZONE}${minutes === null ? " · No reported time entered" : ""}`;
-  return <span title={title} className="inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap px-1 text-xs text-muted-foreground">
+  return <span title={`${title} · Open today's task in Day Plan`} className="inline-flex"><Button type="button" size="sm" variant="outline"
+    className="h-7 shrink-0 gap-1.5 px-2 text-xs text-muted-foreground" disabled={busy} aria-busy={busy}
+    aria-label={`${label}. Open Day Plan`} aria-description="Open today's task row and edit Reported time; add the task if missing"
+    onClick={() => void openDay()}>
     {isCompactViewport ? <Icon name="Clock" aria-hidden="true" /> : <span>Reported today:</span>}
     <output aria-label={label} className="font-medium tabular-nums text-foreground">{value}</output>
     {!error && estimated && <span>estimate</span>}
-  </span>;
+  </Button></span>;
 }
 
 function ThreadReportedAction(props: PluginThreadHeaderActionProps) {
