@@ -56,6 +56,68 @@ it("saves manual reported time above measured actual without a cap warning, incl
   expect(reopened.queryByText(/Saved manual time exceeds|Reported time cannot exceed/)).toBeNull();
 });
 
+it("opens the task's selected day, focuses reported time and saves before returning to the originating thread", async () => {
+  const { f, task, days, item, mount } = await setup();
+  const original = f.repo.detail(task.id), threadId = "thr_original";
+  days.edit({ id: item.id, revision: item.revision, plannedMinutes: 45, reportedMinutes: 20, requestId: randomUUID() });
+  const dossier = mount(`${task.id}/thread/${threadId}`);
+  const dateInput = await dossier.findByLabelText("Schedule task for a date");
+  fireEvent.change(dateInput, { target: { value: item.date } });
+  fireEvent.click(dossier.getByRole("button", { name: "Log time" }));
+  const path = `day/${item.date}/task/${task.id}/thread/${threadId}`;
+  await waitFor(() => expect(JSON.stringify(dossier.inspection.navigateCalls)).toContain(path));
+  expect(dossier.inspection.rpcCalls.some(call => call.method === "dayAdd")).toBe(false);
+  dossier.lifecycle.unmount();
+  const day = mount(path), reported = await day.findByLabelText(`Reported: ${task.title}`);
+  await waitFor(() => expect(document.activeElement).toBe(reported));
+  expect((reported as HTMLInputElement).value).toBe("20m");
+  fireEvent.change(reported, { target: { value: "1h" } });
+  fireEvent.click(day.getByRole("button", { name: "Return to thread" }));
+  await waitFor(() => expect(JSON.stringify(day.inspection.navigateCalls)).toContain(threadId));
+  expect(days.get(item.id)).toMatchObject({ reportedMinutes: 60, plannedMinutes: 45 });
+  expect(day.inspection.rpcCalls.some(call => call.method === "dayEdit")).toBe(true);
+  expect(f.repo.detail(task.id)).toEqual(original);
+});
+
+it("adds an unplanned task only on Log time and preserves the origin when browsing dates and the dossier", async () => {
+  const { task, days, mount } = await setup(), date = "2026-09-11", threadId = "thr_time";
+  const dossier = mount(`${task.id}/thread/${threadId}`);
+  fireEvent.change(await dossier.findByLabelText("Schedule task for a date"), { target: { value: date } });
+  expect(days.taskItem(task.id, date)).toBeNull();
+  fireEvent.click(dossier.getByRole("button", { name: "Log time" }));
+  const path = `day/${date}/task/${task.id}/thread/${threadId}`;
+  await waitFor(() => expect(JSON.stringify(dossier.inspection.navigateCalls)).toContain(path));
+  expect(days.taskItem(task.id, date)).toMatchObject({ plannedMinutes: 0, reportedMinutes: null });
+  dossier.lifecycle.unmount();
+  const day = mount(path); await day.findByLabelText(`Reported: ${task.title}`);
+  fireEvent.click(day.getByRole("button", { name: "Next day" }));
+  await waitFor(() => expect(JSON.stringify(day.inspection.navigateCalls)).toContain(`day/2026-09-12/task/${task.id}/thread/${threadId}`));
+  expect(days.taskItem(task.id, "2026-09-12")).toBeNull();
+  fireEvent.click(day.getByRole("button", { name: task.title }));
+  const taskPath = `${task.id}/from/day/${date}/task/${task.id}/thread/${threadId}`;
+  await waitFor(() => expect(JSON.stringify(day.inspection.navigateCalls)).toContain(taskPath));
+  day.lifecycle.unmount();
+  const returned = mount(taskPath);
+  expect((await returned.findByLabelText("Schedule task for a date") as HTMLInputElement).value).toBe(date);
+  fireEvent.click(returned.getByRole("button", { name: "Back to day plan" }));
+  expect(JSON.stringify(returned.inspection.navigateCalls)).toContain(path);
+  fireEvent.click(returned.getByRole("button", { name: "Return to thread" }));
+  await waitFor(() => expect(JSON.stringify(returned.inspection.navigateCalls)).toContain(threadId));
+});
+
+it("keeps an unsaved conflicting edit visible instead of returning to the thread", async () => {
+  const { task, days, item, mount } = await setup();
+  const slot = mount(`day/${item.date}/task/${task.id}/thread/thr_original`);
+  fireEvent.change(await slot.findByLabelText(`Reported: ${task.title}`), { target: { value: "1h" } });
+  days.edit({ id: item.id, revision: item.revision, reportedMinutes: 10, requestId: randomUUID() });
+  await slot.behavior.emitRealtime("desk-changed", {});
+  fireEvent.click(slot.getByRole("button", { name: "Return to thread" }));
+  await slot.findByRole("alert");
+  expect(slot.inspection.navigateCalls).toHaveLength(0);
+  expect((slot.getByLabelText(`Reported: ${task.title}`) as HTMLInputElement).value).toBe("1h");
+  expect(days.get(item.id).reportedMinutes).toBe(10);
+});
+
 it("requests a new AI estimate without manufacturing a value or offering to confirm a blank", async () => {
   const { task, days, item, mount } = await setup();
   days.reconcileActual([{ taskId: task.id, date: item.date, minutes: 10 }]);

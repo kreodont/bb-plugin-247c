@@ -18,6 +18,14 @@ function Guard({ check }: { check: () => boolean | Promise<boolean> }) {
   useNavigationGuard(check); return <p>Current page</p>;
 }
 
+it("returns directly to the originating thread after all saves even without browser history", async () => {
+  nativeNavigation(false, false);
+  const order: string[] = [];
+  const view = render(<NavigationFrame subPath="day/example/thread/thr_original" returnToThread={() => { order.push("thread"); }}><Guard check={async () => { order.push("save"); return true; }} /></NavigationFrame>);
+  fireEvent.click(view.getByRole("button", { name: "Return to thread" }));
+  await waitFor(() => expect(order).toEqual(["save", "thread"]));
+});
+
 it("uses native back and forward and updates button availability at history boundaries", () => {
   const navigation = nativeNavigation(false, false);
   const back = vi.spyOn(window.history, "back").mockImplementation(() => {});

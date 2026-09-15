@@ -185,6 +185,7 @@ it("opens each thread's own task without finishing either conversation, includin
     expect(button.closest("[title]")?.getAttribute("title")).toBe("Open task");
     fireEvent.click(button);
     expect(JSON.stringify(slot.inspection.navigateCalls)).toContain([firstTask, secondTask][index].id);
+    expect(JSON.stringify(slot.inspection.navigateCalls)).toContain(`${[firstTask, secondTask][index].id}/thread/${[first, second][index].workerThreadId}`);
     expect(JSON.stringify(slot.inspection.navigateCalls)).not.toContain([secondTask, firstTask][index].id);
     expect(slot.inspection.rpcCalls.every(call => call.method === "threadSession")).toBe(true);
   }

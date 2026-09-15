@@ -37,7 +37,7 @@ function subscribeHistory(update: () => void) {
   };
 }
 
-export function NavigationFrame({ subPath, children }: { subPath: string; children: ReactNode }) {
+export function NavigationFrame({ subPath, children, returnToThread }: { subPath: string; children: ReactNode; returnToThread?: () => void }) {
   const guards = useRef(new Set<Guard>()), flight = useRef(false), mounted = useRef(true), route = useRef({ subPath });
   if (route.current.subPath !== subPath) route.current = { subPath };
   const [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
@@ -47,14 +47,17 @@ export function NavigationFrame({ subPath, children }: { subPath: string; childr
     return () => { guards.current.delete(guard); };
   }, []);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
-  async function move(direction: "back" | "forward") {
-    if (flight.current || !(availability() & (direction === "back" ? 1 : 2))) return;
+  async function move(direction: "back" | "forward" | "thread") {
+    if (flight.current || (direction === "thread" ? !returnToThread : !(availability() & (direction === "back" ? 1 : 2)))) return;
     flight.current = true; setBusy(true); setError(null);
     const from = route.current;
     try {
       for (const guard of [...guards.current]) if (!await guard()) return;
       // Saving can finish after another navigation or after this pane closes.
-      if (mounted.current && route.current === from) window.history[direction]();
+      if (mounted.current && route.current === from) {
+        if (direction === "thread") returnToThread?.();
+        else window.history[direction]();
+      }
     } catch (cause) {
       if (mounted.current) setError(cause instanceof Error ? cause.message : "Could not navigate. Try again.");
     } finally {
@@ -66,6 +69,7 @@ export function NavigationFrame({ subPath, children }: { subPath: string; childr
     <nav aria-label="247C navigation" className="flex shrink-0 flex-wrap items-center gap-1 border-b border-border bg-background px-3 py-2">
       <span title="Go back"><Button type="button" variant="ghost" size="sm" aria-label="Back" disabled={busy || !(available & 1)} onClick={() => void move("back")}><Icon name="ChevronLeft" aria-hidden="true" />Back</Button></span>
       <span title="Go forward"><Button type="button" variant="ghost" size="sm" aria-label="Forward" disabled={busy || !(available & 2)} onClick={() => void move("forward")}><span>Forward</span><Icon name="ChevronRight" aria-hidden="true" /></Button></span>
+      {returnToThread && <Button type="button" variant="outline" size="sm" className="ml-auto" disabled={busy} onClick={() => void move("thread")}><Icon name="MessageSquare" aria-hidden="true" />Return to thread</Button>}
       {busy && <span role="status" className="ml-2 text-xs text-muted-foreground">Saving before navigation…</span>}
       {error && <p role="alert" className="w-full px-2 text-sm text-destructive">{error}</p>}
     </nav>

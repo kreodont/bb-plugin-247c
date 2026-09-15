@@ -1,5 +1,9 @@
 # 247C day planning and time journal
 
+## Quick time entry from a conversation
+
+Use **Open task → Log time → Return to thread**. The selected date defaults to today, or the date of the day plan that opened the task. **Log time** opens the task's day entry, highlights it and selects the Reported field. It creates a missing day entry with planned = 0 and reported unspecified, preserving an existing entry and its times. **Return to thread** saves pending time and day settings before opening the exact originating conversation; failed saves keep the day open with the draft intact. The origin and selected task are carried in the panel link, not in shared global navigation state. The UI never records manual minutes merely from opening these links.
+
 Planned, actual and reported time are stored in 247C SQLite separately from the accepted task dossier. Time edits do not accept proposals, complete tasks or change priority.
 
 ## Tools

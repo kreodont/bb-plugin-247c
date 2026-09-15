@@ -3,6 +3,7 @@ import { usePartSelection, PartReviewNote, partOutcome } from "./review-parts-ui
 import { TaskViewMarker } from "./task-view-marker.js";
 import { TaskSources } from "./task-sources-ui.js";
 import { NavigationFrame } from "./navigation.js";
+import { deskRoute, withThread } from "./desk-routes.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ComponentProps, FormEvent, ReactNode } from "react";
 import { definePluginApp, useRpc, useRealtime, useRealtimeConnectionState, useBbNavigate, ThreadChat, Markdown, experimental_NewThreadComposer as NewThreadComposer, experimental_FileLink as FileLink } from "@get-bb/plugin-sdk/app";
@@ -114,7 +115,7 @@ function ThreadSessionControl({ threadId, isCompactViewport, action }: PluginThr
   return <span title={label} className="inline-flex"><Button type="button" size="sm" variant="outline"
     className={cn("h-7 shrink-0", isCompactViewport ? "w-7 px-0" : "px-2")}
     aria-label={label} aria-description={action === "task" ? "Open the linked 247C task dossier" : "Stop the current response and review the conversation"}
-    disabled={action === "finish" && busy} onClick={() => { if (action === "task") navigate.toPluginPanel("desk", { subPath: session.taskId }); else if (error) void refresh(); else void finish(); }}>
+    disabled={action === "finish" && busy} onClick={() => { if (action === "task") navigate.toPluginPanel("desk", { subPath: withThread(session.taskId, threadId) }); else if (error) void refresh(); else void finish(); }}>
     <Icon name={action === "task" ? "Target" : "Check"} aria-hidden="true" />{!isCompactViewport && label}
   </Button></span>;
 }
@@ -419,7 +420,7 @@ function Work({ dossier, refresh, showProposals, discussionId }: { dossier: Doss
   </div>;
 }
 
-function TaskPage({ taskId, returnTo }: { taskId: string; returnTo?: string }) {
+function TaskPage({ taskId, returnTo, threadId }: { taskId: string; returnTo?: string; threadId?: string }) {
   const rpc = useRpc<typeof rpcContract>();
   const navigate = useBbNavigate();
   const backLabel = returnTo?.startsWith("report/") ? "Back to report" : returnTo?.startsWith("day/") ? "Back to day plan" : "All tasks";
@@ -437,16 +438,16 @@ function TaskPage({ taskId, returnTo }: { taskId: string; returnTo?: string }) {
     catch (cause) { setMutationError(cause instanceof Error ? cause.message : String(cause)); await refresh(); return false; }
     finally { setBusy(false); }
   }
-  if (!dossier || dossier.task.id !== taskId) return <div className="space-y-4 p-6"><Button variant="ghost" onClick={() => navigate.toPluginPanel("desk", { subPath: returnTo ?? "" })}><Icon name="ChevronLeft" /> {backLabel}</Button>{error ? <ErrorNotice error={error} retry={() => void refresh()} /> : <p role="status" className="text-sm text-muted-foreground">Opening the dossier…</p>}</div>;
+  if (!dossier || dossier.task.id !== taskId) return <div className="space-y-4 p-6"><Button variant="ghost" onClick={() => navigate.toPluginPanel("desk", { subPath: withThread(returnTo ?? "", threadId) })}><Icon name="ChevronLeft" /> {backLabel}</Button>{error ? <ErrorNotice error={error} retry={() => void refresh()} /> : <p role="status" className="text-sm text-muted-foreground">Opening the dossier…</p>}</div>;
   const pending = dossier.proposals.filter((p) => p.status === "pending" || p.status === "approved");
   const syncPending = dossier.syncUpdates.filter((p) => p.status === "pending");
   const pendingCount = pending.length + syncPending.length;
   const active = dossier.sessions.some((s) => ACTIVE.has(s.status));
   return <div className="relative h-full min-h-0 overflow-y-auto"><TaskViewMarker id={dossier.task.id} revision={dossier.task.revision} /><div className="mx-auto max-w-6xl space-y-5 p-5 md:p-8">
-    <Button variant="ghost" size="sm" className="-ml-3" onClick={() => navigate.toPluginPanel("desk", { subPath: returnTo ?? "" })}><Icon name="ChevronLeft" /> {backLabel}</Button>
+    <Button variant="ghost" size="sm" className="-ml-3" onClick={() => navigate.toPluginPanel("desk", { subPath: withThread(returnTo ?? "", threadId) })}><Icon name="ChevronLeft" /> {backLabel}</Button>
     <div className="flex flex-wrap items-start justify-between gap-4"><div className="min-w-0 flex-1"><div className="mb-2 flex items-center gap-2"><Pill>{dossier.task.status === "open" ? "Open" : dossier.task.status === "done" ? "Done" : "Archived"}</Pill><span className="text-xs text-muted-foreground">Revision {dossier.task.revision}</span></div><h1 className="break-words text-2xl font-medium leading-snug tracking-tight">{dossier.task.title}</h1></div><div className="flex gap-2">{dossier.task.status === "open" ? <><Button variant="outline" size="sm" disabled={busy || active} onClick={() => void action(() => rpc.call("status", { taskId, status: "done", revision: dossier.task.revision }))}><Icon name="Check" /> Complete</Button><Button variant="ghost" size="icon" aria-label="Archive task" disabled={busy || active} onClick={() => void action(() => rpc.call("status", { taskId, status: "archived", revision: dossier.task.revision }))}><Icon name="Archive" /></Button></> : <Button variant="outline" size="sm" disabled={busy} onClick={() => void action(() => rpc.call("status", { taskId, status: "open", revision: dossier.task.revision }))}>Reopen task</Button>}</div></div>
     <TaskSources key={taskId} links={dossier.sourceLinks} />
-    <TaskTimeSummary taskId={taskId} />
+    <TaskTimeSummary taskId={taskId} threadId={threadId} initialDate={returnTo?.match(/\d{4}-\d{2}-\d{2}/)?.[0]} />
     <div role="tablist" aria-label="Task sections" className="flex gap-1 overflow-x-auto border-b border-border">{([{ id: "overview", name: "Dossier" }, { id: "work", name: "Work" }, { id: "proposals", name: `Proposals${pendingCount ? ` · ${pendingCount}` : ""}` }, { id: "history", name: "History" }] as const).map((item) => <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} onClick={() => { setDiscussionId(null); setTab(item.id); }} className={cn("whitespace-nowrap border-b-2 px-4 py-3 text-sm transition-colors", tab === item.id ? "border-foreground font-medium" : "border-transparent text-muted-foreground hover:text-foreground")}>{item.name}</button>)}</div>
     <ErrorNotice error={mutationError ?? error} retry={() => void refresh()} />
     {pendingCount > 0 && tab === "overview" && <button type="button" className="flex w-full items-center justify-between gap-4 rounded-xl border border-primary/20 bg-primary/5 p-4 text-left" onClick={() => setTab("proposals")}><div><p className="text-sm font-medium">Changes awaiting review</p><p className="mt-1 text-xs text-muted-foreground">Check what will be saved to the permanent dossier.</p></div><Icon name="ChevronRight" className="size-4 shrink-0" /></button>}
@@ -576,11 +577,12 @@ function ProposalInboxPage() {
 }
 
 function Page({ subPath }: PluginNavPanelProps) {
-  return <NavigationFrame subPath={subPath}><PageContent subPath={subPath} /></NavigationFrame>;
+  const navigate = useBbNavigate(), { threadId } = deskRoute(subPath);
+  return <NavigationFrame subPath={subPath} returnToThread={threadId ? () => navigate.toThread(threadId) : undefined}><PageContent subPath={subPath} /></NavigationFrame>;
 }
 
 function PageContent({ subPath }: PluginNavPanelProps) {
-  const path = subPath.replace(/^\/+|\/+$/g, "");
+  const { path, threadId, focusTaskId } = deskRoute(subPath);
   if (path === "proposals") return <ProposalInboxPage />;
   if (path === "updates") return <SyncPage />;
   if (path === "knowledge") return <KnowledgePage />;
@@ -589,10 +591,10 @@ function PageContent({ subPath }: PluginNavPanelProps) {
     const report = parts[0] === "report", period = parts[1] === "day" ? "day" : "week";
     const date = (report ? parts[2] : parts[1]) || localDay();
     if (!dayDateSchema.safeParse(date).success) return <div className="p-6"><ErrorNotice error="The link contains an invalid date." /></div>;
-    return <DayPage key={`${report}:${period}:${date}`} date={date} report={report} period={period} />;
+    return <DayPage key={`${report}:${period}:${date}:${focusTaskId ?? ""}`} date={date} report={report} period={period} threadId={threadId} focusTaskId={focusTaskId} />;
   }
-  const returnTo = path.match(/^[^/]+\/from\/((?:day|report\/(?:day|week))\/\d{4}-\d{2}-\d{2})$/)?.[1];
-  return path ? <TaskPage key={parts[0]} taskId={parts[0]} returnTo={returnTo} /> : <Desk />;
+  const returnTo = path.match(/^[^/]+\/from\/((?:day|report\/(?:day|week))\/\d{4}-\d{2}-\d{2}(?:\/task\/[A-Za-z0-9_-]{1,120})?)$/)?.[1];
+  return path ? <TaskPage key={parts[0]} taskId={parts[0]} returnTo={returnTo} threadId={threadId} /> : <Desk />;
 }
 function SidebarCount() {
   const rpc = useRpc<typeof rpcContract>();
