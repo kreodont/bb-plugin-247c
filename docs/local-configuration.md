@@ -53,6 +53,16 @@ Installations already using `localSettingsPatch` keep their explicit external fi
 
 The `composerDefaults` JSON setting provides a shared account/model choice for all native composers and takes precedence over the separate work/check defaults. External calendar readers, collector folders and existing day-planner IDs are also local settings; keep their scripts and automation definitions outside the managed checkout.
 
+`threadInstructions` adds up to 1500 characters of installation-specific guidance
+to all 247C work, review and source-check sessions, including older threads in
+other projects. It also covers ordinary threads and forks in the configured
+Thread project. Empty text adds nothing. The instructions supplement each role's
+existing tool and output rules. Keep required machine formats and literal source
+quotations intact when writing prose-style guidance. New provider sessions read
+the current value; a running session retains its existing instructions until BB
+constructs it again. The setting is saved in the active local patch like other
+preferences, and the published default is empty.
+
 ## Settings owned by BB and providers
 
 The referenced project's folder and environment, morning-planner automation, provider logins and read-permission allowlists remain in their native **local** BB/provider configuration. Plugin updates do not replace them. Browser preferences also remain local. Do not turn these into source-code edits or copy one computer's IDs to another. The setup agent must inspect the target installation and configure them there; see [the setup guide](setup-agent.md).
