@@ -649,15 +649,27 @@ function PageContent({ subPath }: PluginNavPanelProps) {
   const returnTo = path.match(/^[^/]+\/from\/((?:day|report\/(?:day|week))\/\d{4}-\d{2}-\d{2}(?:\/task\/[A-Za-z0-9_-]{1,120})?)$/)?.[1];
   return path ? <TaskPage key={parts[0]} taskId={parts[0]} returnTo={returnTo} threadId={threadId} /> : <Desk />;
 }
+function SidebarReported({ separator }: { separator: boolean }) {
+  const rpc = useRpc<typeof rpcContract>();
+  const load = useCallback(() => rpc.call("day", {}), [rpc]);
+  const { data, error } = useSnapshot(load);
+  if (!data && !error) return null;
+  const minutes = Math.round(data?.totals.reportedMinutes ?? 0);
+  const value = error ? "—" : `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}`;
+  const label = error ? "Reported today: unavailable" : `Reported today: ${value}`;
+  const title = error ? `${label} · ${error}` : `${label} · ${data!.date} · ${data!.timeZone}${data!.totals.estimatedReported ? " · Includes estimates" : ""}`;
+  return <>{separator && <span aria-hidden="true" className="text-muted-foreground">·</span>}<span className="font-mono text-xs tabular-nums text-muted-foreground" title={title} aria-label={label}>{value}</span></>;
+}
+
 function SidebarCount() {
   const rpc = useRpc<typeof rpcContract>();
   const load = useCallback(() => rpc.call("list", { history: false }), [rpc]);
   const { data } = useSnapshot(load);
-  if (!data || !data.total && !data.pendingTotal) return null;
-  const pendingLabel = `Proposals awaiting a decision: ${data.pendingTotal}`;
+  const pendingLabel = `Proposals awaiting a decision: ${data?.pendingTotal ?? 0}`;
   return <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-    {data.total > 0 && <span className="font-mono text-xs tabular-nums text-muted-foreground" title={`Open tasks: ${data.total}`}>{data.total}</span>}
-    {data.pendingTotal > 0 && <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500/20 px-1 text-[10px] font-semibold leading-none tabular-nums text-orange-700 dark:text-orange-300" title={pendingLabel} aria-label={pendingLabel}>{data.pendingTotal > 99 ? "99+" : data.pendingTotal}</span>}
+    {data && data.total > 0 && <span className="font-mono text-xs tabular-nums text-muted-foreground" title={`Open tasks: ${data.total}`}>{data.total}</span>}
+    <SidebarReported separator={Boolean(data?.total)} />
+    {data && data.pendingTotal > 0 && <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500/20 px-1 text-[10px] font-semibold leading-none tabular-nums text-orange-700 dark:text-orange-300" title={pendingLabel} aria-label={pendingLabel}>{data.pendingTotal > 99 ? "99+" : data.pendingTotal}</span>}
   </span>;
 }
 export default definePluginApp((app) => {
