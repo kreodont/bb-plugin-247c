@@ -8,12 +8,52 @@ export function sourceUrl(value: string | null): URL | null {
   } catch { return null; }
 }
 
+function clickUpTaskId(url: URL): string | null {
+  const host = url.hostname.toLowerCase();
+  if (host !== "clickup.com" && !host.endsWith(".clickup.com")) return null;
+  return url.pathname.match(/^\/t\/(?:[0-9]+\/)?([A-Za-z0-9_-]+)\/?$/)?.[1] ?? null;
+}
+
+// Compatibility for explicit source fields retained by the Legacy migration.
+// Other record prose remains outside the source-link projection.
+function legacyClickUpUrls(title: string, text: string): string[] {
+  if (!text.startsWith("Источник: Legacy (Windows). Импорт по запросу пользователя.\n")
+    || !/^Исходный ID: [0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/im.test(text)) return [];
+  const extract = (value: string): URL[] => [...value.matchAll(/https?:\/\/[^\s<>"'()[\]{}\\`]+/g)]
+    .map(match => sourceUrl(match[0].replace(/[.,;:!?»]+$/, "")))
+    .filter((url): url is URL => !!url && !!clickUpTaskId(url));
+  const urls: URL[] = [];
+  const primary = text.match(/(?:^|\n)[^\n]*\(clickup_url\)\r?\n([^\r\n]+)/)?.[1];
+  if (primary) urls.push(...extract(primary));
+  const links = text.match(/(?:^|\n)[^\n]*\(links\)\r?\n(\[[\s\S]*?\n\])/);
+  if (links) {
+    try {
+      const values: unknown = JSON.parse(links[1]);
+      if (Array.isArray(values)) for (const value of values) {
+        if (typeof value === "string") urls.push(...extract(value));
+      }
+    } catch { /* Malformed imported fields do not become sources. */ }
+  }
+  // Some older tasks kept the original ticket URL only in their notes.
+  // Match the ticket named in the task title, not unrelated tickets in prose.
+  const titleWords = new Set(title.toLowerCase().split(/[^a-z0-9_-]+/));
+  for (const url of extract(text)) {
+    if (titleWords.has(clickUpTaskId(url)!.toLowerCase())) urls.push(url);
+  }
+  return urls.map(url => url.href);
+}
+
 function sourceLabel(url: URL, hint?: SyncSource): string {
   const host = url.hostname.toLowerCase();
   if (host === "mail.google.com") return "Gmail message";
   if (host === "slack.com" || host.endsWith(".slack.com")) return "Slack message";
+  const clickUp = clickUpTaskId(url);
+  if (clickUp) return `ClickUp · ${clickUp}`;
   const issue = url.pathname.match(/\/browse\/([A-Z][A-Z0-9_]*-\d+)(?:\/|$)/i)?.[1];
   if (issue) return `Jira · ${issue.toUpperCase()}`;
+  if (host === "teams.microsoft.com") return "Teams message";
+  if (["outlook.office.com", "outlook.office365.com", "outlook.live.com"].includes(host)) return "Outlook message";
+  if (hint === "clickup") return "ClickUp document";
   if (hint === "jira") return "Jira issue";
   return host;
 }
@@ -50,7 +90,12 @@ export function taskSourceLinks(
     });
   }
   // Older and manually imported records may have a sourceRef without a sync candidate.
-  for (const fact of dossier.facts) add(fact.sourceRef, fact.occurredAt, fact.createdAt);
+  for (const fact of dossier.facts) {
+    add(fact.sourceRef, fact.occurredAt, fact.createdAt);
+    if (fact.kind === "description") for (const url of legacyClickUpUrls(dossier.task.title, fact.text)) {
+      add(url, fact.occurredAt, fact.createdAt, true);
+    }
+  }
   for (const proposal of dossier.proposals) {
     if (proposal.status !== "applied" || !proposal.receipt) continue;
     const refs = new Set(Object.values(proposal.changes).flatMap(change => change?.evidenceRefs ?? []));

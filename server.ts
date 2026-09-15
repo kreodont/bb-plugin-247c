@@ -1,7 +1,10 @@
-import { defineSettings } from "./settings.js";
+import { importSourceBundle } from "./source-import.js";
+import { applyLocalSettingsPatch, composerDefaultsSchema } from "./local-settings.js";
+import { defineSettings, settingDescriptors } from "./settings.js";
 import { applyLocalPatch, patchPath, readPatch, PATCH_FORMAT } from "./local-patch.js";
 import { parseSourceConfig } from "./source-config.js";
 import { readCalendar } from "./calendar-reader.js";
+import { calendarCommandSchema, readScriptCalendar } from "./calendar-script.js";
 import { connectCalendar } from "./source-connectors.js";
 import { randomUUID } from "node:crypto";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
@@ -16,6 +19,7 @@ import { managementGuide } from "./prompts.js";
 import { SourceSyncRuntime } from "./source-sync.js";
 import { ProposalInbox } from "./proposal-inbox.js";
 import { DayPlanning } from "./day-planning.js";
+import { DayPlanner } from "./day-planner.js";
 import { CalendarRuntime } from "./calendar-runtime.js";
 import { dayEstimateSchema, dayRpcContract } from "./day-contracts.js";
 import { AgentTimeRuntime, DAY_REVIEW_INSTRUCTIONS } from "./agent-time.js";
@@ -52,9 +56,12 @@ export default async function plugin(bb: BbPluginApi) {
   const threadRouting = new ThreadRouting(bb, async () => (await settings.get()).threadProjectId);
   const runtime = new SessionRuntime(bb, repo, getSettings, threadRouting);
   const days = new DayPlanning(repo, () => new Date(), () => configuration.timeZone);
+  const dayPlanner = new DayPlanner(bb, () => settings.get(), () => days.today());
   const agentTime = new AgentTimeRuntime(bb, days);
   const sourceConfiguration = async () => parseSourceConfig((await settings.get()).sources);
   const calendar = new CalendarRuntime(days, async () => (await settings.get()).calendarMeetings, async input => {
+    const command = calendarCommandSchema.parse(JSON.parse((await settings.get()).calendarReaderCommand));
+    if (command.length) return readScriptCalendar(command, input);
     const config = await sourceConfiguration();
     return readCalendar({ ...input, calendarId: config.calendarId }, signal => connectCalendar(signal, config));
   });
@@ -64,9 +71,11 @@ export default async function plugin(bb: BbPluginApi) {
   days.tick();
 
   bb.rpc.register(rpcContract, {
-    threadProject: async () => ({ projectId: configuration.threadProjectId || null, timeZone: configuration.timeZone,
+    threadProject: async () => ({ ...composerDefaultsSchema.parse(JSON.parse(configuration.composerDefaults)), projectId: configuration.threadProjectId || null, timeZone: configuration.timeZone,
       workProvider: configuration.workProvider, workModel: configuration.workModel, syncProvider: configuration.syncProvider, syncModel: configuration.syncModel }),
     day: ({ date }) => ({ ...days.day(date), agentTime: agentTime.state() }),
+    dayPlannerState: () => dayPlanner.state(),
+    dayPlannerStart: (input) => dayPlanner.start(input),
     agentTimeSync: () => agentTime.refresh(),
     dayAdd: (input) => days.add(input),
     dayEdit: (input) => days.edit(input),
@@ -82,6 +91,7 @@ export default async function plugin(bb: BbPluginApi) {
     acceptInbox: async ({ items }) => { const result = await inbox.accept(items); if (result.applied.length) await runtime.archiveFinishedThreads(); return result; },
     syncState: () => sync.store.state(),
     syncStart: (input) => sync.start(input),
+    syncImport: async (input) => importSourceBundle(sync.store, (await settings.get()).sourceImportRoot, input),
     syncCancel: ({ runId }) => sync.cancel(runId),
     syncAccept: async ({ candidateId }) => { const result = sync.store.accept(candidateId); await runtime.archiveFinishedThreads(); return result; },
     syncReject: ({ candidateId }) => sync.store.reject(candidateId),
@@ -321,6 +331,7 @@ export default async function plugin(bb: BbPluginApi) {
   bb 247c propose <task-id> <revision> '<draft-json>' [--json]
   bb 247c sync [--json]
   bb 247c sync-start '<request-json>' [--json]
+  bb 247c sync-ingest '<request-json>' --json
   bb 247c sync-supplement <run-id> '<suggestions-json-array>' --json
 
 Use the 247C panel to approve, archive, start or finish sessions.
@@ -336,6 +347,7 @@ Use the 247C panel to approve, archive, start or finish sessions.
       { name: "propose", summary: "Submit a pending evidence-backed patch", usage: "bb 247c propose <task-id> <revision> '<draft-json>' [--json]" },
       { name: "sync", summary: "Read source-update history and checkpoints", usage: "bb 247c sync [--json]" },
       { name: "sync-start", summary: "Start a source check with an explicit BB execution request", usage: "bb 247c sync-start '<request-json>' [--json]" },
+      { name: "sync-ingest", summary: "Import a configured local collector bundle as pending proposals; never applies task changes", usage: "bb 247c sync-ingest '<request-json>' --json" },
       { name: "sync-supplement", summary: "Recover missing pending suggestions from a completed saved export on user request; preserves existing results and checkpoints", usage: "bb 247c sync-supplement <run-id> '<suggestions-json-array>' --json" },
     ],
     async run(argv, ctx) {
@@ -346,10 +358,22 @@ Use the 247C panel to approve, archive, start or finish sessions.
         if (!command || command === "help" || command === "--help") return { exitCode: 0, stdout: usage };
         let value: unknown;
         if (command === "local-patch" && args.length === 0) {
-          const path = patchPath(db.name), current = await settings.get(), patch = path ? readPatch(path) : {};
-          value = { path, format: PATCH_FORMAT, settings: Object.keys(patch), matchesSettings: Object.entries(patch).every(([key, value]) => current[key as keyof typeof current] === value) };
+          const current = await settings.get();
+          if (current.localSettingsPatch) {
+            let matchesSettings = true;
+            const result = await applyLocalSettingsPatch(current.localSettingsPatch, Object.keys(current), async patch => {
+              matchesSettings = Object.entries(patch).every(([key, value]) => current[key as keyof typeof current] === (value === null ? settingDescriptors[key as keyof typeof current].default : value));
+            });
+            value = { path: current.localSettingsPatch, mode: "external", ...result, matchesSettings };
+          } else {
+            const path = patchPath(db.name), patch = path ? readPatch(path) : {};
+            value = { path, mode: "managed", format: PATCH_FORMAT, settings: Object.keys(patch), matchesSettings: Object.entries(patch).every(([key, value]) => current[key as keyof typeof current] === value) };
+          }
         } else if (command === "sync" && args.length === 0) {
           const { candidates: _candidates, ...state } = sync.store.state(); value = state;
+        } else if (command === "sync-ingest" && args.length === 1) {
+          independentCaller(ctx.threadId);
+          value = await importSourceBundle(sync.store, (await settings.get()).sourceImportRoot, rpcContract.syncImport.input.parse(JSON.parse(args[0])));
         } else if (command === "sync-supplement" && args.length === 2) {
           independentCaller(ctx.threadId);
           value = sync.supplement(idSchema.parse(args[0]), JSON.parse(args[1]));

@@ -45,6 +45,7 @@ it.each([
   { format: PATCH_FORMAT, settings: { threadProjectId: "private-value", unknown: "private-value" } },
   { format: PATCH_FORMAT, settings: { threadProjectId: "private-value", timeZone: "private-value" } },
   { format: PATCH_FORMAT, settings: { hourlyUpdates: "true" } },
+  { format: PATCH_FORMAT, settings: { localSettingsPatch: "/another/file" } },
   { format: PATCH_FORMAT, settings: { updateStartHour: 24 } },
   { format: PATCH_FORMAT, settings: { sources: "private-value" } },
   { format: PATCH_FORMAT, settings: { excludedReviewModels: '[{"providerId":"test","model":"x","command":"private-value"}]' } },

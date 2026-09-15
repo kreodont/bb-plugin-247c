@@ -63,13 +63,42 @@ it("expands additional saved sources and omits an empty source bar", async () =>
 
 it.each(["work", "updates"])("opens the %s composer in the configured thread project", async page => {
   const f = await fixture(); const task = await f.create();
-  await f.harness.behavior.setSettings({ threadProjectId: "proj_tasks" });
+  await f.harness.behavior.setSettings({ threadProjectId: "proj_tasks", composerDefaults: JSON.stringify({ providerId: "claude-work", model: "claude-opus-5[1m]" }) });
   const { slot } = await setup(page === "work" ? task.id : "updates", f);
   fireEvent.click(await slot.findByRole(page === "work" ? "tab" : "button", { name: page === "work" ? "Work" : "Check for updates" }));
   const composer = await slot.findByTestId("bb-new-thread-composer");
   expect(composer.getAttribute("data-default-project-id")).toBe("proj_tasks");
   expect(JSON.parse(composer.getAttribute("data-default-environment")!)).toEqual({ type: "project-default" });
+  expect(composer.getAttribute("data-default-provider-id")).toBe("claude-work");
+  expect(composer.getAttribute("data-default-model")).toBe("claude-opus-5[1m]");
   expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
+});
+
+
+it("leaves new work account and model selection to BB when no local defaults are configured", async () => {
+  const f = await fixture(); const task = await f.create();
+  const { slot } = await setup(task.id, f);
+  fireEvent.click(await slot.findByRole("tab", { name: "Work" }));
+  const composer = await slot.findByTestId("bb-new-thread-composer");
+  expect(composer.getAttribute("data-default-provider-id")).toBe("");
+  expect(composer.getAttribute("data-default-model")).toBe("");
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
+});
+
+it("submits the displayed corporate Opus selection explicitly to BB", async () => {
+  const f = await fixture(); const task = await f.create();
+  await f.harness.behavior.setSettings({ threadProjectId: "proj_tasks", composerDefaults: JSON.stringify({ providerId: "claude-work", model: "claude-opus-5[1m]" }) });
+  f.harness.inspection.sdk.stub("projects.get", () => ({ id: "proj_tasks", kind: "standard", sources: [{ type: "local_path", hostId: "host_test", path: "/work", isDefault: true }] }));
+  const { slot } = await setup(task.id, f);
+  fireEvent.click(await slot.findByRole("tab", { name: "Work" }));
+  await slot.findByTestId("bb-new-thread-composer");
+  fireEvent.change(slot.getByTestId("bb-new-thread-composer-input"), { target: { value: "Continue the task" } });
+  fireEvent.click(slot.getByTestId("bb-new-thread-composer-submit"));
+  await waitFor(() => expect(f.repo.sessions(task.id)[0]?.status).toBe("working"));
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")[0][0]).toMatchObject({
+    projectId: "proj_tasks", providerId: "claude-work", model: "claude-opus-5[1m]",
+    executionInputSources: { providerId: "explicit", model: "explicit" },
+  });
 });
 
 it("reviews new tasks and existing task updates together and accepts the selected list", async () => {
@@ -632,8 +661,8 @@ it("opens a linked discussion from a review without starting a model before the 
   fireEvent.click(await slot.findByRole("button", { name: "Discuss review" }));
   const composer = await slot.findByTestId("bb-new-thread-composer");
   expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(2);
-  expect(composer.getAttribute("data-default-provider-id")).toBe("codex");
-  expect(composer.getAttribute("data-default-model")).toBe("gpt-5.6-sol");
+  expect(composer.getAttribute("data-default-provider-id")).toBe(previous.workerProvider);
+  expect(composer.getAttribute("data-default-model")).toBe(previous.workerModel);
   expect((slot.getByTestId("bb-new-thread-composer-input") as HTMLTextAreaElement).value).toContain("discuss the review");
   fireEvent.change(slot.getByTestId("bb-new-thread-composer-input"), { target: { value: "Почему ты снизил только срочность?" } });
   fireEvent.click(slot.getByTestId("bb-new-thread-composer-submit"));

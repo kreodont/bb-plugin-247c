@@ -42,7 +42,11 @@ class RecoveryTests(unittest.TestCase):
         (root / "database").mkdir(parents=True)
         (root / "settings").mkdir()
         counts = backup.copy_database(self.source, root / "database/data.db")
-        backup.dump(root / "settings/247c.json", {"hourlyUpdates": True, "threadProjectId": "proj_old_computer"})
+        backup.dump(root / "settings/247c.json", {"hourlyUpdates": True, "threadProjectId": "proj_old_computer",
+                    "localSettingsPatch": "/old/private/settings.patch.json",
+                    "calendarReaderCommand": '["/old/private/calendar-reader"]',
+                    "sourceImportRoot": "/old/private/collector", "dayPlannerProjectId": "proj_old",
+                    "dayPlannerAutomationId": "auto_old"})
         manifest = {"format": backup.FORMAT, "pluginVersion": "test", "tables": counts,
                     "members": {str(p.relative_to(root)): {"sha256": backup.digest(p), "bytes": p.stat().st_size} for p in root.rglob("*") if p.is_file()}}
         backup.dump(root / "manifest.json", manifest)
@@ -74,8 +78,13 @@ class RecoveryTests(unittest.TestCase):
         self.assertFalse(settings["hourlyUpdates"])
         self.assertEqual(settings["threadProjectId"], "")
         patch = json.loads((self.root / "restored/settings/247c.local.patch.for-restore.json").read_text())
-        self.assertEqual(patch["settings"], settings)
+        self.assertEqual(patch["settings"], {k: v for k, v in settings.items() if k != "localSettingsPatch"})
         self.assertEqual(patch["format"], "247c-local-settings-v1")
+        self.assertEqual(settings["localSettingsPatch"], "")
+        self.assertEqual(settings["calendarReaderCommand"], "[]")
+        self.assertEqual(settings["sourceImportRoot"], "")
+        self.assertEqual(settings["dayPlannerProjectId"], "")
+        self.assertEqual(settings["dayPlannerAutomationId"], "")
         original_settings = json.loads((self.root / "restored/settings/247c.json").read_text())
         self.assertEqual(original_settings["threadProjectId"], "proj_old_computer")
         self.assertEqual(self.db.execute("SELECT status FROM sessions").fetchone()[0], "working")

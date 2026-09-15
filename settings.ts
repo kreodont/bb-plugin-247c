@@ -1,3 +1,5 @@
+import { composerDefaultsSchema } from "./local-settings.js";
+import { calendarCommandSchema } from "./calendar-script.js";
 import { DAY_TIME_ZONE } from "./day-contracts.js";
 import { z } from "zod";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
@@ -9,6 +11,12 @@ export const timeZoneSchema = z.string().min(1).max(100).refine(value => {
 export const excludedReviewModelsSchema = z.array(z.object({ providerId: z.string().min(1).max(200), model: z.string().min(1).max(200) }).strict()).max(100);
 export function parseExcludedReviewModels(value = "[]") { return excludedReviewModelsSchema.parse(JSON.parse(value)); }
 export const settingDescriptors = {
+    localSettingsPatch: { type: "string", label: "Local settings patch", description: "Absolute path to a private JSON settings patch, applied whenever 247C loads, including after updates. Keep it outside the plugin checkout. Leave blank to use the automatically maintained patch next to the database.", default: "", experimental_schema: z.string().trim().max(4096) },
+    composerDefaults: { type: "string", label: "Conversation account and model", description: "Optional JSON with providerId and model for new work, review discussions and source checks. Leave {} to use the native composer defaults and previous conversation selection.", default: "{}", experimental_schema: z.string().max(1000).refine(value => { try { composerDefaultsSchema.parse(JSON.parse(value)); return true; } catch { return false; } }, "Use a JSON object with both providerId and model, or {}.") },
+    calendarReaderCommand: { type: "string", label: "Calendar reader command", description: "Optional JSON argument array for a local calendar reader. It receives dates and known meetings on stdin and returns normalized calendar events. Leave [] to use the connected Google Calendar.", default: "[]", experimental_schema: z.string().max(32000).refine(value => { try { calendarCommandSchema.parse(JSON.parse(value)); return true; } catch { return false; } }, "Use a JSON argument array with an absolute executable path.") },
+    sourceImportRoot: { type: "string", label: "Local collector import folder", description: "Allow receipt-verified Teams, Outlook and ClickUp proposal bundles from this local folder. Leave blank to disable.", default: "", experimental_schema: z.string().trim().max(4096) },
+    dayPlannerProjectId: { type: "string", label: "Day planner project", description: "BB project ID containing the existing day-planning automation.", default: "", experimental_schema: z.string().trim().max(200) },
+    dayPlannerAutomationId: { type: "string", label: "Day planner automation", description: "Existing BB automation ID to run with Create day plan. Leave blank to hide the button.", default: "", experimental_schema: z.string().trim().max(200) },
     threadProjectId: { type: "string", label: "Thread project", description: "BB project ID for all new 247C conversations, reviews and source checks. Uses its default project folder. Leave blank to use the composer selection and personal review workspaces.", default: "", experimental_schema: z.string().trim().max(200) },
     codexReviewer: { type: "string", label: "Codex verification model", default: "gpt-5.6-sol", experimental_schema: z.string().trim().min(1).max(200) },
     claudeReviewer: { type: "string", label: "Personal Claude verification model (sessions with criteria)", default: "claude-fable-5-1", experimental_schema: z.string().trim().min(1).max(200) },
@@ -36,7 +44,7 @@ export function validateSettings(value: unknown): Partial<LocalSettings> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid local settings patch: settings must be an object.");
   const result: Record<string, unknown> = {};
   for (const [key, entry] of Object.entries(value)) {
-    if (!Object.hasOwn(settingDescriptors, key)) throw new Error("Invalid local settings patch: an unknown setting was found. Check the patch against the installed version.");
+    if (key === "localSettingsPatch" || !Object.hasOwn(settingDescriptors, key)) throw new Error("Invalid local settings patch: an unknown setting was found. Check the patch against the installed version.");
     const descriptor = settingDescriptors[key as keyof LocalSettings];
     if (typeof entry !== descriptor.type) throw new Error(`Invalid local settings patch: check ${key}.`);
     if ("experimental_schema" in descriptor && !descriptor.experimental_schema.safeParse(entry).success) throw new Error(`Invalid local settings patch: check ${key}.`);

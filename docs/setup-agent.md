@@ -10,7 +10,7 @@ provider CLIs run inside the same Linux distribution.
 
 ## Local configuration patch
 
-Follow [local configuration](local-configuration.md). Inspect `bb 247c local-patch --json` and configure the installation through BB settings. The plugin mirrors every declared setting into its local patch and reapplies it after updates. Keep real patches, profiles, account details, work rules and permission files out of Git. Preserve the current machine's planning time zone, hourly window and preferred models during migration. Select them explicitly on a new machine.
+Follow [local configuration](local-configuration.md). Inspect `bb 247c local-patch --json` and configure the installation through BB settings. By default, the plugin mirrors every declared setting into its local patch and reapplies it after updates. If `localSettingsPatch` is configured, preserve that explicit file instead; it is authoritative and is not automatically rewritten. Keep real patches, profiles, account details, work rules and permission files out of Git. Preserve the current machine's planning time zone, hourly window and preferred models during migration. Select them explicitly on a new machine.
 
 BB project folders, automations and provider permissions stay in their native local stores and survive plugin updates. Configure those through their supported tools; do not embed actual IDs or account-specific exceptions in the shared code or prompt template.
 
@@ -36,6 +36,34 @@ Leave the setting empty to use the composer's workspace for work and source
 checks, with personal workspaces for reviews. Store the actual project ID and
 folder only in local BB settings. On another computer, create or select a project
 there and configure its new ID. Prepared recovery settings clear the old ID.
+
+## Account and model for new conversations
+
+The native composer offers GPT (Codex), personal Claude and corporate Claude when
+those providers are available in BB. Optional `composerDefaults` JSON selects the
+initial account and model for work, review discussions and source checks:
+
+```sh
+bb plugin config 247c set composerDefaults '{"providerId":"codex","model":"gpt-5.6-sol"}'
+```
+
+Set both fields together. `{}` leaves new work to BB's native selection, retains
+the previous conversation's selection for review discussions, and uses the
+source check's standard default. Users can change the selection before launch;
+the displayed choice is submitted explicitly. This setting does not change the
+automatic recorder policy or models already saved with a session.
+
+For corporate use, register `claude-work` as a separate BB provider and verify its
+login profile and account. Do not redirect personal `claude-code`. Account
+identities, profile paths and chosen defaults belong in local configuration.
+
+## Settings that survive updates
+
+Keep installation-specific values in a private JSON settings patch outside the
+plugin checkout. Follow [Local settings patches](local-settings.md) to register
+its path once. Every subsequent plugin load, including a native Git update,
+validates and reapplies the named values through BB's settings API. No changes to
+the downloaded source are needed. Unlisted settings keep their saved values.
 
 ## Automatic day-plan accounting
 
@@ -65,6 +93,22 @@ subprocess.run([
 ```
 
 Verify the saved timezone, next run, project, model and environment with `bb automation show <automation-id> --project <project-id> --json`. BB must be running for scheduled work to launch. BB stores a copy of the prompt; after editing the portable prompt, explicitly update the existing automation with `--prompt`. The automation and its local IDs belong to BB's private settings, not Git; configure it separately on each computer rather than copying another machine's IDs.
+
+## Manual day planning in the GUI
+
+Connect the existing planner to the Day page through local 247C settings:
+
+```sh
+bb plugin config 247c set dayPlannerProjectId proj_example
+bb plugin config 247c set dayPlannerAutomationId auto_example
+```
+
+The **Create day plan** button saves pending day edits before starting the
+configured automation for today in Europe/Athens. It keeps the automation's
+provider, model, prompt or script, schedule and duplicate-run behavior. Run
+status appears next to the button, and saved entries refresh automatically.
+Opening another date never launches a plan for today by accident. Clearing
+either setting hides the control. No automation is created or run by setup.
 
 ## Corporate source-read policy
 

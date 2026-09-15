@@ -151,7 +151,7 @@ def create_snapshot(binary, data_dir, destination, machine):
         counts = copy_database(Path(data_dir) / "plugins/247c/data.db", root / "database/data.db")
         copy_code(plugin["rootDir"], root / "plugins/247c")
         dump(root / "settings/247c.json", settings)
-        local_patch = Path(data_dir) / "plugins/247c/local.patch.json"
+        local_patch = Path(settings["localSettingsPatch"]) if settings.get("localSettingsPatch") else Path(data_dir) / "plugins/247c/local.patch.json"
         patch_bytes = local_patch.read_bytes() if local_patch.exists() else None
         if patch_bytes is not None:
             if len(patch_bytes) > 256 * 1024:
@@ -293,12 +293,17 @@ def restore_to_new(path, destination):
             db.commit()
         settings = json.loads((root / "settings/247c.json").read_text())
         settings["hourlyUpdates"] = False
-        if "threadProjectId" in settings:
-            settings["threadProjectId"] = ""
+        # Paths, project IDs and automation IDs belong to the original computer.
+        # In particular, an old patch must not re-enable them on first activation.
+        for key, value in {"threadProjectId": "", "localSettingsPatch": "",
+                           "calendarReaderCommand": "[]", "sourceImportRoot": "",
+                           "dayPlannerProjectId": "", "dayPlannerAutomationId": ""}.items():
+            if key in settings:
+                settings[key] = value
         dump(root / "settings/247c.for-restore.json", settings)
         # The original patch is evidence for recovery, not an instruction to
         # resume the old machine's project routing or schedules on a new host.
-        dump(root / "settings/247c.local.patch.for-restore.json", {"format": "247c-local-settings-v1", "settings": settings})
+        dump(root / "settings/247c.local.patch.for-restore.json", {"format": "247c-local-settings-v1", "settings": {k: v for k, v in settings.items() if k != "localSettingsPatch"}})
         dump(root / "RESTORE-REPORT.json", {"verified": True, "pluginVersion": manifest["pluginVersion"], "sessionsPaused": recovered, "originalDatabase": "database/data.db", "preparedDatabase": "prepared-bb/plugins/247c/data.db", "scheduleEnabled": False, "requires": ["Install the included plugin code in a compatible BB.", "Disable 247C before copying the prepared DB into the NEW installation.", "Restore non-secret settings using settings/247c.for-restore.json.", "Log in to providers again and choose local workspaces.", "Run one manual source check before enabling hourlyUpdates."]})
         check_db(portable)
         os.rename(root, destination)

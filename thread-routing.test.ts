@@ -60,7 +60,7 @@ it("routes source checks from an old saved workspace and keeps replay idempotent
   await vi.waitFor(() => expect(store.run(input.requestId).status).toBe("working"));
   expect(spawns(f)).toHaveLength(1);
   expect(spawns(f)[0]).toMatchObject({ ...target, providerId: input.request.providerId, model: input.request.model });
-  expect(store.request(input.requestId).input.request).toMatchObject(target);
+  expect(store.request(input.requestId).input!.request).toMatchObject(target);
   await f.harness.behavior.setSettings({ threadProjectId: "another_project" });
   expect(await f.harness.behavior.callRpc("syncStart", input)).toMatchObject({ id: (first as SyncRun).id });
   expect(spawns(f)).toHaveLength(1);

@@ -70,3 +70,48 @@ it("does not emit executable, credential-bearing, malformed or oversized source 
   }
   expect(sourceUrl("http://example.com/report")?.href).toBe("http://example.com/report");
 });
+
+const legacyHeader = "Источник: Legacy (Windows). Импорт по запросу пользователя.\nИсходный ID: 00000000-0000-4000-8000-000000000001\n";
+function importedFact(d: ReturnType<typeof dossier>, text: string) {
+  return factSchema.parse({ id: "import-1", taskId: d.task.id, kind: "description", text,
+    source: "human:bb", sourceRef: null, occurredAt: timestamp, createdAt: timestamp });
+}
+
+it("shows explicit ClickUp sources from Legacy imports, including workspace URLs, without changing records", () => {
+  const d = dossier();
+  const primary = "https://workspace.clickup.com/t/123456/ticket1";
+  const related = "https://app.clickup.com/t/ticket2";
+  d.facts.push(importedFact(d, legacyHeader + "\nСсылка ClickUp (clickup_url)\n" + primary
+    + "\n\nСсылки (links)\n" + JSON.stringify(["Primary: " + primary, "Related: " + related], null, 2)
+    + "\n\nЗаметки (notes)\nUnrelated prose: https://app.clickup.com/t/other-ticket"));
+  const before = structuredClone(d);
+  expect(taskSourceLinks(d, [])).toEqual([
+    { url: primary, label: "ClickUp · ticket1", occurredAt: timestamp, origin: true },
+    { url: related, label: "ClickUp · ticket2", occurredAt: timestamp, origin: true },
+  ]);
+  expect(d).toEqual(before);
+});
+
+it("recovers a title-matching ClickUp ticket from imported notes and strips sentence punctuation", () => {
+  const d = dossier();
+  d.task.title = "Resolve the original ticket (original1)";
+  d.facts.push(importedFact(d, legacyHeader + "\nСсылка ClickUp (clickup_url)\nhttps://app.clickup.com/t/internal1"
+    + "\n\nЗаметки (notes)\nOriginal: https://app.clickup.com/t/original1.\nRelated: https://app.clickup.com/t/unrelated1"));
+  expect(taskSourceLinks(d, []).map(link => link.url)).toEqual([
+    "https://app.clickup.com/t/internal1", "https://app.clickup.com/t/original1",
+  ]);
+});
+
+it("does not infer ClickUp sources from ordinary text, incomplete migration markers or malformed fields", () => {
+  for (const text of [
+    "Ссылка ClickUp (clickup_url)\nhttps://app.clickup.com/t/ticket1",
+    "Источник: Legacy (Windows). Импорт по запросу пользователя.\nСсылка ClickUp (clickup_url)\nhttps://app.clickup.com/t/ticket1",
+    legacyHeader + "\nСсылки (links)\n[\ninvalid https://app.clickup.com/t/ticket1\n]",
+    legacyHeader + "\nСсылка ClickUp (clickup_url)\nhttps://app.clickup.com.evil.test/t/ticket1",
+    legacyHeader + "\nСсылка ClickUp (clickup_url)\nhttps://user:password@app.clickup.com/t/ticket1",
+  ]) {
+    const d = dossier();
+    d.facts.push(importedFact(d, text));
+    expect(taskSourceLinks(d, [])).toEqual([]);
+  }
+});

@@ -41,6 +41,16 @@ export const dayViewSchema = z.object({
   agentTime: agentTimeStateSchema.optional(),
 });
 export type DayView = z.infer<typeof dayViewSchema>;
+export const dayPlannerRunSchema = z.object({
+  id: z.string(), status: z.enum(["running", "succeeded", "failed", "skipped"]),
+  startedAt: z.number(), finishedAt: z.number().nullable(),
+  error: z.string().nullable(), skipReason: z.string().nullable(),
+});
+export const dayPlannerStateSchema = z.object({
+  configured: z.boolean(), today: dayDateSchema, name: z.string().nullable(),
+  scheduled: z.boolean(), nextRunAt: z.number().nullable(), run: dayPlannerRunSchema.nullable(),
+});
+export type DayPlannerState = z.infer<typeof dayPlannerStateSchema>;
 export const dayAddSchema = z.object({
   requestId: z.uuid(), date: dayDateSchema, taskId: id,
   step: z.string().trim().max(2000).optional(), plannedMinutes: dayMinutesSchema.optional(), reportedMinutes: dayMinutesSchema.optional(),
@@ -72,6 +82,8 @@ export const dayEstimateSchema = z.object({ requestId: z.uuid(), id, revision: z
 
 export const dayRpcContract = {
   day: { input: z.object({ date: dayDateSchema.optional() }).strict(), output: dayViewSchema },
+  dayPlannerState: { input: z.object({}).strict(), output: dayPlannerStateSchema },
+  dayPlannerStart: { input: z.object({ date: dayDateSchema, requestId: z.uuid() }).strict(), output: dayPlannerRunSchema },
   dayAdd: { input: dayAddSchema, output: dayItemSchema },
   dayEdit: { input: dayEditSchema, output: dayItemSchema },
   dayCarry: { input: dayCarrySchema, output: z.object({ original: dayItemSchema, next: dayItemSchema }) },

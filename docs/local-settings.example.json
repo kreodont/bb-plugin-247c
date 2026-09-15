@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "settings": {
+    "threadProjectId": "proj_example",
+    "composerDefaults": "{\"providerId\":\"codex\",\"model\":\"gpt-5.6-sol\"}",
+    "calendarReaderCommand": "[\"/usr/bin/python3\",\"/absolute/private/247c/calendar-reader.py\"]",
+    "sourceImportRoot": "/absolute/private/247c/collector",
+    "dayPlannerProjectId": "proj_example",
+    "dayPlannerAutomationId": "auto_example",
+    "hourlyUpdates": false
+  }
+}

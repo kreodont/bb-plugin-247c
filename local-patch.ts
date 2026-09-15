@@ -1,3 +1,4 @@
+import { applyLocalSettingsPatch } from "./local-settings.js";
 import { closeSync, existsSync, fsyncSync, openSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -21,8 +22,9 @@ export function readPatch(path: string): Partial<LocalSettings> {
   }
 }
 export function writePatch(path: string, settings: Partial<LocalSettings>) {
-  validateSettings(settings);
-  const text = JSON.stringify({ format: PATCH_FORMAT, settings }, null, 2) + "\n";
+  const { localSettingsPatch: _pointer, ...values } = settings;
+  validateSettings(values);
+  const text = JSON.stringify({ format: PATCH_FORMAT, settings: values }, null, 2) + "\n";
   if (Buffer.byteLength(text) > MAX_BYTES) throw new Error("The local settings patch is too large.");
   const temporary = `${path}.${randomUUID()}.tmp`;
   try {
@@ -33,6 +35,13 @@ export function writePatch(path: string, settings: Partial<LocalSettings>) {
 }
 
 export async function applyLocalPatch(settings: SettingsHandle, database: string, reportError: (message: string) => void) {
+  const initial = await settings.get();
+  if (initial.localSettingsPatch) {
+    // Preserve the explicit, user-owned version-1 patch contract used by
+    // existing installations. It is the only active patch in this mode.
+    await applyLocalSettingsPatch(initial.localSettingsPatch, Object.keys(initial), values => settings.experimental_set(values));
+    return;
+  }
   // In-memory databases used by tests have no persistent installation directory.
   const path = patchPath(database);
   if (!path) return;
@@ -41,12 +50,13 @@ export async function applyLocalPatch(settings: SettingsHandle, database: string
   // BB owns the database directory; updates replace code in a different place.
   writePatch(path, await settings.get());
   settings.onChange((next, prev) => {
+    if (next.localSettingsPatch !== prev.localSettingsPatch) return;
     try {
       // Preserve unrelated edits made directly to the patch while BB is running.
       // Apply those on reload. Only mirror the keys the user just changed in BB.
       const patch = readPatch(path);
       for (const key of Object.keys(next) as (keyof LocalSettings)[]) {
-        if (next[key] !== prev[key]) Object.assign(patch, { [key]: next[key] });
+        if (key !== "localSettingsPatch" && next[key] !== prev[key]) Object.assign(patch, { [key]: next[key] });
       }
       writePatch(path, patch);
     } catch {

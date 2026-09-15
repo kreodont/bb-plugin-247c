@@ -41,9 +41,10 @@ export async function scheduledSourceUpdate(sync: SourceSyncRuntime, enabled: ()
   // The native cron runner and a repeated callback must not create a second
   // check for a completed or failed attempt in the same hourly slot.
   if (sync.repo.db.prepare("SELECT id FROM source_sync_runs WHERE id=?").get(requestId)) return null;
-  const previous = sync.repo.db.prepare("SELECT id FROM source_sync_runs WHERE status IN ('completed','partial') ORDER BY rowid DESC LIMIT 1").get() as { id: string } | undefined;
+  const previous = sync.repo.db.prepare("SELECT id FROM source_sync_runs WHERE status IN ('completed','partial') AND json_extract(request_json,'$.externalImport') IS NULL ORDER BY rowid DESC LIMIT 1").get() as { id: string } | undefined;
   if (!previous) throw new PolicyError("Before enabling the schedule, run a manual check and select an account, model and workspace.");
   const source = sync.store.request(previous.id).input;
+  if (!source) throw new PolicyError("The previous native check has no launch request.");
   const input = syncStartSchema.parse({ requestId, since: null, request: { ...source.request,
     input: [{ type: "text", text: "Scheduled hourly 247C update check requested by the user. Analyze the prepared email, Slack and Jira export and propose updates to 247C tasks. Read every export page and finish the run by submitting the result through the standard tool. Proposals await user acceptance in the 247C panel.", mentions: [] }],
   } });

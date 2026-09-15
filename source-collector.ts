@@ -1,7 +1,7 @@
 import { jiraReferences, pullRequestReferences } from "./source-links.js";
 import { defaultSourceConfig, type SourceConfig } from "./source-config.js";
 import { randomUUID } from "node:crypto";
-import type { SyncCandidate, SyncRun, SyncSource, SyncSubmit } from "./contracts.js";
+import type { SyncCandidate, SyncRun, NativeSyncSource as SyncSource, SyncSubmit } from "./contracts.js";
 import type { TaskDossier } from "./core/types.js";
 import type { SourceCall } from "./source-sync.js";
 import { connectSources, sourceError, type SourceConnections } from "./source-connectors.js";

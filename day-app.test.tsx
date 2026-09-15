@@ -6,6 +6,7 @@ import { randomUUID } from "node:crypto";
 import { fixture } from "./test-support.js";
 import { rpcContract } from "./contracts.js";
 import { DayPlanning } from "./day-planning.js";
+import { localDay, shiftDay } from "./day-contracts.js";
 import { normalizeCalendarEvent } from "./calendar-reader.js";
 
 let app: CapturedPluginApp;
@@ -15,12 +16,76 @@ afterEach(async () => { for (const slot of mounts.splice(0)) slot.lifecycle.unmo
 async function setup() {
   const f = await fixture(); hosts.push(f); const task = await f.create(), days = new DayPlanning(f.repo);
   const item = days.add({ date: "2026-09-10", taskId: task.id, requestId: randomUUID() });
-  function mount(subPath: string) {
-    const rpc = Object.fromEntries(Object.keys(rpcContract).map(name => [name, (input: unknown) => f.harness.behavior.callRpc(name, input)]));
+  function mount(subPath: string, overrides: Record<string, (input: any) => unknown> = {}) {
+    const rpc = { ...Object.fromEntries(Object.keys(rpcContract).map(name => [name, (input: unknown) => f.harness.behavior.callRpc(name, input)])), ...overrides };
     const slot = renderSlot(app.navPanels[0], { subPath }, { rpc }); mounts.push(slot); return slot;
   }
   return { f, task, days, item, mount };
 }
+
+const plannerRun = { id: "run_plan", status: "running" as const, startedAt: Date.now(), finishedAt: null, error: null, skipReason: null };
+const plannerState = { configured: true, today: localDay(), name: "Work planner", scheduled: true, nextRunAt: Date.now() + 60000, run: null };
+
+it("saves day edits before one launch and refreshes saved entries when the run finishes", async () => {
+  const { task, days, mount } = await setup(); const date = localDay();
+  const item = days.add({ date, taskId: task.id, requestId: randomUUID() });
+  let state: { run: typeof plannerRun | (Omit<typeof plannerRun, "status" | "finishedAt"> & { status: "succeeded"; finishedAt: number }) | null } & Omit<typeof plannerState, "run"> = { ...plannerState };
+  let finishLaunch!: (value: typeof plannerRun) => void;
+  const start = vi.fn(async () => {
+    expect(days.get(item.id).plannedMinutes).toBe(15);
+    expect(days.config(date).capacityMinutes).toBe(240);
+    return new Promise<typeof plannerRun>(resolve => { finishLaunch = resolve; });
+  });
+  const slot = mount(`day/${date}`, { dayPlannerState: () => state, dayPlannerStart: start });
+  fireEvent.change(await slot.findByLabelText(`Planned: ${task.title}`), { target: { value: "15m" } });
+  fireEvent.click(slot.getByText("Day settings"));
+  fireEvent.change(slot.getByLabelText("Available time"), { target: { value: "4h" } });
+  const button = await slot.findByRole("button", { name: "Create day plan" });
+  fireEvent.click(button); fireEvent.click(button);
+  await waitFor(() => expect(start).toHaveBeenCalledOnce());
+  await act(async () => { state = { ...state, run: plannerRun }; finishLaunch(plannerRun); });
+  expect((await slot.findByRole("button", { name: "Creating plan…" }) as HTMLButtonElement).disabled).toBe(true);
+  days.edit({ id: item.id, revision: days.get(item.id).revision, plannedMinutes: 45, requestId: randomUUID() });
+  state = { ...state, run: { ...plannerRun, status: "succeeded", finishedAt: Date.now() } };
+  await slot.behavior.emitRealtime("desk-changed", {});
+  await slot.findByText(/Day planning finished/);
+  await waitFor(() => expect((slot.getByLabelText(`Planned: ${task.title}`) as HTMLInputElement).value).toBe("45m"));
+  expect(start).toHaveBeenCalledOnce();
+});
+
+it("keeps the same launch key after an uncertain network failure and shows failure details", async () => {
+  const { mount } = await setup();
+  const start = vi.fn().mockRejectedValueOnce(new Error("Connection lost")).mockResolvedValueOnce({ ...plannerRun, status: "failed", error: "Work account needs sign-in" });
+  const slot = mount(`day/${localDay()}`, { dayPlannerState: () => plannerState, dayPlannerStart: start });
+  fireEvent.click(await slot.findByRole("button", { name: "Create day plan" }));
+  await slot.findByText("Connection lost");
+  fireEvent.click(slot.getByRole("button", { name: "Create day plan" }));
+  await slot.findByText("Work account needs sign-in");
+  expect(start.mock.calls[0][0]).toEqual(start.mock.calls[1][0]);
+});
+
+it("blocks planner launch on a conflicting day edit", async () => {
+  const { days, mount } = await setup(); const date = localDay(), start = vi.fn();
+  const slot = mount(`day/${date}`, { dayPlannerState: () => plannerState, dayPlannerStart: start });
+  fireEvent.click(await slot.findByText("Day settings"));
+  fireEvent.change(slot.getByLabelText("Available time"), { target: { value: "4h" } });
+  days.setConfig({ date, revision: 0, capacityMinutes: 180, note: "Another edit", requestId: randomUUID() });
+  fireEvent.click(await slot.findByRole("button", { name: "Create day plan" }));
+  await slot.findByRole("alert");
+  expect(start).not.toHaveBeenCalled();
+  expect((slot.getByLabelText("Available time") as HTMLInputElement).value).toBe("4h");
+});
+
+it("disables launch for other dates and hides it when unconfigured or viewing a report", async () => {
+  const { mount } = await setup();
+  const slot = mount(`day/${shiftDay(localDay(), 1)}`, { dayPlannerState: () => plannerState });
+  expect((await slot.findByRole("button", { name: "Create day plan" }) as HTMLButtonElement).disabled).toBe(true);
+  expect(slot.getByText("Open Today to create a day plan.")).toBeTruthy(); slot.lifecycle.unmount();
+  const plain = mount(`day/${localDay()}`); await plain.findByText("Day settings");
+  expect(plain.queryByRole("button", { name: "Create day plan" })).toBeNull(); plain.lifecycle.unmount();
+  const report = mount(`report/day/${localDay()}`, { dayPlannerState: () => plannerState }); await report.findByRole("heading", { name: "Time report" });
+  expect(report.queryByRole("button", { name: "Create day plan" })).toBeNull();
+});
 
 it("shows measured actual, flags estimates in reports, and lets the user confirm reported time", async () => {
   const { task, days, item, mount } = await setup();
@@ -230,4 +295,18 @@ it("opens report task titles with the report return route and day entries for co
   await waitFor(() => expect(JSON.stringify(report.inspection.navigateCalls)).toContain(`${task.id}/from/report/week/2026-09-10`));
   fireEvent.click(report.getByRole("button", { name: /10 Sept.*reported 3h/ }));
   await waitFor(() => expect(JSON.stringify(report.inspection.navigateCalls)).toContain('"day/2026-09-10"'));
+});
+
+it("preserves a time draft when refreshing installation settings temporarily fails", async () => {
+  const { f, task, item, mount } = await setup();
+  let unavailable = false;
+  const slot = mount(`day/${item.date}`, { threadProject: async () => {
+    if (unavailable) throw new Error("Settings temporarily unavailable");
+    return f.harness.behavior.callRpc("threadProject", {});
+  } });
+  fireEvent.change(await slot.findByLabelText(`Reported: ${task.title}`), { target: { value: "1h" } });
+  unavailable = true;
+  await slot.behavior.emitRealtime("desk-changed", {});
+  await slot.findByText("Settings temporarily unavailable");
+  expect((slot.getByLabelText(`Reported: ${task.title}`) as HTMLInputElement).value).toBe("1h");
 });

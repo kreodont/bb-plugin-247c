@@ -12,7 +12,7 @@ This reports the file location, setting names and whether they match BB, without
 
 ## Editing settings
 
-Use the standard BB plugin settings or CLI. Every change is mirrored into the patch with an atomic file replacement and owner-only file permissions where supported:
+Use the standard BB plugin settings or CLI. With the default managed patch, every change is mirrored into the patch with an atomic file replacement and owner-only file permissions where supported:
 
 ```sh
 bb plugin config 247c set timeZone Europe/London
@@ -46,6 +46,12 @@ The patch captures every declared plugin setting, including source account/profi
 - `updateStartHour` and `updateEndHour` are inclusive, in that zone. An end before the start covers an overnight window.
 - `workProvider`/`workModel` and `syncProvider`/`syncModel` seed new native composers. Blank values leave selection to BB. Review discussions keep the previous worker selection. Hourly checks continue to reuse the last successful check's execution request, which is local database state.
 - `excludedReviewModels` is a JSON array of exact provider/model pairs for account-specific availability restrictions. Model aliases, dated snapshots and context suffixes are normalized. An exclusion affects only its specified provider.
+
+## Existing external patches
+
+Installations already using `localSettingsPatch` keep their explicit external file as the only active patch. Its version-1 format and behavior remain supported: `{ "version": 1, "settings": { ... } }`. The plugin reads that file instead of creating or applying the managed patch. It does not rewrite a user-owned external file; GUI edits to listed keys remain temporary until the file is edited too. `null` restores a setting's descriptor default. Clear `localSettingsPatch` and reload to use the managed file again. See [external patch compatibility](local-settings.md).
+
+The `composerDefaults` JSON setting provides a shared account/model choice for all native composers and takes precedence over the separate work/check defaults. External calendar readers, collector folders and existing day-planner IDs are also local settings; keep their scripts and automation definitions outside the managed checkout.
 
 ## Settings owned by BB and providers
 

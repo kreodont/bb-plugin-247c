@@ -21,3 +21,10 @@ Reviews can propose title, status, urgency and importance alongside other dossie
 **Reported today** in a linked thread opens today's Day Plan at the task, ready to enter time. Missing rows are added without inventing reported hours. **Return to thread** saves edits and returns to the same conversation.
 
 Each computer has a separate database. Accounts and sources are configured locally. The backup utility captures a consistent SQLite snapshot, code, settings and related chat text. Recovery verifies checksums and writes a new directory. Requires Python 3.11 or newer.
+
+Local collectors can feed Teams, Outlook and ClickUp findings into the same
+**Proposals** inbox, with quotes verified against their saved receipts. A local
+calendar reader can supply native meetings. **Create day plan** runs an existing
+configured automation. Each integration is optional and uses the installation's
+own accounts, scripts and schedule. A private settings patch reapplies project,
+model and integration preferences after plugin updates.

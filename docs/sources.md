@@ -21,6 +21,26 @@ The setting is also available under Extensions → Plugins → 247C. Run a manua
 
 Changing calendars does not modify earlier meetings from another calendar. An incorrect account or missing login preserves existing data and shows an error. Installing the code on another computer does not transfer this profile or synchronize databases.
 
+For a calendar collected by a local script, set `calendarReaderCommand` to a JSON
+argument array, for example `["/usr/bin/python3", "/private/calendar-reader.py"]`.
+The executable must use an absolute path; it runs without a shell. Its stdin is
+`{"from":"YYYY-MM-DD","through":"YYYY-MM-DD","known":[...]}`. Both dates are
+inclusive, and `known` contains existing normalized calendar events. Return exactly
+`{"events":[...],"readCount":0}` on stdout, with events following
+`calendarEventSchema` in `day-contracts.ts`. Use stable keys, offset-bearing
+timestamps, HTTPS event links and explicit cancellation/decline states. The
+reader must verify account identity, finish pagination and recheck missing known
+occurrences. Partial reads must exit nonzero, preserving saved meetings. Store
+receipts locally; never include credentials in output. The plugin validates the
+whole response before merging and preserves manual time overrides. The script
+has a five-minute timeout and an 8 MiB output limit. `[]` keeps the default
+Google Calendar reader. `calendarMeetings` controls either reader.
+
+An external day planner should call `calendarSync` and wait for `calendarState`
+to finish before reading the day. Refresh the calendar even when the day's task
+plan is already saved. Meetings remain calendar rows; do not create task dossiers
+to represent them.
+
 Gmail permalinks can identify a message rather than its thread. The collector resolves message IDs from already loaded threads or with the read-only `get_message` metadata operation, then reads the full conversation once. Connector errors include the requested ID and the source's error text.
 
 Jira link discovery excludes UUID fragments and bare `Q-…` quote numbers. An explicit Jira `/browse/Q-…` URL still identifies a Jira issue. Collection and coverage validation use the same reference rules; unavailable real issues continue to make the check partial.

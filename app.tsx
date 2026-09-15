@@ -47,7 +47,7 @@ function savedTaskSort(): TaskSort {
 }
 const date = (value: string) => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 const textareaClass = "w-full resize-y rounded-lg border border-input bg-transparent px-3 py-2 text-sm leading-relaxed placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50";
-const sourceNames: Record<SyncSource, string> = { gmail: "Gmail", slack: "Slack", jira: "Jira" };
+const sourceNames: Record<SyncSource, string> = { gmail: "Gmail", slack: "Slack", jira: "Jira", teams: "Teams", outlook: "Outlook", clickup: "ClickUp" };
 const syncStatusNames: Record<SyncRun["status"], string> = { starting: "Starting", working: "Checking sources", completed: "Check completed", partial: "Partially checked", blocked: "Check interrupted", cancelled: "Stopped" };
 const syncActive = (run?: SyncRun) => Boolean(run && ["starting", "working"].includes(run.status));
 
@@ -90,7 +90,7 @@ function ProjectThreadComposer({ purpose = "work", ...props }: ComponentProps<ty
   const { data, error, refresh } = useSnapshot(load);
   if (error) return <ErrorNotice error={error} retry={() => void refresh()} />;
   if (!data) return <p role="status" className="text-sm text-muted-foreground">Loading conversation settings…</p>;
-  return <NewThreadComposer {...props} defaultProviderId={props.defaultProviderId ?? ((purpose === "work" ? data.workProvider : data.syncProvider) || undefined)} defaultModel={props.defaultModel ?? ((purpose === "work" ? data.workModel : data.syncModel) || undefined)} defaultProjectId={data.projectId ?? undefined} defaultEnvironment={data.projectId ? { type: "project-default" } : undefined} />;
+  return <NewThreadComposer {...props} defaultProviderId={data.providerId ?? props.defaultProviderId ?? ((purpose === "work" ? data.workProvider : data.syncProvider) || undefined)} defaultModel={data.model ?? props.defaultModel ?? ((purpose === "work" ? data.workModel : data.syncModel) || undefined)} defaultProjectId={data.projectId ?? undefined} defaultEnvironment={data.projectId ? { type: "project-default" } : undefined} onSubmit={request => props.onSubmit({ ...request, executionInputSources: { ...request.executionInputSources, providerId: "explicit", model: "explicit" } })} />;
 }
 
 function ThreadSessionControl({ threadId, isCompactViewport, action }: PluginThreadHeaderActionProps & { action: "task" | "finish" }) {
@@ -267,9 +267,9 @@ function SyncPage() {
   }
   return <div className="h-full min-h-0 overflow-y-auto"><div className="mx-auto max-w-5xl space-y-5 p-5 md:p-8">
     <Button variant="ghost" size="sm" className="-ml-3" onClick={() => navigate.toPluginPanel("desk")}><Icon name="ChevronLeft" /> All tasks</Button>
-    <div className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-medium">Work source updates</h1><p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">Email, Slack and Jira reveal task updates and new requests. Review the proposals and accept the ones you need.</p></div>{!starting && !active && <Button onClick={() => setStarting(true)}>Check for updates</Button>}</div>
+    <div className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-medium">Work source updates</h1><p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">Connected work sources reveal task updates and new requests. Review the proposals and accept the ones you need.</p></div>{!starting && !active && <Button onClick={() => setStarting(true)}>Check for updates</Button>}</div>
     <ErrorNotice error={mutationError ?? error} retry={() => void refresh()} />
-    <div className="grid gap-3 md:grid-cols-3">{(["gmail", "slack", "jira"] as SyncSource[]).map((source) => {
+    <div className="grid gap-3 md:grid-cols-3">{(Object.keys(latest?.ranges ?? { gmail: {}, slack: {}, jira: {} }) as SyncSource[]).map((source) => {
       const report = latest?.reports.find((r) => r.source === source);
       const checkpoint = data?.sync.checkpoints[source];
       return <section key={source} className="rounded-xl border border-border bg-card p-4"><h2 className="font-medium">{sourceNames[source]}</h2><p className="mt-2 text-xs text-muted-foreground">{checkpoint ? `Fully checked through ${date(checkpoint)}` : latest && data ? `Unchecked since ${date(data.sync.nextSince[source])}` : "First run: last 24 hours"}</p>{latest && <><p className={cn("mt-3 text-sm", report && report.status !== "complete" && "text-destructive")}>{active ? active.collection?.phase === "collecting" ? "Loading data…" : "The model is analyzing the export…" : report?.status === "complete" ? "Checked" : report?.status === "partial" ? "Partially checked" : report?.status === "unavailable" ? "Unavailable" : syncStatusNames[latest.status]}</p>{report && <p className="mt-1 whitespace-pre-wrap break-words text-xs leading-relaxed text-muted-foreground">{report.detail}<br />Candidates: {report.scanned} · threads/issues read: {report.threadsRead}</p>}</>}</section>;
@@ -636,9 +636,9 @@ function Page({ subPath }: PluginNavPanelProps) {
   const load = useCallback(() => rpc.call("threadProject", {}), [rpc]);
   const { data, error, refresh } = useSnapshot(load);
   const navigate = useBbNavigate(), { threadId } = deskRoute(subPath);
-  if (error) return <ErrorNotice error={error} retry={() => void refresh()} />;
+  if (!data && error) return <ErrorNotice error={error} retry={() => void refresh()} />;
   if (!data) return <p role="status">Loading 247C settings…</p>;
-  return <PlanningTimeZone.Provider value={data.timeZone ?? DAY_TIME_ZONE}><NavigationFrame subPath={subPath} returnToThread={threadId ? () => navigate.toThread(threadId) : undefined}><PageContent subPath={subPath} /></NavigationFrame></PlanningTimeZone.Provider>;
+  return <PlanningTimeZone.Provider value={data.timeZone ?? DAY_TIME_ZONE}><ErrorNotice error={error} retry={() => void refresh()} /><NavigationFrame subPath={subPath} returnToThread={threadId ? () => navigate.toThread(threadId) : undefined}><PageContent subPath={subPath} /></NavigationFrame></PlanningTimeZone.Provider>;
 }
 
 function PageContent({ subPath }: PluginNavPanelProps) {

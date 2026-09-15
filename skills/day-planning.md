@@ -18,6 +18,17 @@ Edit manual time only on explicit user instruction, in any language. Never infer
 
 Read the day before editing. Reuse one `requestId` when redelivering the same request to prevent duplicate additions. Changed requests need a new UUID. On revision conflict, reread the entry and do not automatically overwrite another edit. A worker can access only its task's entries; recorders and source analysts cannot edit manual time.
 
+## Manual planner launch
+
+When `dayPlannerProjectId` and `dayPlannerAutomationId` are configured in local
+247C settings, **Day → Create day plan** starts that existing BB automation.
+The button is available for today in Europe/Athens, saves unsaved day edits first,
+and shows progress or failures. `dayPlannerState` is a read-only RPC;
+`dayPlannerStart({date, requestId})` is an explicit user action and forwards a
+stable idempotency key through the Automations plugin's public RPC. The backend
+selects the automation from settings; callers cannot supply another target.
+The automation retains its own planning policy and repeat-run behavior.
+
 ## Meetings
 
 The calendar script uses the configured Claude profile, verifies the account in `sources` and reads its configured Google Calendar. `calendarMeetings` enables import during source checks; the day screen also supports a separate import. Times use the configured planning time zone. The window starts on the selected week's Monday and ends seven days after the selected date, inclusive.

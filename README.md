@@ -29,6 +29,10 @@ After an error, **Retry review** first revalidates saved responses from the same
 
 Use **Sort by** above the task cards to choose **Recently updated** (default), **Oldest update**, or **Priority**. The choice is remembered in this browser and works with search, priority filters and completed tasks. Each card shows its last saved update time, including when it has a next step. Pending proposals and time-journal updates do not change the task's saved update timestamp.
 
+Installation-specific project IDs, model preferences, collector paths and planner
+references can be kept in a [local settings patch](docs/local-settings.md). The
+plugin reapplies it when loading after an update; actual values stay outside Git.
+
 ## Day planning and time
 
 Open **247C → Day** to see **Planned**, **Actual** and **Reported** time. Planned time is your intention; actual time sums completed agent runs linked to the task, including parallel agents. Reported time is an editable work-report value. Enter manual time as `10m`, `3h`, `1h 20m` or `1:20`; a blank field differs from an explicit zero. Save with the button, Enter, or navigation. The task title opens its dossier; **Back to day plan** returns to the selected date.
@@ -69,6 +73,12 @@ The **Check sources on the configured hourly schedule** setting runs checks ever
 
 Collection starts only on request or through the enabled schedule. It does not modify email, messages or Jira. [Tools, intervals and limits](skills/source-sync.md).
 
+Configured [local collectors](docs/local-source-collector.md) can also submit
+Teams, Outlook and ClickUp findings into the same Proposals inbox. Their saved
+receipts substantiate quotes, and users review changes before applying them.
+The Day page can use an external calendar reader and run an existing planner
+through **Create day plan**; see the [setup guide](docs/setup-agent.md).
+
 ## Getting started
 
 A durable task retains context, accepted results, its next step and history across BB work sessions. Work happens in ordinary BB threads with your chosen model. Set **Thread project** in plugin settings to group all new work conversations, review discussions, recorders, verification threads and source checks in one BB project using its default local folder. The composer opens in that project. Existing threads keep their original project. See the [setup-agent guide](docs/setup-agent.md#project-for-247c-threads) for configuration and recovery.
@@ -80,6 +90,8 @@ Use **Back** and **Forward** in the navigation bar at the top of every 247C page
 For a quick time entry, use **Open task** in a linked thread, choose a date in the task's time section (today by default), then click **Log time**. The day plan scrolls to that task and focuses its Reported field. If the task is missing from that day, this action adds it with planned = 0 and leaves reported blank. Existing time is preserved. **Return to thread** stays visible at the top of the task and day plan, saves pending time and day settings, and returns directly to the originating conversation. The return destination travels with the link, so different tabs and conversations keep their own destination. Opening a task from a day plan also retains that date when logging time.
 
 The **Sources** bar directly below the task title opens the original Gmail message, Slack message or Jira issue in a new tab. Original task sources come first, followed by links from accepted records and changes. Repeated URLs appear once; use **+N more** to expand longer lists. Saved source links also appear on existing tasks, without a new check or approval. Pending or rejected suggestions do not add links to this bar.
+
+Legacy migration records also expose their saved ClickUp source fields here, including workspace-specific URLs and explicitly listed related tickets. A ClickUp URL kept only in imported notes appears when its ticket ID matches the task title. This derives links from the existing migration context without changing task records, priorities or revisions.
 
 Task cards show a blue **New** badge until first opened, or **Updated** after accepted changes since the last visit. Opening the visible dossier clears its badge. Pending proposals retain their separate approval count; they do not trigger **Updated**. Background checks and agent reads never mark a task as viewed. View state is stored in the local database and included in backups. Tracking starts with version 0.4.6: existing tasks begin without badges because earlier visits were not recorded.
 

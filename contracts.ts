@@ -111,7 +111,10 @@ export const sessionSchema = z.object({
   error: z.string().nullable(), result: resultSchema.nullable(), artifacts: z.array(observedArtifactSchema), review: reviewSchema.nullable(), proposalId: z.string().nullable(),
 });
 export const eventSchema = z.object({ id: z.string(), kind: z.string(), createdAt: z.string(), detail: z.string() });
-export const syncSourceSchema = z.enum(["gmail", "slack", "jira"]);
+export const nativeSyncSourceSchema = z.enum(["gmail", "slack", "jira"]);
+export type NativeSyncSource = z.infer<typeof nativeSyncSourceSchema>;
+export const syncSourceSchema = z.enum(["gmail", "slack", "jira", "teams", "outlook", "clickup"]);
+const sourceKeySchema = z.string().regex(/^(gmail|slack|jira|teams|outlook|clickup)$/);
 export const syncCitationSchema = z.object({
   callRef: idSchema, source: syncSourceSchema, url: z.url().max(4096),
   messageId: z.string().trim().min(1).max(256), occurredAt: z.iso.datetime({ offset: true }),
@@ -145,7 +148,7 @@ export const syncRunSchema = z.object({
   id: idSchema, status: z.enum(["starting", "working", "completed", "partial", "blocked", "cancelled"]),
   threadId: idSchema.nullable(), provider: z.string(), model: z.string(),
   startedAt: z.string(), finishedAt: z.string().nullable(), until: z.string(), manualSince: z.string().nullable(),
-  ranges: z.record(syncSourceSchema, z.object({ since: z.string(), previous: z.string().nullable() })),
+  ranges: z.record(sourceKeySchema, z.object({ since: z.string(), previous: z.string().nullable() })),
   reports: z.array(syncReportSchema), error: z.string().nullable(),
   suggestions: z.number(), duplicates: z.number(), fingerprint: z.string(),
   collection: z.object({ phase: z.enum(["collecting", "analyzing"]), calls: z.number().int().min(0), reads: z.number().int().min(0), elapsedMs: z.number().min(0) }).optional(),
@@ -209,14 +212,16 @@ export function nativeRequest(value: z.infer<typeof requestSchema>): NewThreadRe
 export const sessionStartSchema = z.object({ taskId: idSchema, revision: revisionSchema, requestId: z.uuid(), continueSessionId: idSchema.optional(), criteria: z.array(z.string().trim().min(1).max(1500)).max(20).default([]), request: requestSchema }).strict();
 export const settingsViewSchema = z.object({ codexReviewer: z.string(), claudeReviewer: z.string(), maximumRepairs: z.number(), sessionMinutes: z.number(), excludedReviewModels: z.string().optional() });
 export const syncStartSchema = z.object({ requestId: z.uuid(), since: z.iso.datetime({ offset: true }).nullable().default(null), request: requestSchema }).strict();
-export const syncStateSchema = z.object({ runs: z.array(syncRunSchema), candidates: z.array(syncCandidateSchema), pending: z.number(), checkpoints: z.record(syncSourceSchema, z.string().nullable()), nextSince: z.record(syncSourceSchema, z.string()) });
+export const syncImportSchema = z.object({ requestId: z.uuid(), path: z.string().min(1).max(4096), sha256: z.string().regex(/^[a-f0-9]{64}$/) }).strict();
+export const syncStateSchema = z.object({ runs: z.array(syncRunSchema), candidates: z.array(syncCandidateSchema), pending: z.number(), checkpoints: z.record(sourceKeySchema, z.string().nullable()), nextSince: z.record(sourceKeySchema, z.string()) });
 export const rpcContract = defineRpcContract({
-  threadProject: { input: z.object({}).strict(), output: z.object({ projectId: idSchema.nullable(), timeZone: z.string().optional(), workProvider: z.string().optional(), workModel: z.string().optional(), syncProvider: z.string().optional(), syncModel: z.string().optional() }) },
+  threadProject: { input: z.object({}).strict(), output: z.object({ projectId: idSchema.nullable(), providerId: z.string().nullable().default(null), model: z.string().nullable().default(null), timeZone: z.string().optional(), workProvider: z.string().optional(), workModel: z.string().optional(), syncProvider: z.string().optional(), syncModel: z.string().optional() }) },
   ...dayRpcContract,
   proposalInbox: { input: z.object({ offset: z.number().int().min(0).default(0) }).strict(), output: z.object({ items: z.array(reviewItemSchema), total: z.number(), nextOffset: z.number().nullable() }) },
   acceptInbox: { input: z.object({ items: z.array(reviewSelectionSchema).min(1).max(50) }).strict(), output: z.object({ applied: z.array(z.object({ kind: z.enum(["source", "proposal"]), id: idSchema, taskId: idSchema })), failed: z.array(z.object({ kind: z.enum(["source", "proposal"]), id: idSchema, message: z.string() })) }) },
   syncState: { input: z.object({}).strict(), output: syncStateSchema },
   syncStart: { input: syncStartSchema, output: syncRunSchema },
+  syncImport: { input: syncImportSchema, output: syncRunSchema },
   syncCancel: { input: z.object({ runId: idSchema }).strict(), output: syncRunSchema },
   syncAccept: { input: z.object({ candidateId: idSchema }).strict(), output: dossierSchema },
   syncReject: { input: z.object({ candidateId: idSchema }).strict(), output: syncCandidateSchema },

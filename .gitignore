@@ -25,3 +25,6 @@ corporate-read-permissions/
 # Installation patches are private even when the repository is private.
 local.patch.json
 local.patch.json.*
+# Installation-owned overrides (publish only the generic docs example).
+*.settings.patch.json
+settings.patch.json
