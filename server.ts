@@ -1,5 +1,8 @@
+import { importSourceBundle } from "./source-import.js";
+import { applyLocalSettingsPatch, composerDefaultsSchema } from "./local-settings.js";
 import { parseSourceConfig } from "./source-config.js";
 import { readCalendar } from "./calendar-reader.js";
+import { calendarCommandSchema, readScriptCalendar } from "./calendar-script.js";
 import { connectCalendar } from "./source-connectors.js";
 import { randomUUID } from "node:crypto";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
@@ -14,6 +17,7 @@ import { managementGuide } from "./prompts.js";
 import { SourceSyncRuntime } from "./source-sync.js";
 import { ProposalInbox } from "./proposal-inbox.js";
 import { DayPlanning } from "./day-planning.js";
+import { DayPlanner } from "./day-planner.js";
 import { CalendarRuntime } from "./calendar-runtime.js";
 import { dayEstimateSchema, dayRpcContract } from "./day-contracts.js";
 import { AgentTimeRuntime, DAY_REVIEW_INSTRUCTIONS } from "./agent-time.js";
@@ -38,15 +42,24 @@ function boundedJson(value: unknown): string {
 
 export default async function plugin(bb: BbPluginApi) {
   const settings = bb.settings.define({
+    localSettingsPatch: { type: "string", label: "Local settings patch", description: "Absolute path to a private JSON settings patch, applied whenever 247C loads, including after updates. Keep it outside the plugin checkout. Leave blank to use saved BB settings.", default: "", experimental_schema: z.string().trim().max(4096) },
     threadProjectId: { type: "string", label: "Thread project", description: "BB project ID for all new 247C conversations, reviews and source checks. Uses its default project folder. Leave blank to use the composer selection and personal review workspaces.", default: "", experimental_schema: z.string().trim().max(200) },
+    composerDefaults: { type: "string", label: "Conversation account and model", description: "Optional JSON with providerId and model for new work, review discussions and source checks. Leave {} to use the native composer defaults and previous conversation selection.", default: "{}", experimental_schema: z.string().max(1000).refine(value => { try { composerDefaultsSchema.parse(JSON.parse(value)); return true; } catch { return false; } }, "Use a JSON object with both providerId and model, or {}.") },
     codexReviewer: { type: "string", label: "Codex verification model", default: "gpt-5.6-sol", experimental_schema: z.string().trim().min(1).max(200) },
     claudeReviewer: { type: "string", label: "Personal Claude verification model (sessions with criteria)", default: "claude-fable-5-1", experimental_schema: z.string().trim().min(1).max(200) },
     maximumRepairs: { type: "number", label: "Repair attempts after verification", default: 2, experimental_schema: z.number().int().min(0).max(2) },
     sessionMinutes: { type: "number", label: "Review or verification timeout in minutes (conversations have no timeout)", default: 20, experimental_schema: z.number().int().min(1).max(60) },
     sources: { type: "string", label: "Sources: JSON account, Slack, Jira and calendar profile", default: "{}", experimental_schema: z.string().max(32000).refine(value => { try { parseSourceConfig(value); return true; } catch { return false; } }, "A valid source profile JSON is required.") },
-    calendarMeetings: { type: "boolean", label: "Import work Google Calendar meetings when checking updates", default: true },
+    calendarMeetings: { type: "boolean", label: "Import work calendar meetings when checking updates", default: true },
+    calendarReaderCommand: { type: "string", label: "Calendar reader command", description: "Optional JSON argument array for a local calendar reader. It receives dates and known meetings on stdin and returns normalized calendar events. Leave [] to use the connected Google Calendar.", default: "[]", experimental_schema: z.string().max(32000).refine(value => { try { calendarCommandSchema.parse(JSON.parse(value)); return true; } catch { return false; } }, "Use a JSON argument array with an absolute executable path.") },
+    sourceImportRoot: { type: "string", label: "Local collector import folder", description: "Allow receipt-verified Teams, Outlook and ClickUp proposal bundles from this local folder. Leave blank to disable.", default: "", experimental_schema: z.string().trim().max(4096) },
+    dayPlannerProjectId: { type: "string", label: "Day planner project", description: "BB project ID containing the existing day-planning automation.", default: "", experimental_schema: z.string().trim().max(200) },
+    dayPlannerAutomationId: { type: "string", label: "Day planner automation", description: "Existing BB automation ID to run with Create day plan. Leave blank to hide the button.", default: "", experimental_schema: z.string().trim().max(200) },
     hourlyUpdates: { type: "boolean", label: "Check updates every hour, daily 08:00–20:00 (Athens)", default: false },
   });
+  const initialSettings = await settings.get();
+  const localPatch = await applyLocalSettingsPatch(initialSettings.localSettingsPatch, Object.keys(initialSettings), values => settings.experimental_set(values));
+  if (localPatch) bb.log.info(`Applied local settings patch ${localPatch.sha256.slice(0, 12)} (${localPatch.keys.length} settings).`);
   const db = bb.storage.database();
   db.pragma("foreign_keys = ON");
   bb.storage.migrate(db, [CORE_SCHEMA, ...EXTRA_SCHEMA]);
@@ -56,9 +69,12 @@ export default async function plugin(bb: BbPluginApi) {
   const threadRouting = new ThreadRouting(bb, async () => (await settings.get()).threadProjectId);
   const runtime = new SessionRuntime(bb, repo, getSettings, threadRouting);
   const days = new DayPlanning(repo);
+  const dayPlanner = new DayPlanner(bb, () => settings.get());
   const agentTime = new AgentTimeRuntime(bb, days);
   const sourceConfiguration = async () => parseSourceConfig((await settings.get()).sources);
   const calendar = new CalendarRuntime(days, async () => (await settings.get()).calendarMeetings, async input => {
+    const command = calendarCommandSchema.parse(JSON.parse((await settings.get()).calendarReaderCommand));
+    if (command.length) return readScriptCalendar(command, input);
     const config = await sourceConfiguration();
     return readCalendar({ ...input, calendarId: config.calendarId }, signal => connectCalendar(signal, config));
   });
@@ -68,8 +84,13 @@ export default async function plugin(bb: BbPluginApi) {
   days.tick();
 
   bb.rpc.register(rpcContract, {
-    threadProject: async () => ({ projectId: (await settings.get()).threadProjectId || null }),
+    threadProject: async () => {
+      const current = await settings.get();
+      return { projectId: current.threadProjectId || null, ...composerDefaultsSchema.parse(JSON.parse(current.composerDefaults)) };
+    },
     day: ({ date }) => ({ ...days.day(date), agentTime: agentTime.state() }),
+    dayPlannerState: () => dayPlanner.state(),
+    dayPlannerStart: (input) => dayPlanner.start(input),
     agentTimeSync: () => agentTime.refresh(),
     dayAdd: (input) => days.add(input),
     dayEdit: (input) => days.edit(input),
@@ -85,6 +106,7 @@ export default async function plugin(bb: BbPluginApi) {
     acceptInbox: async ({ items }) => { const result = await inbox.accept(items); if (result.applied.length) await runtime.archiveFinishedThreads(); return result; },
     syncState: () => sync.store.state(),
     syncStart: (input) => sync.start(input),
+    syncImport: async (input) => importSourceBundle(sync.store, (await settings.get()).sourceImportRoot, input),
     syncCancel: ({ runId }) => sync.cancel(runId),
     syncAccept: async ({ candidateId }) => { const result = sync.store.accept(candidateId); await runtime.archiveFinishedThreads(); return result; },
     syncReject: ({ candidateId }) => sync.store.reject(candidateId),
@@ -323,6 +345,7 @@ export default async function plugin(bb: BbPluginApi) {
   bb 247c propose <task-id> <revision> '<draft-json>' [--json]
   bb 247c sync [--json]
   bb 247c sync-start '<request-json>' [--json]
+  bb 247c sync-ingest '<request-json>' --json
   bb 247c sync-supplement <run-id> '<suggestions-json-array>' --json
 
 Use the 247C panel to approve, archive, start or finish sessions.
@@ -337,6 +360,7 @@ Use the 247C panel to approve, archive, start or finish sessions.
       { name: "propose", summary: "Submit a pending evidence-backed patch", usage: "bb 247c propose <task-id> <revision> '<draft-json>' [--json]" },
       { name: "sync", summary: "Read source-update history and checkpoints", usage: "bb 247c sync [--json]" },
       { name: "sync-start", summary: "Start a source check with an explicit BB execution request", usage: "bb 247c sync-start '<request-json>' [--json]" },
+      { name: "sync-ingest", summary: "Import a configured local collector bundle as pending proposals; never applies task changes", usage: "bb 247c sync-ingest '<request-json>' --json" },
       { name: "sync-supplement", summary: "Recover missing pending suggestions from a completed saved export on user request; preserves existing results and checkpoints", usage: "bb 247c sync-supplement <run-id> '<suggestions-json-array>' --json" },
     ],
     async run(argv, ctx) {
@@ -348,6 +372,9 @@ Use the 247C panel to approve, archive, start or finish sessions.
         let value: unknown;
         if (command === "sync" && args.length === 0) {
           const { candidates: _candidates, ...state } = sync.store.state(); value = state;
+        } else if (command === "sync-ingest" && args.length === 1) {
+          independentCaller(ctx.threadId);
+          value = await importSourceBundle(sync.store, (await settings.get()).sourceImportRoot, rpcContract.syncImport.input.parse(JSON.parse(args[0])));
         } else if (command === "sync-supplement" && args.length === 2) {
           independentCaller(ctx.threadId);
           value = sync.supplement(idSchema.parse(args[0]), JSON.parse(args[1]));

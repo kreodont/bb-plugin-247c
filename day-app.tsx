@@ -30,6 +30,38 @@ type ViewItem = DayView["items"][number];
 type Patch = Omit<z.input<typeof dayRpcContract.dayEdit.input>, "id" | "revision" | "requestId">;
 type Flush = () => Promise<boolean>;
 
+function DayPlannerControl({ date, beforeStart, refreshDay }: { date: string; beforeStart: Flush; refreshDay: () => Promise<void> }) {
+  const rpc = useRpc<typeof rpcContract>();
+  const read = useCallback(() => rpc.call("dayPlannerState", {}), [rpc]);
+  const { data, error, refresh } = useDaySnapshot(read);
+  const [busy, setBusy] = useState(false), [mutationError, setMutationError] = useState<string | null>(null);
+  const flight = useRef(false), request = useRef<{ date: string; id: string } | null>(null);
+  const [launched, setLaunched] = useState<z.output<typeof dayRpcContract.dayPlannerStart.output> | null>(null);
+  const run = launched && (!data?.run || launched.startedAt > data.run.startedAt) ? launched : data?.run;
+  const running = run?.status === "running";
+  useEffect(() => { if (run && run.status !== "running") void refreshDay(); }, [run?.id, run?.status, refreshDay]);
+  async function start() {
+    if (flight.current || running) return;
+    flight.current = true; setBusy(true); setMutationError(null);
+    try {
+      if (!await beforeStart()) return;
+      if (request.current?.date !== date) request.current = { date, id: crypto.randomUUID() };
+      const result = await rpc.call("dayPlannerStart", { date, requestId: request.current.id });
+      setLaunched(result); request.current = null;
+      await refresh();
+    } catch (e) { setMutationError(e instanceof Error ? e.message : String(e)); }
+    finally { flight.current = false; setBusy(false); }
+  }
+  if (!data?.configured && !error) return null;
+  const at = (time: number) => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: DAY_TIME_ZONE }).format(new Date(time));
+  return <section aria-label="Day planning" className="rounded-xl border border-border bg-card p-4">
+    <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-sm font-medium">Day planning</h2><p className="mt-1 text-xs text-muted-foreground">{data?.name ?? "Day planner"}{data?.scheduled && data.nextRunAt ? ` · next ${at(data.nextRunAt)}` : data?.configured ? " · schedule paused" : ""}</p></div><Button disabled={busy || running || !!error || !data?.configured || date !== data.today} onClick={() => void start()}><Icon name="Zap" />{busy ? "Starting…" : running ? "Creating plan…" : "Create day plan"}</Button></div>
+    {date !== data?.today && data && <p className="mt-2 text-xs text-muted-foreground">Open Today to create a day plan.</p>}
+    {run && <p role="status" className="mt-2 text-xs text-muted-foreground">{running ? "Creating today's plan. Saved tasks will appear here automatically." : run.status === "succeeded" ? `Day planning finished · ${at(run.finishedAt ?? run.startedAt)}` : run.status === "skipped" ? `Run skipped${run.skipReason ? `: ${run.skipReason}` : "."}` : `Day planning failed · ${at(run.finishedAt ?? run.startedAt)}`}</p>}
+    <ErrorText error={mutationError ?? error ?? (run?.status === "failed" ? run.error : null)} />
+  </section>;
+}
+
 export function CalendarStatus({ date }: { date?: string }) {
   const rpc = useRpc<typeof rpcContract>();
   const read = useCallback(() => rpc.call("calendarState", {}), [rpc]);
@@ -190,6 +222,7 @@ export function DayPage({ date, report = false, period = "week", threadId, focus
     <div className="flex flex-wrap items-center justify-between gap-4"><div><h1 className="text-2xl font-medium">{report ? "Time report" : "Day"}</h1><p className="mt-1 text-sm text-muted-foreground">{report ? "Planned, actual and reported time are totaled separately." : "Plan the day, see agent time, and review time to report."}</p></div><div className="flex gap-2"><Button variant={report ? "outline" : "default"} onClick={() => void go(`day/${date}`)}>Day</Button><Button variant={report ? "default" : "outline"} onClick={() => void go(`report/${period}/${date}`)}>Report</Button></div></div>
     <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><Button size="icon" variant="outline" aria-label="Previous day" onClick={() => void go(report ? `report/${period}/${shiftDay(date, -1)}` : `day/${shiftDay(date, -1)}`)}><Icon name="ChevronLeft" /></Button><Input type="date" aria-label="Plan date" value={date} className="w-40" onChange={e => { if (dayDateSchema.safeParse(e.target.value).success) void go(report ? `report/${period}/${e.target.value}` : `day/${e.target.value}`); }} /><Button size="icon" variant="outline" aria-label="Next day" onClick={() => void go(report ? `report/${period}/${shiftDay(date, 1)}` : `day/${shiftDay(date, 1)}`)}><Icon name="ChevronRight" /></Button><Button variant="ghost" size="sm" onClick={() => void go(report ? `report/${period}/${localDay()}` : `day/${localDay()}`)}>Today</Button></div>{report && <div className="flex gap-2"><Button size="sm" variant={period === "day" ? "default" : "outline"} onClick={() => void go(`report/day/${date}`)}>By day</Button><Button size="sm" variant={period === "week" ? "default" : "outline"} onClick={() => void go(`report/week/${date}`)}>By week</Button></div>}</div>
     <ErrorText error={mutationError ?? error} />
+    {!report && <DayPlannerControl key={date} date={date} beforeStart={flushAll} refreshDay={refresh} />}
     {totals && <div className="grid grid-cols-1 gap-3 sm:grid-cols-3"><div className="rounded-xl border border-border bg-card p-4"><p className="text-xs text-muted-foreground">Planned time</p><p className="mt-2 text-2xl font-medium tabular-nums">{formatMinutes(totals.plannedMinutes)}</p></div><div className="rounded-xl border border-border bg-card p-4"><p className="text-xs text-muted-foreground">Actual time</p><p className="mt-2 text-2xl font-medium tabular-nums">{formatMinutes(totals.actualMinutes)}</p></div><div className="rounded-xl border border-border bg-card p-4"><p className="text-xs text-muted-foreground">Reported time</p><p className="mt-2 text-2xl font-medium tabular-nums">{formatMinutes(totals.reportedMinutes)}</p></div></div>}
     {!!totals?.estimatedReported && <p role="status" className="rounded-lg bg-muted/40 p-3 text-sm">Reported time includes {totals.estimatedReported} automatic estimate(s). Review them before using this work report.</p>}
     {data && <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground"><p>Actual sums completed agent runs, excluding recorded approval and question waits. Parallel agents add together; meetings equal reported.{data.day.agentTime?.checkedAt ? ` Checked ${eventTime(data.day.agentTime.checkedAt)} · tracking since ${data.day.agentTime.from}.` : ""}</p><Button size="sm" variant="outline" disabled={busy || data.day.agentTime?.running} onClick={() => void action(() => rpc.call("agentTimeSync", {}))}>Refresh agent time</Button>{data.day.agentTime?.errors.length ? <p role="alert" className="w-full whitespace-pre-wrap text-destructive">Some measurements could not be refreshed. Saved time is preserved. {data.day.agentTime.errors.join("\n")}</p> : null}</div>}

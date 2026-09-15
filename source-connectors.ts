@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import type { SyncSource } from "./contracts.js";
+import type { NativeSyncSource as SyncSource } from "./contracts.js";
 
 const execute = promisify(execFile);
 export const READ_TOOLS: Record<SyncSource, readonly string[]> = {

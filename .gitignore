@@ -21,3 +21,7 @@ settings.before.json
 settings.proposed.json
 corporate-read-permissions/
 .DS_Store
+
+# Installation-owned overrides (publish only the generic docs example).
+*.settings.patch.json
+settings.patch.json

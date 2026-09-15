@@ -18,13 +18,36 @@ import { collectSources, sourceExportPage, type SourceExport } from "./source-co
 export const SYNC_SOURCES: SyncSource[] = ["gmail", "slack", "jira"];
 export const SYNC_ACTIVE = new Set<SyncRun["status"]>(["starting", "working"]);
 type Row = Record<string, unknown>;
-type RunRequest = { input: SyncStart; snapshots: TaskDossier[]; pendingCandidates?: SyncCandidate[]; submittedFingerprint?: string; submittedFingerprints?: string[]; submittedBatches?: string[]; dataPagesRead?: number[] };
+type RunRequest = { input?: SyncStart; externalImport?: { path: string; sha256: string }; snapshots: TaskDossier[]; pendingCandidates?: SyncCandidate[]; submittedFingerprint?: string; submittedFingerprints?: string[]; submittedBatches?: string[]; dataPagesRead?: number[] };
 export type SourceCall = { ref: string; source: SyncSource; tool: string; args: unknown; output: string; completed: boolean; truncated: boolean; read: boolean };
+// Threaded replies omit task IDs. Prove their task URL through a successful
+// parent-comment listing, matching structured IDs rather than quoted message text.
+function replyBelongsToTask(call: SourceCall, calls: SourceCall[], taskId: string): boolean {
+  if (call.source !== "clickup" || call.tool !== "clickup_get_threaded_comments" || !call.args || typeof call.args !== "object") return false;
+  const args = call.args as Record<string, unknown>;
+  if (typeof args.comment_id !== "string") return false;
+  return calls.some(parent => {
+    if (parent.source !== "clickup" || parent.tool !== "clickup_get_task_comments" || !parent.completed || !parent.read || parent.truncated || !parent.args || typeof parent.args !== "object") return false;
+    const parentArgs = parent.args as Record<string, unknown>;
+    if (parentArgs.task_id !== taskId || parentArgs.workspace_id !== args.workspace_id) return false;
+    try {
+      const raw = JSON.parse(parent.output.split("\n")[0]);
+      const blocks = Array.isArray(raw.content) ? raw.content : [];
+      return blocks.some((block: { type?: string; text?: string }) => {
+        if (block.type !== "text" || !block.text) return false;
+        try {
+          const result = JSON.parse(block.text);
+          return Array.isArray(result.comments) && result.comments.some((comment: { id?: unknown }) => String(comment.id) === args.comment_id);
+        } catch { return false; }
+      });
+    } catch { return false; }
+  });
+}
 const now = () => new Date().toISOString();
 const normalize = (s: string) => s.trim().replace(/\s+/g, " ").toLocaleLowerCase();
 function candidateDraft({ taskId, title, rationale, confidence, facts, changes }: SyncDraft): SyncDraft { return { taskId, title, rationale, confidence, facts, changes }; }
 
-export function syncRanges(checkpoints: Record<SyncSource, string | null>, since: string | null, until: string, initialSince?: Record<SyncSource, string | null>): SyncRun["ranges"] {
+export function syncRanges(checkpoints: Record<string, string | null>, since: string | null, until: string, initialSince?: Record<string, string | null>): SyncRun["ranges"] {
   if (since && Date.parse(since) >= Date.parse(until)) throw new PolicyError("The start date must precede the check's start time.");
   return Object.fromEntries(SYNC_SOURCES.map((source) => [source, {
     since: since ? new Date(since).toISOString() : checkpoints[source] ?? initialSince?.[source] ?? new Date(Date.parse(until) - 86400000).toISOString(),
@@ -42,7 +65,7 @@ export function callSource(name: string): SyncSource | null {
   return null;
 }
 
-function decodedText(raw: string): string {
+export function decodedText(raw: string): string {
   const strings: string[] = [raw];
   function visit(value: unknown, depth: number) {
     if (depth > 15) return;
@@ -126,12 +149,19 @@ export function validateSyncDraft(draft: SyncDraft, run: SyncRun, snapshots: Tas
     // may retain a prior run's verified receipts. They do not prove coverage.
     if (carried.has(digest(fact))) continue;
     const call = byRef.get(citation.callRef);
-    if (!call || call.source !== citation.source || !call.completed || !call.read) throw new PolicyError("The quote must reference a successful full thread or Jira issue read in this run.");
+    if (!call || call.source !== citation.source || !call.completed || !call.read) throw new PolicyError("The quote must reference a successful full source read in this run.");
     if (!call.output.includes(citation.quote)) throw new PolicyError("The quote is absent from the saved connector response. Copy it verbatim without translation or shortening.");
     const url = new URL(citation.url);
     const jiraSite = call.args && typeof call.args === "object" && "cloudId" in call.args ? call.args.cloudId : undefined;
-    const allowed = citation.source === "gmail" ? url.hostname === "mail.google.com" : citation.source === "slack" ? url.hostname === "slack.com" || url.hostname.endsWith(".slack.com") : url.hostname.endsWith(".atlassian.net") && (typeof jiraSite !== "string" || !jiraSite.includes(".") || url.hostname === jiraSite);
-    if (url.protocol !== "https:" || !allowed || url.username || url.password) throw new PolicyError("A direct HTTPS link to Gmail, Slack or the configured Jira site is required.");
+    const proof = `${JSON.stringify(call.args)}\n${call.output}`;
+    const pathIds = url.pathname.split("/").filter(Boolean).map(part => decodeURIComponent(part));
+    const allowed = citation.source === "gmail" ? url.hostname === "mail.google.com"
+      : citation.source === "slack" ? url.hostname === "slack.com" || url.hostname.endsWith(".slack.com")
+      : citation.source === "jira" ? url.hostname.endsWith(".atlassian.net") && (typeof jiraSite !== "string" || !jiraSite.includes(".") || url.hostname === jiraSite)
+      : citation.source === "teams" ? url.hostname === "teams.microsoft.com" && pathIds[0] === "l" && pathIds[1] === "message" && pathIds.length === 4 && pathIds.slice(2).every(part => proof.includes(part))
+      : citation.source === "outlook" ? ["outlook.office.com", "outlook.office365.com", "outlook.live.com"].includes(url.hostname) && proof.includes(citation.url)
+      : (url.hostname === "clickup.com" || url.hostname.endsWith(".clickup.com")) && (proof.includes(citation.url) || (pathIds[0] === "t" && (proof.includes(pathIds.at(-1)!) || replyBelongsToTask(call, calls, pathIds.at(-1)!))) || (pathIds[1] === "docs" && pathIds.length === 4 && pathIds.slice(2).every(part => proof.includes(part))));
+    if (url.protocol !== "https:" || !allowed || url.username || url.password) throw new PolicyError("A direct HTTPS source link matching the saved connector response is required.");
     if (!`${JSON.stringify(call.args)}\n${call.output}`.includes(citation.messageId)) throw new PolicyError("The message identifier is absent from the source call.");
     if (Date.parse(citation.occurredAt) > Date.parse(run.until)) throw new PolicyError("The message is newer than the interval end. It will be included in the next run.");
   }
@@ -146,6 +176,8 @@ export function validateSyncDraft(draft: SyncDraft, run: SyncRun, snapshots: Tas
 export function requiredSourceReads(dossiers: TaskDossier[], source: SyncSource, pending: SyncCandidate[] = []): string[] {
   const text = JSON.stringify([dossiers.filter((d) => d.task.status === "open"), pending]);
   if (source === "jira") return jiraReferences(text);
+  if (source === "clickup") return [...new Set([...text.matchAll(/clickup\.com\/t\/(?:\d+\/)?([A-Za-z0-9_-]+)/g)].map(m => m[1]))];
+  if (source === "teams" || source === "outlook") return [];
   const found = source === "gmail"
     ? [...text.matchAll(/mail\.google\.com[^\s"\\]*\/(?:#|%23)(?:all|inbox|sent|label\/[^/]+)\/([a-f0-9]{10,32})\b/g)].map((m) => m[1])
     : [...text.matchAll(/slack\.com\/archives\/[A-Z0-9]+\/p(\d{10})(\d{6})/g)].map((m) => `${m[1]}.${m[2]}`);
@@ -170,7 +202,7 @@ export function validateSyncReports(reports: SyncSubmit["reports"], calls: Sourc
       return call;
     });
     const live = selected.filter((call) => call.completed);
-    const queries = live.filter((call) => /search|list/i.test(call.tool));
+    const queries = live.filter((call) => /search|list|filter_tasks/i.test(call.tool));
     const problems: string[] = [];
     if (report.status === "complete") {
       if (!queries.length) problems.push("no successful search");
@@ -224,14 +256,17 @@ export class SourceSyncStore {
     this.repo.db.prepare("UPDATE source_sync_runs SET status=?,thread_id=?,value_json=? WHERE id=?").run(value.status, value.threadId, JSON.stringify(value), value.id);
     this.repo.changed(); return value;
   }
-  checkpoints(): Record<SyncSource, string | null> {
+  checkpoints(): Record<string, string | null> {
     const rows = this.repo.db.prepare("SELECT * FROM source_sync_checkpoints").all() as Row[];
-    return Object.fromEntries(SYNC_SOURCES.map((source) => [source, rows.find((row) => row.source === source)?.through ?? null])) as Record<SyncSource, string | null>;
+    return Object.fromEntries([...new Set([...SYNC_SOURCES, ...rows.map(row => String(row.source))])].map((source) => [source, rows.find((row) => row.source === source)?.through ?? null])) as Record<string, string | null>;
   }
-  initialSince(): Record<SyncSource, string | null> {
-    const row = this.repo.db.prepare("SELECT value_json FROM source_sync_runs ORDER BY rowid LIMIT 1").get() as Row | undefined;
-    const first = row ? syncRunSchema.parse(JSON.parse(String(row.value_json))) : null;
-    return Object.fromEntries(SYNC_SOURCES.map((source) => [source, first?.ranges[source].since ?? null])) as Record<SyncSource, string | null>;
+  initialSince(): Record<string, string | null> {
+    const initial: Record<string, string | null> = Object.fromEntries(SYNC_SOURCES.map(source => [source, null]));
+    for (const row of this.repo.db.prepare("SELECT value_json FROM source_sync_runs ORDER BY rowid").all() as Row[]) {
+      const run = syncRunSchema.parse(JSON.parse(String(row.value_json)));
+      for (const [source, range] of Object.entries(run.ranges)) initial[source] ??= range.since;
+    }
+    return initial;
   }
   candidate(id: string): SyncCandidate {
     const row = this.repo.db.prepare("SELECT value_json FROM source_sync_candidates WHERE id=?").get(id) as Row | undefined;
@@ -258,7 +293,7 @@ export class SourceSyncStore {
     const pending = Number((this.repo.db.prepare("SELECT count(*) AS n FROM source_sync_candidates WHERE status='pending'").get() as Row).n);
     const checkpoints = this.checkpoints();
     const ranges = syncRanges(checkpoints, null, now(), this.initialSince());
-    return { runs, candidates: this.candidates(), pending, checkpoints, nextSince: Object.fromEntries(SYNC_SOURCES.map((source) => [source, ranges[source].since])) as Record<SyncSource, string> };
+    return { runs, candidates: this.candidates(), pending, checkpoints, nextSince: { ...this.initialSince(), ...Object.fromEntries(Object.entries(checkpoints).filter(([, value]) => value !== null)), ...Object.fromEntries(SYNC_SOURCES.map((source) => [source, ranges[source].since])) } as Record<string, string> };
   }
   insert(input: SyncStart, fingerprint = digest(input)): SyncRun {
     return this.repo.store.transaction(() => {
@@ -275,6 +310,31 @@ export class SourceSyncStore {
       this.repo.changed(); return run;
     });
   }
+  importResult(imported: { id: string; provider: string; model: string; startedAt: string; until: string;
+    windows: Record<string, { since: string }>; taskRevisions: Record<string, number>; input: SyncSubmit;
+    provenance: { path: string; sha256: string } }, calls: SourceCall[]): SyncRun {
+    return this.repo.store.transaction(() => {
+      if (this.active().length) throw new PolicyError("A check is already running. Retry the saved bundle after it finishes.");
+      const list = this.repo.list(true);
+      if (list.total > 500) throw new PolicyError("A complete task snapshot exceeds 500 tasks.");
+      const snapshots = list.tasks.map(task => this.repo.kernel.getDossier(task.id));
+      for (const draft of imported.input.suggestions) if (draft.taskId) {
+        const revision = imported.taskRevisions[draft.taskId];
+        if (revision === undefined) throw new PolicyError("The collector must supply the task revision used for analysis.");
+        this.repo.assertCurrent(draft.taskId, revision);
+      }
+      const checkpoints = this.checkpoints();
+      const run: SyncRun = { id: imported.id, status: "working", threadId: null, provider: imported.provider, model: imported.model,
+        startedAt: imported.startedAt, until: imported.until, finishedAt: null, manualSince: null,
+        ranges: Object.fromEntries(Object.entries(imported.windows).map(([source, range]) => [source, { since: range.since, previous: checkpoints[source] ?? null }])),
+        reports: [], error: null, suggestions: 0, duplicates: 0, fingerprint: imported.provenance.sha256 };
+      this.repo.db.prepare("INSERT INTO source_sync_runs VALUES (?,?,?,?,?)").run(run.id, run.status, null, JSON.stringify(run),
+        JSON.stringify({ externalImport: imported.provenance, snapshots, pendingCandidates: this.pendingCandidates() }));
+      // Persist the verified connector data with the native run for provenance.
+      this.saveExport({ version: 1, runId: run.id, startedAt: run.startedAt, finishedAt: now(), elapsedMs: 0, calls, documents: [], reports: imported.input.reports });
+      return this.submit(run.id, imported.input, calls);
+    });
+  }
   submit(id: string, input: SyncSubmit, calls: SourceCall[], options: { finalize?: boolean; supplement?: boolean } = {}): SyncRun {
     return this.repo.store.transaction(() => {
       const run = this.run(id), request = this.request(id);
@@ -283,6 +343,7 @@ export class SourceSyncStore {
       if (request.submittedFingerprints?.includes(fingerprint) || (!supplement && finalize && request.submittedFingerprint === digest(input))) return run;
       if (supplement ? !["completed", "partial"].includes(run.status) : !SYNC_ACTIVE.has(run.status)) throw new PolicyError("The check has already finished. Its result cannot be changed.");
       if ((request.submittedFingerprints?.length ?? 0) >= 101) throw new PolicyError("The proposal batch limit for this run was reached.");
+      if (JSON.stringify(input.reports.map(r => r.source).sort()) !== JSON.stringify(Object.keys(run.ranges).sort())) throw new PolicyError("Reports must cover exactly the sources in this run.");
       const reports = validateSyncReports(input.reports, calls, request.snapshots, request.pendingCandidates);
       const batchKey = digest(input.suggestions);
       const replayedBatch = request.submittedBatches?.includes(batchKey) ?? false;

@@ -30,7 +30,7 @@ export class CalendarRuntime {
       const result = await this.read({ from, through, known: this.days.calendarItems(from, through), signal: controller.signal });
       if (this.disposed) return;
       controller.signal.throwIfAborted();
-      this.days.mergeCalendar(result.events);
+      this.days.mergeCalendar(result.events, "calendar:sync");
       this.days.saveCalendarState({ ...this.days.calendarState(), status: "complete", completedAt: this.days.now(), events: result.events.filter(e => e.status === "confirmed").length, message: null });
     } catch (error) {
       if (!this.disposed) this.days.saveCalendarState({ ...this.days.calendarState(), status: controller.signal.aborted ? "idle" : "error", message: controller.signal.aborted ? "Calendar check stopped. Previous meetings are preserved." : sourceError(error) });
