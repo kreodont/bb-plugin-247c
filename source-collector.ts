@@ -226,7 +226,7 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
   async function slack() {
     const after = String(Math.floor(Date.parse(run.ranges.slack.since) / 1000 - 300)), before = String(Date.parse(run.until) / 1000);
     const mentions = config.slackUserId ? [`<@${config.slackUserId}>`] : [];
-    await pool(["is:dm", "is:mpim", "to:me", ...mentions, ...config.slackChannels.map(c => `in:${c}`)], async query => {
+    await pool(["is:dm", "is:mpim", "to:me", "from:me", ...mentions, ...config.slackChannels.map(c => `in:${c}`)], async query => {
       await pages("slack", "slack_search_public_and_private", { query, after, before, limit: 20, include_context: false, include_bots: true, sort: "timestamp" }, data => {
         const text = String(data.results ?? data.text ?? ""); addLinks(text);
         const n = [...text.matchAll(/### Result \d+/g)].length; scanned.slack += n;

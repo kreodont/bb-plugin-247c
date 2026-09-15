@@ -34588,7 +34588,7 @@ async function collectSources(run, dossiers, options = {}) {
   async function slack() {
     const after = String(Math.floor(Date.parse(run.ranges.slack.since) / 1e3 - 300)), before = String(Date.parse(run.until) / 1e3);
     const mentions = config2.slackUserId ? [`<@${config2.slackUserId}>`] : [];
-    await pool(["is:dm", "is:mpim", "to:me", ...mentions, ...config2.slackChannels.map((c) => `in:${c}`)], async (query) => {
+    await pool(["is:dm", "is:mpim", "to:me", "from:me", ...mentions, ...config2.slackChannels.map((c) => `in:${c}`)], async (query) => {
       await pages("slack", "slack_search_public_and_private", { query, after, before, limit: 20, include_context: false, include_bots: true, sort: "timestamp" }, (data) => {
         const text2 = String(data.results ?? data.text ?? "");
         addLinks(text2);
@@ -34714,11 +34714,11 @@ ${JSON.stringify(bundle.reports.map(({ callRefs: _refs, ...report }) => report))
 Compare findings with ALL tasks in the snapshot, including current nextStep, waiting states and links. Combine all sources for one issue into one proposal.
 Update ONLY tasks with status=open; copy exact taskIds from the snapshot. Closed tasks are supplied only for matching and deduplication. Do not invent UUIDs or turn completed requests into new tasks.
 Reconcile new findings with the full pending proposals below, including proposals from missed earlier checks. A pending proposal may contain only the remainder of a human partial review. Its changes are the remaining fields; when recordFactIndexes is present, only those fact indexes remain proposed records and other facts are retained solely as evidence. Do not restore reviewed records merely because their quotes are still available. See the merge rules below. A revised result receives a new approval ID.
-If no matching task exists and there is a substantive open request to the user, propose a new task. Do not duplicate already proposed or closed issues.
+If no matching task exists and there is a substantive open request to the user or clearly evidenced unfinished work owned by the user, propose a new task. Do not duplicate already proposed or closed issues.
 Do not propose changes without a relevant update. With a partial export, an absent reply or mention does not prove it never existed.
 Gmail: the latest message has the maximum internalDate. SENT on the latest message means the user replied. A new incoming message after that reply reopens the request.
 A reply by the user or another participant may resolve a blocker or change an existing task's next step; a reply alone does not prove task completion.
-Slack: consider all replies. A latest message from the user, thanks/got it or a closing reply is not a new request. Requests to another assignee are FYI.
+Slack: consider all replies and the user's own messages. Acknowledgments and closing replies alone are not new tasks. A user-authored update or request for review of their own work can establish progress, a waiting state or unfinished work, even outside watched channels. A colleague's response may change the next step. Keep requests assigned to others as FYI unless the evidence also establishes the user's ownership of the underlying work; do not assign the colleague's approval action to the user.
 Account owner's local context: ${config2.analysisContext}
 Jira: inspect the meaning of status, description and comments, including the user's own replies. Review is a valid status name.
 Use source message timestamps: Slack edits use edited.ts, Jira issues use updated, and comments use updated/created.
@@ -34797,12 +34797,12 @@ For an existing task, the user's reply may change a waiting state or next step: 
 A sent reply alone does not prove the entire task is complete.
 
 SLACK COLLECTION
-Check DMs and group DMs (is:dm / is:mpim searches), to:me, ${config2.slackUserId ? `direct mentions with the literal query <@${config2.slackUserId}>, ` : ""}configured channels ${config2.slackChannels.join(", ")} and group chats ${config2.slackGroups.join(", ")}. Do not rely on to:me alone for direct mentions outside configured channels.
+Check DMs and group DMs (is:dm / is:mpim searches), to:me, from:me, ${config2.slackUserId ? `direct mentions with the literal query <@${config2.slackUserId}>, ` : ""}configured channels ${config2.slackChannels.join(", ")} and group chats ${config2.slackGroups.join(", ")}. Do not rely on to:me alone for direct mentions outside configured channels. Search from:me across accessible channels even without a configured Slack member ID.
 Complete pagination and the history interval. Use slack_read_thread for every candidate, including replies.
 Also read threads referenced by phrases such as in that thread, see thread or updating there.
-FLAG only open requests to the user. A latest message from the user, thanks/got it or a closing reply is not an open request.
+Consider open requests to the user and clearly evidenced unfinished work owned by the user. Their request for review of their own work can establish progress or a waiting state; a colleague's response may change the next step. Thanks/got it and closing replies alone are not new tasks. Do not discard a substantive work update merely because the user sent it.
 Describe a thread as having no replies only after reading it.
-An explicit request to another assignee is FYI; copying someone for visibility does not transfer responsibility.
+An explicit request to another assignee is FYI unless the evidence also establishes the user's ownership of the underlying work. Keep the colleague's approval action assigned to the colleague; copying someone for visibility does not transfer responsibility.
 
 JIRA COLLECTION
 Search updated >= since, including terminal statuses, assignee=currentUser(), mentions and known task keys.
@@ -34821,7 +34821,7 @@ Match stable Jira/SO/estimate keys, source links and participants first, then to
 Compare against ALL existing tasks and proposals before creating a new one. Do not duplicate one issue across tasks.
 When a pending proposal has a different baseRevision from the matching task revision, reread its sources and explicitly reconcile its fields against the current snapshot. The server replaces the old proposal only after validation.
 Cross-check the sources of pending new-task proposals too, even before a task has been created.
-If a substantive open request concerns the user and no matching task or pending new-task proposal exists, propose a new task with a detailed summary and nextStep.
+If a substantive open request concerns the user or the evidence establishes unfinished work owned by the user, and no matching task or pending new-task proposal exists, propose a new task with a detailed summary and nextStep.
 If a matching task exists, create one combined proposal for it across all sources in the run.
 
 SUBMISSION AND EVIDENCE

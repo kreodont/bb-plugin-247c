@@ -17,20 +17,20 @@ function connections(slack: SourceConnections["slack"]): SourceConnections {
   return { gmail: { error: "Not part of this check" }, jira: { error: "Not part of this check" }, slack };
 }
 
-it("finds mentions outside watched channels when to:me is empty, follows pages and reads each parent once", async () => {
+it.each([mentionQuery, "from:me"])("finds %s outside watched channels when incoming searches are empty, follows pages and reads each parent once", async query => {
   const seen: { tool: string; args: Record<string, unknown> }[] = [];
   const bundle = await collectSources(run(), [], {
     config: { ...defaultSourceConfig, slackUserId: "U123OWNER", slackChannels: ["support"] },
     connect: async () => connections({ close: async () => {}, async call(tool, args) {
       seen.push({ tool, args });
       if (tool === "slack_read_thread") return response({ messages: `Message TS: ${parent}\nPlease review the next change.\nMessage TS: 1789034700.654321\nNon-urgent.`, pagination_info: "There are no more messages in this thread." });
-      if (args.query !== mentionQuery) return response({ results: "No results found.", pagination_info: "End of results - No more pages available." });
+      if (args.query !== query) return response({ results: "No results found.", pagination_info: "End of results - No more pages available." });
       const ts = args.cursor ? "1789034700654321" : "1789034400123456";
-      return response({ results: `### Result 1 of 2\nChannel: #engineering (ID: C987ENG)\nPermalink: https://example.slack.com/archives/C987ENG/p${ts}?thread_ts=${parent}\nText: <@U123OWNER> Please review.`,
+      return response({ results: `### Result 1 of 2\nChannel: #engineering (ID: C987ENG)\nPermalink: https://example.slack.com/archives/C987ENG/p${ts}?thread_ts=${parent}\nText: ${query === mentionQuery ? "<@U123OWNER> Please review." : "Please approve my change."}`,
         pagination_info: args.cursor ? "End of results - No more pages available." : "For the next page of results use cursor `mentions-page-2`" });
     } }),
   });
-  const searches = seen.filter(c => c.args.query === mentionQuery);
+  const searches = seen.filter(c => c.args.query === query);
   expect(searches).toHaveLength(2);
   expect(searches[1].args.cursor).toBe("mentions-page-2");
   expect(searches.every(c => c.args.after === String(Date.parse(since) / 1000 - 300) && c.args.before === String(Date.parse(until) / 1000))).toBe(true);
@@ -40,16 +40,16 @@ it("finds mentions outside watched channels when to:me is empty, follows pages a
   expect(bundle.reports.find(r => r.source === "slack")).toMatchObject({ status: "complete", paginationComplete: true, threadsRead: 1 });
 });
 
-it("reports partial coverage when the explicit mention search fails despite successful empty searches", async () => {
+it.each([mentionQuery, "from:me"])("reports partial coverage when %s fails despite successful empty searches", async query => {
   const bundle = await collectSources(run(), [], {
     config: { ...defaultSourceConfig, slackUserId: "U123OWNER" },
     connect: async () => connections({ close: async () => {}, async call(_tool, args) {
-      if (args.query === mentionQuery) return { isError: true, content: [{ type: "text", text: "Mention search permission denied." }] };
+      if (args.query === query) return { isError: true, content: [{ type: "text", text: "Search permission denied." }] };
       return response({ results: "No results found.", pagination_info: "End of results - No more pages available." });
     } }),
   });
   expect(bundle.reports.find(r => r.source === "slack")).toMatchObject({ status: "partial", paginationComplete: false });
-  expect(bundle.reports.find(r => r.source === "slack")?.detail).toContain("Mention search permission denied");
+  expect(bundle.reports.find(r => r.source === "slack")?.detail).toContain("Search permission denied");
   expect(bundle.documents).toEqual([]);
 });
 
@@ -59,5 +59,5 @@ it("does not send an invalid mention query when the Slack member ID is not confi
     queries.push(args.query);
     return response({ results: "No results found.", pagination_info: "End of results - No more pages available." });
   } }) });
-  expect(queries).toEqual(["is:dm", "is:mpim", "to:me"]);
+  expect(queries).toEqual(["is:dm", "is:mpim", "to:me", "from:me"]);
 });
