@@ -21,7 +21,7 @@ export async function fixture(options: { deferEnvironment?: boolean } = {}) {
     return row;
   }
   let n = 0;
-  const host = createFakePluginHost({ pluginId: "247c", settings: { calendarMeetings: false }, sdk: {
+  const host = createFakePluginHost({ pluginId: "247c", settings: { calendarMeetings: false, excludedReviewModels: JSON.stringify([{ providerId: "claude-work", model: "claude-fable-5-1" }]) }, sdk: {
     providers: {
       list: () => [{ id: "codex", available: true }, { id: "claude-code", available: true }, { id: "claude-work", available: true }],
       models: ({ providerId } = {}) => ({ modelLoadError: null, models: (providerId === "codex" ? ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.5", "gpt-5.3-codex-spark"] : ["claude-opus-5[1m]", "claude-fable-5-1", "claude-sonnet-5", "claude-haiku-4-5-20251001"]).map((model) => ({ id: model, model, displayName: model, defaultReasoningEffort: "medium", supportedReasoningEfforts: [{ reasoningEffort: "low" }, { reasoningEffort: "medium" }] })) }),

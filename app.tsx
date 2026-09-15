@@ -1,3 +1,4 @@
+import { PlanningTimeZone, usePlanningTimeZone } from "./day-zone.js";
 import { proposalParts, sourceParts } from "./proposal-parts.js";
 import { usePartSelection, PartReviewNote, partOutcome } from "./review-parts-ui.js";
 import { TaskViewMarker } from "./task-view-marker.js";
@@ -83,13 +84,13 @@ function useSnapshot<T>(load: () => Promise<T>) {
   return { data, error, refresh };
 }
 
-function ProjectThreadComposer(props: ComponentProps<typeof NewThreadComposer>) {
+function ProjectThreadComposer({ purpose = "work", ...props }: ComponentProps<typeof NewThreadComposer> & { purpose?: "work" | "sync" }) {
   const rpc = useRpc<typeof rpcContract>();
   const load = useCallback(() => rpc.call("threadProject", {}), [rpc]);
   const { data, error, refresh } = useSnapshot(load);
   if (error) return <ErrorNotice error={error} retry={() => void refresh()} />;
   if (!data) return <p role="status" className="text-sm text-muted-foreground">Loading conversation settings…</p>;
-  return <NewThreadComposer {...props} defaultProjectId={data.projectId ?? undefined} defaultEnvironment={data.projectId ? { type: "project-default" } : undefined} />;
+  return <NewThreadComposer {...props} defaultProviderId={props.defaultProviderId ?? ((purpose === "work" ? data.workProvider : data.syncProvider) || undefined)} defaultModel={props.defaultModel ?? ((purpose === "work" ? data.workModel : data.syncModel) || undefined)} defaultProjectId={data.projectId ?? undefined} defaultEnvironment={data.projectId ? { type: "project-default" } : undefined} />;
 }
 
 function ThreadSessionControl({ threadId, isCompactViewport, action }: PluginThreadHeaderActionProps & { action: "task" | "finish" }) {
@@ -163,10 +164,10 @@ function ThreadReportedTime({ threadId, isCompactViewport }: PluginThreadHeaderA
     }
   }
   if (!data?.session || !data.reportedToday) return null;
-  const { date, minutes, estimated } = data.reportedToday;
+  const { date, minutes, estimated, timeZone = DAY_TIME_ZONE } = data.reportedToday;
   const value = error ? "unavailable" : formatMinutes(minutes);
   const label = `Reported today: ${value}${!error && estimated ? " (estimate)" : ""}`;
-  const title = error ? `Could not refresh reported time: ${error}` : `${label} · ${date} · ${DAY_TIME_ZONE}${minutes === null ? " · No reported time entered" : ""}`;
+  const title = error ? `Could not refresh reported time: ${error}` : `${label} · ${date} · ${timeZone}${minutes === null ? " · No reported time entered" : ""}`;
   return <span title={`${title} · Open today's task in Day Plan`} className="inline-flex"><Button type="button" size="sm" variant="outline"
     className="h-7 shrink-0 gap-1.5 px-2 text-xs text-muted-foreground" disabled={busy} aria-busy={busy}
     aria-label={`${label}. Open Day Plan`} aria-description="Open today's task row and edit Reported time; add the task if missing"
@@ -273,7 +274,7 @@ function SyncPage() {
       const checkpoint = data?.sync.checkpoints[source];
       return <section key={source} className="rounded-xl border border-border bg-card p-4"><h2 className="font-medium">{sourceNames[source]}</h2><p className="mt-2 text-xs text-muted-foreground">{checkpoint ? `Fully checked through ${date(checkpoint)}` : latest && data ? `Unchecked since ${date(data.sync.nextSince[source])}` : "First run: last 24 hours"}</p>{latest && <><p className={cn("mt-3 text-sm", report && report.status !== "complete" && "text-destructive")}>{active ? active.collection?.phase === "collecting" ? "Loading data…" : "The model is analyzing the export…" : report?.status === "complete" ? "Checked" : report?.status === "partial" ? "Partially checked" : report?.status === "unavailable" ? "Unavailable" : syncStatusNames[latest.status]}</p>{report && <p className="mt-1 whitespace-pre-wrap break-words text-xs leading-relaxed text-muted-foreground">{report.detail}<br />Candidates: {report.scanned} · threads/issues read: {report.threadsRead}</p>}</>}</section>;
     })}</div>
-    {starting && !active && <section className="space-y-4 rounded-xl border border-border p-4"><div className="flex items-center justify-between"><h2 className="font-medium">Start check</h2><Button size="sm" variant="ghost" onClick={() => setStarting(false)}>Cancel</Button></div><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={manual} onChange={(e) => setManual(e.target.checked)} />Set a start date</label>{manual ? <div><label htmlFor="sync-since" className="mb-1.5 block text-xs text-muted-foreground">From date and time · {Intl.DateTimeFormat().resolvedOptions().timeZone}</label><Input id="sync-since" type="datetime-local" value={since} onChange={(e) => setSince(e.target.value)} /></div> : <p className="text-sm text-muted-foreground">Continue from each source's last complete check. If a source was unavailable, its missed interval will be checked.</p>}<p className="text-xs leading-relaxed text-muted-foreground">Sources will be loaded through the configured login. Choose any available model to analyze the data; you can also specify what to focus on.</p><ProjectThreadComposer defaultProviderId="codex" defaultModel="gpt-5.6-sol" defaultReasoningLevel="medium" defaultPermissionMode="accept-edits" initialPrompt="Analyze email, Slack and Jira updates and prepare proposals for 247C tasks." placeholder="Additional instructions for this check" layout="document" draftKey="247c-source-sync" onSubmit={start} /></section>}
+    {starting && !active && <section className="space-y-4 rounded-xl border border-border p-4"><div className="flex items-center justify-between"><h2 className="font-medium">Start check</h2><Button size="sm" variant="ghost" onClick={() => setStarting(false)}>Cancel</Button></div><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={manual} onChange={(e) => setManual(e.target.checked)} />Set a start date</label>{manual ? <div><label htmlFor="sync-since" className="mb-1.5 block text-xs text-muted-foreground">From date and time · {Intl.DateTimeFormat().resolvedOptions().timeZone}</label><Input id="sync-since" type="datetime-local" value={since} onChange={(e) => setSince(e.target.value)} /></div> : <p className="text-sm text-muted-foreground">Continue from each source's last complete check. If a source was unavailable, its missed interval will be checked.</p>}<p className="text-xs leading-relaxed text-muted-foreground">Sources will be loaded through the configured login. Choose any available model to analyze the data; you can also specify what to focus on.</p><ProjectThreadComposer purpose="sync" defaultReasoningLevel="medium" defaultPermissionMode="accept-edits" initialPrompt="Analyze email, Slack and Jira updates and prepare proposals for 247C tasks." placeholder="Additional instructions for this check" layout="document" draftKey="247c-source-sync" onSubmit={start} /></section>}
     <CalendarStatus />
     {latest && <section className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-4"><Pill attention={syncActive(latest) || latest.status === "partial" || latest.status === "blocked"}>{syncStatusNames[latest.status]}</Pill><span className="mr-auto text-xs text-muted-foreground">{date(latest.startedAt)}{latest.collection && ` · ${latest.collection.phase === "collecting" && syncActive(latest) ? "loading" : "loaded"} ${latest.collection.reads} threads/issues in ${Math.round(latest.collection.elapsedMs / 1000)} s`} · proposals {latest.suggestions}{latest.duplicates ? ` · duplicates ${latest.duplicates}` : ""}</span>{latest.threadId && <Button size="sm" variant="outline" onClick={() => navigate.toThread(latest.threadId!)}>Check conversation</Button>}{active && <Button size="sm" variant="ghost" disabled={busy} onClick={() => void action(() => rpc.call("syncCancel", { runId: active.id }))}>Stop check</Button>}{latest.error && <p className="w-full text-sm text-destructive">{latest.error}</p>}{latest.manualSince && <p className="w-full text-xs text-muted-foreground">From {date(latest.manualSince)} to {date(latest.until)}. A manual date later than the previous checkpoint does not advance it, so the unchecked interval is preserved.</p>}</section>}
     <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-medium">Pending · {data?.sync.pending ?? 0}</h2><Button variant="outline" size="sm" onClick={() => navigate.toPluginPanel("desk", { subPath: "proposals" })}>All proposals</Button><label className="flex items-center gap-2 text-sm text-muted-foreground"><input type="checkbox" checked={history} onChange={(e) => setHistory(e.target.checked)} />Show reviewed proposals</label></div>
@@ -285,6 +286,7 @@ function SyncPage() {
 }
 
 function Desk() {
+  const timeZone = usePlanningTimeZone();
   const rpc = useRpc<typeof rpcContract>();
   const navigate = useBbNavigate();
   const [history, setHistory] = useState(false);
@@ -314,7 +316,7 @@ function Desk() {
       return priority || (sort === "oldest" ? -updated : updated) || a.id.localeCompare(b.id);
     });
   return <div className="h-full min-h-0 overflow-y-auto"><div className="mx-auto max-w-6xl space-y-6 p-5 md:p-8">
-    <div className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-2xl font-medium tracking-tight">What shall we work on next?</h1><p className="mt-1.5 text-sm text-muted-foreground">Tasks retain their context. Each session moves the work forward.</p></div><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => navigate.toPluginPanel("desk", { subPath: `day/${localDay()}` })}>Day</Button><Button variant={pending ? "default" : "outline"} onClick={() => navigate.toPluginPanel("desk", { subPath: "proposals" })}>Proposals{pending ? ` · ${pending}` : ""}</Button><Button variant="outline" onClick={() => navigate.toPluginPanel("desk", { subPath: "updates" })}>Check for updates</Button><Button variant="outline" onClick={() => navigate.toPluginPanel("desk", { subPath: "knowledge" })}>Knowledge base</Button><Button onClick={() => setCreating(true)}><span aria-hidden="true">＋</span> New task</Button></div></div>
+    <div className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-2xl font-medium tracking-tight">What shall we work on next?</h1><p className="mt-1.5 text-sm text-muted-foreground">Tasks retain their context. Each session moves the work forward.</p></div><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => navigate.toPluginPanel("desk", { subPath: `day/${localDay(new Date(), timeZone)}` })}>Day</Button><Button variant={pending ? "default" : "outline"} onClick={() => navigate.toPluginPanel("desk", { subPath: "proposals" })}>Proposals{pending ? ` · ${pending}` : ""}</Button><Button variant="outline" onClick={() => navigate.toPluginPanel("desk", { subPath: "updates" })}>Check for updates</Button><Button variant="outline" onClick={() => navigate.toPluginPanel("desk", { subPath: "knowledge" })}>Knowledge base</Button><Button onClick={() => setCreating(true)}><span aria-hidden="true">＋</span> New task</Button></div></div>
     <ErrorNotice error={error} retry={() => void refresh()} />
     {creating && <CreateTask cancel={() => setCreating(false)} done={(id) => navigate.toPluginPanel("desk", { subPath: id })} />}
     <div className="grid grid-cols-2 gap-2 lg:grid-cols-5" aria-label="Task quadrants">
@@ -446,7 +448,7 @@ function Work({ dossier, refresh, showProposals, discussionId }: { dossier: Doss
     <div className="flex flex-wrap items-center gap-2">{dossier.sessions.map((s, i) => <button type="button" key={s.id} className={cn("rounded-lg border px-3 py-2 text-xs", !showComposer && session?.id === s.id ? "border-primary/30 bg-primary/5" : "border-border text-muted-foreground")} onClick={() => { setSelected(s.id); setStarting(false); setContinuing(null); setReviewer(false); }}>Session {dossier.sessions.length - i} · {sessionLabel(s)}</button>)}{!active && dossier.task.status === "open" && session && <Button size="sm" variant="outline" onClick={() => { setContinuing(null); setStarting(true); }}>New session</Button>}</div>
     {showComposer ? <div className="space-y-5">
       <div className="max-w-3xl"><h2 className="text-lg font-medium">{previous ? "Discuss the review" : "Just start a conversation"}</h2>{previous && <p className="mt-2 text-sm text-muted-foreground">The assistant will already have the previous conversation, review and quotes. Describe what you want to clarify or correct.</p>}<p className="mt-2 text-sm leading-relaxed text-muted-foreground">The assistant will already have the dossier. Discuss the task and keep working for as long as you need. When you are done, click Finish session; a separate session will read the dialogue and propose dossier and knowledge records.</p></div>
-      <div className="min-h-80 overflow-hidden rounded-xl border border-border bg-card p-3 md:p-4"><ProjectThreadComposer key={`${dossier.task.id}-${continuing ?? "new"}`} defaultProviderId={previous?.workerProvider ?? "claude-work"} defaultModel={previous?.workerModel ?? "claude-opus-5[1m]"} defaultReasoningLevel="medium" defaultPermissionMode="accept-edits" initialPrompt={previous ? "I would like to discuss the review of the previous session. " : ""} placeholder={previous ? "What should we clarify in the review?" : "Where shall we start?"} layout="document" draftKey={`247c-session-${dossier.task.id}-${continuing ?? "new"}`} onSubmit={start} /></div>
+      <div className="min-h-80 overflow-hidden rounded-xl border border-border bg-card p-3 md:p-4"><ProjectThreadComposer key={`${dossier.task.id}-${continuing ?? "new"}`} defaultProviderId={previous?.workerProvider} defaultModel={previous?.workerModel} defaultReasoningLevel="medium" defaultPermissionMode="accept-edits" initialPrompt={previous ? "I would like to discuss the review of the previous session. " : ""} placeholder={previous ? "What should we clarify in the review?" : "Where shall we start?"} layout="document" draftKey={`247c-session-${dossier.task.id}-${continuing ?? "new"}`} onSubmit={start} /></div>
       <p className="text-xs leading-relaxed text-muted-foreground">The review model is selected automatically: Codex Sol after Claude, personal Sonnet after Codex. The prepared records will appear in Proposals.</p>
     </div> : session ? <>
       <div className="rounded-xl border border-border bg-card p-4">
@@ -630,11 +632,17 @@ function ProposalInboxPage() {
 }
 
 function Page({ subPath }: PluginNavPanelProps) {
+  const rpc = useRpc<typeof rpcContract>();
+  const load = useCallback(() => rpc.call("threadProject", {}), [rpc]);
+  const { data, error, refresh } = useSnapshot(load);
   const navigate = useBbNavigate(), { threadId } = deskRoute(subPath);
-  return <NavigationFrame subPath={subPath} returnToThread={threadId ? () => navigate.toThread(threadId) : undefined}><PageContent subPath={subPath} /></NavigationFrame>;
+  if (error) return <ErrorNotice error={error} retry={() => void refresh()} />;
+  if (!data) return <p role="status">Loading 247C settings…</p>;
+  return <PlanningTimeZone.Provider value={data.timeZone ?? DAY_TIME_ZONE}><NavigationFrame subPath={subPath} returnToThread={threadId ? () => navigate.toThread(threadId) : undefined}><PageContent subPath={subPath} /></NavigationFrame></PlanningTimeZone.Provider>;
 }
 
 function PageContent({ subPath }: PluginNavPanelProps) {
+  const timeZone = usePlanningTimeZone();
   const { path, threadId, focusTaskId } = deskRoute(subPath);
   if (path === "proposals") return <ProposalInboxPage />;
   if (path === "updates") return <SyncPage />;
@@ -642,7 +650,7 @@ function PageContent({ subPath }: PluginNavPanelProps) {
   const parts = path.split("/");
   if (parts[0] === "day" || parts[0] === "report") {
     const report = parts[0] === "report", period = parts[1] === "day" ? "day" : "week";
-    const date = (report ? parts[2] : parts[1]) || localDay();
+    const date = (report ? parts[2] : parts[1]) || localDay(new Date(), timeZone);
     if (!dayDateSchema.safeParse(date).success) return <div className="p-6"><ErrorNotice error="The link contains an invalid date." /></div>;
     return <DayPage key={`${report}:${period}:${date}:${focusTaskId ?? ""}`} date={date} report={report} period={period} threadId={threadId} focusTaskId={focusTaskId} />;
   }

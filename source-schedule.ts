@@ -1,21 +1,27 @@
+import { DAY_TIME_ZONE } from "./day-contracts.js";
 import { createHash } from "node:crypto";
 import { syncStartSchema } from "./contracts.js";
 import { PolicyError } from "./core/errors.js";
 import type { SourceSyncRuntime } from "./source-sync.js";
 
-export const UPDATE_TIME_ZONE = "Europe/Athens";
+export const UPDATE_TIME_ZONE = DAY_TIME_ZONE; // Compatibility default; installed settings override it.
+type Schedule = { timeZone: string; updateStartHour: number; updateEndHour: number };
+const defaultSchedule: Schedule = { timeZone: UPDATE_TIME_ZONE, updateStartHour: 8, updateEndHour: 20 };
 export const UPDATE_SCHEDULE = "hourly-source-updates";
 // BB cron uses the server timezone. Check a minute boundary, then select the
-// Athens hour explicitly so this also works if the server changes timezone.
+// configured hour explicitly so this also works if the server changes timezone.
 export const UPDATE_CRON = "* * * * *";
 
-export function hourlyUpdateSlot(date: Date): string | null {
+export function hourlyUpdateSlot(date: Date, schedule = defaultSchedule): string | null {
   const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
-    timeZone: UPDATE_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit",
+    timeZone: schedule.timeZone, year: "numeric", month: "2-digit", day: "2-digit",
     hour: "2-digit", minute: "2-digit", hourCycle: "h23",
   }).formatToParts(date).map(part => [part.type, part.value]));
   const hour = Number(parts.hour);
-  return parts.minute === "00" && hour >= 8 && hour <= 20 ? `${parts.year}-${parts.month}-${parts.day}T${parts.hour}` : null;
+  const inWindow = schedule.updateStartHour <= schedule.updateEndHour
+    ? hour >= schedule.updateStartHour && hour <= schedule.updateEndHour
+    : hour >= schedule.updateStartHour || hour <= schedule.updateEndHour;
+  return parts.minute === "00" && inWindow ? `${parts.year}-${parts.month}-${parts.day}T${parts.hour}` : null;
 }
 
 export function hourlyUpdateId(slot: string): string {
@@ -27,8 +33,8 @@ export function hourlyUpdateId(slot: string): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
-export async function scheduledSourceUpdate(sync: SourceSyncRuntime, enabled: () => Promise<boolean>, date = new Date()): Promise<string | null> {
-  const slot = hourlyUpdateSlot(date);
+export async function scheduledSourceUpdate(sync: SourceSyncRuntime, enabled: () => Promise<boolean>, date = new Date(), schedule = defaultSchedule): Promise<string | null> {
+  const slot = hourlyUpdateSlot(date, schedule);
   if (!slot || !await enabled()) return null;
   if (sync.store.active().length) return null;
   const requestId = hourlyUpdateId(slot);

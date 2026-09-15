@@ -1,16 +1,18 @@
+import { DAY_TIME_ZONE } from "./day-contracts.js";
 import { languageGuide } from "./language.js";
 import { defaultSourceConfig, type SourceConfig } from "./source-config.js";
 import type { SyncCandidate, SyncRun } from "./contracts.js";
 import type { TaskDossier } from "./core/types.js";
 import { sourceExportPage, type SourceExport } from "./source-collector.js";
 
-export function syncAnalysisInstructions(run: SyncRun, dossiers: TaskDossier[], previous: SyncCandidate[], bundle: SourceExport, config: SourceConfig = defaultSourceConfig): string {
-  const legacy = syncInstructions(run, dossiers, previous, config);
+export function syncAnalysisInstructions(run: SyncRun, dossiers: TaskDossier[], previous: SyncCandidate[], bundle: SourceExport, config: SourceConfig = defaultSourceConfig, timeZone = DAY_TIME_ZONE): string {
+  const legacy = syncInstructions(run, dossiers, previous, config, timeZone);
   const rules = legacy.slice(legacy.indexOf("Each suggestion:"));
   const page = sourceExportPage(bundle, 0);
   return `You are analyzing a PREPARED Gmail, Slack and Jira export for 247C tasks.
 ${languageGuide}
 A script already collected the data without a model: ${bundle.calls.length} calls in ${(bundle.elapsedMs / 1000).toFixed(1)} seconds.
+Planning time zone: ${timeZone}.
 Run ${run.id}. Interval end ${run.until}; per-source starts: ${JSON.stringify(run.ranges)}.
 You do not need to connect to corporate accounts, discover tools or collect the data again.
 Do not call external connectors, shell, web or agents. Use the export below and c247_sync_data for its remaining pages.
@@ -47,7 +49,7 @@ ${JSON.stringify(page)}
 `;
 }
 
-export function syncInstructions(run: SyncRun, dossiers: TaskDossier[], previous: SyncCandidate[], config: SourceConfig = defaultSourceConfig): string {
+export function syncInstructions(run: SyncRun, dossiers: TaskDossier[], previous: SyncCandidate[], config: SourceConfig = defaultSourceConfig, timeZone = DAY_TIME_ZONE): string {
   const tasks = dossiers.map((d) => ({
     id: d.task.id, title: d.task.title, status: d.task.status, revision: d.task.revision,
     urgent: d.planning.urgent, important: d.planning.important,
@@ -74,7 +76,7 @@ Query with a five-minute overlap before since for indexing delays; overlapping f
 For searches by calendar date, extend to the beginning of the day, then filter by exact timestamps including the required hour.
 For Gmail, use after:<unix-seconds> and before:<until+1-second>. Account for Jira query timezone; Slack after/before usually have day precision.
 Exclude events after until. Earlier messages may be read for thread context.
-Work identity: ${config.expectedEmail}; Slack ${config.slackUserId}; timezone Europe/Athens; Jira ${config.jiraSite}.
+Work identity: ${config.expectedEmail}; Slack ${config.slackUserId}; timezone ${timeZone}; Jira ${config.jiraSite}.
 Account owner's local context: ${config.analysisContext}
 
 ACCESS AND ACTION BOUNDARIES

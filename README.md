@@ -9,18 +9,19 @@ Requires BB ≥ 0.42 with Plugin SDK ≥ 0.4.47 and a login for your chosen mode
 This repository is currently private. Authenticate Git with a GitHub account that has access before installing; with GitHub CLI, run `gh auth login` and `gh auth setup-git` once on the new computer.
 
 ```sh
-bb plugin install git:https://github.com/kreodont/bb-plugin-247c.git@v0.5.1
+bb plugin install git:https://github.com/kreodont/bb-plugin-247c.git@main
 ```
 
 The package includes source code and a ready build. It contains no author tasks, history, accounts or personal settings. **247C** appears in the sidebar with an empty database. Configure Gmail, Slack, Jira and calendar access separately; tasks, dossiers and conversations work without those integrations. The interface and public documentation are in English. Existing task content and conversations retain their original language.
 
+- [Local configuration and update patches](docs/local-configuration.md)
 - [Source configuration](docs/sources.md)
 - [Setup-agent guide and local read permissions](docs/setup-agent.md)
 - [Windows installation with WSL2](docs/windows.md)
 - [Backups, Google Drive and recovery](docs/recovery.md)
 - [Third-party notices](THIRD_PARTY_NOTICES.md)
 
-To update, install a newer release through BB's supported update mechanism. Make a backup before changing versions. Each release tag identifies one immutable code version.
+To update an installation tracking `main`, run `bb plugin update 247c`. The local settings patch is automatically reapplied when the updated plugin loads. Make a backup before changing versions. Each release tag identifies one immutable code version.
 
 If an accepted next step has been completed or canceled, a review can propose clearing it based on a result or decision in the conversation, even while the overall task remains open. Assigning a new next step requires an explicit user instruction. All proposed changes require acceptance.
 
@@ -38,7 +39,7 @@ Actual uses BB start/completion receipts, subtracts recorded provider approval/q
 
 Automatic reported values are clearly labeled **estimate · review**, with a rationale. The hourly analyst proposes minutes from the volume, complexity and type of work, including the user's likely reading, understanding and checking of the results. These estimates are independent of agent runtime: there is no multiplier, ratio floor or ceiling. Measurements leave reported blank until there is enough work evidence for an estimate and never rescale existing estimates. Estimates are drafts for review, never measurements of the user's hours. **Confirm reported** or a manual edit locks the value; later updates preserve it, including zero and blank. **Request AI estimate** clears a manual override and makes the entry eligible for the next hourly review. Manual reported time has no ratio limit or excess warning. Previously saved estimates and their history remain readable; eligible estimates can be revised by the analyst under the new rules.
 
-**Report → By day / By week** and task totals include all three time types. Reports flag automatic estimates so they can be reviewed before external use. Weeks start Monday; dates use Europe/Athens. You can edit past dates and closed tasks. The checkbox marks only the daily step. **Continue on another day** preserves original time and creates a continuation with blank values. **Remove from plan** preserves actual and reported time. Entry details include a history of measured updates, estimates and manual corrections.
+**Report → By day / By week** and task totals include all three time types. Reports flag automatic estimates so they can be reviewed before external use. Weeks start Monday; dates use the configured planning time zone. You can edit past dates and closed tasks. The checkbox marks only the daily step. **Continue on another day** preserves original time and creates a continuation with blank values. **Remove from plan** preserves actual and reported time. Entry details include a history of measured updates, estimates and manual corrections.
 
 The assistant records manual time only from an explicit instruction, such as “Set this task's reported time for September 10 to 20 minutes” or “Add another 5 minutes.” Measurement and labeled estimates have separate automatic paths. The time journal does not change dossier revisions or make task proposals stale.
 
@@ -64,7 +65,7 @@ Proposals are also available in **Updates** and the task's **Proposals** tab, wi
 
 Source statuses are independent. Errors, incomplete pagination or unread linked threads preserve the previous interval. Even the first failed run retains its start when retried days later. The interval end is fixed at the run's start. A manual date later than the previous checkpoint does not close the unchecked gap. Repeated findings are deduplicated by message. A new check can replace a stale proposal after the dossier changes.
 
-The **Check updates every hour, daily 08:00–20:00 (Athens)** setting runs checks at 08:00, 09:00, …, 20:00 every day, including weekends, while BB is running. Europe/Athens handles daylight saving time. It uses the account, model and reasoning level from the last successful check. The workspace follows **Thread project** when configured; otherwise it uses the saved workspace. If a check is still running, that scheduled start is skipped; the next run resumes from saved checkpoints. Proposals continue to require acceptance.
+The **Check sources on the configured hourly schedule** setting runs checks every day, including weekends, while BB is running. The inclusive hour window and IANA time zone are local settings; daylight saving time follows that zone. It uses the account, model and reasoning level from the last successful check. The workspace follows **Thread project** when configured; otherwise it uses the saved workspace. If a check is still running, that scheduled start is skipped; the next run resumes from saved checkpoints. Proposals continue to require acceptance.
 
 Collection starts only on request or through the enabled schedule. It does not modify email, messages or Jira. [Tools, intervals and limits](skills/source-sync.md).
 
@@ -86,7 +87,7 @@ Cards and filters use quadrant colors: red for urgent and important, orange for 
 
 Choose an available provider and model in the native composer when starting a conversation. A review discussion uses the original session's account and model, which you can change in the composer before sending.
 
-In Threads, the work conversation is named **247C · task title**, making its dossier easy to identify. Manually edited thread titles are preserved. Click **Open task** in the thread header to return to its dossier at any time, including during work and after completion. This button also appears on linked review and verification threads. On narrow screens it becomes a target icon with the same tooltip. Opening the task does not finish the session or accept changes. The header also shows a clickable **Reported today** value for the linked task across all its sessions, using the day plan's Europe/Athens date. Click it to open today's Day Plan at that task and focus the Reported field, with **Return to thread** leading back to the originating conversation. A missing row is added with planned = 0 and reported left blank; existing rows and times are preserved. It refreshes after time edits, on reconnect and when returning to the window. Blank time is shown as an em dash, explicit zero as **0m**, and unconfirmed AI values carry an **estimate** label. A failed refresh shows **unavailable** instead of presenting stale time as current.
+In Threads, the work conversation is named **247C · task title**, making its dossier easy to identify. Manually edited thread titles are preserved. Click **Open task** in the thread header to return to its dossier at any time, including during work and after completion. This button also appears on linked review and verification threads. On narrow screens it becomes a target icon with the same tooltip. Opening the task does not finish the session or accept changes. The header also shows a clickable **Reported today** value for the linked task across all its sessions, using the day plan's configured time zone. Click it to open today's Day Plan at that task and focus the Reported field, with **Return to thread** leading back to the originating conversation. A missing row is added with planned = 0 and reported left blank; existing rows and times are preserved. It refreshes after time edits, on reconnect and when returning to the window. Blank time is shown as an em dash, explicit zero as **0m**, and unconfirmed AI values carry an **estimate** label. A failed refresh shows **unavailable** instead of presenting stale time as current.
 
 In the **Work** tab, start a conversation using BB's embedded composer: choose an account, model and workspace, then send your first message. No acceptance criteria are required. The assistant receives the dossier and responds normally. You can keep talking between responses and after pauses, without a conversation time limit.
 

@@ -21,3 +21,7 @@ settings.before.json
 settings.proposed.json
 corporate-read-permissions/
 .DS_Store
+
+# Installation patches are private even when the repository is private.
+local.patch.json
+local.patch.json.*

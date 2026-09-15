@@ -121,7 +121,9 @@ it("keeps session proposals in the same inbox and excludes stale entries from se
 
 it("opens source updates without a model run, and forwards an optional date through the native composer", async () => {
   vi.spyOn(collector, "collectSources").mockImplementation(async run => ({ version: 1, runId: run.id, startedAt: run.startedAt, finishedAt: run.until, elapsedMs: 1000, calls: [], documents: [], reports: ["gmail", "slack", "jira"].map(source => ({ source: source as "gmail" | "slack" | "jira", status: "complete", detail: "Checked", callRefs: [], paginationComplete: true, linkedTasksChecked: true, scanned: 0, threadsRead: 0 })) }));
-  const { f, slot } = await setup("updates");
+  const f = await fixture();
+  await f.harness.behavior.setSettings({ syncProvider: "codex", syncModel: "gpt-5.6-sol" });
+  const { slot } = await setup("updates", f);
   fireEvent.click(await slot.findByRole("button", { name: "Check for updates" }));
   const composer = await slot.findByTestId("bb-new-thread-composer");
   expect(composer.getAttribute("data-default-provider-id")).toBe("codex");
@@ -532,6 +534,7 @@ it("resumes an unfinished blocked conversation from Work in its existing thread"
 
 it("opens an ordinary conversation from BB's native composer and finishes only by button", async () => {
   const f = await fixture(); const task = await f.create();
+  await f.harness.behavior.setSettings({ workProvider: "claude-work", workModel: "claude-opus-5[1m]" });
   const { slot } = await setup(task.id, f);
   fireEvent.click(await slot.findByRole("tab", { name: "Work" }));
   const composer = await slot.findByTestId("bb-new-thread-composer");
@@ -777,7 +780,8 @@ it("honors individual part choices in bulk acceptance, including after collapse 
   const { run } = await startSourceSync(f), { input } = await sourceData(f, run, task.id);
   await submitSourceData(f, run, input);
   const { slot } = await setup("proposals", f);
-  fireEvent.click(await slot.findByRole("button", { name: "Expand all" }));
+  await waitFor(() => expect((slot.getByRole("button", { name: "Expand all" }) as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(slot.getByRole("button", { name: "Expand all" }));
   fireEvent.click(await slot.findByRole("checkbox", { name: "Select part: Next step" }));
   fireEvent.click(slot.getByRole("button", { name: "Collapse all" }));
   fireEvent.click(slot.getByRole("button", { name: "Expand all" }));
@@ -788,4 +792,14 @@ it("honors individual part choices in bulk acceptance, including after collapse 
   expect(f.repo.detail(task.id).projection.nextStep).toBeNull();
   const remaining = new SourceSyncStore(f.repo).pendingCandidates();
   expect(remaining).toHaveLength(1); expect(Object.keys(remaining[0].changes)).toEqual(["nextStep"]);
+});
+
+it("uses the installation's work model defaults instead of assuming a corporate account", async () => {
+  const f = await fixture(), task = await f.create();
+  await f.harness.behavior.setSettings({ workProvider: "codex", workModel: "gpt-5.6-sol", timeZone: "America/Los_Angeles" });
+  const { slot } = await setup(task.id, f);
+  fireEvent.click(await slot.findByRole("tab", { name: "Work" }));
+  const composer = await slot.findByTestId("bb-new-thread-composer");
+  expect(composer.getAttribute("data-default-provider-id")).toBe("codex");
+  expect(composer.getAttribute("data-default-model")).toBe("gpt-5.6-sol");
 });

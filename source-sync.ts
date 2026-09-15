@@ -1,3 +1,4 @@
+import { DAY_TIME_ZONE } from "./day-contracts.js";
 import { DAY_REVIEW_INSTRUCTIONS } from "./agent-time.js";
 import { partitionParts, pickChanges, receiptDraft, sourceParts } from "./proposal-parts.js";
 import { jiraReferences, pullRequestReferences } from "./source-links.js";
@@ -444,7 +445,7 @@ export class SourceSyncRuntime {
   private processing = new Set<string>();
   private collectors = new Map<string, AbortController>();
   private companions = new Map<string, AbortController>();
-  constructor(readonly bb: BbPluginApi, readonly repo: Repository, readonly onStart?: (signal: AbortSignal) => Promise<unknown>, readonly sourceConfiguration: () => Promise<SourceConfig> = async () => defaultSourceConfig, readonly threadRouting = new ThreadRouting(bb, async () => "")) { this.store = new SourceSyncStore(repo); }
+  constructor(readonly bb: BbPluginApi, readonly repo: Repository, readonly onStart?: (signal: AbortSignal) => Promise<unknown>, readonly sourceConfiguration: () => Promise<SourceConfig> = async () => defaultSourceConfig, readonly threadRouting = new ThreadRouting(bb, async () => ""), readonly timeZone: () => string = () => DAY_TIME_ZONE) { this.store = new SourceSyncStore(repo); }
   private launchTitle(id: string) { return `247C · updates · ${id}`; }
   private isLaunchTitle(title: string | null, id: string) { return title === this.launchTitle(id) || title === `247C · обновления · ${id}`; }
   resolveThread(threadId: string, title?: string | null): SyncRun | undefined {
@@ -511,7 +512,7 @@ export class SourceSyncRuntime {
       if (!SYNC_ACTIVE.has(run.status) || controller.signal.aborted) return;
       run = this.store.save({ ...run, reports: validateSyncReports(bundle.reports, bundle.calls, context.snapshots, context.pendingCandidates), collection: { phase: "analyzing", calls: bundle.calls.length, reads: bundle.documents.length, elapsedMs: bundle.elapsedMs } });
       if (bundle.reports.every(r => r.status === "unavailable")) throw new PolicyError("Could not load sources. See the Gmail, Slack and Jira cards for details; analysis was not started.");
-      const prompt = DAY_REVIEW_INSTRUCTIONS + "\n\n" + syncAnalysisInstructions(run, context.snapshots, [...(context.pendingCandidates ?? this.store.pendingCandidates()), ...this.store.candidates().filter(c => c.status !== "pending")], bundle, config);
+      const prompt = DAY_REVIEW_INSTRUCTIONS + "\n\n" + syncAnalysisInstructions(run, context.snapshots, [...(context.pendingCandidates ?? this.store.pendingCandidates()), ...this.store.candidates().filter(c => c.status !== "pending")], bundle, config, this.timeZone());
       if (Buffer.byteLength(prompt) > 768 * 1024) throw new PolicyError("The task snapshot is too large for one analysis.");
       this.store.recordDataPage(id, 0);
       const request = nativeRequest(input.request);
@@ -542,7 +543,7 @@ export class SourceSyncRuntime {
   private async nameThread(run: SyncRun, thread: { id: string; title: string | null; originPluginId: string | null }) {
     if (this.disposed || thread.originPluginId !== this.bb.pluginId || !this.isLaunchTitle(thread.title, run.id)) return;
     try {
-      const label = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Athens", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(run.startedAt));
+      const label = new Intl.DateTimeFormat("en-GB", { timeZone: this.timeZone(), day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(run.startedAt));
       await this.bb.sdk.threads.update({ threadId: thread.id, title: `247C · Updates · ${label}` });
     } catch (error) { if (!this.disposed) this.bb.log.warn(`Could not name source collector: ${String(error)}`); }
   }

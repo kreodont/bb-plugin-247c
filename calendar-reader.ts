@@ -51,7 +51,7 @@ async function call(connector: SourceConnector, name: string, args: Record<strin
     }
   }
 }
-export async function readCalendar(input: { from: string; through: string; known: DayItem[]; signal: AbortSignal; calendarId?: string }, connect = connectCalendar) {
+export async function readCalendar(input: { from: string; through: string; known: DayItem[]; signal: AbortSignal; calendarId?: string; timeZone?: string }, connect = connectCalendar) {
   const calendarId = input.calendarId ?? WORK_CALENDAR;
   const from = dayDateSchema.parse(input.from), through = dayDateSchema.parse(input.through);
   const signal = AbortSignal.any([input.signal, AbortSignal.timeout(90000)]);
@@ -76,7 +76,7 @@ export async function readCalendar(input: { from: string; through: string; known
     const tokens = new Set<string>(), seenIds = new Set<string>();
     do {
       const page = z.object({ events: z.array(z.unknown()).default([]), nextPageToken: z.string().optional() }).parse(await call(connector, "list_events", {
-        calendarId, startTime: `${from}T00:00:00`, endTime: `${shiftDay(through, 1)}T00:00:00`, timeZone: DAY_TIME_ZONE,
+        calendarId, startTime: `${from}T00:00:00`, endTime: `${shiftDay(through, 1)}T00:00:00`, timeZone: input.timeZone ?? DAY_TIME_ZONE,
         eventType: ["DEFAULT"], orderBy: "startTime", pageSize: 250, ...(pageToken ? { pageToken } : {}),
       }, signal));
       for (const raw of page.events) {

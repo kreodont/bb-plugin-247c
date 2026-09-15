@@ -48,3 +48,5 @@ If the original computer is lost, download the ZIP from Drive. It includes `rest
 6. Check sources manually. Then enable `hourlyUpdates` if desired, and configure daily backups using the new computer's name.
 
 `RESTORE-REPORT.json` lists prepared files and next actions. The recovery utility never changes a running BB or executes code from the archive.
+
+Snapshots include the local settings patch separately from code and effective BB settings. Recovery prepares a disabled, unrouted copy; keep the original patch for reference and configure local paths and IDs before enabling it. See [Local configuration](local-configuration.md).

@@ -72,3 +72,11 @@ it("wires the native schedule to settings and launches the existing collector wi
   expect(runs).toHaveLength(2); expect(runs.find(r => r.id !== first.id)?.model).toBe("gpt-6-astra");
   expect(f.repo.list(true)).toEqual(before);
 });
+
+ it("uses configured time zones and inclusive overnight hour windows", () => {
+  const schedule = { timeZone: "America/Los_Angeles", updateStartHour: 22, updateEndHour: 3 };
+  expect(hourlyUpdateSlot(new Date("2026-09-15T05:00:00Z"), schedule)).toBe("2026-09-14T22");
+  expect(hourlyUpdateSlot(new Date("2026-09-15T10:00:00Z"), schedule)).toBe("2026-09-15T03");
+  expect(hourlyUpdateSlot(new Date("2026-09-15T11:00:00Z"), schedule)).toBeNull();
+  expect(hourlyUpdateSlot(new Date("2026-09-15T05:01:00Z"), schedule)).toBeNull();
+});

@@ -27,7 +27,7 @@ export class CalendarRuntime {
   }
   private async collect(from: string, through: string, controller: AbortController) {
     try {
-      const result = await this.read({ from, through, known: this.days.calendarItems(from, through), signal: controller.signal });
+      const result = await this.read({ from, through, known: this.days.calendarItems(from, through), signal: controller.signal, timeZone: this.days.timeZone });
       if (this.disposed) return;
       controller.signal.throwIfAborted();
       this.days.mergeCalendar(result.events);

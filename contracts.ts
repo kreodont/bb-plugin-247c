@@ -207,11 +207,11 @@ export function nativeRequest(value: z.infer<typeof requestSchema>): NewThreadRe
   return value as unknown as NewThreadRequest;
 }
 export const sessionStartSchema = z.object({ taskId: idSchema, revision: revisionSchema, requestId: z.uuid(), continueSessionId: idSchema.optional(), criteria: z.array(z.string().trim().min(1).max(1500)).max(20).default([]), request: requestSchema }).strict();
-export const settingsViewSchema = z.object({ codexReviewer: z.string(), claudeReviewer: z.string(), maximumRepairs: z.number(), sessionMinutes: z.number() });
+export const settingsViewSchema = z.object({ codexReviewer: z.string(), claudeReviewer: z.string(), maximumRepairs: z.number(), sessionMinutes: z.number(), excludedReviewModels: z.string().optional() });
 export const syncStartSchema = z.object({ requestId: z.uuid(), since: z.iso.datetime({ offset: true }).nullable().default(null), request: requestSchema }).strict();
 export const syncStateSchema = z.object({ runs: z.array(syncRunSchema), candidates: z.array(syncCandidateSchema), pending: z.number(), checkpoints: z.record(syncSourceSchema, z.string().nullable()), nextSince: z.record(syncSourceSchema, z.string()) });
 export const rpcContract = defineRpcContract({
-  threadProject: { input: z.object({}).strict(), output: z.object({ projectId: idSchema.nullable() }) },
+  threadProject: { input: z.object({}).strict(), output: z.object({ projectId: idSchema.nullable(), timeZone: z.string().optional(), workProvider: z.string().optional(), workModel: z.string().optional(), syncProvider: z.string().optional(), syncModel: z.string().optional() }) },
   ...dayRpcContract,
   proposalInbox: { input: z.object({ offset: z.number().int().min(0).default(0) }).strict(), output: z.object({ items: z.array(reviewItemSchema), total: z.number(), nextOffset: z.number().nullable() }) },
   acceptInbox: { input: z.object({ items: z.array(reviewSelectionSchema).min(1).max(50) }).strict(), output: z.object({ applied: z.array(z.object({ kind: z.enum(["source", "proposal"]), id: idSchema, taskId: idSchema })), failed: z.array(z.object({ kind: z.enum(["source", "proposal"]), id: idSchema, message: z.string() })) }) },
@@ -224,7 +224,7 @@ export const rpcContract = defineRpcContract({
   taskSeen: { input: z.object({ id: idSchema, revision: revisionSchema }).strict(), output: z.object({ seenRevision: revisionSchema }) },
   reviewParts: { input: partDecisionSchema, output: partDecisionResultSchema },
   detail: { input: z.object({ id: idSchema }).strict(), output: dossierSchema },
-  threadSession: { input: z.object({ threadId: idSchema }).strict(), output: z.object({ session: sessionSchema.pick({ id: true, taskId: true, workerThreadId: true, mode: true, status: true }).nullable(), reportedToday: z.object({ date: dayDateSchema, minutes: dayMinutesSchema, estimated: z.boolean() }).optional() }) },
+  threadSession: { input: z.object({ threadId: idSchema }).strict(), output: z.object({ session: sessionSchema.pick({ id: true, taskId: true, workerThreadId: true, mode: true, status: true }).nullable(), reportedToday: z.object({ date: dayDateSchema, timeZone: z.string().optional(), minutes: dayMinutesSchema, estimated: z.boolean() }).optional() }) },
   create: { input: z.object({ title: z.string().trim().min(1).max(200), description: z.string().trim().max(12000).default(""), requestId: z.uuid() }).strict(), output: taskSchema },
   note: { input: z.object({ taskId: idSchema, revision: revisionSchema, kind: factKindSchema, text, requestId: z.uuid() }).strict(), output: factSchema },
   classify: { input: z.object({ taskId: idSchema, revision: revisionSchema, urgent: axisSchema, important: axisSchema }).strict(), output: planningSchema },

@@ -241,3 +241,10 @@ it("rolls automatic time and its history back together if auditing fails", async
   expect(() => days.reconcileActual([{ taskId: task.id, date, minutes: 10 }])).toThrow(/audit failed/);
   expect(days.taskItem(task.id, date)).toBeNull();
 });
+
+it("splits measured work using the configured zone across a DST boundary", () => {
+  const zone = "America/Los_Angeles", start = dayStart("2026-03-08", zone), end = dayStart("2026-03-09", zone);
+  expect((end - start) / 3600000).toBe(23);
+  expect([...intervalDays([{ key: "turn", start: end - 600000, end: end + 1200000 }], "2026-03-08", end + 3600000, zone)])
+    .toEqual([["2026-03-08", 600000], ["2026-03-09", 1200000]]);
+});

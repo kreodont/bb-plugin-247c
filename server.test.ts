@@ -227,3 +227,12 @@ it("uses only public BB APIs", async () => {
   expect(result.violations).toEqual([]);
   expect(result.privateDependencies).toEqual([]);
 });
+
+it("uses local planning configuration in RPC output and keeps it across reload", async () => {
+  const f = await setup();
+  await f.harness.behavior.setSettings({ timeZone: "America/Los_Angeles", updateStartHour: 9, updateEndHour: 18 });
+  expect(await f.harness.behavior.callRpc("day", {})).toMatchObject({ timeZone: "America/Los_Angeles" });
+  expect(await f.harness.behavior.callRpc("threadProject", {})).toMatchObject({ timeZone: "America/Los_Angeles" });
+  await f.reload();
+  expect(await f.harness.behavior.callRpc("day", {})).toMatchObject({ timeZone: "America/Los_Angeles" });
+});

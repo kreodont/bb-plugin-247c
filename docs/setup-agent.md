@@ -8,6 +8,12 @@ when requested, using [Backup and recovery](recovery.md).
 On Windows, follow [the WSL2 installation guide](windows.md). BB and the model
 provider CLIs run inside the same Linux distribution.
 
+## Local configuration patch
+
+Follow [local configuration](local-configuration.md). Inspect `bb 247c local-patch --json` and configure the installation through BB settings. The plugin mirrors every declared setting into its local patch and reapplies it after updates. Keep real patches, profiles, account details, work rules and permission files out of Git. Preserve the current machine's planning time zone, hourly window and preferred models during migration. Select them explicitly on a new machine.
+
+BB project folders, automations and provider permissions stay in their native local stores and survive plugin updates. Configure those through their supported tools; do not embed actual IDs or account-specific exceptions in the shared code or prompt template.
+
 ## Project for 247C threads
 
 To keep 247C conversations together, create or select a standard BB project with
@@ -39,9 +45,9 @@ With `hourlyUpdates` enabled, each hourly check also reconciles the day plan wit
 
 The optional BB agent automation uses [the weekday planning prompt](../automation-prompts/weekday-day-plan.md) to save a short day plan from accepted task context, current meetings and unfinished daily steps. It preserves existing entries and time values. It does not estimate manual hours or execute the planned work.
 
-During an authorized setup, inspect `bb automation list --project <project-id>` first and update an existing planner instead of creating a duplicate. Schedule `30 7 * * 1-5` with timezone `Europe/Athens`. Choose an available provider/model on that computer; Codex Sol with medium reasoning is a suitable default. Use the local 247C project and a ready environment in its project folder, with permission mode `auto`. Omit `--target-thread` so each occurrence creates a separate conversation.
+During an authorized setup, inspect `bb automation list --project <project-id>` first and update an existing planner instead of creating a duplicate. Use the user's local schedule and planning time zone; `30 7 * * 1-5` is an example weekday schedule. Choose an available provider/model on that computer; Codex Sol with medium reasoning is a suitable default. Use the local 247C project and a ready environment in its project folder, with permission mode `auto`. Omit `--target-thread` so each occurrence creates a separate conversation.
 
-For example, run this from the repository after replacing the generic local IDs:
+For example, run this from the repository after replacing the generic IDs, time zone and execution preferences:
 
 ```python
 from pathlib import Path
@@ -50,7 +56,7 @@ import subprocess
 subprocess.run([
     "bb", "automation", "create", "--project", "proj_example",
     "--name", "247C weekday day plan",
-    "--cron", "30 7 * * 1-5", "--timezone", "Europe/Athens",
+    "--cron", "30 7 * * 1-5", "--timezone", "Europe/London",
     "--provider", "codex", "--model", "gpt-5.6-sol", "--reasoning", "medium",
     "--permission-mode", "auto", "--environment", "env_example",
     "--prompt", Path("automation-prompts/weekday-day-plan.md").read_text(),

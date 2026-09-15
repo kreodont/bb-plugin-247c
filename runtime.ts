@@ -9,6 +9,7 @@ import { PolicyError } from "./core/errors.js";
 import type { ProposalEvidence, StewardChanges, TaskRecord } from "./core/types.js";
 import { workerInstructions, reviewInstructions, repairInstructions, extractionInstructions } from "./prompts.js";
 import { continueTranscript, extractionProposal, readConversation, validateExtraction } from "./conversation.js";
+import { parseExcludedReviewModels } from "./settings.js";
 import { allowedRecorder, selectRecorder } from "./recorder.js";
 import { readSavedRecorder } from "./recorder-recovery.js";
 import { ThreadRouting } from "./thread-routing.js";
@@ -310,7 +311,7 @@ export class SessionRuntime {
         } catch { return { providerId, models: [] }; }
       }));
       const failed = ["blocked", "rejected"].includes(session.status) && session.reviewerThreadId ? { providerId: session.reviewerProvider, model: session.reviewerModel } : undefined;
-      return { workerModel, ...selectRecorder(catalogs, { providerId: session.workerProvider, model: workerModel }, failed) };
+      return { workerModel, ...selectRecorder(catalogs, { providerId: session.workerProvider, model: workerModel }, failed, parseExcludedReviewModels(options.excludedReviewModels)) };
     }
     // Compatibility for already-open clients using the former manual selector.
     const reviewerProvider = choice === "personal-claude" ? "claude-code" : session.workerProvider;
@@ -318,7 +319,7 @@ export class SessionRuntime {
     const [providers, catalog] = await Promise.all([this.bb.sdk.providers.list(routing), this.bb.sdk.providers.models({ ...routing, providerId: reviewerProvider })]);
     const model = catalog.models.find((m) => m.id === reviewerModel || m.model === reviewerModel);
     if (!providers.some((p) => p.id === reviewerProvider && p.available) || catalog.modelLoadError || !model) throw new PolicyError(`Review model unavailable: ${reviewerModel}. Choose another account or model.`);
-    if (!allowedRecorder(reviewerProvider, model)) throw new PolicyError(`Model ${reviewerModel} is excluded from review. Retry finishing with automatic model selection.`);
+    if (!allowedRecorder(reviewerProvider, model, parseExcludedReviewModels(options.excludedReviewModels))) throw new PolicyError(`Model ${reviewerModel} is excluded from review. Retry finishing with automatic model selection.`);
     const desired = choice === "personal-claude" ? "medium" : execution?.reasoningLevel ?? "medium";
     const reviewerReasoning = model.supportedReasoningEfforts?.length && !model.supportedReasoningEfforts.some((e) => e.reasoningEffort === desired) ? model.defaultReasoningEffort : desired;
     return { workerModel, reviewerProvider, reviewerModel, reviewerReasoning, selectionReason: `Review model selected manually: ${reviewerModel} (${reviewerProvider}).` };

@@ -51,10 +51,11 @@ describe("Automatic recorder selection", () => {
     expect(chosen.selectionReason).toContain("fresh session with the same model");
   });
 
-  it("excludes corporate Fable even when it is advertised as the default model", () => {
+  it("excludes a model only for the locally configured account, including aliases", () => {
     const corp = catalog("claude-work", ["claude-fable-5-1"]);
     corp.models[0].isDefault = true;
-    expect(() => selectRecorder([corp], { providerId: "claude-work", model: "claude-sonnet-5" })).toThrow(/No review model is available/);
+    expect(selectRecorder([corp], { providerId: "claude-work", model: "claude-sonnet-5" }).reviewerModel).toBe("claude-fable-5-1");
+    expect(() => selectRecorder([corp], { providerId: "claude-work", model: "claude-sonnet-5" }, undefined, [{ providerId: "claude-work", model: "claude-fable-5-1[1m]" }])).toThrow(/No review model is available/);
   });
 
   it("uses a flagship only when no allowed balanced model is available", () => {

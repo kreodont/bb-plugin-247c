@@ -1,3 +1,5 @@
+import { defineSettings } from "./settings.js";
+import { applyLocalPatch, patchPath, readPatch, PATCH_FORMAT } from "./local-patch.js";
 import { parseSourceConfig } from "./source-config.js";
 import { readCalendar } from "./calendar-reader.js";
 import { connectCalendar } from "./source-connectors.js";
@@ -37,17 +39,11 @@ function boundedJson(value: unknown): string {
 }
 
 export default async function plugin(bb: BbPluginApi) {
-  const settings = bb.settings.define({
-    threadProjectId: { type: "string", label: "Thread project", description: "BB project ID for all new 247C conversations, reviews and source checks. Uses its default project folder. Leave blank to use the composer selection and personal review workspaces.", default: "", experimental_schema: z.string().trim().max(200) },
-    codexReviewer: { type: "string", label: "Codex verification model", default: "gpt-5.6-sol", experimental_schema: z.string().trim().min(1).max(200) },
-    claudeReviewer: { type: "string", label: "Personal Claude verification model (sessions with criteria)", default: "claude-fable-5-1", experimental_schema: z.string().trim().min(1).max(200) },
-    maximumRepairs: { type: "number", label: "Repair attempts after verification", default: 2, experimental_schema: z.number().int().min(0).max(2) },
-    sessionMinutes: { type: "number", label: "Review or verification timeout in minutes (conversations have no timeout)", default: 20, experimental_schema: z.number().int().min(1).max(60) },
-    sources: { type: "string", label: "Sources: JSON account, Slack, Jira and calendar profile", default: "{}", experimental_schema: z.string().max(32000).refine(value => { try { parseSourceConfig(value); return true; } catch { return false; } }, "A valid source profile JSON is required.") },
-    calendarMeetings: { type: "boolean", label: "Import work Google Calendar meetings when checking updates", default: true },
-    hourlyUpdates: { type: "boolean", label: "Check updates every hour, daily 08:00–20:00 (Athens)", default: false },
-  });
+  const settings = defineSettings(bb);
   const db = bb.storage.database();
+  await applyLocalPatch(settings, db.name, message => bb.log.error(message));
+  let configuration = await settings.get();
+  settings.onChange(next => { configuration = next; });
   db.pragma("foreign_keys = ON");
   bb.storage.migrate(db, [CORE_SCHEMA, ...EXTRA_SCHEMA]);
   const changed = () => bb.realtime.publish("desk-changed", { at: Date.now() });
@@ -55,20 +51,21 @@ export default async function plugin(bb: BbPluginApi) {
   const getSettings = async (): Promise<SettingsView> => settings.get();
   const threadRouting = new ThreadRouting(bb, async () => (await settings.get()).threadProjectId);
   const runtime = new SessionRuntime(bb, repo, getSettings, threadRouting);
-  const days = new DayPlanning(repo);
+  const days = new DayPlanning(repo, () => new Date(), () => configuration.timeZone);
   const agentTime = new AgentTimeRuntime(bb, days);
   const sourceConfiguration = async () => parseSourceConfig((await settings.get()).sources);
   const calendar = new CalendarRuntime(days, async () => (await settings.get()).calendarMeetings, async input => {
     const config = await sourceConfiguration();
     return readCalendar({ ...input, calendarId: config.calendarId }, signal => connectCalendar(signal, config));
   });
-  const sync = new SourceSyncRuntime(bb, repo, async signal => { await calendar.start(undefined, signal); await calendar.settled(); }, sourceConfiguration, threadRouting);
+  const sync = new SourceSyncRuntime(bb, repo, async signal => { await calendar.start(undefined, signal); await calendar.settled(); }, sourceConfiguration, threadRouting, () => configuration.timeZone);
   const inbox = new ProposalInbox(repo, sync.store, runtime);
   if (days.calendarState().status === "running") days.saveCalendarState({ ...days.calendarState(), status: "error", message: "The calendar check was interrupted. Run it again." });
   days.tick();
 
   bb.rpc.register(rpcContract, {
-    threadProject: async () => ({ projectId: (await settings.get()).threadProjectId || null }),
+    threadProject: async () => ({ projectId: configuration.threadProjectId || null, timeZone: configuration.timeZone,
+      workProvider: configuration.workProvider, workModel: configuration.workModel, syncProvider: configuration.syncProvider, syncModel: configuration.syncModel }),
     day: ({ date }) => ({ ...days.day(date), agentTime: agentTime.state() }),
     agentTimeSync: () => agentTime.refresh(),
     dayAdd: (input) => days.add(input),
@@ -102,7 +99,7 @@ export default async function plugin(bb: BbPluginApi) {
       const { id, taskId, workerThreadId, mode, status } = session;
       const date = days.today(), item = days.taskItem(taskId, date);
       return { session: { id, taskId, workerThreadId, mode, status }, reportedToday: {
-        date, minutes: item?.reportedMinutes ?? null, estimated: item?.reportedMode === "estimate" && item.reportedMinutes !== null,
+        date, timeZone: days.timeZone, minutes: item?.reportedMinutes ?? null, estimated: item?.reportedMode === "estimate" && item.reportedMinutes !== null,
       } };
     },
     create: (input) => repo.create(input),
@@ -148,7 +145,7 @@ export default async function plugin(bb: BbPluginApi) {
   });
   const timeInstructions = "247C day planning keeps plannedMinutes and reportedMinutes independent for tasks. These tools record manual time only from an explicit user instruction, including its date and whether to SET a total or ADD minutes. Never infer hours from chat duration, task completion, a model's guess, or external content. Read c247_day first; use the returned full item ID and revision. A stable requestId prevents duplicate additions. Times are a separate journal; task fields and knowledge still go through approved proposals. Meetings are imported by the calendar script, with automatic reported=planned after the meeting; manual overrides always win. Never create a task just to represent an imported meeting. actualMinutes is read-only measured agent runtime (summed across agents), or equals reported for meetings. Hourly analysis separately proposes reported minutes from the volume, complexity and type of work, including estimated human reading and checking, with an explanation for user review. Estimates are independent of agent runtime, with no ratio floor or ceiling; these tools never invent manual hours. Manual reported time has no ratio limit because agent runtime excludes human reading and other work. Manual corrections win.";
   bb.agents.registerTool({
-    name: "c247_day", description: "Read the saved 247C plan and time entries for a date (default today in Europe/Athens). Returns item IDs and revisions for manual edits. This does not start a calendar sync or change tasks.",
+    name: "c247_day", description: "Read the saved 247C plan and time entries for a date (default today in the configured planning time zone). Returns item IDs and revisions for manual edits. This does not start a calendar sync or change tasks.",
     instructions: timeInstructions, parameters: dayRpcContract.day.input,
     execute({ date }, ctx) { const session = timeCaller(ctx.threadId); const day = days.day(date); return boundedJson(session ? { date: day.date, items: day.items.filter(i => i.taskId === session.taskId), taskTime: days.taskTotals(session.taskId) } : day); },
   });
@@ -168,7 +165,7 @@ export default async function plugin(bb: BbPluginApi) {
     execute(input, ctx) { timeCaller(ctx.threadId, days.get(input.id).taskId); return boundedJson(days.carry(input, `bb-thread:${ctx.threadId}`)); },
   });
   bb.agents.registerTool({
-    name: "c247_time_report", description: "Read a 247C day/week time report. Planned, measured actual and reported totals are separate. Automatic reported estimates are marked and need user review before external use. Optional taskId restricts the report to one task. Dates use Europe/Athens; weeks start Monday. Does not send reports anywhere.",
+    name: "c247_time_report", description: "Read a 247C day/week time report. Planned, measured actual and reported totals are separate. Automatic reported estimates are marked and need user review before external use. Optional taskId restricts the report to one task. Dates use the configured planning time zone; weeks start Monday. Does not send reports anywhere.",
     parameters: dayRpcContract.timeReport.input,
     execute(input, ctx) { const session = timeCaller(ctx.threadId, input.taskId); return boundedJson(days.report({ ...input, ...(session ? { taskId: session.taskId } : {}) })); },
   });
@@ -305,10 +302,10 @@ export default async function plugin(bb: BbPluginApi) {
   });
   bb.background.schedule(UPDATE_SCHEDULE, UPDATE_CRON, async () => {
     const at = new Date();
-    if (hourlyUpdateSlot(at) && (await settings.get()).hourlyUpdates) {
+    if (hourlyUpdateSlot(at, configuration) && (await settings.get()).hourlyUpdates) {
       try { await agentTime.refresh(); } catch (error) { bb.log.warn(`Agent time: ${String(error)}`); }
     }
-    const runId = await scheduledSourceUpdate(sync, async () => (await settings.get()).hourlyUpdates, at);
+    const runId = await scheduledSourceUpdate(sync, async () => (await settings.get()).hourlyUpdates, at, configuration);
     if (runId) bb.log.info(`Scheduled 247C source check: ${runId}`);
   });
   settings.onChange(changed);
@@ -316,6 +313,7 @@ export default async function plugin(bb: BbPluginApi) {
 
   const usage = `247C — durable tasks, conversations and knowledge
 
+  bb 247c local-patch [--json]
   bb 247c list [--history] [--json]
   bb 247c show <task-id> [--json]
   bb 247c knowledge [query] [--offset N] [--json]
@@ -330,6 +328,7 @@ Use the 247C panel to approve, archive, start or finish sessions.
   bb.cli.register({
     name: "247c", summary: "Read 247C dossiers, record tasks, and submit pending proposals",
     commands: [
+      { name: "local-patch", summary: "Show local settings patch location and consistency without account values", usage: "bb 247c local-patch [--json]" },
       { name: "list", summary: "List task dossiers", usage: "bb 247c list [--history] [--json]" },
       { name: "show", summary: "Read a dossier and its evidence", usage: "bb 247c show <task-id> [--json]" },
       { name: "knowledge", summary: "Search conversation notes and imported documents", usage: "bb 247c knowledge [query] [--offset N] [--json]" },
@@ -346,7 +345,10 @@ Use the 247C panel to approve, archive, start or finish sessions.
         const [command, ...args] = argv.filter((a) => a !== "--json" && a !== "--history");
         if (!command || command === "help" || command === "--help") return { exitCode: 0, stdout: usage };
         let value: unknown;
-        if (command === "sync" && args.length === 0) {
+        if (command === "local-patch" && args.length === 0) {
+          const path = patchPath(db.name), current = await settings.get(), patch = path ? readPatch(path) : {};
+          value = { path, format: PATCH_FORMAT, settings: Object.keys(patch), matchesSettings: Object.entries(patch).every(([key, value]) => current[key as keyof typeof current] === value) };
+        } else if (command === "sync" && args.length === 0) {
           const { candidates: _candidates, ...state } = sync.store.state(); value = state;
         } else if (command === "sync-supplement" && args.length === 2) {
           independentCaller(ctx.threadId);

@@ -3,6 +3,7 @@ import { PolicyError } from "./core/errors.js";
 
 export type RecorderModel = Awaited<ReturnType<BbPluginApi["sdk"]["providers"]["models"]>>["models"][number];
 export type RecorderCatalog = { providerId: string; models: RecorderModel[] };
+export type ReviewExclusion = { providerId: string; model: string };
 type Execution = { providerId: string; model: string };
 
 // Context-window suffixes, dated snapshots and provider aliases do not make an
@@ -11,15 +12,14 @@ export function modelIdentity(model: string): string {
   return model.toLowerCase().replace(/\[[^\]]+\]/g, "").replace(/-(?:\d{8}|\d{4}-\d{2}-\d{2}|latest)$/, "").replace(/^claude-/, "");
 }
 
-export function allowedRecorder(providerId: string, model: Pick<RecorderModel, "model" | "id" | "routeProviderId">): boolean {
+export function allowedRecorder(providerId: string, model: Pick<RecorderModel, "model" | "id" | "routeProviderId">, exclusions: ReviewExclusion[] = []): boolean {
   const names = [model.model, model.id].map(modelIdentity);
   // New catalog entries must not silently become fallbacks. In particular,
   // alphabetic ordering previously promoted Spark after a failed Sol run.
   const supported = /^(?:gpt-\d+(?:\.\d+)?-(?:sol|terra|astra)|(?:sonnet|opus|fable)(?:-\d+)*)$/;
   return supported.test(modelIdentity(model.model))
     && !names.some((name) => /(?:^|-)(?:luna|haiku|spark|mini|nano)(?:-|$)/.test(name))
-    // Fable is advertised by the corporate CLI but unavailable on this account.
-    && !(providerId === "claude-work" && names.some((name) => /(?:^|-)fable(?:-|$)/.test(name)))
+    && !exclusions.some(rule => rule.providerId === providerId && names.includes(modelIdentity(rule.model)))
     && (!model.routeProviderId || model.routeProviderId === providerId);
 }
 
@@ -34,7 +34,7 @@ export function recorderReasoning(model: RecorderModel): RecorderModel["defaultR
   return (["low", "medium", "none", "high", "xhigh", "max"] as const).find((effort) => supported.includes(effort)) ?? model.defaultReasoningEffort;
 }
 
-export function selectRecorder(catalogs: RecorderCatalog[], worker: Execution, failed?: Execution) {
+export function selectRecorder(catalogs: RecorderCatalog[], worker: Execution, failed?: Execution, exclusions: ReviewExclusion[] = []) {
   const resolve = (execution: Execution) => {
     const model = catalogs.find((catalog) => catalog.providerId === execution.providerId)?.models.find((m) => m.id === execution.model || m.model === execution.model);
     return modelIdentity(model?.model ?? execution.model);
@@ -44,7 +44,7 @@ export function selectRecorder(catalogs: RecorderCatalog[], worker: Execution, f
   const preferredModel = workerFamily === "claude" ? "sol" : "sonnet";
   const failedIdentity = failed && resolve(failed);
   const candidates = catalogs.flatMap(({ providerId, models }, providerIndex) => models
-    .filter((model) => allowedRecorder(providerId, model))
+    .filter((model) => allowedRecorder(providerId, model, exclusions))
     .map((model) => {
       const identity = modelIdentity(model.model);
       const sameModel = identity === workerIdentity;

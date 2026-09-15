@@ -1,6 +1,6 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
-import { agentTimeStateSchema, localDay, shiftDay } from "./day-contracts.js";
+import { agentTimeStateSchema, DAY_TIME_ZONE, localDay, shiftDay } from "./day-contracts.js";
 import { DayPlanning } from "./day-planning.js";
 import { PolicyError } from "./core/errors.js";
 
@@ -65,19 +65,19 @@ export function measuredIntervals(raw: TimeReceipt[]): Interval[] {
   return [...intervals, ...workflows.values()];
 }
 
-export function dayStart(date: string): number {
+export function dayStart(date: string, timeZone = DAY_TIME_ZONE): number {
   let lo = Date.parse(`${date}T00:00:00Z`) - 18 * 3600000, hi = lo + 36 * 3600000;
-  while (hi - lo > 1) { const mid = Math.floor((hi + lo) / 2); if (localDay(new Date(mid)) < date) lo = mid; else hi = mid; }
+  while (hi - lo > 1) { const mid = Math.floor((hi + lo) / 2); if (localDay(new Date(mid), timeZone) < date) lo = mid; else hi = mid; }
   return hi;
 }
-export function intervalDays(intervals: Interval[], from: string, now: number): Map<string, number> {
+export function intervalDays(intervals: Interval[], from: string, now: number, timeZone = DAY_TIME_ZONE): Map<string, number> {
   const totals = new Map<string, number>(), boundaries = new Map<string, number>();
-  const boundary = (date: string) => { if (!boundaries.has(date)) boundaries.set(date, dayStart(date)); return boundaries.get(date)!; };
+  const boundary = (date: string) => { if (!boundaries.has(date)) boundaries.set(date, dayStart(date, timeZone)); return boundaries.get(date)!; };
   for (const interval of intervals) {
     let start = Math.max(interval.start, boundary(from));
     const end = Math.min(interval.end, now);
     while (start < end) {
-      const date = localDay(new Date(start)), next = Math.min(end, boundary(shiftDay(date, 1)));
+      const date = localDay(new Date(start), timeZone), next = Math.min(end, boundary(shiftDay(date, 1)));
       if (next <= start) throw new PolicyError("Cannot split measured work across dates.");
       totals.set(date, (totals.get(date) ?? 0) + next - start); start = next;
     }
@@ -161,7 +161,7 @@ export class AgentTimeRuntime {
       try { await this.scan(thread.thread_id, thread.after_seq); }
       catch (error) { if (this.controller.signal.aborted) throw error; errors.push(`${thread.thread_id}: ${String(error)}`); }
       const rows = this.repo.db.prepare("SELECT value_json FROM agent_time_events WHERE thread_id=? ORDER BY seq").all(thread.thread_id) as { value_json: string }[];
-      const measured = intervalDays(measuredIntervals(rows.map(r => receiptSchema.parse(JSON.parse(r.value_json)))), from, this.days.clock().getTime());
+      const measured = intervalDays(measuredIntervals(rows.map(r => receiptSchema.parse(JSON.parse(r.value_json)))), from, this.days.clock().getTime(), this.days.timeZone);
       for (const [date, ms] of measured) {
         const key = `${thread.task_id}:${date}`, total = totals.get(key) ?? { taskId: thread.task_id, date, minutes: 0 };
         total.minutes += ms / 60000; totals.set(key, total);

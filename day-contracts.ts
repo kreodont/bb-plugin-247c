@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+// Compatibility default for older installations and callers; configured settings override it.
 export const DAY_TIME_ZONE = "Europe/Athens";
 export const dayDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => {
   const d = new Date(`${value}T12:00:00Z`);
@@ -84,8 +85,8 @@ export const dayRpcContract = {
   agentTimeSync: { input: z.object({}).strict(), output: agentTimeStateSchema },
 } as const;
 
-export function localDay(date = new Date()) {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: DAY_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
+export function localDay(date = new Date(), timeZone = DAY_TIME_ZONE) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
 }
 export function shiftDay(date: string, days: number) {
   const d = new Date(`${dayDateSchema.parse(date)}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + days);

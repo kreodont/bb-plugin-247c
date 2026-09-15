@@ -17,9 +17,10 @@ function decode(raw: unknown): DayItem {
 }
 
 export class DayPlanning {
-  constructor(readonly repo: Repository, readonly clock: () => Date = () => new Date()) {}
+  constructor(readonly repo: Repository, readonly clock: () => Date = () => new Date(), readonly configuredTimeZone: () => string = () => DAY_TIME_ZONE) {}
+  get timeZone() { return this.configuredTimeZone(); }
   now() { return this.clock().toISOString(); }
-  today() { return localDay(this.clock()); }
+  today() { return localDay(this.clock(), this.timeZone); }
   get(id: string): DayItem {
     const row = this.repo.db.prepare("SELECT value_json FROM day_items WHERE id=?").get(id) as JsonRow | undefined;
     if (!row) throw new PolicyError("Day entry not found. Refresh the plan.");
@@ -165,7 +166,7 @@ export class DayPlanning {
     let bytes = 0;
     for (const item of items.slice(offset, offset + 5)) {
       const dossier = this.repo.kernel.getDossier(item.taskId!);
-      const onDay = (at: string) => Number.isFinite(Date.parse(at)) && localDay(new Date(at)) === item.date;
+      const onDay = (at: string) => Number.isFinite(Date.parse(at)) && localDay(new Date(at), this.timeZone) === item.date;
       const facts = dossier.facts.filter(f => onDay(f.occurredAt));
       const sessions = this.repo.sessions(item.taskId!).filter(s => onDay(s.finishedAt ?? s.updatedAt));
       const candidate = { ...item, title: dossier.task.title, summary: dossier.projection.summary?.slice(0, 4000) ?? null,
@@ -253,7 +254,7 @@ export class DayPlanning {
     const date = dayDateSchema.parse(raw);
     const items = this.rows("WHERE date=? OR reported_date=?", date, date)
       .sort((a, b) => a.kind === b.kind ? a.calendar && b.calendar ? Date.parse(a.calendar.startAt) - Date.parse(b.calendar.startAt) : a.ordinal - b.ordinal || a.id.localeCompare(b.id) : a.kind === "meeting" ? -1 : 1);
-    return { date, today: this.today(), timeZone: DAY_TIME_ZONE, config: this.config(date), items: items.map(i => this.present(i, date)), totals: this.totals(items, date, date), calendar: this.calendarState() };
+    return { date, today: this.today(), timeZone: this.timeZone, config: this.config(date), items: items.map(i => this.present(i, date)), totals: this.totals(items, date, date), calendar: this.calendarState() };
   }
   report(raw: z.input<typeof dayRpcContract.timeReport.input>): TimeReport {
     const input = dayRpcContract.timeReport.input.parse(raw), date = input.date ?? this.today();
@@ -281,7 +282,7 @@ export class DayPlanning {
       groups.set(key, group);
     }
     const rows = [...groups.values()]; rows.forEach(row => row.days.sort((a, b) => a.date.localeCompare(b.date)));
-    return { from, through, timeZone: DAY_TIME_ZONE, totals: this.totals(items, from, through), rows };
+    return { from, through, timeZone: this.timeZone, totals: this.totals(items, from, through), rows };
   }
   taskTotals(taskId: string) { this.repo.kernel.getTask(taskId); return this.totals(this.rows("WHERE task_id=?", taskId)); }
   history(id: string, offset = 0) {
@@ -301,7 +302,7 @@ export class DayPlanning {
         const row = this.repo.db.prepare("SELECT value_json FROM day_items WHERE calendar_key=?").get(event.key) as JsonRow | undefined;
         const before = row ? decode(JSON.parse(row.value_json)) : null;
         if (!before && event.status !== "confirmed") continue;
-        const date = localDay(new Date(event.startAt));
+        const date = localDay(new Date(event.startAt), this.timeZone);
         const initial = before ?? { ...this.blank(date, null, event.title), plannedMode: "calendar" as const, reportedMode: "calendar" as const };
         const next = this.automatic({ ...initial, calendar: event, title: event.title, date });
         if (!before || !same(next, before)) { this.write(next, before, actor, before ? "calendar_updated" : "calendar_added"); changed++; }

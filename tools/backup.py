@@ -151,6 +151,13 @@ def create_snapshot(binary, data_dir, destination, machine):
         counts = copy_database(Path(data_dir) / "plugins/247c/data.db", root / "database/data.db")
         copy_code(plugin["rootDir"], root / "plugins/247c")
         dump(root / "settings/247c.json", settings)
+        local_patch = Path(data_dir) / "plugins/247c/local.patch.json"
+        patch_bytes = local_patch.read_bytes() if local_patch.exists() else None
+        if patch_bytes is not None:
+            if len(patch_bytes) > 256 * 1024:
+                raise RuntimeError("The local settings patch is too large to back up")
+            # Preserve the exact local file, separately from effective BB settings.
+            (root / "settings/247c.local.patch.json").write_bytes(patch_bytes)
         source_hashes = {str(p.relative_to(Path(plugin["rootDir"]))): digest(p) for p in source_files(Path(plugin["rootDir"]))}
         if any(digest(root / "plugins/247c" / name) != value for name, value in source_hashes.items()):
             raise RuntimeError("Plugin source changed during snapshot")
@@ -191,6 +198,8 @@ def create_snapshot(binary, data_dir, destination, machine):
                     target.parent.mkdir(parents=True, exist_ok=True)
                     target.write_bytes(data)
                     artifacts.append({"member": name, "originalPath": a["path"], "sha256": a["sha256"]})
+        if (local_patch.read_bytes() if local_patch.exists() else None) != patch_bytes:
+            raise RuntimeError("The local settings patch changed during snapshot; retry")
         if non_secret_settings(binary, "247c") != settings:
             raise RuntimeError("247C settings changed during snapshot; retry")
         shutil.copyfile(Path(__file__).resolve(), root / "restore.py")
@@ -287,6 +296,9 @@ def restore_to_new(path, destination):
         if "threadProjectId" in settings:
             settings["threadProjectId"] = ""
         dump(root / "settings/247c.for-restore.json", settings)
+        # The original patch is evidence for recovery, not an instruction to
+        # resume the old machine's project routing or schedules on a new host.
+        dump(root / "settings/247c.local.patch.for-restore.json", {"format": "247c-local-settings-v1", "settings": settings})
         dump(root / "RESTORE-REPORT.json", {"verified": True, "pluginVersion": manifest["pluginVersion"], "sessionsPaused": recovered, "originalDatabase": "database/data.db", "preparedDatabase": "prepared-bb/plugins/247c/data.db", "scheduleEnabled": False, "requires": ["Install the included plugin code in a compatible BB.", "Disable 247C before copying the prepared DB into the NEW installation.", "Restore non-secret settings using settings/247c.for-restore.json.", "Log in to providers again and choose local workspaces.", "Run one manual source check before enabling hourlyUpdates."]})
         check_db(portable)
         os.rename(root, destination)
