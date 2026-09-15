@@ -7,3 +7,8 @@ export function jiraReferences(text: string): string[] {
   const bare = (withoutUuids.match(/\b[A-Z][A-Z0-9]*-\d+\b/g) ?? []).filter(key => !key.startsWith("Q-"));
   return [...new Set([...bare, ...urls])].filter(key => !/-0+$/.test(key));
 }
+
+export function pullRequestReferences(text: string): string[] {
+  const urls = text.replace(/\\\//g, "/").match(/https:\/\/github\.com\/[a-z0-9_.-]+\/[a-z0-9_.-]+\/pull\/[1-9]\d*(?=[/?#.,:;!\s"<>\\)\]|]|$)/gi) ?? [];
+  return [...new Set(urls.map(url => url.toLowerCase()))];
+}

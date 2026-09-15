@@ -25,6 +25,7 @@ If a batch is rejected, the error lists suggestion indices and taskIds. Correct 
 ${JSON.stringify(bundle.reports.map(({ callRefs: _refs, ...report }) => report))}
 
 Compare findings with ALL tasks in the snapshot, including current nextStep, waiting states and links. Combine all sources for one issue into one proposal.
+${PR_MATCHING_RULES}
 Update ONLY tasks with status=open; copy exact taskIds from the snapshot. Closed tasks are supplied only for matching and deduplication. Do not invent UUIDs or turn completed requests into new tasks.
 Reconcile new findings with the full pending proposals below, including proposals from missed earlier checks. A pending proposal may contain only the remainder of a human partial review. Its changes are the remaining fields; when recordFactIndexes is present, only those fact indexes remain proposed records and other facts are retained solely as evidence. Do not restore reviewed records merely because their quotes are still available. See the merge rules below. A revised result receives a new approval ID.
 If no matching task exists and there is a substantive open request to the user or clearly evidenced unfinished work owned by the user, propose a new task. Do not duplicate already proposed or closed issues.
@@ -121,6 +122,7 @@ If someone replied, a question was resolved or a specific next step emerged, pro
 Do not revive closed tasks based on old messages, acknowledgments or automatic notifications with no new substance.
 Match stable Jira/SO/estimate keys, source links and participants first, then topics.
 Compare against ALL existing tasks and proposals before creating a new one. Do not duplicate one issue across tasks.
+${PR_MATCHING_RULES}
 When a pending proposal has a different baseRevision from the matching task revision, reread its sources and explicitly reconcile its fields against the current snapshot. The server replaces the old proposal only after validation.
 Cross-check the sources of pending new-task proposals too, even before a task has been created.
 If a substantive open request concerns the user or the evidence establishes unfinished work owned by the user, and no matching task or pending new-task proposal exists, propose a new task with a detailed summary and nextStep.
@@ -180,3 +182,9 @@ REVIEWED UPDATE PROPOSALS (remember decisions; never merge these):
 ${JSON.stringify(remembered)}
 `;
 }
+
+const PR_MATCHING_RULES = `PULL REQUEST OWNERSHIP
+A pull request is usually an artifact or implementation step of a durable task, not a separate task for each review comment. Match its full repository and number, title, linked Jira issue and parent story, and the described work against ALL task summaries, next steps and artifacts. A PR may carry a parent-story key while the user's task has a different child-issue key; reconcile the actual scope rather than requiring identical titles or keys.
+The prepared export includes older email threads found by exact PR URL when that URL is not yet in a dossier. Their subjects and bodies can identify the work and related issue. Older messages establish identity/context only; they are not new progress in this interval. In legacy collection, search Gmail by the exact PR URL without a lower date bound and read the full thread to establish this context.
+If an existing task owns the work, propose its progress, review next step and PR artifact together, preserving the rest of its scope. A different source link or a new reviewer comment does not make new work.
+If the export contains only a PR URL/number and a short review reply, with no title, issue or work context to establish ownership, do not create a standalone PR task. Report the unresolved association in the final response. An explicitly assigned standalone review can be a new task only after checking that no existing task or proposal covers that review. Do not guess a relationship from the repository or a shared participant alone.`;

@@ -1,6 +1,6 @@
 import { DAY_REVIEW_INSTRUCTIONS } from "./agent-time.js";
 import { partitionParts, pickChanges, receiptDraft, sourceParts } from "./proposal-parts.js";
-import { jiraReferences } from "./source-links.js";
+import { jiraReferences, pullRequestReferences } from "./source-links.js";
 import { mergeSyncDraft } from "./source-sync-merge.js";
 import { defaultSourceConfig, type SourceConfig } from "./source-config.js";
 import { randomUUID } from "node:crypto";
@@ -114,6 +114,11 @@ export function validateSyncDraft(draft: SyncDraft, run: SyncRun, snapshots: Tas
   if (draft.taskId && dossier.task.status !== "open") throw new PolicyError(`Task "${dossier.task.title}» (${draft.taskId}) has status=${dossier.task.status}. Only open tasks can be updated. A separate new request may become a new task proposal; skip completed requests.`);
   if (!draft.taskId && (!draft.changes.summary?.value || !draft.changes.nextStep?.value)) throw new PolicyError("A new task must have a summary and a specific next step.");
   if (!draft.taskId && draft.changes.status && draft.changes.status.value !== "open") throw new PolicyError("A new task must remain open.");
+  if (!draft.taskId) {
+    const urls = new Set(pullRequestReferences(JSON.stringify(draft)));
+    const matches = snapshots.filter(d => pullRequestReferences(JSON.stringify(d)).some(url => urls.has(url)));
+    if (matches.length) throw new PolicyError(`This pull request is already linked to existing tasks: ${matches.map(d => `${d.task.id} (${d.task.status}: ${d.task.title})`).join(", ")}. Reconcile it with the existing work instead of proposing a separate PR task.`);
+  }
   const byRef = new Map(calls.map((call) => [call.ref, call]));
   const carried = new Set(carriedFacts.map(fact => digest(fact)));
   for (const fact of draft.facts) for (const citation of fact.citations) {

@@ -34273,6 +34273,10 @@ function jiraReferences(text2) {
   const bare = (withoutUuids.match(/\b[A-Z][A-Z0-9]*-\d+\b/g) ?? []).filter((key) => !key.startsWith("Q-"));
   return [.../* @__PURE__ */ new Set([...bare, ...urls])].filter((key) => !/-0+$/.test(key));
 }
+function pullRequestReferences(text2) {
+  const urls = text2.replace(/\\\//g, "/").match(/https:\/\/github\.com\/[a-z0-9_.-]+\/[a-z0-9_.-]+\/pull\/[1-9]\d*(?=[/?#.,:;!\s"<>\\)\]|]|$)/gi) ?? [];
+  return [...new Set(urls.map((url2) => url2.toLowerCase()))];
+}
 
 // source-sync-merge.ts
 function factIdentity(fact) {
@@ -34452,6 +34456,9 @@ async function collectSources(run, dossiers, options = {}) {
   const pending = { gmail: new Set(linked.gmail), slack: new Map(linked.slack.map((s) => [`${s.channel}:${s.ts}`, s])), jira: new Set(linked.jira) };
   const searchedGmail = /* @__PURE__ */ new Set(), gmailThreads = /* @__PURE__ */ new Map();
   const read = { gmail: /* @__PURE__ */ new Set(), slack: /* @__PURE__ */ new Set(), jira: /* @__PURE__ */ new Set() };
+  const knownPullRequests = new Set(pullRequestReferences(JSON.stringify(dossiers)));
+  const pendingPullRequests = new Set(pullRequestReferences(JSON.stringify(options.pendingCandidates ?? [])).filter((url2) => !knownPullRequests.has(url2)));
+  const searchedPullRequests = /* @__PURE__ */ new Set();
   let connections;
   let bytes = 0, count = 0;
   const error61 = (source, message) => {
@@ -34507,8 +34514,10 @@ async function collectSources(run, dossiers, options = {}) {
         return null;
       }
       if (full) {
-        documents.push({ ref, source, tool, args, content: documentContent(source, data, Date.parse(run.until)) });
+        const content = documentContent(source, data, Date.parse(run.until));
+        documents.push({ ref, source, tool, args, content });
         addLinks(output2);
+        for (const url2 of pullRequestReferences(content)) if (!knownPullRequests.has(url2)) pendingPullRequests.add(url2);
       }
       progress(source, full ? "Reading full threads and linked issues" : "Loading the list of changes");
       return data;
@@ -34585,6 +34594,14 @@ async function collectSources(run, dossiers, options = {}) {
     await pool([...searchedGmail].filter((id2) => !read.gmail.has(id2)), fetchThread, 4);
     await pool([...pending.gmail].filter((id2) => !read.gmail.has(id2)), fetchThread, 4);
   }
+  async function readPullRequestContext() {
+    const urls = [...pendingPullRequests].filter((url2) => !searchedPullRequests.has(url2));
+    const until = Math.floor(Date.parse(run.until) / 1e3 + 1);
+    await pool(urls, async (url2) => {
+      searchedPullRequests.add(url2);
+      await gmailSearch(`"${url2}" before:${until}`);
+    }, 3);
+  }
   async function slack() {
     const after = String(Math.floor(Date.parse(run.ranges.slack.since) / 1e3 - 300)), before = String(Date.parse(run.until) / 1e3);
     const mentions = config2.slackUserId ? [`<@${config2.slackUserId}>`] : [];
@@ -34656,9 +34673,10 @@ async function collectSources(run, dossiers, options = {}) {
     for (const source of SOURCES) if ("error" in connections[source]) error61(source, connections[source].error);
     await Promise.all([gmail(), slack(), jira()]);
     while (!signal.aborted) {
-      const before = read.gmail.size + read.slack.size + read.jira.size;
+      const before = read.gmail.size + read.slack.size + read.jira.size + searchedPullRequests.size;
+      await readPullRequestContext();
       await Promise.all([readGmail(), readSlack(), readJira()]);
-      if (before === read.gmail.size + read.slack.size + read.jira.size || signal.aborted) break;
+      if (before === read.gmail.size + read.slack.size + read.jira.size + searchedPullRequests.size || signal.aborted) break;
     }
     for (const source of SOURCES) {
       const unread = [...pending[source].keys()].filter((id2) => !read[source].has(id2));
@@ -34712,6 +34730,7 @@ If a batch is rejected, the error lists suggestion indices and taskIds. Correct 
 ${JSON.stringify(bundle.reports.map(({ callRefs: _refs, ...report }) => report))}
 
 Compare findings with ALL tasks in the snapshot, including current nextStep, waiting states and links. Combine all sources for one issue into one proposal.
+${PR_MATCHING_RULES}
 Update ONLY tasks with status=open; copy exact taskIds from the snapshot. Closed tasks are supplied only for matching and deduplication. Do not invent UUIDs or turn completed requests into new tasks.
 Reconcile new findings with the full pending proposals below, including proposals from missed earlier checks. A pending proposal may contain only the remainder of a human partial review. Its changes are the remaining fields; when recordFactIndexes is present, only those fact indexes remain proposed records and other facts are retained solely as evidence. Do not restore reviewed records merely because their quotes are still available. See the merge rules below. A revised result receives a new approval ID.
 If no matching task exists and there is a substantive open request to the user or clearly evidenced unfinished work owned by the user, propose a new task. Do not duplicate already proposed or closed issues.
@@ -34819,6 +34838,7 @@ If someone replied, a question was resolved or a specific next step emerged, pro
 Do not revive closed tasks based on old messages, acknowledgments or automatic notifications with no new substance.
 Match stable Jira/SO/estimate keys, source links and participants first, then topics.
 Compare against ALL existing tasks and proposals before creating a new one. Do not duplicate one issue across tasks.
+${PR_MATCHING_RULES}
 When a pending proposal has a different baseRevision from the matching task revision, reread its sources and explicitly reconcile its fields against the current snapshot. The server replaces the old proposal only after validation.
 Cross-check the sources of pending new-task proposals too, even before a task has been created.
 If a substantive open request concerns the user or the evidence establishes unfinished work owned by the user, and no matching task or pending new-task proposal exists, propose a new task with a detailed summary and nextStep.
@@ -34878,6 +34898,11 @@ REVIEWED UPDATE PROPOSALS (remember decisions; never merge these):
 ${JSON.stringify(remembered)}
 `;
 }
+var PR_MATCHING_RULES = `PULL REQUEST OWNERSHIP
+A pull request is usually an artifact or implementation step of a durable task, not a separate task for each review comment. Match its full repository and number, title, linked Jira issue and parent story, and the described work against ALL task summaries, next steps and artifacts. A PR may carry a parent-story key while the user's task has a different child-issue key; reconcile the actual scope rather than requiring identical titles or keys.
+The prepared export includes older email threads found by exact PR URL when that URL is not yet in a dossier. Their subjects and bodies can identify the work and related issue. Older messages establish identity/context only; they are not new progress in this interval. In legacy collection, search Gmail by the exact PR URL without a lower date bound and read the full thread to establish this context.
+If an existing task owns the work, propose its progress, review next step and PR artifact together, preserving the rest of its scope. A different source link or a new reviewer comment does not make new work.
+If the export contains only a PR URL/number and a short review reply, with no title, issue or work context to establish ownership, do not create a standalone PR task. Report the unresolved association in the final response. An explicitly assigned standalone review can be a new task only after checking that no existing task or proposal covers that review. Do not guess a relationship from the repository or a shared participant alone.`;
 
 // source-sync.ts
 var SYNC_SOURCES = ["gmail", "slack", "jira"];
@@ -34990,6 +35015,11 @@ function validateSyncDraft(draft, run, snapshots, calls, carriedFacts = []) {
   if (draft.taskId && dossier.task.status !== "open") throw new PolicyError(`Task "${dossier.task.title}\xBB (${draft.taskId}) has status=${dossier.task.status}. Only open tasks can be updated. A separate new request may become a new task proposal; skip completed requests.`);
   if (!draft.taskId && (!draft.changes.summary?.value || !draft.changes.nextStep?.value)) throw new PolicyError("A new task must have a summary and a specific next step.");
   if (!draft.taskId && draft.changes.status && draft.changes.status.value !== "open") throw new PolicyError("A new task must remain open.");
+  if (!draft.taskId) {
+    const urls = new Set(pullRequestReferences(JSON.stringify(draft)));
+    const matches = snapshots.filter((d) => pullRequestReferences(JSON.stringify(d)).some((url2) => urls.has(url2)));
+    if (matches.length) throw new PolicyError(`This pull request is already linked to existing tasks: ${matches.map((d) => `${d.task.id} (${d.task.status}: ${d.task.title})`).join(", ")}. Reconcile it with the existing work instead of proposing a separate PR task.`);
+  }
   const byRef = new Map(calls.map((call2) => [call2.ref, call2]));
   const carried = new Set(carriedFacts.map((fact) => digest(fact)));
   for (const fact of draft.facts) for (const citation of fact.citations) {

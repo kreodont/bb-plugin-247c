@@ -1,4 +1,4 @@
-import { jiraReferences } from "./source-links.js";
+import { jiraReferences, pullRequestReferences } from "./source-links.js";
 import { defaultSourceConfig, type SourceConfig } from "./source-config.js";
 import { randomUUID } from "node:crypto";
 import type { SyncCandidate, SyncRun, SyncSource, SyncSubmit } from "./contracts.js";
@@ -120,6 +120,9 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
   const pending = { gmail: new Set(linked.gmail), slack: new Map(linked.slack.map(s => [`${s.channel}:${s.ts}`, s])), jira: new Set(linked.jira) };
   const searchedGmail = new Set<string>(), gmailThreads = new Map<string, string>();
   const read = { gmail: new Set<string>(), slack: new Set<string>(), jira: new Set<string>() };
+  const knownPullRequests = new Set(pullRequestReferences(JSON.stringify(dossiers)));
+  const pendingPullRequests = new Set(pullRequestReferences(JSON.stringify(options.pendingCandidates ?? [])).filter(url => !knownPullRequests.has(url)));
+  const searchedPullRequests = new Set<string>();
   let connections: SourceConnections;
   let bytes = 0, count = 0;
   const error = (source: SyncSource, message: string) => { if (!problems[source].includes(message)) problems[source].push(message); };
@@ -163,7 +166,11 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
         error(source, `${tool}${target ? ` (${target})` : ""}: ${truncated ? "response too large" : sourceFailure ? sourceError(data.message ?? data.text ?? output).slice(0, 400) : !shapeOk ? "unrecognized source response format" : sourceError(output).slice(0, 400)}`);
         return null;
       }
-      if (full) { documents.push({ ref, source, tool, args, content: documentContent(source, data, Date.parse(run.until)) }); addLinks(output); }
+      if (full) {
+        const content = documentContent(source, data, Date.parse(run.until));
+        documents.push({ ref, source, tool, args, content }); addLinks(output);
+        for (const url of pullRequestReferences(content)) if (!knownPullRequests.has(url)) pendingPullRequests.add(url);
+      }
       progress(source, full ? "Reading full threads and linked issues" : "Loading the list of changes");
       return data;
     } catch (cause) {
@@ -222,6 +229,14 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
     // permalinks in dossiers can resolve to a full thread already in the export.
     await pool([...searchedGmail].filter(id => !read.gmail.has(id)), fetchThread, 4);
     await pool([...pending.gmail].filter(id => !read.gmail.has(id)), fetchThread, 4);
+  }
+  async function readPullRequestContext() {
+    const urls = [...pendingPullRequests].filter(url => !searchedPullRequests.has(url));
+    const until = Math.floor(Date.parse(run.until) / 1000 + 1);
+    await pool(urls, async url => {
+      searchedPullRequests.add(url);
+      await gmailSearch(`"${url}" before:${until}`);
+    }, 3);
   }
   async function slack() {
     const after = String(Math.floor(Date.parse(run.ranges.slack.since) / 1000 - 300)), before = String(Date.parse(run.until) / 1000);
@@ -287,9 +302,10 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
     // Drain newly discovered links under the existing request, time and byte
     // limits. A fixed hop count can leave real linked issues unread.
     while (!signal.aborted) {
-      const before = read.gmail.size + read.slack.size + read.jira.size;
+      const before = read.gmail.size + read.slack.size + read.jira.size + searchedPullRequests.size;
+      await readPullRequestContext();
       await Promise.all([readGmail(), readSlack(), readJira()]);
-      if (before === read.gmail.size + read.slack.size + read.jira.size || signal.aborted) break;
+      if (before === read.gmail.size + read.slack.size + read.jira.size + searchedPullRequests.size || signal.aborted) break;
     }
     for (const source of SOURCES) {
       const unread = [...pending[source].keys()].filter(id => !read[source].has(id));
