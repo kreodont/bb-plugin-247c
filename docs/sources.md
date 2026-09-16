@@ -63,3 +63,7 @@ The collector also searches `from:me` across accessible Slack channels so user-a
 Pull requests belong to the underlying work item. For a newly discovered PR URL that is absent from task dossiers, the collector searches older Gmail threads by that exact URL, reads their full bodies, and follows related issue keys. This context lookup has no lower time bound; it is subject to the existing export limits and interval end. Older messages identify the work but do not count as new progress. Already linked PRs reuse dossier context without repeating that lookup.
 
 Before proposing a separate PR task, compare its title, issue and parent-story keys, and implementation scope with every task and pending proposal. A reviewer comment normally updates the existing task. If the export contains only a number/link and a short reply, report the unresolved association instead of treating it as unrelated work. The server rejects a new-task proposal that reuses a PR URL already present in an accepted dossier, including closed tasks. Repository names or shared participants alone are insufficient evidence of ownership.
+
+## Discussing a finished check
+
+You can continue a check conversation after it completes, fails or is cancelled to ask about its findings. The analyst can read the retained export, receipts and accepted task context. This does not reopen the run or change its proposals or source checkpoints. Start a separate check in the Updates panel to analyze fresh sources. There is no need to disable 247C to discuss an earlier check.

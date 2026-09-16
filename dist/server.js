@@ -34616,10 +34616,6 @@ var SourceSyncRuntime = class {
       this.processing.delete(id2);
     }
   }
-  dispatch(threadId) {
-    const run = this.store.forThread(threadId);
-    if (run && !SYNC_ACTIVE.has(run.status)) throw new PolicyError("This check run has finished. Start a new check in the Updates panel.");
-  }
   dispose() {
     this.disposed = true;
     for (const c of [...this.collectors.values(), ...this.companions.values()]) c.abort();
@@ -37092,6 +37088,11 @@ async function plugin(bb) {
     const localInstructions = own2 || context.project.id === configuration.threadProjectId ? configuration.threadInstructions : "";
     const instructions = (base = "") => [base, localInstructions].filter(Boolean).join("\n\n");
     const collection = own2 ? sync.resolveThread(context.thread.id, context.thread.title) : void 0;
+    if (collection && !SYNC_ACTIVE.has(collection.status)) return {
+      skills: [],
+      tools: ["c247_tasks", "c247_read", "c247_knowledge", "c247_sync_calls", ...collection.collection ? ["c247_sync_data"] : []],
+      instructions: instructions(`This 247C source check has ended with status=${collection.status}. The user may continue this conversation to discuss its findings, ask questions and identify mistakes. Read the saved export and receipts as historical evidence; they are not a fresh source check. Do not resume collection, submit or finalize this finished run, update time estimates, change tasks, send messages, or call external connectors, shell, web or agents. For fresh sources or a new analysis, direct the user to start a separate check in the Updates panel. Existing proposals still await human review in 247C.`)
+    };
     if (collection) return {
       skills: [],
       tools: ["c247_tasks", "c247_read", "c247_knowledge", "c247_sync_calls", ...collection.collection ? ["c247_sync_data"] : [], "c247_sync_submit", "c247_day_review", "c247_day_estimate"],
@@ -37119,10 +37120,7 @@ async function plugin(bb) {
       ...reviewer || localInstructions ? { instructions: instructions(reviewer ? "This is a separate 247C recording/review session. Use only the supplied snapshots. Do not invoke tools or delegate. Return the requested JSON." : "") } : {}
     };
   });
-  bb.experimental_hooks.on("message.dispatch", (context) => {
-    sync.dispatch(context.thread.id);
-    return runtime.dispatch(context.thread.id);
-  });
+  bb.experimental_hooks.on("message.dispatch", (context) => runtime.dispatch(context.thread.id));
   bb.events.on("thread.created", async ({ thread }) => {
     await runtime.created(thread);
     await sync.created(thread);

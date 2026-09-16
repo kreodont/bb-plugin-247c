@@ -679,9 +679,5 @@ export class SourceSyncRuntime {
       if (!this.disposed && SYNC_ACTIVE.has(this.store.run(id).status)) this.store.save({ ...this.store.run(id), status: "blocked", finishedAt: now(), error: error instanceof Error ? error.message : String(error) });
     } finally { this.processing.delete(id); }
   }
-  dispatch(threadId: string) {
-    const run = this.store.forThread(threadId);
-    if (run && !SYNC_ACTIVE.has(run.status)) throw new PolicyError("This check run has finished. Start a new check in the Updates panel.");
-  }
   dispose() { this.disposed = true; for (const c of [...this.collectors.values(), ...this.companions.values()]) c.abort(); this.collectors.clear(); this.companions.clear(); }
 }
