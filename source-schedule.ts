@@ -5,7 +5,7 @@ import { PolicyError } from "./core/errors.js";
 import type { SourceSyncRuntime } from "./source-sync.js";
 
 export const UPDATE_TIME_ZONE = DAY_TIME_ZONE; // Compatibility default; installed settings override it.
-type Schedule = { timeZone: string; updateStartHour: number; updateEndHour: number };
+type Schedule = { timeZone: string; updateStartHour: number; updateEndHour: number; syncProvider?: string; syncModel?: string; syncReasoningLevel?: string };
 const defaultSchedule: Schedule = { timeZone: UPDATE_TIME_ZONE, updateStartHour: 8, updateEndHour: 20 };
 export const UPDATE_SCHEDULE = "hourly-source-updates";
 // BB cron uses the server timezone. Check a minute boundary, then select the
@@ -45,7 +45,14 @@ export async function scheduledSourceUpdate(sync: SourceSyncRuntime, enabled: ()
   if (!previous) throw new PolicyError("Before enabling the schedule, run a manual check and select an account, model and workspace.");
   const source = sync.store.request(previous.id).input;
   if (!source) throw new PolicyError("The previous native check has no launch request.");
+  const overrides = Object.fromEntries([
+    ["providerId", schedule.syncProvider?.trim()],
+    ["model", schedule.syncModel?.trim()],
+    ["reasoningLevel", schedule.syncReasoningLevel?.trim()],
+  ].filter(([, value]) => value));
   const input = syncStartSchema.parse({ requestId, since: null, request: { ...source.request,
+    ...overrides,
+    executionInputSources: { ...source.request.executionInputSources, ...Object.fromEntries(Object.keys(overrides).map(key => [key, "explicit"])) },
     input: [{ type: "text", text: "Scheduled hourly 247C update check requested by the user. Analyze the prepared email, Slack and Jira export and propose updates to 247C tasks. Read every export page and finish the run by submitting the result through the standard tool. Proposals await user acceptance in the 247C panel.", mentions: [] }],
   } });
   try { return (await sync.start(input)).id; }

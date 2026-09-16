@@ -17,7 +17,7 @@ profile = json.loads(Path("/path/to/sources.private.json").read_text())
 subprocess.run(["bb", "plugin", "config", "247c", "set", "sources", json.dumps(profile)], check=True)
 ```
 
-The setting is also available under Extensions → Plugins → 247C. Run a manual source check with an available model and workspace. You can then enable `hourlyUpdates`: daily between `updateStartHour` and `updateEndHour` in `timeZone`. `calendarMeetings` controls calendar import. Models and connected accounts remain subject to the selected provider's billing and limits.
+The setting is also available under Extensions → Plugins → 247C. Run a manual source check with an available model and workspace. You can then enable `hourlyUpdates`: daily between `updateStartHour` and `updateEndHour` in `timeZone`. Set `syncProvider`, `syncModel` and `syncReasoningLevel` to choose the hourly execution settings independently of the last manual check; blank fields reuse that check's selection. `calendarMeetings` controls calendar import. Models and connected accounts remain subject to the selected provider's billing and limits.
 
 Changing calendars does not modify earlier meetings from another calendar. An incorrect account or missing login preserves existing data and shows an error. Installing the code on another computer does not transfer this profile or synchronize databases.
 

@@ -53,6 +53,19 @@ it("does not launch when disabled, outside the window, or when a manual check is
   expect(await scheduledSourceUpdate(sync, async () => true, at)).toBeNull(); expect(start).not.toHaveBeenCalled();
 });
 
+it("overrides only configured execution fields and preserves historical requests", async () => {
+  const { sync, source, first } = await setup();
+  const start = vi.spyOn(sync, "start").mockImplementation(async input => sync.store.insert(input));
+  await scheduledSourceUpdate(sync, async () => true, new Date("2026-09-11T05:00:00Z"), {
+    timeZone: "Europe/Athens", updateStartHour: 8, updateEndHour: 20,
+    syncProvider: "  ", syncModel: " gpt-5.6-sol ", syncReasoningLevel: "medium",
+  });
+  const request = start.mock.calls[0][0].request;
+  expect(request).toMatchObject({ ...source.request, model: "gpt-5.6-sol", reasoningLevel: "medium", input: expect.any(Array) });
+  expect(request.executionInputSources).toMatchObject({ model: "explicit", reasoningLevel: "explicit" });
+  expect(sync.store.request(first.id).input).toEqual(source);
+});
+
 it("keeps real start failures visible and safely skips a manual-start race", async () => {
   const { sync, source } = await setup(); const at = new Date("2026-09-11T05:00:00Z");
   const start = vi.spyOn(sync, "start").mockRejectedValue(new Error("Provider unavailable"));
@@ -71,6 +84,19 @@ it("wires the native schedule to settings and launches the existing collector wi
   const runs = new SourceSyncStore(f.repo).state().runs;
   expect(runs).toHaveLength(2); expect(runs.find(r => r.id !== first.id)?.model).toBe("gpt-6-astra");
   expect(f.repo.list(true)).toEqual(before);
+});
+
+it("uses current hourly model preferences after a reload instead of inheriting the last run's model", async () => {
+  const { f, first, source } = await setup();
+  vi.spyOn(collector, "collectSources").mockRejectedValue(new Error("Fixture collector finished"));
+  await f.harness.behavior.setSettings({ hourlyUpdates: true, syncProvider: "codex", syncModel: "gpt-5.6-sol", syncReasoningLevel: "medium" });
+  await f.reload();
+  vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-09-11T05:00:00Z"));
+  await f.harness.behavior.runSchedule(UPDATE_SCHEDULE);
+  const store = new SourceSyncStore(f.repo), next = store.state().runs.find(run => run.id !== first.id)!;
+  expect(next.model).toBe("gpt-5.6-sol");
+  expect(store.request(next.id).input?.request).toMatchObject({ providerId: "codex", model: "gpt-5.6-sol", reasoningLevel: "medium" });
+  expect(store.request(first.id).input).toEqual(source);
 });
 
  it("uses configured time zones and inclusive overnight hour windows", () => {

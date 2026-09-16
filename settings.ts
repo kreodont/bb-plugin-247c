@@ -31,8 +31,9 @@ export const settingDescriptors = {
     updateEndHour: { type: "number", label: "Hourly checks: last hour (inclusive)", description: "An end before the start covers an overnight window.", default: 20, experimental_schema: z.number().int().min(0).max(23) },
     workProvider: { type: "string", label: "New work conversations: preferred provider", description: "Leave blank to use the native BB selection.", default: "", experimental_schema: z.string().trim().max(200) },
     workModel: { type: "string", label: "New work conversations: preferred model", default: "", experimental_schema: z.string().trim().max(200) },
-    syncProvider: { type: "string", label: "Source checks: preferred provider", default: "", experimental_schema: z.string().trim().max(200) },
-    syncModel: { type: "string", label: "Source checks: preferred model", default: "", experimental_schema: z.string().trim().max(200) },
+    syncProvider: { type: "string", label: "Source checks: preferred provider", description: "Used by the native composer and hourly checks. Blank lets hourly checks reuse the last successful account.", default: "", experimental_schema: z.string().trim().max(200) },
+    syncModel: { type: "string", label: "Source checks: preferred model", description: "Used by the native composer and hourly checks. Blank lets hourly checks reuse the last successful model.", default: "", experimental_schema: z.string().trim().max(200) },
+    syncReasoningLevel: { type: "string", label: "Hourly checks: reasoning level", description: "Override the saved reasoning level for hourly checks. Blank reuses the last successful check's selection.", default: "", experimental_schema: z.enum(["", "low", "medium", "high", "xhigh", "max", "none", "ultra", "ultracode"]) },
     excludedReviewModels: { type: "string", label: "Review models unavailable on local accounts (JSON)", description: "Array of providerId/model pairs. Model IDs are matched after normalizing aliases and context-window suffixes.", default: "[]", experimental_schema: z.string().max(32000).refine(value => { try { parseExcludedReviewModels(value); return true; } catch { return false; } }, "Enter a valid list of provider/model exclusions.") },
 } as const;
 export function defineSettings(bb: BbPluginApi) { return bb.settings.define(settingDescriptors); }

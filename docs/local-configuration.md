@@ -44,7 +44,7 @@ The patch captures every declared plugin setting, including source account/profi
 
 - `timeZone` controls planning dates, midnight splits, calendar reads, UI dates and hourly slots. The previous planning zone remains the default for compatibility. Changing the zone affects future calculations; existing manual entries retain their saved dates.
 - `updateStartHour` and `updateEndHour` are inclusive, in that zone. An end before the start covers an overnight window.
-- `workProvider`/`workModel` and `syncProvider`/`syncModel` seed new native composers. Blank values leave selection to BB. Review discussions keep the previous worker selection. Hourly checks continue to reuse the last successful check's execution request, which is local database state.
+- `workProvider`/`workModel` and `syncProvider`/`syncModel` seed new native composers. Blank values leave selection to BB. Review discussions keep the previous worker selection. Hourly checks use nonblank `syncProvider`, `syncModel` and `syncReasoningLevel` settings on every launch. Unset fields, workspace and permissions are reused from the last successful check. Historical requests remain unchanged. For example, set `syncReasoningLevel` to `medium` to avoid inheriting a previous manual check's `max` setting. These choices are saved in the local patch and survive plugin updates.
 - `excludedReviewModels` is a JSON array of exact provider/model pairs for account-specific availability restrictions. Model aliases, dated snapshots and context suffixes are normalized. An exclusion affects only its specified provider.
 
 ## Existing external patches
