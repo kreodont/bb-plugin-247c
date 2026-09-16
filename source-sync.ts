@@ -15,11 +15,12 @@ import { acceptedEvidence } from "./conversation.js";
 import { digest, Repository } from "./repository.js";
 import { syncAnalysisInstructions } from "./source-sync-prompt.js";
 import { collectSources, sourceExportPage, type SourceExport } from "./source-collector.js";
+import { analysisExport, needsDayAnalysis, planSourceAnalysis, sourceAnalysisSchema, type AnalysisWork, type SourceAnalysis } from "./source-analysis.js";
 
 export const SYNC_SOURCES: SyncSource[] = ["gmail", "slack", "jira"];
 export const SYNC_ACTIVE = new Set<SyncRun["status"]>(["starting", "working"]);
 type Row = Record<string, unknown>;
-type RunRequest = { input?: SyncStart; externalImport?: { path: string; sha256: string }; snapshots: TaskDossier[]; pendingCandidates?: SyncCandidate[]; submittedFingerprint?: string; submittedFingerprints?: string[]; submittedBatches?: string[]; dataPagesRead?: number[] };
+type RunRequest = { input?: SyncStart; externalImport?: { path: string; sha256: string }; snapshots: TaskDossier[]; pendingCandidates?: SyncCandidate[]; submittedFingerprint?: string; submittedFingerprints?: string[]; submittedBatches?: string[]; dataPagesRead?: number[]; dayItemsRead?: string[]; incremental?: boolean; analysis?: SourceAnalysis };
 export type SourceCall = { ref: string; source: SyncSource; tool: string; args: unknown; output: string; completed: boolean; truncated: boolean; read: boolean };
 // Threaded replies omit task IDs. Prove their task URL through a successful
 // parent-comment listing, matching structured IDs rather than quoted message text.
@@ -241,6 +242,28 @@ export class SourceSyncStore {
   saveExport(bundle: SourceExport) {
     this.repo.db.prepare("INSERT INTO source_sync_exports VALUES (?,?)").run(bundle.runId, JSON.stringify(bundle));
   }
+  analysisBaseline(): SourceAnalysis | undefined {
+    const row = this.repo.db.prepare("SELECT request_json FROM source_sync_runs WHERE status IN ('completed','partial') AND json_extract(request_json,'$.incremental')=1 AND json_extract(request_json,'$.analysis') IS NOT NULL ORDER BY rowid DESC LIMIT 1").get() as { request_json: string } | undefined;
+    const request: RunRequest | undefined = row ? JSON.parse(row.request_json) : undefined;
+    const parsed = sourceAnalysisSchema.safeParse(request?.analysis);
+    if (!parsed.success) return undefined;
+    // An analyst may finish without reviewing some day items. Keep those
+    // eligible next time, including when no estimate could be produced yet.
+    const plan = parsed.data, read = new Set(request?.dayItemsRead ?? []);
+    for (const id of plan.reviewItemIds) if (!read.has(id)) delete plan.dayWork[id];
+    return plan;
+  }
+  recordDayReview(id: string, itemIds: string[]) {
+    const request = this.request(id);
+    this.repo.db.prepare("UPDATE source_sync_runs SET request_json=? WHERE id=?").run(JSON.stringify({ ...request, dayItemsRead: [...new Set([...(request.dayItemsRead ?? []), ...itemIds])] }), id);
+  }
+  saveAnalysis(id: string, analysis: SourceAnalysis) {
+    this.repo.db.prepare("UPDATE source_sync_runs SET request_json=? WHERE id=?").run(JSON.stringify({ ...this.request(id), analysis: sourceAnalysisSchema.parse(analysis) }), id);
+  }
+  analysisExport(id: string, bundle: SourceExport) {
+    const plan = this.request(id).analysis;
+    return analysisExport(bundle, plan ? sourceAnalysisSchema.parse(plan) : undefined);
+  }
   recordDataPage(id: string, page: number) {
     const request = this.request(id);
     this.repo.db.prepare("UPDATE source_sync_runs SET request_json=? WHERE id=?").run(JSON.stringify({ ...request, dataPagesRead: [...new Set([...(request.dataPagesRead ?? []), page])] }), id);
@@ -296,7 +319,7 @@ export class SourceSyncStore {
     const ranges = syncRanges(checkpoints, null, now(), this.initialSince());
     return { runs, candidates: this.candidates(), pending, checkpoints, nextSince: { ...this.initialSince(), ...Object.fromEntries(Object.entries(checkpoints).filter(([, value]) => value !== null)), ...Object.fromEntries(SYNC_SOURCES.map((source) => [source, ranges[source].since])) } as Record<string, string> };
   }
-  insert(input: SyncStart, fingerprint = digest(input)): SyncRun {
+  insert(input: SyncStart, fingerprint = digest(input), incremental = false): SyncRun {
     return this.repo.store.transaction(() => {
       if (this.active().length) throw new PolicyError("A check is already running. Wait for it to finish or stop it.");
       const list = this.repo.list(true);
@@ -307,7 +330,7 @@ export class SourceSyncStore {
       const run: SyncRun = { id: input.requestId, status: "starting", threadId: null, provider: input.request.providerId, model: input.request.model,
         startedAt: until, until, finishedAt: null, manualSince: input.since, ranges: syncRanges(this.checkpoints(), input.since, until, this.initialSince()),
         reports: [], error: null, suggestions: 0, duplicates: 0, fingerprint };
-      this.repo.db.prepare("INSERT INTO source_sync_runs VALUES (?,?,?,?,?)").run(run.id, run.status, null, JSON.stringify(run), JSON.stringify({ input, snapshots, pendingCandidates }));
+      this.repo.db.prepare("INSERT INTO source_sync_runs VALUES (?,?,?,?,?)").run(run.id, run.status, null, JSON.stringify(run), JSON.stringify({ input, snapshots, pendingCandidates, incremental }));
       this.repo.changed(); return run;
     });
   }
@@ -506,7 +529,8 @@ export class SourceSyncRuntime {
   private processing = new Set<string>();
   private collectors = new Map<string, AbortController>();
   private companions = new Map<string, AbortController>();
-  constructor(readonly bb: BbPluginApi, readonly repo: Repository, readonly onStart?: (signal: AbortSignal) => Promise<unknown>, readonly sourceConfiguration: () => Promise<SourceConfig> = async () => defaultSourceConfig, readonly threadRouting = new ThreadRouting(bb, async () => ""), readonly timeZone: () => string = () => DAY_TIME_ZONE) { this.store = new SourceSyncStore(repo); }
+  constructor(readonly bb: BbPluginApi, readonly repo: Repository, readonly onStart?: (signal: AbortSignal) => Promise<unknown>, readonly sourceConfiguration: () => Promise<SourceConfig> = async () => defaultSourceConfig, readonly threadRouting = new ThreadRouting(bb, async () => ""), readonly timeZone: () => string = () => DAY_TIME_ZONE,
+    readonly analysisWork: () => Promise<AnalysisWork> = async () => ({ dayWork: {}, dayComplete: true, policy: "" })) { this.store = new SourceSyncStore(repo); }
   private launchTitle(id: string) { return `247C · updates · ${id}`; }
   private isLaunchTitle(title: string | null, id: string) { return title === this.launchTitle(id) || title === `247C · обновления · ${id}`; }
   resolveThread(threadId: string, title?: string | null): SyncRun | undefined {
@@ -523,7 +547,7 @@ export class SourceSyncRuntime {
     this.store.save({ ...run, threadId: thread.id });
     if (!SYNC_ACTIVE.has(run.status)) await this.bb.sdk.threads.stop({ threadId: thread.id });
   }
-  async start(raw: SyncStart): Promise<SyncRun> {
+  async start(raw: SyncStart, options: { incremental?: boolean } = {}): Promise<SyncRun> {
     const input = syncStartSchema.parse(raw);
     if (this.disposed) throw new PolicyError("The plugin is reloading.");
     const existing = this.repo.db.prepare("SELECT id FROM source_sync_runs WHERE id=?").get(input.requestId);
@@ -539,7 +563,7 @@ export class SourceSyncRuntime {
     const [providers, catalog] = await Promise.all([this.bb.sdk.providers.list(routing), this.bb.sdk.providers.models({ ...routing, providerId: input.request.providerId })]);
     if (this.disposed) throw new PolicyError("The plugin is reloading. Try starting again.");
     if (!providers.some((p) => p.id === input.request.providerId && p.available) || catalog.modelLoadError || !catalog.models.some((m) => m.model === input.request.model || m.id === input.request.model)) throw new PolicyError("The selected account or model is unavailable on this machine.");
-    let run = this.store.insert(routed, digest(input));
+    let run = this.store.insert(routed, digest(input), options.incremental);
     run = this.store.save({ ...run, collection: { phase: "collecting", calls: 0, reads: 0, elapsedMs: 0 } });
     const controller = new AbortController();
     this.collectors.set(run.id, controller); this.processing.add(run.id);
@@ -573,7 +597,19 @@ export class SourceSyncRuntime {
       if (!SYNC_ACTIVE.has(run.status) || controller.signal.aborted) return;
       run = this.store.save({ ...run, reports: validateSyncReports(bundle.reports, bundle.calls, context.snapshots, context.pendingCandidates), collection: { phase: "analyzing", calls: bundle.calls.length, reads: bundle.documents.length, elapsedMs: bundle.elapsedMs } });
       if (bundle.reports.every(r => r.status === "unavailable")) throw new PolicyError("Could not load sources. See the Gmail, Slack and Jira cards for details; analysis was not started.");
-      const prompt = DAY_REVIEW_INSTRUCTIONS + "\n\n" + syncAnalysisInstructions(run, context.snapshots, [...(context.pendingCandidates ?? this.store.pendingCandidates()), ...this.store.candidates().filter(c => c.status !== "pending")], bundle, config, this.timeZone());
+      const work = await this.analysisWork();
+      if (this.disposed || controller.signal.aborted || !SYNC_ACTIVE.has(this.store.run(id).status)) return;
+      const baseline = this.store.analysisBaseline();
+      const plan = planSourceAnalysis(bundle, digest({ config, policy: work.policy, timeZone: this.timeZone() }), work, Boolean(context.incremental), baseline, context.snapshots);
+      this.store.saveAnalysis(id, plan);
+      const selected = analysisExport(bundle, plan);
+      const modelSkipped = Boolean(context.incremental) && !selected.documents.length && !needsDayAnalysis(plan, baseline);
+      run = this.store.save({ ...run, analysis: { documents: selected.documents.length, reusedDocuments: bundle.documents.length - selected.documents.length, modelSkipped } });
+      if (modelSkipped) {
+        this.store.submit(id, { reports: bundle.reports, suggestions: [] }, bundle.calls);
+        return;
+      }
+      const prompt = DAY_REVIEW_INSTRUCTIONS + "\n\n" + syncAnalysisInstructions(run, context.snapshots, [...(context.pendingCandidates ?? this.store.pendingCandidates()), ...this.store.candidates().filter(c => c.status !== "pending")], selected, config, this.timeZone());
       if (Buffer.byteLength(prompt) > 768 * 1024) throw new PolicyError("The task snapshot is too large for one analysis.");
       this.store.recordDataPage(id, 0);
       const request = nativeRequest(input.request);
@@ -621,9 +657,21 @@ export class SourceSyncRuntime {
   data(threadId: string, page: number) {
     const run = this.caller(threadId), bundle = this.store.export(run.id);
     if (!bundle) throw new PolicyError("This run has no saved export.");
-    const result = sourceExportPage(bundle, page);
+    const result = sourceExportPage(this.store.analysisExport(run.id, bundle), page);
     this.store.recordDataPage(run.id, page);
     return result;
+  }
+  context(threadId: string, page: number, ref?: string, query = "") {
+    const run = this.caller(threadId), bundle = this.store.export(run.id);
+    if (!bundle) throw new PolicyError("This run has no saved export.");
+    if (ref) {
+      const doc = bundle.documents.find(doc => doc.ref === ref);
+      if (!doc) throw new PolicyError("Document not found in this run's export.");
+      return sourceExportPage({ ...bundle, documents: [doc] }, page);
+    }
+    const docs = bundle.documents.filter(doc => JSON.stringify([doc.source, doc.args, doc.content]).toLocaleLowerCase().includes(query.toLocaleLowerCase()));
+    const offset = page * 20;
+    return { runId: run.id, documents: docs.slice(offset, offset + 20).map(doc => ({ ref: doc.ref, source: doc.source, tool: doc.tool, arguments: JSON.stringify(doc.args).slice(0, 1500) })), nextPage: offset + 20 < docs.length ? page + 1 : null };
   }
   async submit(threadId: string, raw: unknown) {
     const run = this.caller(threadId);
@@ -633,7 +681,7 @@ export class SourceSyncRuntime {
     const input = syncSubmitSchema.parse(bundle ? { ...payload, reports: bundle.reports } : payload);
     if (run.collection && !bundle) throw new PolicyError("No saved source export.");
     if (bundle) {
-      const pages = sourceExportPage(bundle, 0).totalPages, read = new Set(this.store.request(run.id).dataPagesRead ?? []);
+      const pages = sourceExportPage(this.store.analysisExport(run.id, bundle), 0).totalPages, read = new Set(this.store.request(run.id).dataPagesRead ?? []);
       const missing = Array.from({ length: pages }, (_, n) => n).filter(n => !read.has(n));
       if (missing.length) throw new PolicyError(`First read the export pages with c247_sync_data: ${missing.join(", ")}.`);
       // The model cannot upgrade a partial export to complete coverage.

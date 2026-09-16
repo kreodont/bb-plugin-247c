@@ -42,13 +42,15 @@ it("routes legacy verification workers without changing their model or visibilit
 });
 
 function bundle(run: SyncRun): collector.SourceExport {
-  const calls = [
+  const calls: collector.SourceExport["calls"] = [
     { source: "gmail" as const, tool: "gmail.search_threads", args: { query: "is:unread in:inbox" }, output: '{"threads":[]}' },
     { source: "gmail" as const, tool: "gmail.search_threads", args: { query: "after:1234" }, output: '{"threads":[]}' },
     { source: "slack" as const, tool: "slack.slack_search_public_and_private", args: { query: "is:dm" }, output: '{"results":[],"has_more":false}' },
     { source: "jira" as const, tool: "jira.searchJiraIssuesUsingJql", args: { jql: "updated >= -1d" }, output: '{"issues":[],"isLast":true}' },
   ].map((call, i) => ({ ...call, ref: `export:${run.id}:${i}`, completed: true, truncated: false, read: false }));
-  return { version: 1, runId: run.id, startedAt: run.startedAt, finishedAt: run.until, elapsedMs: 1, calls, reports: reportsFor(calls), documents: [] };
+  const doc = { ref: `export:${run.id}:thread`, source: "gmail" as const, tool: "gmail.get_thread", args: { threadId: "thread1" }, content: "A new request needs analysis." };
+  calls.push({ ...doc, output: doc.content, completed: true, truncated: false, read: true });
+  return { version: 1, runId: run.id, startedAt: run.startedAt, finishedAt: run.until, elapsedMs: 1, calls, reports: reportsFor(calls), documents: [doc] };
 }
 
 it("routes source checks from an old saved workspace and keeps replay idempotent", async () => {

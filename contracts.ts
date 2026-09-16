@@ -151,6 +151,7 @@ export const syncRunSchema = z.object({
   ranges: z.record(sourceKeySchema, z.object({ since: z.string(), previous: z.string().nullable() })),
   reports: z.array(syncReportSchema), error: z.string().nullable(),
   suggestions: z.number(), duplicates: z.number(), fingerprint: z.string(),
+  analysis: z.object({ documents: z.number().int().min(0), reusedDocuments: z.number().int().min(0), modelSkipped: z.boolean() }).optional(),
   collection: z.object({ phase: z.enum(["collecting", "analyzing"]), calls: z.number().int().min(0), reads: z.number().int().min(0), elapsedMs: z.number().min(0) }).optional(),
 });
 export const syncCandidateSchema = syncDraftSchema.extend({

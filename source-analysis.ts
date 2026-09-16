@@ -1,0 +1,60 @@
+import { z } from "zod";
+import { digest } from "./repository.js";
+import type { SourceExport } from "./source-collector.js";
+import { sourceLinks } from "./source-collector.js";
+import { pullRequestReferences } from "./source-links.js";
+import type { TaskDossier } from "./core/types.js";
+
+// Bump the version when analysis policy changes enough to require a fresh pass.
+export const sourceAnalysisSchema = z.object({
+  version: z.literal(1), contextKey: z.string(),
+  documents: z.record(z.string(), z.string()), selectedRefs: z.array(z.string()),
+  tasks: z.record(z.string(), z.object({ key: z.string(), anchors: z.array(z.string()) })),
+  dayWork: z.record(z.string(), z.string()), dayComplete: z.boolean(),
+  reviewItemIds: z.array(z.string()),
+  reason: z.enum(["manual", "baseline", "context", "changes"]),
+}).strict();
+export type SourceAnalysis = z.infer<typeof sourceAnalysisSchema>;
+export type AnalysisWork = { dayWork: Record<string, string>; dayComplete: boolean; policy: string };
+
+function stamp(document: SourceExport["documents"][number]) {
+  // Ref identifies this run's receipt, not the underlying thread/issue.
+  return { key: digest({ source: document.source, tool: document.tool, args: document.args }), value: digest(document.content) };
+}
+
+export function planSourceAnalysis(bundle: SourceExport, contextKey: string, work: AnalysisWork, incremental: boolean, baseline?: SourceAnalysis, dossiers: TaskDossier[] = []): SourceAnalysis {
+  let reason: SourceAnalysis["reason"] = !incremental ? "manual" : !baseline ? "baseline" : baseline.contextKey !== contextKey ? "context" : "changes";
+  const tasks = Object.fromEntries(dossiers.map(dossier => {
+    const text = JSON.stringify(dossier), links = sourceLinks(text);
+    const anchors = [...links.gmail, ...links.jira, ...links.slack.flatMap(link => [link.ts, link.ts.replace(".", "")]), ...pullRequestReferences(text)];
+    return [dossier.task.id, { key: digest(dossier), anchors }];
+  }));
+  const changedAnchors: string[] = [];
+  if (reason === "changes") for (const id of new Set([...Object.keys(tasks), ...Object.keys(baseline!.tasks)])) {
+    if (tasks[id]?.key === baseline!.tasks[id]?.key) continue;
+    const anchors = [...(tasks[id]?.anchors ?? []), ...(baseline!.tasks[id]?.anchors ?? [])];
+    // Revisit only this task's linked context. Without a stable link/key, a
+    // full pass is safer than guessing a topic match and missing its sources.
+    if (!anchors.length) reason = "context";
+    changedAnchors.push(...anchors.map(anchor => anchor.toLocaleLowerCase()));
+  }
+  const documents: Record<string, string> = {}, selectedRefs: string[] = [];
+  for (const doc of bundle.documents) {
+    const { key, value } = stamp(doc); documents[key] = value;
+    const text = JSON.stringify([doc.args, doc.content]).toLocaleLowerCase();
+    if (reason !== "changes" || baseline?.documents[key] !== value || changedAnchors.some(anchor => text.includes(anchor))) selectedRefs.push(doc.ref);
+  }
+  const reviewItemIds = Object.keys(work.dayWork).filter(id => reason === "manual" || !baseline || contextKey !== baseline.contextKey || !work.dayComplete || !baseline.dayComplete || baseline.dayWork[id] !== work.dayWork[id]);
+  return { version: 1, contextKey, tasks, documents, selectedRefs, dayWork: work.dayWork, dayComplete: work.dayComplete, reviewItemIds, reason };
+}
+
+export function needsDayAnalysis(plan: SourceAnalysis, baseline?: SourceAnalysis) {
+  if (!plan.dayComplete) return true; // Failed measurement must not hide work.
+  return plan.reviewItemIds.length > 0;
+}
+
+export function analysisExport(bundle: SourceExport, plan?: SourceAnalysis): SourceExport {
+  if (!plan) return bundle; // Runs created before incremental analysis.
+  const refs = new Set(plan.selectedRefs);
+  return { ...bundle, documents: bundle.documents.filter(doc => refs.has(doc.ref)) };
+}

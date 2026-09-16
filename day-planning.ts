@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { Repository } from "./repository.js";
+import { digest, Repository } from "./repository.js";
 import { ConflictError, PolicyError } from "./core/errors.js";
 import { calendarEventSchema, calendarStateSchema, dayAddSchema, dayConfigSchema, dayDateSchema, dayEditSchema, dayEstimateSchema, dayItemSchema, dayRpcContract,
   DAY_TIME_ZONE, localDay, shiftDay, weekStart, type CalendarEvent, type CalendarState, type DayItem, type DayView, type TimeReport } from "./day-contracts.js";
@@ -162,8 +162,22 @@ export class DayPlanning {
     });
     this.repo.changed(); return result;
   }
-  estimateCandidates(offset = 0) {
-    const items = this.rows("WHERE task_id IS NOT NULL AND date<=? ORDER BY date,id", this.today()).filter(i => this.canEstimate(i));
+  analysisWork() {
+    const result: Record<string, string> = {};
+    for (let offset: number | null = 0; offset !== null;) {
+      const page = this.estimateCandidates(offset);
+      for (const item of page.items) {
+        const request = this.repo.db.prepare("SELECT MAX(sequence) AS sequence FROM day_item_events WHERE item_id=? AND action='auto_restored'").get(item.id) as { sequence: number | null };
+        // AI estimates must not trigger another pass over the same work. A
+        // human request for a new estimate must, even if measured time is equal.
+        result[item.id] = digest({ date: item.date, taskId: item.taskId, actualMinutes: item.actualMinutes, title: item.title, summary: item.summary, workContext: item.workContext, request: request.sequence });
+      }
+      offset = page.nextOffset;
+    }
+    return result;
+  }
+  estimateCandidates(offset = 0, onlyIds?: ReadonlySet<string>) {
+    const items = this.rows("WHERE task_id IS NOT NULL AND date<=? ORDER BY date,id", this.today()).filter(i => this.canEstimate(i) && (!onlyIds || onlyIds.has(i.id)));
     const page = [];
     let bytes = 0;
     for (const item of items.slice(offset, offset + 5)) {

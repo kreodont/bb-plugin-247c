@@ -67,3 +67,15 @@ Before proposing a separate PR task, compare its title, issue and parent-story k
 ## Discussing a finished check
 
 You can continue a check conversation after it completes, fails or is cancelled to ask about its findings. The analyst can read the retained export, receipts and accepted task context. This does not reopen the run or change its proposals or source checkpoints. Start a separate check in the Updates panel to analyze fresh sources. There is no need to disable 247C to discuss an earlier check.
+
+## Incremental hourly analysis
+
+Scheduled checks still collect fresh source receipts and follow pagination every hour. Before launching a model, 247C compares each full thread/issue with a previously completed analysis, using its source, read arguments and content hash. Run-specific receipt IDs do not count as changes. Only new or changed documents enter the default analysis pages. A changed accepted task also revisits its linked source context; a task without stable source links or an analysis-policy change requires a full pass. The first scheduled check after installing this feature establishes the baseline.
+
+The complete current export remains saved for auditing, coverage checks, exact citations and recovery. The analyst can find and read extra context with `c247_sync_context` when needed. It must read every primary analysis page before submission; unchanged context does not need to be read routinely. Omitted documents are never used as proof that a source was checked: current connector receipts still determine coverage and checkpoints.
+
+When there are no documents requiring analysis and no new work to review in the day plan, the check finishes without creating a model conversation. The Updates panel reports that the model was not used. Calendar import and measured agent-time reconciliation still run. Partial source coverage stays partial and does not advance that source's checkpoint.
+
+Day-plan analysis is also incremental: new measured work, changed evidence and explicit requests for a new estimate become eligible. An AI estimate itself does not trigger another review of unchanged work. Only entries actually returned to the analyst are remembered as reviewed; an unread entry stays eligible for the next check. Manual time is never overwritten by this mechanism.
+
+Cancelled, blocked and unfinished analyses do not establish a baseline. Successful partial runs can retain their analyzed documents while keeping incomplete source intervals open. State survives plugin reloads in the local database. A manual check remains a full analysis, including custom focus instructions; it does not replace the general hourly baseline. Source-policy changes invalidate reuse, and analysis-rule changes must bump the cache version in `source-analysis.ts`.

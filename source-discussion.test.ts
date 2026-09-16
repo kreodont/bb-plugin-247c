@@ -22,7 +22,7 @@ it.each(["completed", "partial", "blocked", "cancelled"] as const)("allows discu
     const config = await f.harness.behavior.resolveAgentConfiguration(makePluginAgentConfigurationContext({
       origin: { pluginId: "247c" }, thread: { id: run.threadId! },
     }));
-    expect(config.tools.map(t => t.name).sort()).toEqual(["c247_tasks", "c247_read", "c247_knowledge", "c247_sync_calls", "c247_sync_data"].sort());
+    expect(config.tools.map(t => t.name).sort()).toEqual(["c247_tasks", "c247_read", "c247_knowledge", "c247_sync_calls", "c247_sync_data", "c247_sync_context"].sort());
     expect(config.instructions).toContain(`status=${status}`);
     expect(config.instructions).toContain("Answer in the user's language.");
     expect(store.run(run.id)).toEqual(before);

@@ -55,7 +55,7 @@ export async function scheduledSourceUpdate(sync: SourceSyncRuntime, enabled: ()
     executionInputSources: { ...source.request.executionInputSources, ...Object.fromEntries(Object.keys(overrides).map(key => [key, "explicit"])) },
     input: [{ type: "text", text: "Scheduled hourly 247C update check requested by the user. Analyze the prepared email, Slack and Jira export and propose updates to 247C tasks. Read every export page and finish the run by submitting the result through the standard tool. Proposals await user acceptance in the 247C panel.", mentions: [] }],
   } });
-  try { return (await sync.start(input)).id; }
+  try { return (await sync.start(input, { incremental: true })).id; }
   catch (error) {
     // A manual check may have started after the initial read.
     if (sync.store.active().length) return null;

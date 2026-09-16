@@ -17,7 +17,8 @@ Run ${run.id}. Interval end ${run.until}; per-source starts: ${JSON.stringify(ru
 You do not need to connect to corporate accounts, discover tools or collect the data again.
 Do not call external connectors, shell, web or agents. Use the export below and c247_sync_data for its remaining pages.
 In the user's original request, checking sources means analyzing this packet; collection is complete.
-The export has ${page.totalPages} pages of full threads/issues. Page 0 is included below.
+The analysis packet has ${page.totalPages} pages of full changed threads/issues. Page 0 is included below.
+${run.analysis ? `${run.analysis.documents} documents require analysis; ${run.analysis.reusedDocuments} unchanged documents were already analyzed successfully. Do not reread unchanged documents routinely. The full current export remains saved: use c247_sync_context to find and read a specific unchanged thread/issue only when needed for matching or interpreting a change. If you consult a context document, read all of its parts before drawing conclusions about replies. A packet with no documents may still require day-plan reconciliation.` : "This is a full analysis packet."}
 Read ALL remaining pages (c247_sync_data with page=1, then 2, etc.; independent pages can be read together).
 Document segments have part/parts and share one ref. Reading pages is local and does not query sources.
 The document ref is its citation callRef (export:...). c247_sync_calls is needed only for additional call registry checks.
