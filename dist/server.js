@@ -34860,6 +34860,7 @@ var settingDescriptors = {
     }
   }, "A valid source profile JSON is required.") },
   calendarMeetings: { type: "boolean", label: "Import work Google Calendar meetings when checking updates", default: true },
+  reportMeetingsWhenPlanned: { type: "boolean", label: "Meetings: report planned time immediately", description: "Set automatic reported time to planned time when a meeting enters the plan, including upcoming meetings. Manual reported corrections always win. When disabled, wait until the meeting ends.", default: false },
   hourlyUpdates: { type: "boolean", label: "Check sources on the configured hourly schedule", default: false },
   timeZone: { type: "string", label: "Planning and hourly checks: time zone", description: "IANA name, such as Europe/London. Changing it affects future date calculations; existing manual entries keep their dates.", default: DAY_TIME_ZONE, experimental_schema: timeZoneSchema },
   updateStartHour: { type: "number", label: "Hourly checks: first hour (inclusive)", default: 8, experimental_schema: external_exports.number().int().min(0).max(23) },
@@ -36206,14 +36207,16 @@ function decode3(raw) {
   return item;
 }
 var DayPlanning = class {
-  constructor(repo, clock = () => /* @__PURE__ */ new Date(), configuredTimeZone = () => DAY_TIME_ZONE) {
+  constructor(repo, clock = () => /* @__PURE__ */ new Date(), configuredTimeZone = () => DAY_TIME_ZONE, reportMeetingsWhenPlanned = () => false) {
     this.repo = repo;
     this.clock = clock;
     this.configuredTimeZone = configuredTimeZone;
+    this.reportMeetingsWhenPlanned = reportMeetingsWhenPlanned;
   }
   repo;
   clock;
   configuredTimeZone;
+  reportMeetingsWhenPlanned;
   get timeZone() {
     return this.configuredTimeZone();
   }
@@ -36301,7 +36304,8 @@ var DayPlanning = class {
     if (item.plannedMode === "calendar") item.plannedMinutes = (Date.parse(event.endAt) - Date.parse(event.startAt)) / 6e4;
     if (item.reportedMode === "calendar") {
       item.reportedDate = item.date;
-      item.reportedMinutes = !item.removed && event.status === "confirmed" && Date.parse(event.endAt) <= this.clock().getTime() ? item.plannedMinutes : null;
+      const reportNow = this.reportMeetingsWhenPlanned() || Date.parse(event.endAt) <= this.clock().getTime();
+      item.reportedMinutes = !item.removed && event.status === "confirmed" && reportNow ? item.plannedMinutes : null;
     }
     item.actualMinutes = item.reportedMinutes;
     return item;
@@ -36791,7 +36795,7 @@ async function plugin(bb) {
   const getSettings = async () => settings.get();
   const threadRouting = new ThreadRouting(bb, async () => (await settings.get()).threadProjectId);
   const runtime = new SessionRuntime(bb, repo, getSettings, threadRouting);
-  const days = new DayPlanning(repo, () => /* @__PURE__ */ new Date(), () => configuration.timeZone);
+  const days = new DayPlanning(repo, () => /* @__PURE__ */ new Date(), () => configuration.timeZone, () => configuration.reportMeetingsWhenPlanned);
   const dayPlanner = new DayPlanner(bb, () => settings.get(), () => days.today());
   const agentTime = new AgentTimeRuntime(bb, days);
   const sourceConfiguration = async () => parseSourceConfig((await settings.get()).sources);
@@ -36925,7 +36929,7 @@ async function plugin(bb) {
       return boundedJson(days.estimate(input2, `agent-time:source:${run.id}`));
     }
   });
-  const timeInstructions = "247C day planning keeps plannedMinutes and reportedMinutes independent for tasks. These tools record manual time only from an explicit user instruction, including its date and whether to SET a total or ADD minutes. Never infer hours from chat duration, task completion, a model's guess, or external content. Read c247_day first; use the returned full item ID and revision. A stable requestId prevents duplicate additions. Times are a separate journal; task fields and knowledge still go through approved proposals. Meetings are imported by the calendar script, with automatic reported=planned after the meeting; manual overrides always win. Never create a task just to represent an imported meeting. actualMinutes is read-only measured agent runtime (summed across agents), or equals reported for meetings. Hourly analysis separately proposes reported minutes from the volume, complexity and type of work, including estimated human reading and checking, with an explanation for user review. Estimates are independent of agent runtime, with no ratio floor or ceiling; these tools never invent manual hours. Manual reported time has no ratio limit because agent runtime excludes human reading and other work. Manual corrections win.";
+  const timeInstructions = "247C day planning keeps plannedMinutes and reportedMinutes independent for tasks. These tools record manual time only from an explicit user instruction, including its date and whether to SET a total or ADD minutes. Never infer hours from chat duration, task completion, a model's guess, or external content. Read c247_day first; use the returned full item ID and revision. A stable requestId prevents duplicate additions. Times are a separate journal; task fields and knowledge still go through approved proposals. Meetings are imported by the calendar script, with automatic reported=planned after the meeting, or immediately when the local reportMeetingsWhenPlanned setting is enabled; manual overrides always win. Never create a task just to represent an imported meeting. actualMinutes is read-only measured agent runtime (summed across agents), or equals reported for meetings. Hourly analysis separately proposes reported minutes from the volume, complexity and type of work, including estimated human reading and checking, with an explanation for user review. Estimates are independent of agent runtime, with no ratio floor or ceiling; these tools never invent manual hours. Manual reported time has no ratio limit because agent runtime excludes human reading and other work. Manual corrections win.";
   bb.agents.registerTool({
     name: "c247_day",
     description: "Read the saved 247C plan and time entries for a date (default today in the configured planning time zone). Returns item IDs and revisions for manual edits. This does not start a calendar sync or change tasks.",

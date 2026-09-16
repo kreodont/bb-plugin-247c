@@ -51,6 +51,8 @@ During **Check for updates**, a script independently reads the work Google Calen
 
 A meeting's planned time defaults to its calendar duration. After it ends, reported time automatically equals planned time. Actual always equals reported, including manual corrections and zero attendance. Planned and reported fields can be edited independently; calendar updates preserve manual overrides. **Did not attend** sets reported time to zero. **Planned from calendar** and **Automatic reported time** restore the respective field's automatic calculation. If a meeting moves, manually reported time retains its original date, which can be edited separately. Cancellation removes automatic hours while preserving manual reports and history. Connection errors preserve existing meetings.
 
+Enable the local `reportMeetingsWhenPlanned` setting to fill automatic meeting reported time from planned time immediately, including upcoming meetings. Duration changes keep automatic values aligned; manual reported corrections, including zero and blank, remain authoritative. The default waits until the meeting ends.
+
 [Time journal rules and assistant tools](skills/day-planning.md).
 
 ## Gmail, Slack and Jira updates

@@ -88,6 +88,48 @@ it("keeps manual reported on its original day when the calendar moves or cancels
   expect(days.report({ date: "2026-09-11", period: "day" }).totals.reportedMinutes).toBe(25);
 });
 
+it("reports upcoming meetings from planned time when enabled and follows duration changes", async () => {
+  const { f } = await setup();
+  const days = new DayPlanning(f.repo, () => new Date("2026-09-10T07:00:00Z"), () => "Europe/Athens", () => true);
+  const event = meeting(); days.mergeCalendar([event]); let item = days.calendarItems()[0];
+  expect(item).toMatchObject({ plannedMinutes: 30, reportedMinutes: 30, actualMinutes: 30, reportedMode: "calendar", reportedLocked: false });
+  days.mergeCalendar([{ ...event, endAt: "2026-09-10T11:00:00Z" }]); item = days.get(item.id);
+  expect(item).toMatchObject({ plannedMinutes: 60, reportedMinutes: 60, actualMinutes: 60 });
+  item = days.edit({ id: item.id, revision: item.revision, plannedMinutes: 45, requestId: randomUUID() });
+  expect(item.reportedMinutes).toBe(45);
+  expect(days.tick()).toBe(0);
+  days.mergeCalendar([{ ...event, status: "cancelled" }]);
+  expect(days.get(item.id)).toMatchObject({ plannedMinutes: 45, reportedMinutes: null, actualMinutes: null });
+});
+
+it.each([0, null, 20])("preserves a manual meeting report of %s during early automatic accounting", async reportedMinutes => {
+  const { f } = await setup();
+  const days = new DayPlanning(f.repo, () => new Date("2026-09-10T07:00:00Z"), () => "Europe/Athens", () => true);
+  days.mergeCalendar([meeting()]); let item = days.calendarItems()[0];
+  item = days.edit({ id: item.id, revision: item.revision, reportedMinutes, requestId: randomUUID() });
+  days.mergeCalendar([meeting({ endAt: "2026-09-10T11:00:00Z" })]); days.tick();
+  expect(days.get(item.id)).toMatchObject({ plannedMinutes: 60, reportedMinutes, actualMinutes: reportedMinutes, reportedMode: "manual" });
+  days.mergeCalendar([meeting({ status: "excluded" })]);
+  expect(days.get(item.id).reportedMinutes).toBe(reportedMinutes);
+});
+
+it("applies the local early-report setting after reload to existing automatic meetings only", async () => {
+  const { f, task } = await setup();
+  const days = new DayPlanning(f.repo);
+  const future = meeting({ startAt: "2099-09-10T10:00:00Z", endAt: "2099-09-10T10:30:00Z" });
+  days.mergeCalendar([future, { ...future, key: "gcal:manual", eventId: "manual" }]);
+  const [automatic, manual] = days.calendarItems();
+  days.edit({ id: manual.id, revision: manual.revision, reportedMinutes: 0, requestId: randomUUID() });
+  const taskItem = days.add({ taskId: task.id, date: "2099-09-10", plannedMinutes: 60, requestId: randomUUID() });
+  expect(automatic.reportedMinutes).toBeNull();
+  await f.harness.behavior.setSettings({ reportMeetingsWhenPlanned: true });
+  await f.reload();
+  const reloaded = new DayPlanning(f.repo);
+  expect(reloaded.get(automatic.id)).toMatchObject({ reportedMinutes: 30, actualMinutes: 30, reportedMode: "calendar" });
+  expect(reloaded.get(manual.id)).toMatchObject({ reportedMinutes: 0, reportedMode: "manual" });
+  expect(reloaded.get(taskItem.id).reportedMinutes).toBeNull();
+});
+
 it("keeps identical meeting titles separate and sums a task over the Monday-based week", async () => {
   const { days, task } = await setup();
   days.add({ taskId: task.id, date: "2026-09-07", plannedMinutes: 10, reportedMinutes: 180, requestId: randomUUID() });

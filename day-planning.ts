@@ -17,7 +17,8 @@ function decode(raw: unknown): DayItem {
 }
 
 export class DayPlanning {
-  constructor(readonly repo: Repository, readonly clock: () => Date = () => new Date(), readonly configuredTimeZone: () => string = () => DAY_TIME_ZONE) {}
+  constructor(readonly repo: Repository, readonly clock: () => Date = () => new Date(), readonly configuredTimeZone: () => string = () => DAY_TIME_ZONE,
+    readonly reportMeetingsWhenPlanned: () => boolean = () => false) {}
   get timeZone() { return this.configuredTimeZone(); }
   now() { return this.clock().toISOString(); }
   today() { return localDay(this.clock(), this.timeZone); }
@@ -79,7 +80,8 @@ export class DayPlanning {
     if (item.plannedMode === "calendar") item.plannedMinutes = (Date.parse(event.endAt) - Date.parse(event.startAt)) / 60000;
     if (item.reportedMode === "calendar") {
       item.reportedDate = item.date;
-      item.reportedMinutes = !item.removed && event.status === "confirmed" && Date.parse(event.endAt) <= this.clock().getTime() ? item.plannedMinutes : null;
+      const reportNow = this.reportMeetingsWhenPlanned() || Date.parse(event.endAt) <= this.clock().getTime();
+      item.reportedMinutes = !item.removed && event.status === "confirmed" && reportNow ? item.plannedMinutes : null;
     }
     item.actualMinutes = item.reportedMinutes;
     return item;

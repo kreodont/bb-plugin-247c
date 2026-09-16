@@ -25,6 +25,7 @@ export const settingDescriptors = {
     sessionMinutes: { type: "number", label: "Review or verification timeout in minutes (conversations have no timeout)", default: 20, experimental_schema: z.number().int().min(1).max(60) },
     sources: { type: "string", label: "Sources: JSON account, Slack, Jira and calendar profile", default: "{}", experimental_schema: z.string().max(32000).refine(value => { try { parseSourceConfig(value); return true; } catch { return false; } }, "A valid source profile JSON is required.") },
     calendarMeetings: { type: "boolean", label: "Import work Google Calendar meetings when checking updates", default: true },
+    reportMeetingsWhenPlanned: { type: "boolean", label: "Meetings: report planned time immediately", description: "Set automatic reported time to planned time when a meeting enters the plan, including upcoming meetings. Manual reported corrections always win. When disabled, wait until the meeting ends.", default: false },
     hourlyUpdates: { type: "boolean", label: "Check sources on the configured hourly schedule", default: false },
     timeZone: { type: "string", label: "Planning and hourly checks: time zone", description: "IANA name, such as Europe/London. Changing it affects future date calculations; existing manual entries keep their dates.", default: DAY_TIME_ZONE, experimental_schema: timeZoneSchema },
     updateStartHour: { type: "number", label: "Hourly checks: first hour (inclusive)", default: 8, experimental_schema: z.number().int().min(0).max(23) },

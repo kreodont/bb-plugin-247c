@@ -37,6 +37,8 @@ Import accepts individual occurrences of ordinary events with start and end time
 
 Planned and reported fields have their own automatic or manual mode. Actual always equals reported for a meeting, including a manual zero or corrected date. Automatic planned time equals calendar duration; reported time equals the current planned time after an active meeting ends. This is a reporting convention, not proof of attendance. A background check runs every 30 seconds while BB is running and when the plugin loads.
 
+Enable the local `reportMeetingsWhenPlanned` setting to fill automatic meeting reported time from planned time immediately, including upcoming meetings. Duration changes keep automatic values aligned; manual reported corrections, including zero and blank, remain authoritative. The default waits until the meeting ends.
+
 Manual reported time, including zero and blank values, survives updates. `restoreAuto=planned|reported|both` explicitly restores automatic behavior; send it separately from manual time and `reportedDate`. A moved meeting retains the previous manually reported date until explicitly edited. Cancellation, declining or conversion to an excluded event removes automatic hours while preserving manual reports. Do not create a separate task for a calendar event.
 
 ## Automatic agent time and reported estimates
