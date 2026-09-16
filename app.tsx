@@ -347,7 +347,8 @@ function ProposalCard({ proposal, dossier, action, busy, discuss, partSelection,
   const update = dossier.sessionUpdates.find((u) => u.proposalId === proposal.id);
   const pending = proposal.status === "pending" || proposal.status === "approved";
   const stale = proposal.baseRevision !== dossier.task.revision;
-  const selection = usePartSelection(proposal.id, proposalParts(proposal.changes, update?.extraction), busy || proposal.status === "approved", onPartSelection, partSelection);
+  const selection = usePartSelection(proposal.id, proposalParts(proposal.changes, update?.extraction), busy || proposal.status === "approved", onPartSelection, partSelection,
+    stale ? "Refreshing keeps the selected parts pending. Unchecked parts are discarded from the replacement and preserved in history." : undefined);
   const completing = proposal.changes.status?.value === "done" && selection.picked.includes("field:status");
   const decide = (decision: "accept" | "reject") => action(() => selection.all
     ? decision === "accept" ? rpc.call("accept", { proposalId: proposal.id, revision: dossier.task.revision }) : rpc.call("reject", { proposalId: proposal.id })
@@ -368,9 +369,54 @@ function ProposalCard({ proposal, dossier, action, busy, discuss, partSelection,
       {pending && <p className="text-xs text-muted-foreground">{completing ? "Accepting the selected parts also marks the task as done." : "Accepting saves only the selected fields, records and knowledge."}</p>}
     </div>}
     <details className="border-t border-border px-4 py-3"><summary className="cursor-pointer text-xs text-muted-foreground">Supporting evidence · {used.size}</summary><ul className="mt-3 space-y-2">{allEvidence.filter((e) => used.has(e.ref)).map((e) => <li key={e.ref} className="whitespace-pre-wrap break-words rounded-lg bg-muted/40 p-3 text-sm leading-relaxed">{e.text}</li>)}</ul><p className="mt-3 break-words text-xs text-muted-foreground">{proposal.model}</p></details>
-    {pending && <div className="border-t border-border p-4">{discussing && <p className="mb-3 text-sm text-muted-foreground">A discussion of this review is open. Finish it to receive a revised proposal.</p>}{stale && <p className="mb-3 text-sm text-destructive">The dossier changed after this proposal was prepared. A result based on the new revision is required.</p>}<div className="flex flex-wrap justify-end gap-2"><Button variant="ghost" disabled={busy || !selection.picked.length} onClick={() => void decide("reject")}>{selection.all ? "Reject" : `Reject selected parts · ${selection.picked.length}`}</Button><Button disabled={busy || stale || discussing || changingStatusDuringWork || !selection.picked.length} onClick={() => void decide("accept")}><Icon name="Check" />{!selection.all ? `Accept selected parts · ${selection.picked.length}` : completing ? "Accept and complete task" : proposal.changes.status?.value === "archived" ? "Accept and archive task" : "Accept changes"}</Button></div></div>}
+    {pending && <div className="border-t border-border p-4">{discussing && <p className="mb-3 text-sm text-muted-foreground">A discussion of this review is open. Finish it to receive a revised proposal.</p>}{stale && <ProposalRecovery proposalId={proposal.id} revision={dossier.task.revision} parts={selection.picked} all={selection.all} busy={busy} action={action} />}<div className="flex flex-wrap justify-end gap-2"><Button variant="ghost" disabled={busy || !selection.picked.length || (stale && !selection.all)} onClick={() => void decide("reject")}>{selection.all ? "Reject" : `Reject selected parts · ${selection.picked.length}`}</Button><Button disabled={busy || stale || discussing || changingStatusDuringWork || !selection.picked.length} onClick={() => void decide("accept")}><Icon name="Check" />{!selection.all ? `Accept selected parts · ${selection.picked.length}` : completing ? "Accept and complete task" : proposal.changes.status?.value === "archived" ? "Accept and archive task" : "Accept changes"}</Button></div></div>}
     {proposal.receipt && <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3"><span className="text-xs text-muted-foreground">Accepted {date(proposal.receipt.createdAt)} · revision {proposal.receipt.afterRevision}</span><Button variant="ghost" size="sm" disabled={busy} onClick={() => void action(() => rpc.call("revert", { proposalId: proposal.id }))}>{completing ? "Propose undoing completion and changes" : update ? "Propose undoing dossier fields" : "Propose undo"}</Button>{update && <p className="w-full text-xs text-muted-foreground">Undo preserves historical conversation records and knowledge.</p>}</div>}
   </article>;
+}
+
+function ProposalRecovery({ proposalId, revision, parts, all, busy, action }: { proposalId: string; revision: number; parts: string[]; all: boolean; busy: boolean; action: (fn: () => Promise<unknown>) => Promise<boolean> }) {
+  const rpc = useRpc<typeof rpcContract>();
+  const [preview, setPreview] = useState<import("./contracts.js").ProposalRefreshPreview | null>(null);
+  const [error, setError] = useState<string | null>(null), [attempt, setAttempt] = useState(0);
+  const [reviewing, setReviewing] = useState(false), [confirmed, setConfirmed] = useState(false);
+  const partsKey = JSON.stringify(parts);
+  const requestId = useRef(crypto.randomUUID());
+  useEffect(() => { setConfirmed(false); requestId.current = crypto.randomUUID(); }, [proposalId, revision, partsKey]);
+  useEffect(() => {
+    let live = true;
+    setPreview(null); setError(null); setConfirmed(false); setReviewing(false);
+    void rpc.call("proposalRefreshPreview", { proposalId }).then(value => { if (live) setPreview(value); }).catch(error => { if (live) setError(String(error)); });
+    return () => { live = false; };
+  }, [rpc, proposalId, revision, attempt]);
+  async function refresh(reviewed: boolean) {
+    if (!preview) return;
+    const ok = await action(() => rpc.call("refreshProposal", { proposalId, revision: preview.revision, parts, reviewed, requestId: requestId.current }));
+    if (!ok) setAttempt(value => value + 1);
+  }
+  return <section aria-label="Update stale proposal" className="mb-4 space-y-3 rounded-lg border border-border p-3">
+    <p className="text-sm font-medium">The task changed after this proposal was prepared.</p>
+    {error ? <><p className="text-sm text-destructive">{error}</p><Button size="sm" variant="outline" onClick={() => setAttempt(value => value + 1)}>Retry loading current task</Button></>
+      : !preview ? <p role="status" className="text-sm text-muted-foreground">Checking the current task…</p>
+      : preview.blockedReason ? <p className="text-sm text-muted-foreground">{preview.blockedReason}</p>
+      : <><p className="text-sm text-muted-foreground">{preview.reason}</p>
+        {preview.safe && all && !reviewing ? <Button size="sm" variant="outline" disabled={busy} onClick={() => void refresh(false)}>Refresh proposal</Button>
+          : !reviewing && <Button size="sm" variant="outline" disabled={busy} onClick={() => setReviewing(true)}>Review current task</Button>}
+        {reviewing && <div className="space-y-3">
+          <p className="text-sm">Compare the current task below with the proposed values above. Select the parts to keep using their checkboxes.</p>
+          <div className="space-y-3 rounded-lg bg-muted/30 p-3"><h3 className="text-sm font-medium">Current task · revision {preview.revision}</h3>
+            <p className="text-sm">{preview.dossier.task.title} · {taskStatusNames[preview.dossier.task.status]}</p>
+            <p className="text-sm">Urgent: {axisName(preview.dossier.planning.urgent)} · Important: {axisName(preview.dossier.planning.important)}</p>
+            {(["summary", "nextStep", "openQuestions", "blockers", "artifacts"] as const).map(field => <div key={field}><p className="text-xs text-muted-foreground">{fieldNames[field]}</p><div className="text-sm"><DisplayValue value={preview.dossier.projection[field]} /></div></div>)}
+            <h4 className="text-sm font-medium">Context and decisions</h4>
+            {preview.dossier.facts.map(fact => <div key={fact.id} className="text-sm"><p className="text-xs text-muted-foreground">{factNames[fact.kind]} · {date(fact.createdAt)}</p><p className="whitespace-pre-wrap break-words">{fact.text}</p></div>)}
+          </div>
+          {!all && <p className="text-sm">Only the {parts.length} selected parts will remain pending. Unchecked parts will be discarded from this proposal and preserved in its history.</p>}
+          <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={confirmed} disabled={busy} onChange={event => setConfirmed(event.target.checked)} />I reviewed the current task and want to keep the selected changes.</label>
+          <Button size="sm" variant="outline" disabled={busy || !confirmed || !parts.length} onClick={() => void refresh(true)}>Save updated proposal</Button>
+        </div>}
+        <p className="text-xs text-muted-foreground">This prepares a replacement for your acceptance. It does not run a model or change the task. The original remains in history.</p>
+      </>}
+  </section>;
 }
 
 const axisName = (value: boolean | null) => value === null ? "Not selected" : value ? "Yes" : "No";

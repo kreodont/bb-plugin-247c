@@ -26,7 +26,7 @@ export class ProposalInbox {
     const update = this.repo.db.prepare("SELECT value_json FROM session_updates WHERE proposal_id=?").get(id) as { value_json: string } | undefined;
     const used = new Set(Object.values(raw.changes).flatMap(change => change?.evidenceRefs ?? []));
     const context = reviewDossierSchema.parse({ ...dossier, facts: dossier.facts.filter(f => used.has(f.id)), sessions, sessionUpdates: update ? [JSON.parse(update.value_json)] : [] });
-    const blockedReason = raw.baseRevision !== dossier.task.revision ? "The dossier changed after this proposal was prepared. A result based on the new revision is required."
+    const blockedReason = raw.baseRevision !== dossier.task.revision ? "The dossier changed. Expand this proposal to refresh it or review the current task."
       : sessions.some(s => s.discussionProposalId === id) ? "Finish discussing this review first."
       : raw.changes.status && sessions.length ? "Finish the work session before changing the task status." : null;
     return { kind, proposal, dossier: context, blockedReason };

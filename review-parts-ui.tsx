@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { PartReview } from "./contracts.js";
 import { Button } from "./components/ui/button.js";
 
-export function usePartSelection(id: string, parts: string[], disabled: boolean, onChange?: (parts: string[] | undefined) => void, supplied?: string[]) {
+export function usePartSelection(id: string, parts: string[], disabled: boolean, onChange?: (parts: string[] | undefined) => void, supplied?: string[], note = "Unchecked parts stay pending. Supporting quotes remain available as evidence.") {
   const signature = JSON.stringify([id, parts]);
   const [selected, setSelected] = useState(() => new Set(parts));
   useEffect(() => { setSelected(new Set(parts)); }, [signature]);
@@ -16,7 +16,7 @@ export function usePartSelection(id: string, parts: string[], disabled: boolean,
     bar: <div className="flex flex-wrap items-center gap-3 border-t border-border px-4 py-3 text-xs text-muted-foreground">
       <span>Selected {picked.length} of {parts.length} parts</span>
       <Button variant="ghost" size="sm" disabled={disabled} onClick={() => change(new Set(picked.length === parts.length ? [] : parts))}>{picked.length === parts.length ? "Clear parts" : "Select all parts"}</Button>
-      <p className="w-full">Unchecked parts stay pending. Supporting quotes remain available as evidence.</p>
+      <p className="w-full">{note}</p>
     </div>,
     checkbox: (part: string, label: string) => <label className="flex items-start gap-2 text-sm font-medium">
       <input type="checkbox" className="mt-0.5 accent-primary" aria-label={`Select part: ${label}`} checked={picked.includes(part)} disabled={disabled}

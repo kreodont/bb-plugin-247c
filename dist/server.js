@@ -26589,6 +26589,21 @@ var dossierSchema = external_exports.object({ task: taskSchema, projection: proj
 var reviewDossierSchema = dossierSchema.pick({ task: true, projection: true, planning: true, facts: true, sessionUpdates: true }).extend({
   sessions: external_exports.array(sessionSchema.pick({ id: true, status: true, discussionProposalId: true }))
 });
+var proposalRefreshPreviewSchema = external_exports.object({
+  proposalId: idSchema,
+  revision: revisionSchema,
+  safe: external_exports.boolean(),
+  blockedReason: external_exports.string().nullable(),
+  reason: external_exports.string(),
+  dossier: dossierSchema.pick({ task: true, projection: true, planning: true, facts: true })
+});
+var proposalRefreshInputSchema = external_exports.object({
+  proposalId: idSchema,
+  revision: revisionSchema,
+  requestId: external_exports.uuid(),
+  reviewed: external_exports.boolean(),
+  parts: external_exports.array(external_exports.string().min(1).max(120)).min(1).max(400)
+}).strict();
 var reviewItemSchema = external_exports.discriminatedUnion("kind", [
   external_exports.object({ kind: external_exports.literal("source"), candidate: syncCandidateSchema, currentTask: taskCardSchema.pick({ revision: true, status: true, activeSession: true }).nullable(), blockedReason: external_exports.string().nullable() }),
   external_exports.object({ kind: external_exports.literal("proposal"), proposal: proposalViewSchema, dossier: reviewDossierSchema, blockedReason: external_exports.string().nullable() })
@@ -26655,6 +26670,8 @@ var rpcContract = defineRpcContract({
   classify: { input: external_exports.object({ taskId: idSchema, revision: revisionSchema, urgent: axisSchema, important: axisSchema }).strict(), output: planningSchema },
   status: { input: external_exports.object({ taskId: idSchema, revision: revisionSchema, status: statusSchema }).strict(), output: taskSchema },
   propose: { input: external_exports.object({ taskId: idSchema, revision: revisionSchema, draft: draftSchema, requestId: external_exports.uuid() }).strict(), output: proposalSchema },
+  proposalRefreshPreview: { input: external_exports.object({ proposalId: idSchema }).strict(), output: proposalRefreshPreviewSchema },
+  refreshProposal: { input: proposalRefreshInputSchema, output: proposalSchema },
   accept: { input: external_exports.object({ proposalId: idSchema, revision: revisionSchema }).strict(), output: dossierSchema },
   reject: { input: external_exports.object({ proposalId: idSchema }).strict(), output: proposalSchema },
   revert: { input: external_exports.object({ proposalId: idSchema }).strict(), output: proposalSchema },
@@ -35202,10 +35219,88 @@ async function readCalendar(input2, connect = connectCalendar) {
 }
 
 // server.ts
-import { randomUUID as randomUUID9 } from "node:crypto";
+import { randomUUID as randomUUID10 } from "node:crypto";
 
 // core/schema.ts
 var CORE_SCHEMA = "\n      CREATE TABLE IF NOT EXISTS tasks (\n        id TEXT PRIMARY KEY,\n        title TEXT NOT NULL,\n        status TEXT NOT NULL CHECK(status IN ('open', 'done', 'archived')),\n        revision INTEGER NOT NULL DEFAULT 0,\n        created_at TEXT NOT NULL,\n        updated_at TEXT NOT NULL\n      );\n      CREATE TABLE IF NOT EXISTS task_facts (\n        id TEXT PRIMARY KEY,\n        task_id TEXT NOT NULL REFERENCES tasks(id),\n        kind TEXT NOT NULL,\n        text TEXT NOT NULL,\n        source TEXT NOT NULL,\n        source_ref TEXT,\n        occurred_at TEXT NOT NULL,\n        created_at TEXT NOT NULL\n      );\n      CREATE INDEX IF NOT EXISTS idx_task_facts_task ON task_facts(task_id, occurred_at);\n      CREATE TABLE IF NOT EXISTS task_projections (\n        task_id TEXT PRIMARY KEY REFERENCES tasks(id),\n        summary TEXT,\n        next_step TEXT,\n        open_questions_json TEXT NOT NULL DEFAULT '[]',\n        blockers_json TEXT NOT NULL DEFAULT '[]',\n        artifacts_json TEXT NOT NULL DEFAULT '[]',\n        updated_at TEXT NOT NULL\n      );\n      CREATE TABLE IF NOT EXISTS proposals (\n        id TEXT PRIMARY KEY,\n        task_id TEXT NOT NULL REFERENCES tasks(id),\n        base_revision INTEGER NOT NULL,\n        model TEXT NOT NULL,\n        rationale TEXT NOT NULL,\n        confidence REAL NOT NULL,\n        changes_json TEXT NOT NULL,\n        status TEXT NOT NULL CHECK(status IN ('pending', 'approved', 'applied', 'rejected', 'conflicted')),\n        created_at TEXT NOT NULL,\n        resolved_at TEXT\n        ,idempotency_key TEXT UNIQUE\n      );\n      CREATE INDEX IF NOT EXISTS idx_proposals_idempotency ON proposals(idempotency_key);\n      CREATE TABLE IF NOT EXISTS proposal_evidence (\n        proposal_id TEXT NOT NULL REFERENCES proposals(id),\n        evidence_ref TEXT NOT NULL,\n        kind TEXT NOT NULL,\n        text TEXT NOT NULL,\n        source TEXT NOT NULL,\n        source_ref TEXT,\n        PRIMARY KEY(proposal_id, evidence_ref)\n      );\n      CREATE TABLE IF NOT EXISTS proposal_approvals (\n        id TEXT PRIMARY KEY,\n        proposal_id TEXT NOT NULL UNIQUE REFERENCES proposals(id),\n        proposal_hash TEXT NOT NULL,\n        actor TEXT NOT NULL,\n        created_at TEXT NOT NULL\n      );\n      CREATE TABLE IF NOT EXISTS application_receipts (\n        id TEXT PRIMARY KEY,\n        proposal_id TEXT NOT NULL UNIQUE REFERENCES proposals(id),\n        approval_id TEXT NOT NULL REFERENCES proposal_approvals(id),\n        task_id TEXT NOT NULL REFERENCES tasks(id),\n        before_revision INTEGER NOT NULL,\n        after_revision INTEGER NOT NULL,\n        fields_json TEXT NOT NULL,\n        created_at TEXT NOT NULL\n      );\n      CREATE TABLE IF NOT EXISTS kernel_events (\n        sequence INTEGER PRIMARY KEY AUTOINCREMENT,\n        id TEXT NOT NULL UNIQUE,\n        task_id TEXT,\n        type TEXT NOT NULL,\n        payload_json TEXT NOT NULL,\n        created_at TEXT NOT NULL\n      );\n      CREATE TABLE IF NOT EXISTS application_snapshots (\n        proposal_id TEXT PRIMARY KEY REFERENCES proposals(id),\n        before_json TEXT NOT NULL,\n        after_json TEXT NOT NULL\n      );\n    ";
+
+// proposal-refresh.ts
+import { randomUUID as randomUUID7 } from "node:crypto";
+function updateFor(repo, id2) {
+  const row = repo.db.prepare("SELECT value_json FROM session_updates WHERE proposal_id=?").get(id2);
+  return row ? sessionUpdateSchema.parse(JSON.parse(row.value_json)) : void 0;
+}
+function proposalRefreshPreview(repo, proposalId) {
+  const proposal = repo.kernel.getProposal(proposalId), dossier = repo.kernel.getDossier(proposal.taskId);
+  const blockedReason = proposal.status !== "pending" ? "This proposal has already been reviewed. Refresh the list." : proposal.baseRevision === dossier.task.revision ? "This proposal already uses the current task." : repo.active().some((session) => session.taskId === proposal.taskId) ? "Finish the active work or review discussion before refreshing this proposal." : null;
+  const created = repo.db.prepare("SELECT sequence FROM kernel_events WHERE task_id=? AND type='proposal.created' AND json_extract(payload_json,'$.proposalId')=? ORDER BY sequence DESC LIMIT 1").get(proposal.taskId, proposal.id);
+  const events = created ? repo.db.prepare("SELECT type FROM kernel_events WHERE task_id=? AND sequence>? ORDER BY sequence").all(proposal.taskId, created.sequence) : [];
+  const neutral = /* @__PURE__ */ new Set(["proposal.created", "proposal.approved", "proposal.rejected", "proposal.conflicted", "proposal.refreshed"]);
+  const edits = events.filter((event) => !neutral.has(event.type));
+  const priorityOnly = Boolean(created) && edits.length > 0 && edits.length === dossier.task.revision - proposal.baseRevision && edits.every((event) => event.type === "planning.changed");
+  const safe = !blockedReason && priorityOnly && !proposal.changes.urgent && !proposal.changes.important && !updateFor(repo, proposalId);
+  return {
+    proposalId,
+    revision: dossier.task.revision,
+    safe,
+    blockedReason,
+    dossier,
+    reason: safe ? "Only priority changed. This proposal does not change priority; its contents can be kept without another model run." : priorityOnly ? "Priority changed. Review the current task and select the parts you still want to keep." : "The task content changed, or its earlier context cannot be verified. Review the current task before keeping any proposed changes."
+  };
+}
+function refreshProposal(repo, input2) {
+  const result = repo.request(input2.requestId, { kind: "refresh-proposal", input: input2 }, () => {
+    const preview = proposalRefreshPreview(repo, input2.proposalId);
+    if (preview.revision !== input2.revision) throw new ConflictError("The task changed again. Review its latest version before refreshing the proposal.");
+    if (preview.blockedReason) throw new PolicyError(preview.blockedReason);
+    const old = repo.kernel.getProposal(input2.proposalId), update = updateFor(repo, old.id);
+    const all = proposalParts(old.changes, update?.extraction);
+    const split = partitionParts(all, { parts: input2.parts, decision: "accept" });
+    if (!input2.reviewed && (!preview.safe || input2.parts.length !== all.length)) throw new PolicyError("Review the current task and confirm the selected parts first.");
+    const extraction = update ? pickExtraction(update.extraction, input2.parts, old.id) : void 0;
+    const refs2 = update ? extractionRefMap(update.extraction, input2.parts, old.id) : /* @__PURE__ */ new Map();
+    const draft = receiptDraft(
+      extraction ? extraction.changes ?? {} : pickChanges(old.changes, input2.parts),
+      preview.dossier,
+      repo.kernel.proposalEvidence(old.id).map((evidence2) => ({ ...evidence2, ref: refs2.get(evidence2.ref) ?? evidence2.ref }))
+    );
+    const replacement = repo.kernel.createProposal({
+      taskId: old.taskId,
+      baseRevision: preview.revision,
+      model: old.model,
+      output: { rationale: old.rationale, confidence: old.confidence, changes: draft.changes },
+      additionalEvidence: draft.evidence,
+      idempotencyKey: `refresh:${input2.requestId}`
+    });
+    if (update && extraction) repo.db.prepare("INSERT INTO session_updates VALUES (?,?,?)").run(replacement.id, update.sessionId, JSON.stringify({ ...update, proposalId: replacement.id, extraction }));
+    repo.kernel.rejectProposal(old.id);
+    for (const session of repo.sessions(old.taskId)) if (session.proposalId === old.id) repo.saveSession({
+      ...session,
+      proposalId: replacement.id,
+      baseRevision: preview.revision,
+      status: "awaiting_approval",
+      ...extraction ? { extraction } : {}
+    });
+    repo.savePartReview("proposal", old.id, {
+      accepted: [],
+      rejected: split.remaining,
+      remaining: input2.parts,
+      acceptedId: null,
+      remainingId: replacement.id,
+      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+    });
+    repo.db.prepare("INSERT INTO kernel_events(id,task_id,type,payload_json,created_at) VALUES (?,?,?,?,?)").run(
+      randomUUID7(),
+      old.taskId,
+      "proposal.refreshed",
+      JSON.stringify({ proposalId: replacement.id, replacesId: old.id, fromRevision: old.baseRevision, revision: preview.revision, reviewed: input2.reviewed, parts: input2.parts }),
+      (/* @__PURE__ */ new Date()).toISOString()
+    );
+    return replacement;
+  });
+  repo.changed();
+  return result;
+}
 
 // runtime.ts
 import { posix } from "node:path";
@@ -36203,7 +36298,7 @@ var SessionRuntime = class {
 };
 
 // proposal-inbox.ts
-import { randomUUID as randomUUID7 } from "node:crypto";
+import { randomUUID as randomUUID8 } from "node:crypto";
 var ProposalInbox = class {
   constructor(repo, sync, runtime) {
     this.repo = repo;
@@ -36229,7 +36324,7 @@ var ProposalInbox = class {
     const update = this.repo.db.prepare("SELECT value_json FROM session_updates WHERE proposal_id=?").get(id2);
     const used = new Set(Object.values(raw.changes).flatMap((change) => change?.evidenceRefs ?? []));
     const context = reviewDossierSchema.parse({ ...dossier, facts: dossier.facts.filter((f) => used.has(f.id)), sessions, sessionUpdates: update ? [JSON.parse(update.value_json)] : [] });
-    const blockedReason = raw.baseRevision !== dossier.task.revision ? "The dossier changed after this proposal was prepared. A result based on the new revision is required." : sessions.some((s) => s.discussionProposalId === id2) ? "Finish discussing this review first." : raw.changes.status && sessions.length ? "Finish the work session before changing the task status." : null;
+    const blockedReason = raw.baseRevision !== dossier.task.revision ? "The dossier changed. Expand this proposal to refresh it or review the current task." : sessions.some((s) => s.discussionProposalId === id2) ? "Finish discussing this review first." : raw.changes.status && sessions.length ? "Finish the work session before changing the task status." : null;
     return { kind, proposal, dossier: context, blockedReason };
   }
   list(offset = 0) {
@@ -36272,7 +36367,7 @@ var ProposalInbox = class {
         if (value.baseRevision !== item.revision) throw new ConflictError("The proposal changed. Refresh the list and review it again.");
         let taskId;
         if (item.parts) {
-          const input2 = { ...item, parts: item.parts, decision: "accept", requestId: randomUUID7() };
+          const input2 = { ...item, parts: item.parts, decision: "accept", requestId: randomUUID8() };
           const result = item.kind === "source" ? this.sync.reviewParts(input2) : await this.runtime.reviewParts(input2);
           taskId = result.taskId;
         } else {
@@ -36289,7 +36384,7 @@ var ProposalInbox = class {
 };
 
 // day-planning.ts
-import { randomUUID as randomUUID8 } from "node:crypto";
+import { randomUUID as randomUUID9 } from "node:crypto";
 var EMPTY_CALENDAR = { status: "idle", startedAt: null, completedAt: null, message: null, events: 0, from: null, through: null };
 var same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 var plannedCounts = (item) => !item.removed && (!item.calendar || item.calendar.status === "confirmed");
@@ -36345,7 +36440,7 @@ var DayPlanning = class {
     const count = this.repo.db.prepare("SELECT count(*) AS n FROM day_items WHERE date=?").get(date5);
     if (count.n >= 1e3) throw new PolicyError("This day already has 1,000 entries.");
     return {
-      id: randomUUID8(),
+      id: randomUUID9(),
       date: date5,
       reportedDate: date5,
       kind: taskId ? "task" : "meeting",
@@ -36990,6 +37085,8 @@ async function plugin(bb) {
     classify: (input2) => repo.classify(input2),
     status: ({ taskId, status, revision }) => runtime.status(taskId, status, revision),
     propose: (input2) => repo.propose(input2, "human:bb-panel"),
+    proposalRefreshPreview: ({ proposalId }) => proposalRefreshPreview(repo, proposalId),
+    refreshProposal: (input2) => refreshProposal(repo, input2),
     accept: ({ proposalId, revision }) => runtime.accept(proposalId, revision),
     reject: async ({ proposalId }) => {
       const proposal = repo.reject(proposalId);
@@ -37392,10 +37489,10 @@ Use the 247C panel to approve, archive, start or finish sessions.
           value = repo.knowledge(input2.query, input2.offset);
         } else if (command === "new" && args.length) {
           independentCaller(ctx.threadId);
-          value = repo.create(rpcContract.create.input.parse({ title: args.join(" "), description: "", requestId: randomUUID9() }));
+          value = repo.create(rpcContract.create.input.parse({ title: args.join(" "), description: "", requestId: randomUUID10() }));
         } else if (command === "propose" && args.length === 3) {
           independentCaller(ctx.threadId);
-          value = repo.propose(rpcContract.propose.input.parse({ taskId: args[0], revision: Number(args[1]), draft: draftSchema.parse(JSON.parse(args[2])), requestId: randomUUID9() }), ctx.threadId ? `bb-thread:${ctx.threadId}` : "cli");
+          value = repo.propose(rpcContract.propose.input.parse({ taskId: args[0], revision: Number(args[1]), draft: draftSchema.parse(JSON.parse(args[2])), requestId: randomUUID10() }), ctx.threadId ? `bb-thread:${ctx.threadId}` : "cli");
         } else return { exitCode: 1, stderr: usage };
         return { exitCode: 0, stdout: boundedJson(value) };
       } catch (error61) {

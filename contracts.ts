@@ -172,6 +172,12 @@ export const dossierSchema = z.object({ task: taskSchema, projection: projection
 export const reviewDossierSchema = dossierSchema.pick({ task: true, projection: true, planning: true, facts: true, sessionUpdates: true }).extend({
   sessions: z.array(sessionSchema.pick({ id: true, status: true, discussionProposalId: true })),
 });
+export const proposalRefreshPreviewSchema = z.object({ proposalId: idSchema, revision: revisionSchema, safe: z.boolean(), blockedReason: z.string().nullable(), reason: z.string(),
+  dossier: dossierSchema.pick({ task: true, projection: true, planning: true, facts: true }) });
+export const proposalRefreshInputSchema = z.object({ proposalId: idSchema, revision: revisionSchema, requestId: z.uuid(), reviewed: z.boolean(),
+  parts: z.array(z.string().min(1).max(120)).min(1).max(400) }).strict();
+export type ProposalRefreshInput = z.infer<typeof proposalRefreshInputSchema>;
+export type ProposalRefreshPreview = z.infer<typeof proposalRefreshPreviewSchema>;
 export const reviewItemSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("source"), candidate: syncCandidateSchema, currentTask: taskCardSchema.pick({ revision: true, status: true, activeSession: true }).nullable(), blockedReason: z.string().nullable() }),
   z.object({ kind: z.literal("proposal"), proposal: proposalViewSchema, dossier: reviewDossierSchema, blockedReason: z.string().nullable() }),
@@ -236,6 +242,8 @@ export const rpcContract = defineRpcContract({
   classify: { input: z.object({ taskId: idSchema, revision: revisionSchema, urgent: axisSchema, important: axisSchema }).strict(), output: planningSchema },
   status: { input: z.object({ taskId: idSchema, revision: revisionSchema, status: statusSchema }).strict(), output: taskSchema },
   propose: { input: z.object({ taskId: idSchema, revision: revisionSchema, draft: draftSchema, requestId: z.uuid() }).strict(), output: proposalSchema },
+  proposalRefreshPreview: { input: z.object({ proposalId: idSchema }).strict(), output: proposalRefreshPreviewSchema },
+  refreshProposal: { input: proposalRefreshInputSchema, output: proposalSchema },
   accept: { input: z.object({ proposalId: idSchema, revision: revisionSchema }).strict(), output: dossierSchema },
   reject: { input: z.object({ proposalId: idSchema }).strict(), output: proposalSchema },
   revert: { input: z.object({ proposalId: idSchema }).strict(), output: proposalSchema },

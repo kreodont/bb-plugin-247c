@@ -12,6 +12,7 @@ import { z } from "zod";
 import { CORE_SCHEMA } from "./core/schema.js";
 import { PolicyError } from "./core/errors.js";
 import { rpcContract, draftSchema, idSchema, resultSchema, syncSubmitToolSchema, type SettingsView } from "./contracts.js";
+import { proposalRefreshPreview, refreshProposal } from "./proposal-refresh.js";
 import { ACTIVE, EXTRA_SCHEMA, Repository } from "./repository.js";
 import { SessionRuntime } from "./runtime.js";
 import { ThreadRouting } from "./thread-routing.js";
@@ -121,6 +122,8 @@ export default async function plugin(bb: BbPluginApi) {
     classify: (input) => repo.classify(input),
     status: ({ taskId, status, revision }) => runtime.status(taskId, status, revision),
     propose: (input) => repo.propose(input, "human:bb-panel"),
+    proposalRefreshPreview: ({ proposalId }) => proposalRefreshPreview(repo, proposalId),
+    refreshProposal: (input) => refreshProposal(repo, input),
     accept: ({ proposalId, revision }) => runtime.accept(proposalId, revision),
     reject: async ({ proposalId }) => { const proposal = repo.reject(proposalId); await runtime.archiveFinishedThreads(proposal.taskId); return proposal; },
     revert: ({ proposalId }) => { const proposal = repo.kernel.proposeRevert(proposalId); changed(); return proposal; },

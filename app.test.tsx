@@ -148,6 +148,48 @@ it("keeps session proposals in the same inbox and excludes stale entries from se
   expect(f.repo.kernel.getDossier(task.id).projection.summary).toBeNull();
 });
 
+it.each(["task", "inbox"])("refreshes a priority-only conflict directly in the %s without accepting it", async location => {
+  const f = await fixture(), task = await f.create(), fact = f.repo.detail(task.id).facts[0];
+  const old = f.repo.propose({ taskId: task.id, revision: task.revision, requestId: randomUUID(), draft: { rationale: "Save the result", confidence: 1,
+    changes: { summary: { value: "Verified result", evidenceRefs: [fact.id] } } } }, "test");
+  f.repo.classify({ taskId: task.id, revision: 0, urgent: false, important: true });
+  const { slot } = await setup(location === "task" ? task.id : "proposals", f);
+  if (location === "task") fireEvent.click(await slot.findByRole("tab", { name: "Proposals · 1" }));
+  else { await slot.findByRole("heading", { name: "Proposals · 1" }); fireEvent.click(slot.getByRole("button", { name: "Expand all" })); }
+  fireEvent.click(await slot.findByRole("button", { name: "Refresh proposal" }));
+  await waitFor(() => expect(f.repo.kernel.getProposal(old.id).status).toBe("rejected"));
+  expect(f.repo.detail(task.id).projection.summary).toBeNull();
+  expect(f.repo.pendingTotal()).toBe(1);
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
+  expect(slot.inspection.rpcCalls.find(call => call.method === "refreshProposal")?.input).toMatchObject({ reviewed: false, parts: ["field:summary"] });
+});
+
+it("requires a current-task review before replacing a conflicting proposal and keeps only checked parts", async () => {
+  const f = await fixture(), task = await f.create("Initial context");
+  const fact = f.repo.note({ taskId: task.id, revision: task.revision, requestId: randomUUID(), kind: "user_instruction", text: "Keep this as unimportant." });
+  const old = f.repo.propose({ taskId: task.id, revision: f.repo.kernel.getTask(task.id).revision, requestId: randomUUID(), draft: { rationale: "Update task", confidence: 1,
+    changes: { summary: { value: "Updated result", evidenceRefs: [fact.id] }, important: { value: false, evidenceRefs: [fact.id] } } } }, "test");
+  f.repo.classify({ taskId: task.id, revision: 0, urgent: false, important: true });
+  const { slot } = await setup(task.id, f);
+  fireEvent.click(await slot.findByRole("tab", { name: "Proposals · 1" }));
+  fireEvent.click(await slot.findByRole("button", { name: "Review current task" }));
+  expect((slot.getByRole("button", { name: "Save updated proposal" }) as HTMLButtonElement).disabled).toBe(true);
+  expect(slot.getByText("Urgent: No · Important: Yes")).toBeTruthy();
+  const confirm = slot.getByRole("checkbox", { name: "I reviewed the current task and want to keep the selected changes." });
+  fireEvent.click(confirm);
+  fireEvent.click(slot.getByRole("checkbox", { name: "Select part: Importance" }));
+  await waitFor(() => expect((confirm as HTMLInputElement).checked).toBe(false));
+  expect(slot.getByText(/Only the 1 selected parts will remain pending/)).toBeTruthy();
+  fireEvent.click(confirm);
+  fireEvent.click(slot.getByRole("button", { name: "Save updated proposal" }));
+  await waitFor(() => expect(f.repo.kernel.getProposal(old.id).status).toBe("rejected"));
+  const next = f.repo.detail(task.id).proposals.find(proposal => proposal.status === "pending")!;
+  expect(Object.keys(next.changes)).toEqual(["summary"]);
+  expect(f.repo.detail(task.id).projection.summary).toBeNull();
+  expect(f.repo.planning(task.id).important).toBe(true);
+  expect(slot.inspection.rpcCalls.find(call => call.method === "refreshProposal")?.input).toMatchObject({ reviewed: true, parts: ["field:summary"] });
+});
+
 it("opens source updates without a model run, and forwards an optional date through the native composer", async () => {
   vi.spyOn(collector, "collectSources").mockImplementation(async run => ({ version: 1, runId: run.id, startedAt: run.startedAt, finishedAt: run.until, elapsedMs: 1000, calls: [], documents: [], reports: ["gmail", "slack", "jira"].map(source => ({ source: source as "gmail" | "slack" | "jira", status: "complete", detail: "Checked", callRefs: [], paginationComplete: true, linkedTasksChecked: true, scanned: 0, threadsRead: 0 })) }));
   const f = await fixture();
