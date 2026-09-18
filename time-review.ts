@@ -92,9 +92,9 @@ export class TimeReview {
         if (prior) {
           const saved: TimeProposal = JSON.parse(prior.value_json);
           if (saved.status !== "pending") return saved;
-          const refreshed = { ...saved, itemId: task.itemId, revision: task.revision };
+          const refreshed = { ...saved, ...suggestion, itemId: task.itemId, revision: task.revision };
           if (this.blocked(refreshed)) throw new ConflictError("The day entry changed after evidence collection. Refresh the time review.");
-          // A fresh context can rebase an unchanged estimate after a plan edit.
+          // A fresh review can refine a pending estimate or rebase a plan edit.
           // Manual reported values are still excluded by eligible().
           return this.write(refreshed);
         }

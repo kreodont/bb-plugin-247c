@@ -88,3 +88,12 @@ it("refreshes unchanged pending evidence after a plan edit without overwriting m
   review.decide({ requestId: randomUUID(), id: next.id, decision: "accept" });
   expect(days.get(item.id)).toMatchObject({ plannedMinutes: 45, reportedMinutes: 35 });
 });
+it("refines a pending estimate without creating a second proposal or changing reported totals", async () => {
+  const { review, prepare, submit, task, external } = await setup();
+  const first = await submit();
+  const refined = review.submit({ requestId: randomUUID(), contextId: (await prepare()).id, suggestions: [{ taskId: task.id, minutes: 15, reason: "Only the brief review qualifies.", question: null, evidenceRefs: [external[0].id] }] }).proposals[0];
+  expect(refined.id).toBe(first.id); expect(refined.minutes).toBe(15);
+  expect(review.view().weekly.reportedMinutes).toBe(0); expect(review.view().proposals).toHaveLength(1);
+  review.decide({ requestId: randomUUID(), id: first.id, decision: "reject" });
+  expect((await submit()).status).toBe("rejected");
+});

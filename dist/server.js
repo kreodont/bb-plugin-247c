@@ -27953,7 +27953,7 @@ var TimeReview = class {
         if (prior) {
           const saved = JSON.parse(prior.value_json);
           if (saved.status !== "pending") return saved;
-          const refreshed = { ...saved, itemId: task.itemId, revision: task.revision };
+          const refreshed = { ...saved, ...suggestion, itemId: task.itemId, revision: task.revision };
           if (this.blocked(refreshed)) throw new ConflictError("The day entry changed after evidence collection. Refresh the time review.");
           return this.write(refreshed);
         }
