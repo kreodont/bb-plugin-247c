@@ -19,7 +19,24 @@ export type AnalysisWork = { dayWork: Record<string, string>; dayComplete: boole
 
 function stamp(document: SourceExport["documents"][number]) {
   // Ref identifies this run's receipt, not the underlying thread/issue.
-  return { key: digest({ source: document.source, tool: document.tool, args: document.args }), value: digest(document.content) };
+  const args = { ...document.args };
+  // Slack bounds each read by this run's end. A moving upper bound is not a
+  // different thread; replies and edits are still detected by the content hash.
+  if (document.source === "slack" && /(?:^|\.)slack_read_thread$/.test(document.tool)) delete args.latest;
+  return { key: digest({ source: document.source, tool: document.tool, args }), value: digest(document.content) };
+}
+
+export function rekeyAnalysisDocuments(plan: SourceAnalysis, bundle: SourceExport): SourceAnalysis {
+  const documents = { ...plan.documents };
+  for (const doc of bundle.documents) {
+    const oldKey = digest({ source: doc.source, tool: doc.tool, args: doc.args }), current = stamp(doc);
+    // Only migrate content already represented by this completed analysis.
+    // Reuse its saved receipts without manufacturing a new analyzed baseline.
+    if (oldKey !== current.key && documents[oldKey] === current.value) {
+      delete documents[oldKey]; documents[current.key] = current.value;
+    }
+  }
+  return { ...plan, documents };
 }
 
 export function planSourceAnalysis(bundle: SourceExport, contextKey: string, work: AnalysisWork, incremental: boolean, baseline?: SourceAnalysis, dossiers: TaskDossier[] = []): SourceAnalysis {

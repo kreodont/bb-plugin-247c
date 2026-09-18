@@ -6,7 +6,8 @@ import { SourceSyncRuntime } from "./source-sync.js";
 import { syncStartSchema, type SyncRun } from "./contracts.js";
 import * as collector from "./source-collector.js";
 import type { SourceExport } from "./source-collector.js";
-import { type AnalysisWork, analysisExport, planSourceAnalysis, needsDayAnalysis } from "./source-analysis.js";
+import { type AnalysisWork, analysisExport, planSourceAnalysis, needsDayAnalysis, rekeyAnalysisDocuments } from "./source-analysis.js";
+import { digest } from "./repository.js";
 import { DayPlanning } from "./day-planning.js";
 
 const hosts: Awaited<ReturnType<typeof fixture>>[] = [];
@@ -151,4 +152,54 @@ it("does not cache day-work review that the analyst never read", async () => {
   const retry = await f.start();
   expect(retry.analysis).toMatchObject({ documents: 0, modelSkipped: false });
   expect(f.runtime.store.request(retry.id).analysis?.reviewItemIds).toEqual(["item"]);
+});
+
+it("ignores a moving Slack read cutoff while detecting edits, replies, changed threads and read scopes", () => {
+  const doc: SourceExport["documents"][number] = { source: "slack", tool: "slack_read_thread", ref: "first", args: { channel_id: "channel-a", message_ts: "123.456", latest: "1000", limit: 1000 }, content: "Original message" };
+  const bundle: SourceExport = { version: 1, runId: "run", startedAt: "", finishedAt: "", elapsedMs: 0, calls: [], reports: [], documents: [doc] };
+  const work: AnalysisWork = { dayWork: {}, dayComplete: true, policy: "" };
+  const baseline = planSourceAnalysis(bundle, "policy", work, true);
+  const next = { ...doc, ref: "next", args: { ...doc.args, latest: "2000" } };
+  expect(planSourceAnalysis({ ...bundle, documents: [next] }, "policy", work, true, baseline).selectedRefs).toEqual([]);
+  for (const changed of [
+    { ...next, content: "Edited message" }, { ...next, content: "Original message\nNew reply" },
+    { ...next, args: { ...next.args, channel_id: "channel-b" } }, { ...next, args: { ...next.args, message_ts: "789.123" } },
+    { ...next, args: { ...next.args, oldest: "500" } }, { ...next, args: { ...next.args, limit: 20 } },
+  ]) expect(planSourceAnalysis({ ...bundle, documents: [changed] }, "policy", work, true, baseline).selectedRefs).toEqual(["next"]);
+});
+
+it("rekeys legacy completed analysis only from matching saved contents without changing history", () => {
+  const doc: SourceExport["documents"][number] = { source: "slack", tool: "slack.slack_read_thread", ref: "first", args: { channel_id: "channel-a", message_ts: "123.456", latest: "1000" }, content: "Original" };
+  const bundle: SourceExport = { version: 1, runId: "run", startedAt: "", finishedAt: "", elapsedMs: 0, calls: [], reports: [], documents: [doc] };
+  const work: AnalysisWork = { dayWork: {}, dayComplete: true, policy: "" };
+  const legacy = planSourceAnalysis(bundle, "policy", work, true);
+  legacy.documents = { [digest({ source: doc.source, tool: doc.tool, args: doc.args })]: digest(doc.content) };
+  const saved = structuredClone(legacy), migrated = rekeyAnalysisDocuments(legacy, bundle);
+  const next = { ...bundle, documents: [{ ...doc, ref: "next", args: { ...doc.args, latest: "2000" } }] };
+  expect(planSourceAnalysis(next, "policy", work, true, migrated).selectedRefs).toEqual([]);
+  expect(legacy).toEqual(saved);
+  expect(rekeyAnalysisDocuments(migrated, bundle)).toEqual(migrated);
+  const changed = rekeyAnalysisDocuments(legacy, { ...bundle, documents: [{ ...doc, content: "Unanalyzed change" }] });
+  expect(changed).toEqual(legacy);
+});
+
+it("reuses legacy Slack analysis across an hourly runtime restart without another model run", async () => {
+  const f = await setup();
+  f.collect.mockImplementation(async run => {
+    const bundle = bundleFor(run);
+    const args = { channel_id: "channel-a", message_ts: "123.456", latest: run.until, limit: 1000 };
+    const doc = { ref: `slack:${run.id}`, source: "slack" as const, tool: "slack_read_thread", args, content: "Unchanged conversation" };
+    bundle.documents = [doc];
+    bundle.calls.push({ ...doc, output: doc.content, read: true, completed: true, truncated: false });
+    bundle.reports = reportsFor(bundle.calls);
+    return bundle;
+  });
+  const first = await f.start(); await f.finish(first);
+  const plan = f.runtime.store.request(first.id).analysis!, doc = f.runtime.store.export(first.id)!.documents[0];
+  plan.documents = { [digest({ source: doc.source, tool: doc.tool, args: doc.args })]: digest(doc.content) };
+  f.runtime.store.saveAnalysis(first.id, plan);
+  await f.reload();
+  const next = await f.start();
+  expect(next.analysis).toEqual({ documents: 0, reusedDocuments: 1, modelSkipped: true });
+  expect(f.f.threads.size).toBe(1);
 });

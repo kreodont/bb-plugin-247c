@@ -33854,7 +33854,20 @@ var sourceAnalysisSchema = external_exports.object({
   reason: external_exports.enum(["manual", "baseline", "context", "changes"])
 }).strict();
 function stamp(document) {
-  return { key: digest({ source: document.source, tool: document.tool, args: document.args }), value: digest(document.content) };
+  const args = { ...document.args };
+  if (document.source === "slack" && /(?:^|\.)slack_read_thread$/.test(document.tool)) delete args.latest;
+  return { key: digest({ source: document.source, tool: document.tool, args }), value: digest(document.content) };
+}
+function rekeyAnalysisDocuments(plan, bundle) {
+  const documents = { ...plan.documents };
+  for (const doc of bundle.documents) {
+    const oldKey = digest({ source: doc.source, tool: doc.tool, args: doc.args }), current = stamp(doc);
+    if (oldKey !== current.key && documents[oldKey] === current.value) {
+      delete documents[oldKey];
+      documents[current.key] = current.value;
+    }
+  }
+  return { ...plan, documents };
 }
 function planSourceAnalysis(bundle, contextKey, work, incremental, baseline, dossiers = []) {
   let reason = !incremental ? "manual" : !baseline ? "baseline" : baseline.contextKey !== contextKey ? "context" : "changes";
@@ -34126,13 +34139,14 @@ var SourceSyncStore = class {
     this.repo.db.prepare("INSERT INTO source_sync_exports VALUES (?,?)").run(bundle.runId, JSON.stringify(bundle));
   }
   analysisBaseline() {
-    const row = this.repo.db.prepare("SELECT request_json FROM source_sync_runs WHERE status IN ('completed','partial') AND json_extract(request_json,'$.incremental')=1 AND json_extract(request_json,'$.analysis') IS NOT NULL ORDER BY rowid DESC LIMIT 1").get();
+    const row = this.repo.db.prepare("SELECT id,request_json FROM source_sync_runs WHERE status IN ('completed','partial') AND json_extract(request_json,'$.incremental')=1 AND json_extract(request_json,'$.analysis') IS NOT NULL ORDER BY rowid DESC LIMIT 1").get();
     const request = row ? JSON.parse(row.request_json) : void 0;
     const parsed = sourceAnalysisSchema.safeParse(request?.analysis);
     if (!parsed.success) return void 0;
     const plan = parsed.data, read = new Set(request?.dayItemsRead ?? []);
     for (const id2 of plan.reviewItemIds) if (!read.has(id2)) delete plan.dayWork[id2];
-    return plan;
+    const bundle = row ? this.export(row.id) : null;
+    return bundle ? rekeyAnalysisDocuments(plan, bundle) : plan;
   }
   recordDayReview(id2, itemIds) {
     const request = this.request(id2);

@@ -15,7 +15,7 @@ import { acceptedEvidence } from "./conversation.js";
 import { digest, Repository } from "./repository.js";
 import { syncAnalysisInstructions } from "./source-sync-prompt.js";
 import { collectSources, sourceExportPage, type SourceExport } from "./source-collector.js";
-import { analysisExport, needsDayAnalysis, planSourceAnalysis, sourceAnalysisSchema, type AnalysisWork, type SourceAnalysis } from "./source-analysis.js";
+import { analysisExport, needsDayAnalysis, planSourceAnalysis, rekeyAnalysisDocuments, sourceAnalysisSchema, type AnalysisWork, type SourceAnalysis } from "./source-analysis.js";
 
 export const SYNC_SOURCES: SyncSource[] = ["gmail", "slack", "jira"];
 export const SYNC_ACTIVE = new Set<SyncRun["status"]>(["starting", "working"]);
@@ -243,7 +243,7 @@ export class SourceSyncStore {
     this.repo.db.prepare("INSERT INTO source_sync_exports VALUES (?,?)").run(bundle.runId, JSON.stringify(bundle));
   }
   analysisBaseline(): SourceAnalysis | undefined {
-    const row = this.repo.db.prepare("SELECT request_json FROM source_sync_runs WHERE status IN ('completed','partial') AND json_extract(request_json,'$.incremental')=1 AND json_extract(request_json,'$.analysis') IS NOT NULL ORDER BY rowid DESC LIMIT 1").get() as { request_json: string } | undefined;
+    const row = this.repo.db.prepare("SELECT id,request_json FROM source_sync_runs WHERE status IN ('completed','partial') AND json_extract(request_json,'$.incremental')=1 AND json_extract(request_json,'$.analysis') IS NOT NULL ORDER BY rowid DESC LIMIT 1").get() as { id: string; request_json: string } | undefined;
     const request: RunRequest | undefined = row ? JSON.parse(row.request_json) : undefined;
     const parsed = sourceAnalysisSchema.safeParse(request?.analysis);
     if (!parsed.success) return undefined;
@@ -251,7 +251,8 @@ export class SourceSyncStore {
     // eligible next time, including when no estimate could be produced yet.
     const plan = parsed.data, read = new Set(request?.dayItemsRead ?? []);
     for (const id of plan.reviewItemIds) if (!read.has(id)) delete plan.dayWork[id];
-    return plan;
+    const bundle = row ? this.export(row.id) : null;
+    return bundle ? rekeyAnalysisDocuments(plan, bundle) : plan;
   }
   recordDayReview(id: string, itemIds: string[]) {
     const request = this.request(id);
