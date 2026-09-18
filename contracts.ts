@@ -58,10 +58,18 @@ export const knowledgeDraftSchema = z.object({
   title: z.string().trim().min(1).max(200), body: z.string().trim().min(1).max(6000),
   tags: z.array(z.string().trim().min(1).max(60)).max(10), evidenceRefs: refs,
 }).strict();
+export const sessionTimeContextSchema = z.object({
+  sourceSessionId: idSchema, date: dayDateSchema, beforeMinutes: dayMinutesSchema,
+  fingerprint: z.string().min(1), alreadyReported: z.boolean(),
+}).strict();
+export const sessionTimeEstimateSchema = z.object({
+  minutes: z.number().int().positive().max(525600), reason: z.string().trim().min(1).max(2000), evidenceRefs: refs,
+}).strict();
 export const extractionSchema = z.object({
   rationale: text, facts: z.array(extractedFactSchema).max(30),
   // null is valid when only facts/knowledge changed, or the conversation adds nothing.
   changes: changesSchema.nullable(), knowledge: z.array(knowledgeDraftSchema).max(10),
+  reportedTime: sessionTimeEstimateSchema.nullable().optional(),
 }).strict();
 export const transcriptSchema = z.object({
   capturedAt: z.string(), threadId: idSchema,
@@ -103,6 +111,7 @@ export const sessionSchema = z.object({
   acceptedPartProposalIds: z.array(idSchema).max(400).optional(),
   discussionProposalId: idSchema.nullable().default(null),
   extraction: extractionSchema.nullable().default(null),
+  reportedTimeContext: sessionTimeContextSchema.optional(),
   extractionRepair: z.object({ attempt: z.number().int().min(1).max(2), feedback: z.string().max(4000) }).nullable().default(null),
   workerThreadId: z.string().nullable(), reviewerThreadId: z.string().nullable(), environmentId: z.string().nullable(), hostId: z.string().nullable(),
   workerProvider: z.string(), workerModel: z.string(), reviewerProvider: z.string(), reviewerModel: z.string(),
@@ -166,7 +175,7 @@ export const syncCandidateSchema = syncDraftSchema.extend({
     summary: z.string().nullable(), nextStep: z.string().nullable(), openQuestions: z.array(z.string()), blockers: z.array(z.string()), artifacts: z.array(artifactSchema) }).nullable(),
   proposalId: idSchema.nullable(), resultTaskId: idSchema.nullable(),
 });
-export const sessionUpdateSchema = z.object({ proposalId: idSchema, sessionId: idSchema, threadId: idSchema, extraction: extractionSchema, warnings: z.array(z.string()), speakers: z.record(z.string(), z.enum(["user", "assistant", "context"])).default({}), sources: z.record(z.string(), z.object({ threadId: idSchema, messageRef: idSchema })).default({}) });
+export const sessionUpdateSchema = z.object({ proposalId: idSchema, sessionId: idSchema, threadId: idSchema, extraction: extractionSchema, reportedTimeContext: sessionTimeContextSchema.optional(), warnings: z.array(z.string()), speakers: z.record(z.string(), z.enum(["user", "assistant", "context"])).default({}), sources: z.record(z.string(), z.object({ threadId: idSchema, messageRef: idSchema })).default({}) });
 export const taskSourceLinkSchema = z.object({ url: z.url().max(4096), label: z.string(), occurredAt: z.string().nullable(), origin: z.boolean() });
 export const dossierSchema = z.object({ task: taskSchema, projection: projectionSchema, facts: z.array(factSchema), planning: planningSchema, proposals: z.array(proposalViewSchema), sessions: z.array(sessionSchema), events: z.array(eventSchema), brief: z.string(), sessionUpdates: z.array(sessionUpdateSchema).default([]), syncUpdates: z.array(syncCandidateSchema).default([]), sourceLinks: z.array(taskSourceLinkSchema).default([]) });
 export const reviewDossierSchema = dossierSchema.pick({ task: true, projection: true, planning: true, facts: true, sessionUpdates: true }).extend({
@@ -280,3 +289,5 @@ export type SyncStart = z.infer<typeof syncStartSchema>;
 
 export type PartDecision = z.infer<typeof partDecisionSchema>;
 export type PartReview = z.infer<typeof partReviewSchema>;
+
+export type SessionUpdate = z.infer<typeof sessionUpdateSchema>;

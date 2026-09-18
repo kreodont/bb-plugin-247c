@@ -5,6 +5,7 @@ import { PolicyError } from "./core/errors.js";
 export function proposalParts(changes: StewardChanges, extraction?: Extraction): string[] {
   return [...Object.keys(extraction ? extraction.changes ?? {} : changes).map(field => `field:${field}`),
     ...(extraction?.facts.map((_, i) => `fact:${i}`) ?? []),
+    ...(extraction?.reportedTime ? ["reportedTime"] : []),
     ...(extraction?.knowledge.map((_, i) => `knowledge:${i}`) ?? [])];
 }
 
@@ -40,6 +41,7 @@ export function pickExtraction(extraction: Extraction, parts: string[], proposal
   const changes = Object.fromEntries(Object.entries(pickChanges(extraction.changes ?? {}, parts))
     .map(([field, change]) => [field, { ...change, evidenceRefs: remap(change!.evidenceRefs) }]));
   return { ...extraction, changes: Object.keys(changes).length ? changes : null,
+    ...(extraction.reportedTime !== undefined ? { reportedTime: parts.includes("reportedTime") && extraction.reportedTime ? { ...extraction.reportedTime, evidenceRefs: remap(extraction.reportedTime.evidenceRefs) } : null } : {}),
     facts: extraction.facts.filter((_, i) => parts.includes(`fact:${i}`)),
     knowledge: extraction.knowledge.filter((_, i) => parts.includes(`knowledge:${i}`)).map(entry => ({ ...entry, evidenceRefs: remap(entry.evidenceRefs) })) };
 }

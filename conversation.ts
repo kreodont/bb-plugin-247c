@@ -71,7 +71,7 @@ export function acceptedEvidence(dossier: Pick<Dossier, "projection" | "task">):
   return evidence;
 }
 
-export function validateExtraction(value: unknown, transcript: Transcript): Extraction {
+export function validateExtraction(value: unknown, transcript: Transcript, timeContext?: Session["reportedTimeContext"]): Extraction {
   const extraction = extractionSchema.parse(value);
   const messages = new Map(transcript.messages.map((m) => [m.ref, m]));
   for (const fact of extraction.facts) {
@@ -102,6 +102,10 @@ export function validateExtraction(value: unknown, transcript: Transcript): Extr
   }
   for (const entry of extraction.knowledge) {
     if (entry.evidenceRefs.some((ref) => !factRefs.has(ref))) throw new PolicyError("The knowledge entry references a missing conversation fact.");
+  }
+  if (extraction.reportedTime && timeContext?.alreadyReported) throw new PolicyError("Time for this session was already accepted. Return reportedTime:null; do not count it again.");
+  if (extraction.reportedTime && extraction.reportedTime.evidenceRefs.some(ref => !factRefs.has(ref))) {
+    throw new PolicyError("The reported-time estimate references a missing conversation fact.");
   }
   return extraction;
 }

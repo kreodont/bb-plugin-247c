@@ -1,0 +1,11 @@
+# Reported time in session proposals
+
+Finishing a task conversation asks its existing recorder to consider an estimate for the work described in the session. The normal proposal can include reported time alongside task fields, conversation records and knowledge. The recorder cites conversation facts and explains the work, assumptions, and expected human reading and checking. It returns no estimate when the evidence is insufficient or the work was already reported. Neither elapsed chat duration nor measured agent runtime determines the estimate.
+
+The proposal shows the local finish date, the existing daily reported total, the estimated addition and the resulting total. The reported-time part is selected by default and can be accepted or rejected independently. Unselected parts remain pending. Discuss review allows the user to correct an estimate before accepting it. For a conversation spanning several days, the recorder must only estimate work attributable to the displayed date, or leave reported time empty.
+
+Acceptance applies the selected time addition in the same transaction as the selected task changes. Planned time and measured runtime remain unchanged. Accepted time becomes a locked reported value with an audit record identifying the source session and proposal. A concurrent change to reported time blocks the stale time part; other parts can still be accepted separately. A review discussion captures the current baseline for a replacement estimate.
+
+Retrying a review, accepting a request again, or discussing an already accepted session cannot report its original work twice. Partial reviews retain the same source session identity. Ordinary proposal undo only reverses dossier fields; correct accepted time through the day plan.
+
+Existing proposals and recorded hours are unchanged on installation. This feature has no separate inbox, time-proposal table, hourly analysis, daily review reminder or target-hours setting. Per-machine settings and source scripts remain outside the published plugin.

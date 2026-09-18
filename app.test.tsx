@@ -874,3 +874,31 @@ it("uses the installation's work model defaults instead of assuming a corporate 
   expect(composer.getAttribute("data-default-provider-id")).toBe("codex");
   expect(composer.getAttribute("data-default-model")).toBe("gpt-5.6-sol");
 });
+
+it("includes selectable reported time in the ordinary proposal inbox without counting another proposal", async () => {
+  const f = await fixture(); const task = await f.create();
+  const days = new DayPlanning(f.repo);
+  days.add({ taskId: task.id, date: days.today(), reportedMinutes: 40, requestId: randomUUID() });
+  await f.harness.behavior.callRpc("start", { ...f.startInput(task.id, task.revision), criteria: [] });
+  const session = f.repo.sessions(task.id)[0];
+  const quote = "Reviewed the implementation and checked two sample exports.";
+  await f.idle(session.workerThreadId!, quote);
+  await f.harness.behavior.callRpc("finish", { sessionId: session.id });
+  const ref = f.repo.transcript(session.id)!.messages.find(m => m.text === quote)!.ref;
+  await f.idle(f.repo.session(session.id).reviewerThreadId!, {
+    rationale: "Save the outcome and estimated session work.", facts: [{ kind: "progress", text: quote, citations: [{ messageRef: ref, quote }] }],
+    changes: null, knowledge: [], reportedTime: { minutes: 25, reason: "Review and checking, including human reading.", evidenceRefs: ["fact:0"] },
+  });
+  const { slot } = await setup("proposals", f);
+  await slot.findByRole("heading", { name: "Proposals · 1" });
+  fireEvent.click(slot.getByRole("button", { name: "Expand all" }));
+  const section = await slot.findByRole("region", { name: "Reported time proposal" });
+  expect(within(section).getByText(/40m.*1h 5m/)).toBeTruthy();
+  const time = within(section).getByRole("checkbox", { name: "Select part: Reported time" });
+  expect((time as HTMLInputElement).checked).toBe(true);
+  fireEvent.click(time);
+  fireEvent.click(slot.getByRole("button", { name: "Accept selected parts · 1" }));
+  await waitFor(() => expect(f.repo.kernel.getTask(task.id).revision).toBe(task.revision + 1));
+  expect(days.taskItem(task.id, days.today())?.reportedMinutes).toBe(40);
+  expect(f.repo.pendingTotal()).toBe(1);
+});

@@ -336,6 +336,7 @@ export class SessionRuntime {
     if (session.finishedAt || !ACTIVE.has(session.status)) return session;
     // Freeze dispatch before awaiting anything that can deliver an idle event.
     session = this.repo.saveSession({ ...this.current(id), ...selection, status: "collecting", finishedAt: new Date().toISOString(), deadlineAt: Date.now() + options.sessionMinutes * 60000 });
+    session = this.repo.saveSession({ ...session, reportedTimeContext: this.repo.sessionTime.capture(session) });
     this.unavailableMonitors.delete(id);
     this.repo.sessionEvent(id, "conversation-finished", "The user ended the conversation; a separate review is starting.");
     this.repo.sessionEvent(id, "recorder-selected", selectionReason, selection);
@@ -422,7 +423,7 @@ export class SessionRuntime {
       let extraction: Extraction;
       let proposalInput: ReturnType<typeof extractionProposal>;
       try {
-        extraction = validateExtraction(parseJsonResult(saved.output, 512 * 1024), transcript);
+        extraction = validateExtraction(parseJsonResult(saved.output, 512 * 1024), transcript, session.reportedTimeContext);
         proposalInput = extractionProposal(extraction, session, dossier, transcript);
       } catch (error) {
         if (error instanceof PolicyError || error instanceof ZodError) continue;
@@ -496,7 +497,7 @@ export class SessionRuntime {
       let extraction: Extraction;
       let proposalInput: ReturnType<typeof extractionProposal>;
       try {
-        extraction = validateExtraction(parseJsonResult(output.output, 512 * 1024), transcript);
+        extraction = validateExtraction(parseJsonResult(output.output, 512 * 1024), transcript, session.reportedTimeContext);
         proposalInput = extractionProposal(extraction, session, dossier, transcript);
       } catch (error) {
         // Only malformed model output is repairable. Operational failures and
@@ -539,6 +540,7 @@ export class SessionRuntime {
     }
     this.current(session.id);
     this.repo.saveTranscript(session.id, transcript);
+    if (!session.reportedTimeContext) session = this.repo.saveSession({ ...session, reportedTimeContext: this.repo.sessionTime.capture(session) });
     const env = await this.bindEnvironment(session);
     const dossier = this.repo.detail(session.taskId);
     this.repo.assertCurrent(dossier.task.id, dossier.task.revision, !session.continuedFrom);
@@ -564,7 +566,7 @@ export class SessionRuntime {
 
   private makeConversationProposal(session: Session, extraction: Extraction, proposalInput: ReturnType<typeof extractionProposal>, idempotencyKey = `conversation:${session.id}:${session.round}`) {
     this.current(session.id);
-    if (!extraction.changes && !extraction.facts.length && !extraction.knowledge.length) {
+    if (!extraction.changes && !extraction.facts.length && !extraction.knowledge.length && !extraction.reportedTime) {
       this.repo.saveSession({ ...session, status: "completed", extraction, error: null });
       this.repo.sessionEvent(session.id, "nothing-to-save", extraction.rationale);
       return;

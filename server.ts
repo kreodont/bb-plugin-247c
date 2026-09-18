@@ -52,7 +52,7 @@ export default async function plugin(bb: BbPluginApi) {
   db.pragma("foreign_keys = ON");
   bb.storage.migrate(db, [CORE_SCHEMA, ...EXTRA_SCHEMA]);
   const changed = () => bb.realtime.publish("desk-changed", { at: Date.now() });
-  const repo = new Repository(db, changed);
+  const repo = new Repository(db, changed, () => configuration.timeZone);
   const getSettings = async (): Promise<SettingsView> => settings.get();
   const threadRouting = new ThreadRouting(bb, async () => (await settings.get()).threadProjectId);
   const runtime = new SessionRuntime(bb, repo, getSettings, threadRouting);

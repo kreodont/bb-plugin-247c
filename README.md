@@ -195,3 +195,5 @@ env -u BB_CLI -u BB_CLI_DIR npx --package=bb-app@0.42.1 bb plugin build
 Check that both `dist/server.meta.json` and `dist/app.meta.json` report
 `sdkVersion: "0.4.47"`, then verify installation in a separate stable BB instance
 before tagging the release. Keep runtime data and verification logs outside Git.
+
+Finishing a conversation can include an optional, evidence-backed reported-time estimate in its normal proposal. Each time part is reviewed independently and is applied only on acceptance. See [Session reported time](docs/session-reported-time.md).

@@ -1,3 +1,6 @@
+import { SessionTime } from "./session-time.js";
+import { DayPlanning } from "./day-planning.js";
+import { DAY_TIME_ZONE } from "./day-contracts.js";
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import type Database from "better-sqlite3";
@@ -45,9 +48,11 @@ type Row = Record<string, unknown>;
 export class Repository {
   readonly store: Store;
   readonly kernel: Kernel;
-  constructor(readonly db: Database.Database, readonly changed: () => void) {
+  readonly sessionTime: SessionTime;
+  constructor(readonly db: Database.Database, readonly changed: () => void, timeZone: () => string = () => DAY_TIME_ZONE) {
     this.store = new Store(db);
     this.kernel = new Kernel(this.store);
+    this.sessionTime = new SessionTime(this, new DayPlanning(this, () => new Date(), timeZone));
   }
 
   request<T>(id: string, payload: unknown, execute: () => T): T {
@@ -267,7 +272,7 @@ export class Repository {
     const cited = new Set(extraction.facts.flatMap((f) => f.citations.map((c) => c.messageRef)));
     const speakers = Object.fromEntries((transcript?.messages ?? []).filter((m) => cited.has(m.ref)).map((m) => [m.ref, m.role]));
     const sources = Object.fromEntries((transcript?.messages ?? []).filter((m) => cited.has(m.ref)).map((m) => [m.ref, m.source ?? { threadId: transcript!.threadId, messageRef: m.ref }]));
-    const value = sessionUpdateSchema.parse({ proposalId, sessionId: session.id, threadId: session.workerThreadId, extraction, warnings: transcript?.warnings ?? [], speakers, sources });
+    const value = sessionUpdateSchema.parse({ proposalId, sessionId: session.id, threadId: session.workerThreadId, extraction, ...(session.reportedTimeContext ? { reportedTimeContext: session.reportedTimeContext } : {}), warnings: transcript?.warnings ?? [], speakers, sources });
     this.db.prepare("INSERT INTO session_updates VALUES (?,?,?)").run(proposalId, session.id, JSON.stringify(value));
   }
   private applySessionUpdate(proposalId: string) {
@@ -276,6 +281,7 @@ export class Repository {
     const update = sessionUpdateSchema.parse(JSON.parse(String(row.value_json)));
     const session = this.session(update.sessionId);
     const task = this.kernel.getTask(session.taskId);
+    this.sessionTime.apply(update, task.id, proposalId);
     const timestamp = now();
     const existing = new Set(this.kernel.getDossier(task.id).facts.map((f) => digest([f.kind, f.text.trim().toLocaleLowerCase()])));
     // These inserts belong to the same approved application and revision as the

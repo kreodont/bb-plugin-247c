@@ -56,6 +56,19 @@ export class DayPlanning {
     const row = this.repo.db.prepare("SELECT value_json FROM day_items WHERE task_id=? AND date=?").get(taskId, date) as JsonRow | undefined;
     return row ? decode(JSON.parse(row.value_json)) : null;
   }
+  // Called inside the normal proposal approval transaction, never by the recorder.
+  applySessionReport(taskId: string, date: string, minutes: number, actor: string, proposalId: string) {
+    dayDateSchema.parse(date);
+    const before = this.taskItem(taskId, date);
+    const task = this.repo.kernel.getTask(taskId);
+    const item = before ? structuredClone(before) : this.blank(date, taskId, task.title);
+    item.reportedMinutes = (item.reportedMinutes ?? 0) + minutes;
+    item.reportedMode = "manual"; item.reportedLocked = true; item.reportedEstimate = null;
+    const next = this.write(item, before, actor, "session_reported");
+    this.repo.sessionEvent(actor.slice("human:session-time:".length), "reported-time-applied",
+      "Reported time accepted with the session proposal.", { proposalId, date, addedMinutes: minutes, itemId: next.id });
+    return next;
+  }
   add(raw: z.input<typeof dayAddSchema>, actor = "human:panel"): DayItem {
     const input = dayAddSchema.parse(raw);
     const item = this.repo.request(input.requestId, { kind: "day.add", input, actor }, () => {
