@@ -1,3 +1,4 @@
+import { TimeReview } from "./time-review.js";
 import { importSourceBundle } from "./source-import.js";
 import { applyLocalSettingsPatch, composerDefaultsSchema } from "./local-settings.js";
 import { defineSettings, settingDescriptors } from "./settings.js";
@@ -57,6 +58,7 @@ export default async function plugin(bb: BbPluginApi) {
   const threadRouting = new ThreadRouting(bb, async () => (await settings.get()).threadProjectId);
   const runtime = new SessionRuntime(bb, repo, getSettings, threadRouting);
   const days = new DayPlanning(repo, () => new Date(), () => configuration.timeZone, () => configuration.reportMeetingsWhenPlanned);
+  const timeReview = new TimeReview(bb, days, () => configuration);
   const dayPlanner = new DayPlanner(bb, () => settings.get(), () => days.today());
   const agentTime = new AgentTimeRuntime(bb, days);
   const sourceConfiguration = async () => parseSourceConfig((await settings.get()).sources);
@@ -79,6 +81,11 @@ export default async function plugin(bb: BbPluginApi) {
     threadProject: async () => ({ ...composerDefaultsSchema.parse(JSON.parse(configuration.composerDefaults)), projectId: configuration.threadProjectId || null, timeZone: configuration.timeZone,
       workProvider: configuration.workProvider, workModel: configuration.workModel, syncProvider: configuration.syncProvider, syncModel: configuration.syncModel }),
     day: ({ date }) => ({ ...days.day(date), agentTime: agentTime.state() }),
+    timeReviewPrepare: input => timeReview.prepare(input),
+    timeReviewSubmit: input => timeReview.submit(input),
+    timeReview: ({ date, week }) => timeReview.view(date, week),
+    timeReviewDecide: input => timeReview.decide(input),
+    timeReviewComplete: input => timeReview.complete(input),
     dayPlannerState: () => dayPlanner.state(),
     dayPlannerStart: (input) => dayPlanner.start(input),
     agentTimeSync: () => agentTime.refresh(),

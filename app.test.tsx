@@ -117,7 +117,7 @@ it("reviews new tasks and existing task updates together and accepts the selecte
   expect(slot.getByText("Selected: 2 · new tasks: 1")).toBeTruthy();
   fireEvent.click(slot.getByRole("button", { name: "Accept selected · 2" }));
   await slot.findByText("Accepted: 2.");
-  await slot.findByRole("heading", { name: "Everything reviewed" });
+  await slot.findByRole("heading", { name: "No pending task proposals" });
   expect(f.repo.list().total).toBe(2); expect(f.repo.pendingTotal()).toBe(0);
   expect(slot.inspection.rpcCalls.filter(c => c.method === "acceptInbox")).toHaveLength(1);
   expect(slot.inspection.navigateCalls).toHaveLength(0);

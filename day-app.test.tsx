@@ -310,3 +310,34 @@ it("preserves a time draft when refreshing installation settings temporarily fai
   await slot.findByText("Settings temporarily unavailable");
   expect((slot.getByLabelText(`Reported: ${task.title}`) as HTMLInputElement).value).toBe("1h");
 });
+
+it("reviews edited time proposals in the GUI without counting drafts and preserves dirty manual edits", async () => {
+  const { f, task, days, item, mount } = await setup();
+  async function propose(text: string) {
+    const context = await f.harness.behavior.callRpc("timeReviewPrepare", { date: item.date, offset: 0, external: [{ id: `external:${text}`, taskId: task.id, at: item.date + "T10:00:00Z", source: "Saved activity", url: null, text }] }) as { id: string };
+    await f.harness.behavior.callRpc("timeReviewSubmit", { requestId: randomUUID(), contextId: context.id, suggestions: [{ taskId: task.id, minutes: 25, reason: "Reviewed the draft.", question: null, evidenceRefs: [`external:${text}`] }] });
+  }
+  await propose("First review");
+  const slot = mount(`day/${item.date}`);
+  fireEvent.change(await slot.findByLabelText(`Time to confirm: ${task.title}`), { target: { value: "40m" } });
+  expect(days.get(item.id).reportedMinutes).toBeNull();
+  fireEvent.click(slot.getByRole("button", { name: /^Confirm time$/ }));
+  await waitFor(() => expect(days.get(item.id).reportedMinutes).toBe(40));
+  await slot.findByText("No pending time proposals for this day.");
+  fireEvent.click(slot.getByRole("button", { name: "Mark day reviewed" }));
+  await slot.findByText(/Day reviewed/);
+});
+
+it("flushes unsaved reported input before accepting a time proposal and exposes the conflict", async () => {
+  const { f, task, days, item, mount } = await setup();
+  const context = await f.harness.behavior.callRpc("timeReviewPrepare", { date: item.date, offset: 0, external: [{ id: "external:review", taskId: task.id, at: item.date + "T10:00:00Z", source: "Saved activity", url: null, text: "Reviewed a draft." }] }) as { id: string };
+  await f.harness.behavior.callRpc("timeReviewSubmit", { requestId: randomUUID(), contextId: context.id, suggestions: [{ taskId: task.id, minutes: 25, reason: "Review effort.", question: null, evidenceRefs: ["external:review"] }] });
+  const slot = mount(`day/${item.date}`);
+  fireEvent.change(await slot.findByLabelText(`Reported: ${task.title}`), { target: { value: "12m" } });
+  fireEvent.click(await slot.findByRole("button", { name: /^Confirm time$/ }));
+  await waitFor(() => expect(days.get(item.id).reportedMinutes).toBe(12));
+  await slot.findAllByText(/The day entry changed/);
+  expect(days.get(item.id).reportedMinutes).toBe(12);
+  fireEvent.click(slot.getByRole("button", { name: "Reject time" }));
+  await slot.findByText("No pending time proposals for this day.");
+});
