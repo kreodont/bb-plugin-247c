@@ -36,10 +36,6 @@ export const EXTRA_SCHEMA = [
    INSERT INTO task_views(task_id,seen_revision) SELECT id,revision FROM tasks;`,
   `CREATE TABLE part_reviews (kind TEXT NOT NULL, id TEXT NOT NULL, value_json TEXT NOT NULL, PRIMARY KEY(kind,id))`,
   ...AGENT_TIME_SCHEMA,
-  `CREATE TABLE time_review_contexts (id TEXT PRIMARY KEY, value_json TEXT NOT NULL);
-   CREATE TABLE time_proposals (id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES tasks(id), date TEXT NOT NULL, status TEXT NOT NULL, fingerprint TEXT NOT NULL UNIQUE, value_json TEXT NOT NULL);
-   CREATE UNIQUE INDEX one_pending_time_proposal ON time_proposals(task_id,date) WHERE status='pending';
-   CREATE TABLE time_daily_reviews (date TEXT PRIMARY KEY, reviewed_at TEXT NOT NULL, revision TEXT NOT NULL);`,
 ];
 export const ACTIVE = new Set<Session["status"]>(["starting", "working", "collecting", "review_starting", "reviewing", "repair_starting"]);
 export const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -124,11 +120,8 @@ export class Repository {
     return task;
   }
 
-  taskProposalTotal(): number {
-    return Number((this.db.prepare("SELECT (SELECT count(*) FROM proposals WHERE status IN ('pending','approved')) + (SELECT count(*) FROM source_sync_candidates WHERE status='pending') AS n").get() as Row).n);
-  }
   pendingTotal(): number {
-    return this.taskProposalTotal() + Number((this.db.prepare("SELECT count(*) AS n FROM time_proposals WHERE status='pending'").get() as Row).n);
+    return Number((this.db.prepare("SELECT (SELECT count(*) FROM proposals WHERE status IN ('pending','approved')) + (SELECT count(*) FROM source_sync_candidates WHERE status='pending') AS n").get() as Row).n);
   }
   list(history = false): { tasks: TaskCard[]; total: number; pendingTotal: number } {
     const where = history ? "" : "WHERE t.status='open'";

@@ -43,8 +43,8 @@ export class ProposalInbox {
       if (size > 3 * 1024 * 1024) throw new PolicyError("The proposal is too large for the shared list. Open it in the task dossier.");
       items.push(item); bytes += size;
     }
-    const total = this.repo.taskProposalTotal();
-    return { items, total, nextOffset: items.length > 0 && offset + items.length < total ? offset + items.length : null };
+    const total = this.repo.pendingTotal();
+    return { items, total, nextOffset: offset + items.length < total ? offset + items.length : null };
   }
   async accept(items: ReviewSelection[]) {
     // A task revision can be approved once. Never arbitrarily pick the first of

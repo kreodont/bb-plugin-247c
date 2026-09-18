@@ -38,9 +38,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
-// node_modules/ajv/dist/compile/codegen/code.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/codegen/code.js
 var require_code = __commonJS({
-  "node_modules/ajv/dist/compile/codegen/code.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/codegen/code.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.regexpCode = exports.getEsmExportName = exports.getProperty = exports.safeStringify = exports.stringify = exports.strConcat = exports.addCodeArg = exports.str = exports._ = exports.nil = exports._Code = exports.Name = exports.IDENTIFIER = exports._CodeOrName = void 0;
@@ -192,9 +192,9 @@ var require_code = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/compile/codegen/scope.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/codegen/scope.js
 var require_scope = __commonJS({
-  "node_modules/ajv/dist/compile/codegen/scope.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/codegen/scope.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ValueScope = exports.ValueScopeName = exports.Scope = exports.varKinds = exports.UsedValueState = void 0;
@@ -337,9 +337,9 @@ var require_scope = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/compile/codegen/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/codegen/index.js
 var require_codegen = __commonJS({
-  "node_modules/ajv/dist/compile/codegen/index.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/codegen/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.or = exports.and = exports.not = exports.CodeGen = exports.operators = exports.varKinds = exports.ValueScopeName = exports.ValueScope = exports.Scope = exports.Name = exports.regexpCode = exports.stringify = exports.getProperty = exports.nil = exports.strConcat = exports.str = exports._ = void 0;
@@ -1057,9 +1057,9 @@ var require_codegen = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/compile/util.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/util.js
 var require_util = __commonJS({
-  "node_modules/ajv/dist/compile/util.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/util.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.checkStrictMode = exports.getErrorPath = exports.Type = exports.useFunc = exports.setEvaluated = exports.evaluatedPropsToName = exports.mergeEvaluated = exports.eachItem = exports.unescapeJsonPointer = exports.escapeJsonPointer = exports.escapeFragment = exports.unescapeFragment = exports.schemaRefOrVal = exports.schemaHasRulesButRef = exports.schemaHasRules = exports.checkUnknownRules = exports.alwaysValidSchema = exports.toHash = void 0;
@@ -1224,9 +1224,9 @@ var require_util = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/compile/names.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/names.js
 var require_names = __commonJS({
-  "node_modules/ajv/dist/compile/names.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/names.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -1263,9 +1263,9 @@ var require_names = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/compile/errors.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/errors.js
 var require_errors = __commonJS({
-  "node_modules/ajv/dist/compile/errors.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/errors.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.extendErrors = exports.resetErrorsCount = exports.reportExtraError = exports.reportError = exports.keyword$DataError = exports.keywordError = void 0;
@@ -1385,9 +1385,9 @@ var require_errors = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/compile/validate/boolSchema.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/validate/boolSchema.js
 var require_boolSchema = __commonJS({
-  "node_modules/ajv/dist/compile/validate/boolSchema.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/validate/boolSchema.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.boolOrEmptySchema = exports.topBoolOrEmptySchema = void 0;
@@ -1436,9 +1436,9 @@ var require_boolSchema = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/compile/rules.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/rules.js
 var require_rules = __commonJS({
-  "node_modules/ajv/dist/compile/rules.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/rules.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getRules = exports.isJSONType = void 0;
@@ -1467,9 +1467,9 @@ var require_rules = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/compile/validate/applicability.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/validate/applicability.js
 var require_applicability = __commonJS({
-  "node_modules/ajv/dist/compile/validate/applicability.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/validate/applicability.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.shouldUseRule = exports.shouldUseGroup = exports.schemaHasRulesForType = void 0;
@@ -1490,9 +1490,9 @@ var require_applicability = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/compile/validate/dataType.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/validate/dataType.js
 var require_dataType = __commonJS({
-  "node_modules/ajv/dist/compile/validate/dataType.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/validate/dataType.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.reportTypeError = exports.checkDataTypes = exports.checkDataType = exports.coerceAndCheckDataType = exports.getJSONTypes = exports.getSchemaTypes = exports.DataType = void 0;
@@ -1674,9 +1674,9 @@ var require_dataType = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/compile/validate/defaults.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/validate/defaults.js
 var require_defaults = __commonJS({
-  "node_modules/ajv/dist/compile/validate/defaults.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/validate/defaults.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.assignDefaults = void 0;
@@ -1711,9 +1711,9 @@ var require_defaults = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/code.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/code.js
 var require_code2 = __commonJS({
-  "node_modules/ajv/dist/vocabularies/code.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/code.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.validateUnion = exports.validateArray = exports.usePattern = exports.callValidateCode = exports.schemaProperties = exports.allSchemaProperties = exports.noPropertyInData = exports.propertyInData = exports.isOwnProperty = exports.hasPropFunc = exports.reportMissingProp = exports.checkMissingProp = exports.checkReportMissingProp = void 0;
@@ -1844,9 +1844,9 @@ var require_code2 = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/compile/validate/keyword.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/validate/keyword.js
 var require_keyword = __commonJS({
-  "node_modules/ajv/dist/compile/validate/keyword.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/validate/keyword.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.validateKeywordUsage = exports.validSchemaType = exports.funcKeywordCode = exports.macroKeywordCode = void 0;
@@ -1962,9 +1962,9 @@ var require_keyword = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/compile/validate/subschema.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/validate/subschema.js
 var require_subschema = __commonJS({
-  "node_modules/ajv/dist/compile/validate/subschema.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/validate/subschema.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.extendSubschemaMode = exports.extendSubschemaData = exports.getSubschema = void 0;
@@ -2045,9 +2045,9 @@ var require_subschema = __commonJS({
   }
 });
 
-// node_modules/fast-deep-equal/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/fast-deep-equal/index.js
 var require_fast_deep_equal = __commonJS({
-  "node_modules/fast-deep-equal/index.js"(exports, module) {
+  "../../247c-wsl-sdk/plugin/node_modules/fast-deep-equal/index.js"(exports, module) {
     "use strict";
     module.exports = function equal(a, b) {
       if (a === b) return true;
@@ -2080,9 +2080,9 @@ var require_fast_deep_equal = __commonJS({
   }
 });
 
-// node_modules/json-schema-traverse/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/json-schema-traverse/index.js
 var require_json_schema_traverse = __commonJS({
-  "node_modules/json-schema-traverse/index.js"(exports, module) {
+  "../../247c-wsl-sdk/plugin/node_modules/json-schema-traverse/index.js"(exports, module) {
     "use strict";
     var traverse = module.exports = function(schema, opts, cb) {
       if (typeof opts == "function") {
@@ -2168,9 +2168,9 @@ var require_json_schema_traverse = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/compile/resolve.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/resolve.js
 var require_resolve = __commonJS({
-  "node_modules/ajv/dist/compile/resolve.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/resolve.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getSchemaRefs = exports.resolveUrl = exports.normalizeId = exports._getFullPath = exports.getFullPath = exports.inlineRef = void 0;
@@ -2240,10 +2240,10 @@ var require_resolve = __commonJS({
       }
       return count;
     }
-    function getFullPath(resolver, id3 = "", normalize3) {
+    function getFullPath(resolver, id2 = "", normalize3) {
       if (normalize3 !== false)
-        id3 = normalizeId(id3);
-      const p = resolver.parse(id3);
+        id2 = normalizeId(id2);
+      const p = resolver.parse(id2);
       return _getFullPath(resolver, p);
     }
     exports.getFullPath = getFullPath;
@@ -2253,13 +2253,13 @@ var require_resolve = __commonJS({
     }
     exports._getFullPath = _getFullPath;
     var TRAILING_SLASH_HASH = /#\/?$/;
-    function normalizeId(id3) {
-      return id3 ? id3.replace(TRAILING_SLASH_HASH, "") : "";
+    function normalizeId(id2) {
+      return id2 ? id2.replace(TRAILING_SLASH_HASH, "") : "";
     }
     exports.normalizeId = normalizeId;
-    function resolveUrl(resolver, baseId, id3) {
-      id3 = normalizeId(id3);
-      return resolver.resolve(baseId, id3);
+    function resolveUrl(resolver, baseId, id2) {
+      id2 = normalizeId(id2);
+      return resolver.resolve(baseId, id2);
     }
     exports.resolveUrl = resolveUrl;
     var ANCHOR = /^[a-z_][-a-z0-9._]*$/i;
@@ -2324,9 +2324,9 @@ var require_resolve = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/compile/validate/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/validate/index.js
 var require_validate = __commonJS({
-  "node_modules/ajv/dist/compile/validate/index.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/validate/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getData = exports.KeywordCxt = exports.validateFunctionCode = void 0;
@@ -2832,9 +2832,9 @@ var require_validate = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/runtime/validation_error.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/runtime/validation_error.js
 var require_validation_error = __commonJS({
-  "node_modules/ajv/dist/runtime/validation_error.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/runtime/validation_error.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var ValidationError = class extends Error {
@@ -2848,9 +2848,9 @@ var require_validation_error = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/compile/ref_error.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/ref_error.js
 var require_ref_error = __commonJS({
-  "node_modules/ajv/dist/compile/ref_error.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/ref_error.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var resolve_1 = require_resolve();
@@ -2865,9 +2865,9 @@ var require_ref_error = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/compile/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/index.js
 var require_compile = __commonJS({
-  "node_modules/ajv/dist/compile/index.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/compile/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.resolveSchema = exports.getCompilingSchema = exports.resolveRef = exports.compileSchema = exports.SchemaEnv = void 0;
@@ -3029,8 +3029,8 @@ var require_compile = __commonJS({
       if (Object.keys(root.schema).length > 0 && refPath === baseId) {
         return getJsonPointer.call(this, p, root);
       }
-      const id3 = (0, resolve_1.normalizeId)(refPath);
-      const schOrRef = this.refs[id3] || this.schemas[id3];
+      const id2 = (0, resolve_1.normalizeId)(refPath);
+      const schOrRef = this.refs[id2] || this.schemas[id2];
       if (typeof schOrRef == "string") {
         const sch = resolveSchema.call(this, root, schOrRef);
         if (typeof (sch === null || sch === void 0 ? void 0 : sch.schema) !== "object")
@@ -3041,7 +3041,7 @@ var require_compile = __commonJS({
         return;
       if (!schOrRef.validate)
         compileSchema.call(this, schOrRef);
-      if (id3 === (0, resolve_1.normalizeId)(ref)) {
+      if (id2 === (0, resolve_1.normalizeId)(ref)) {
         const { schema } = schOrRef;
         const { schemaId } = this.opts;
         const schId = schema[schemaId];
@@ -3089,9 +3089,9 @@ var require_compile = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/refs/data.json
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/refs/data.json
 var require_data = __commonJS({
-  "node_modules/ajv/dist/refs/data.json"(exports, module) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/refs/data.json"(exports, module) {
     module.exports = {
       $id: "https://raw.githubusercontent.com/ajv-validator/ajv/master/lib/refs/data.json#",
       description: "Meta-schema for $data reference (JSON AnySchema extension proposal)",
@@ -3108,9 +3108,9 @@ var require_data = __commonJS({
   }
 });
 
-// node_modules/fast-uri/lib/utils.js
+// ../../247c-wsl-sdk/plugin/node_modules/fast-uri/lib/utils.js
 var require_utils = __commonJS({
-  "node_modules/fast-uri/lib/utils.js"(exports, module) {
+  "../../247c-wsl-sdk/plugin/node_modules/fast-uri/lib/utils.js"(exports, module) {
     "use strict";
     var isUUID = RegExp.prototype.test.bind(/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/iu);
     var isIPv4 = RegExp.prototype.test.bind(/^(?:(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]\d|\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]\d|\d)$/u);
@@ -3610,9 +3610,9 @@ var require_utils = __commonJS({
   }
 });
 
-// node_modules/fast-uri/lib/schemes.js
+// ../../247c-wsl-sdk/plugin/node_modules/fast-uri/lib/schemes.js
 var require_schemes = __commonJS({
-  "node_modules/fast-uri/lib/schemes.js"(exports, module) {
+  "../../247c-wsl-sdk/plugin/node_modules/fast-uri/lib/schemes.js"(exports, module) {
     "use strict";
     var { isUUID } = require_utils();
     var URN_REG = /^([\da-z][\d\-a-z]{0,31}):((?:[\w!$'()*+,\-./:;=@]|%[\da-f]{2})+)$/iu;
@@ -3821,9 +3821,9 @@ var require_schemes = __commonJS({
   }
 });
 
-// node_modules/fast-uri/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/fast-uri/index.js
 var require_fast_uri = __commonJS({
-  "node_modules/fast-uri/index.js"(exports, module) {
+  "../../247c-wsl-sdk/plugin/node_modules/fast-uri/index.js"(exports, module) {
     "use strict";
     var { normalizeIPv6, removeDotSegments, recomposeAuthority, normalizePercentEncoding, normalizePathEncoding, serializePathEncoding, normalizeQueryFragmentEncoding, encodeQuery, encodeFragment, reescapeHostDelimiters, isIPv4, nonSimpleDomain } = require_utils();
     var { SCHEMES, getSchemeHandler } = require_schemes();
@@ -4226,9 +4226,9 @@ var require_fast_uri = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/runtime/uri.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/runtime/uri.js
 var require_uri = __commonJS({
-  "node_modules/ajv/dist/runtime/uri.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/runtime/uri.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var uri = require_fast_uri();
@@ -4237,9 +4237,9 @@ var require_uri = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/core.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/core.js
 var require_core = __commonJS({
-  "node_modules/ajv/dist/core.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/core.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.CodeGen = exports.Name = exports.nil = exports.stringify = exports.str = exports._ = exports.KeywordCxt = void 0;
@@ -4467,15 +4467,15 @@ var require_core = __commonJS({
             this.addSchema(sch, void 0, _meta, _validateSchema);
           return this;
         }
-        let id3;
+        let id2;
         if (typeof schema === "object") {
           const { schemaId } = this.opts;
-          id3 = schema[schemaId];
-          if (id3 !== void 0 && typeof id3 != "string") {
+          id2 = schema[schemaId];
+          if (id2 !== void 0 && typeof id2 != "string") {
             throw new Error(`schema ${schemaId} must be string`);
           }
         }
-        key = (0, resolve_1.normalizeId)(key || id3);
+        key = (0, resolve_1.normalizeId)(key || id2);
         this._checkUnique(key);
         this.schemas[key] = this._addSchema(schema, _meta, key, _validateSchema, true);
         return this;
@@ -4554,11 +4554,11 @@ var require_core = __commonJS({
           case "object": {
             const cacheKey = schemaKeyRef;
             this._cache.delete(cacheKey);
-            let id3 = schemaKeyRef[this.opts.schemaId];
-            if (id3) {
-              id3 = (0, resolve_1.normalizeId)(id3);
-              delete this.schemas[id3];
-              delete this.refs[id3];
+            let id2 = schemaKeyRef[this.opts.schemaId];
+            if (id2) {
+              id2 = (0, resolve_1.normalizeId)(id2);
+              delete this.schemas[id2];
+              delete this.refs[id2];
             }
             return this;
           }
@@ -4665,10 +4665,10 @@ var require_core = __commonJS({
         }
       }
       _addSchema(schema, meta3, baseId, validateSchema = this.opts.validateSchema, addSchema = this.opts.addUsedSchema) {
-        let id3;
+        let id2;
         const { schemaId } = this.opts;
         if (typeof schema == "object") {
-          id3 = schema[schemaId];
+          id2 = schema[schemaId];
         } else {
           if (this.opts.jtd)
             throw new Error("schema must be object");
@@ -4678,7 +4678,7 @@ var require_core = __commonJS({
         let sch = this._cache.get(schema);
         if (sch !== void 0)
           return sch;
-        baseId = (0, resolve_1.normalizeId)(id3 || baseId);
+        baseId = (0, resolve_1.normalizeId)(id2 || baseId);
         const localRefs = resolve_1.getSchemaRefs.call(this, schema, baseId);
         sch = new compile_1.SchemaEnv({ schema, schemaId, meta: meta3, baseId, localRefs });
         this._cache.set(sch.schema, sch);
@@ -4691,9 +4691,9 @@ var require_core = __commonJS({
           this.validateSchema(schema, true);
         return sch;
       }
-      _checkUnique(id3) {
-        if (this.schemas[id3] || this.refs[id3]) {
-          throw new Error(`schema with key or id "${id3}" already exists`);
+      _checkUnique(id2) {
+        if (this.schemas[id2] || this.refs[id2]) {
+          throw new Error(`schema with key or id "${id2}" already exists`);
         }
       }
       _compileSchemaEnv(sch) {
@@ -4848,9 +4848,9 @@ var require_core = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/core/id.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/core/id.js
 var require_id = __commonJS({
-  "node_modules/ajv/dist/vocabularies/core/id.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/core/id.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var def = {
@@ -4863,9 +4863,9 @@ var require_id = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/core/ref.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/core/ref.js
 var require_ref = __commonJS({
-  "node_modules/ajv/dist/vocabularies/core/ref.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/core/ref.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.callRef = exports.getValidate = void 0;
@@ -4985,9 +4985,9 @@ var require_ref = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/core/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/core/index.js
 var require_core2 = __commonJS({
-  "node_modules/ajv/dist/vocabularies/core/index.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/core/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var id_1 = require_id();
@@ -5006,9 +5006,9 @@ var require_core2 = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/validation/limitNumber.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/limitNumber.js
 var require_limitNumber = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/limitNumber.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/limitNumber.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -5038,9 +5038,9 @@ var require_limitNumber = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/validation/multipleOf.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/multipleOf.js
 var require_multipleOf = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/multipleOf.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/multipleOf.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -5066,9 +5066,9 @@ var require_multipleOf = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/runtime/ucs2length.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/runtime/ucs2length.js
 var require_ucs2length = __commonJS({
-  "node_modules/ajv/dist/runtime/ucs2length.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/runtime/ucs2length.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     function ucs2length(str) {
@@ -5092,9 +5092,9 @@ var require_ucs2length = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/validation/limitLength.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/limitLength.js
 var require_limitLength = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/limitLength.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/limitLength.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -5124,9 +5124,9 @@ var require_limitLength = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/validation/pattern.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/pattern.js
 var require_pattern = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/pattern.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/pattern.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var code_1 = require_code2();
@@ -5161,9 +5161,9 @@ var require_pattern = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/validation/limitProperties.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/limitProperties.js
 var require_limitProperties = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/limitProperties.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/limitProperties.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -5190,9 +5190,9 @@ var require_limitProperties = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/validation/required.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/required.js
 var require_required = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/required.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/required.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var code_1 = require_code2();
@@ -5272,9 +5272,9 @@ var require_required = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/validation/limitItems.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/limitItems.js
 var require_limitItems = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/limitItems.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/limitItems.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -5301,9 +5301,9 @@ var require_limitItems = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/runtime/equal.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/runtime/equal.js
 var require_equal = __commonJS({
-  "node_modules/ajv/dist/runtime/equal.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/runtime/equal.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var equal = require_fast_deep_equal();
@@ -5312,9 +5312,9 @@ var require_equal = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/validation/uniqueItems.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/uniqueItems.js
 var require_uniqueItems = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/uniqueItems.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/uniqueItems.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var dataType_1 = require_dataType();
@@ -5379,9 +5379,9 @@ var require_uniqueItems = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/validation/const.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/const.js
 var require_const = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/const.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/const.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -5408,9 +5408,9 @@ var require_const = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/validation/enum.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/enum.js
 var require_enum = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/enum.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/enum.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -5457,9 +5457,9 @@ var require_enum = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/validation/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/index.js
 var require_validation = __commonJS({
-  "node_modules/ajv/dist/vocabularies/validation/index.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/validation/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var limitNumber_1 = require_limitNumber();
@@ -5495,9 +5495,9 @@ var require_validation = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/additionalItems.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/additionalItems.js
 var require_additionalItems = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/additionalItems.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/additionalItems.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.validateAdditionalItems = void 0;
@@ -5548,9 +5548,9 @@ var require_additionalItems = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/items.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/items.js
 var require_items = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/items.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/items.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.validateTuple = void 0;
@@ -5605,9 +5605,9 @@ var require_items = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/prefixItems.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/prefixItems.js
 var require_prefixItems = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/prefixItems.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/prefixItems.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var items_1 = require_items();
@@ -5622,9 +5622,9 @@ var require_prefixItems = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/items2020.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/items2020.js
 var require_items2020 = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/items2020.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/items2020.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -5657,9 +5657,9 @@ var require_items2020 = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/contains.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/contains.js
 var require_contains = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/contains.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/contains.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -5751,9 +5751,9 @@ var require_contains = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/dependencies.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/dependencies.js
 var require_dependencies = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/dependencies.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/dependencies.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.validateSchemaDeps = exports.validatePropertyDeps = exports.error = void 0;
@@ -5845,9 +5845,9 @@ var require_dependencies = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/propertyNames.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/propertyNames.js
 var require_propertyNames = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/propertyNames.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/propertyNames.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -5888,9 +5888,9 @@ var require_propertyNames = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/additionalProperties.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/additionalProperties.js
 var require_additionalProperties = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/additionalProperties.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/additionalProperties.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var code_1 = require_code2();
@@ -5994,9 +5994,9 @@ var require_additionalProperties = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/properties.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/properties.js
 var require_properties = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/properties.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/properties.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var validate_1 = require_validate();
@@ -6052,9 +6052,9 @@ var require_properties = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/patternProperties.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/patternProperties.js
 var require_patternProperties = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/patternProperties.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/patternProperties.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var code_1 = require_code2();
@@ -6126,9 +6126,9 @@ var require_patternProperties = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/not.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/not.js
 var require_not = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/not.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/not.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var util_1 = require_util();
@@ -6157,9 +6157,9 @@ var require_not = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/anyOf.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/anyOf.js
 var require_anyOf = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/anyOf.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/anyOf.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var code_1 = require_code2();
@@ -6174,9 +6174,9 @@ var require_anyOf = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/oneOf.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/oneOf.js
 var require_oneOf = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/oneOf.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/oneOf.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -6232,9 +6232,9 @@ var require_oneOf = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/allOf.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/allOf.js
 var require_allOf = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/allOf.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/allOf.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var util_1 = require_util();
@@ -6259,9 +6259,9 @@ var require_allOf = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/if.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/if.js
 var require_if = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/if.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/if.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -6328,9 +6328,9 @@ var require_if = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/thenElse.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/thenElse.js
 var require_thenElse = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/thenElse.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/thenElse.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var util_1 = require_util();
@@ -6346,9 +6346,9 @@ var require_thenElse = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/applicator/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/index.js
 var require_applicator = __commonJS({
-  "node_modules/ajv/dist/vocabularies/applicator/index.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/applicator/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var additionalItems_1 = require_additionalItems();
@@ -6394,9 +6394,9 @@ var require_applicator = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/format/format.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/format/format.js
 var require_format = __commonJS({
-  "node_modules/ajv/dist/vocabularies/format/format.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/format/format.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -6484,9 +6484,9 @@ var require_format = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/format/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/format/index.js
 var require_format2 = __commonJS({
-  "node_modules/ajv/dist/vocabularies/format/index.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/format/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var format_1 = require_format();
@@ -6495,9 +6495,9 @@ var require_format2 = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/metadata.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/metadata.js
 var require_metadata = __commonJS({
-  "node_modules/ajv/dist/vocabularies/metadata.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/metadata.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.contentVocabulary = exports.metadataVocabulary = void 0;
@@ -6518,9 +6518,9 @@ var require_metadata = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/draft7.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/draft7.js
 var require_draft7 = __commonJS({
-  "node_modules/ajv/dist/vocabularies/draft7.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/draft7.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var core_1 = require_core2();
@@ -6540,9 +6540,9 @@ var require_draft7 = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/discriminator/types.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/discriminator/types.js
 var require_types = __commonJS({
-  "node_modules/ajv/dist/vocabularies/discriminator/types.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/discriminator/types.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.DiscrError = void 0;
@@ -6554,9 +6554,9 @@ var require_types = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/vocabularies/discriminator/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/discriminator/index.js
 var require_discriminator = __commonJS({
-  "node_modules/ajv/dist/vocabularies/discriminator/index.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/vocabularies/discriminator/index.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
@@ -6659,9 +6659,9 @@ var require_discriminator = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/refs/json-schema-draft-07.json
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/refs/json-schema-draft-07.json
 var require_json_schema_draft_07 = __commonJS({
-  "node_modules/ajv/dist/refs/json-schema-draft-07.json"(exports, module) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/refs/json-schema-draft-07.json"(exports, module) {
     module.exports = {
       $schema: "http://json-schema.org/draft-07/schema#",
       $id: "http://json-schema.org/draft-07/schema#",
@@ -6816,9 +6816,9 @@ var require_json_schema_draft_07 = __commonJS({
   }
 });
 
-// node_modules/ajv/dist/ajv.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv/dist/ajv.js
 var require_ajv = __commonJS({
-  "node_modules/ajv/dist/ajv.js"(exports, module) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv/dist/ajv.js"(exports, module) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.MissingRefError = exports.ValidationError = exports.CodeGen = exports.Name = exports.nil = exports.stringify = exports.str = exports._ = exports.KeywordCxt = exports.Ajv = void 0;
@@ -6886,9 +6886,9 @@ var require_ajv = __commonJS({
   }
 });
 
-// node_modules/ajv-formats/dist/formats.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv-formats/dist/formats.js
 var require_formats = __commonJS({
-  "node_modules/ajv-formats/dist/formats.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv-formats/dist/formats.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.formatNames = exports.fastFormats = exports.fullFormats = void 0;
@@ -7089,9 +7089,9 @@ var require_formats = __commonJS({
   }
 });
 
-// node_modules/ajv-formats/dist/limit.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv-formats/dist/limit.js
 var require_limit = __commonJS({
-  "node_modules/ajv-formats/dist/limit.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv-formats/dist/limit.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.formatLimitDefinition = void 0;
@@ -7161,9 +7161,9 @@ var require_limit = __commonJS({
   }
 });
 
-// node_modules/ajv-formats/dist/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/ajv-formats/dist/index.js
 var require_dist = __commonJS({
-  "node_modules/ajv-formats/dist/index.js"(exports, module) {
+  "../../247c-wsl-sdk/plugin/node_modules/ajv-formats/dist/index.js"(exports, module) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var formats_1 = require_formats();
@@ -7203,9 +7203,9 @@ var require_dist = __commonJS({
   }
 });
 
-// node_modules/content-type/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/content-type/index.js
 var require_content_type = __commonJS({
-  "node_modules/content-type/index.js"(exports) {
+  "../../247c-wsl-sdk/plugin/node_modules/content-type/index.js"(exports) {
     "use strict";
     var PARAM_REGEXP = /; *([!#$%&'*+.^_`|~0-9A-Za-z-]+) *= *("(?:[\u000b\u0020\u0021\u0023-\u005b\u005d-\u007e\u0080-\u00ff]|\\[\u000b\u0020-\u00ff])*"|[!#$%&'*+.^_`|~0-9A-Za-z-]+) */g;
     var TEXT_REGEXP = /^[\u000b\u0020-\u007e\u0080-\u00ff]+$/;
@@ -7307,754 +7307,13 @@ var require_content_type = __commonJS({
   }
 });
 
-// time-review.ts
-import { randomUUID as randomUUID3 } from "node:crypto";
+// source-import.ts
+import { createHash as createHash4 } from "node:crypto";
+import { constants } from "node:fs";
+import { open as open2, realpath } from "node:fs/promises";
+import { isAbsolute, relative, sep } from "node:path";
 
-// repository.ts
-import { createHash as createHash2, randomUUID as randomUUID2 } from "node:crypto";
-import path from "node:path";
-
-// core/kernel.ts
-import { createHash, randomUUID } from "node:crypto";
-
-// core/errors.ts
-var PolicyError = class extends Error {
-  code = "POLICY_REJECTED";
-};
-var ConflictError = class extends Error {
-  code = "REVISION_CONFLICT";
-};
-var NotFoundError = class extends Error {
-  code = "NOT_FOUND";
-};
-
-// core/types.ts
-var factKinds = [
-  "description",
-  "progress",
-  "user_instruction",
-  "explicit_next_step",
-  "decision",
-  "open_question",
-  "artifact",
-  "constraint",
-  "blocker"
-];
-
-// core/validation.ts
-function object(value, label) {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new PolicyError(`${label} must be an object`);
-  }
-  return value;
-}
-function onlyKeys(record2, allowed, label) {
-  const allowedSet = new Set(allowed);
-  const unknown2 = Object.keys(record2).find((key) => !allowedSet.has(key));
-  if (unknown2) throw new PolicyError(`${label} contains unsupported field: ${unknown2}`);
-}
-function evidence(value, label) {
-  if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) {
-    throw new PolicyError(`${label}.evidenceRefs must be an array of fact ids`);
-  }
-  return [...new Set(value)];
-}
-function proposed(input2, label, parseValue) {
-  const record2 = object(input2, label);
-  onlyKeys(record2, ["value", "evidenceRefs"], label);
-  return {
-    value: parseValue(record2.value),
-    evidenceRefs: evidence(record2.evidenceRefs, label)
-  };
-}
-function nullableString(value) {
-  if (value === null) return null;
-  if (typeof value !== "string" || value.trim() === "") throw new PolicyError("value must be a non-empty string or null");
-  return value.trim();
-}
-function stringArray(value) {
-  if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string" || entry.trim() === "")) {
-    throw new PolicyError("value must be an array of non-empty strings");
-  }
-  return value.map((entry) => entry.trim());
-}
-function artifacts(value) {
-  if (!Array.isArray(value)) throw new PolicyError("artifacts must be an array");
-  return value.map((entry, index) => {
-    const record2 = object(entry, `artifact[${index}]`);
-    onlyKeys(record2, ["label", "uri"], `artifact[${index}]`);
-    if (typeof record2.label !== "string" || typeof record2.uri !== "string") {
-      throw new PolicyError(`artifact[${index}] needs string label and uri`);
-    }
-    return { label: record2.label, uri: record2.uri };
-  });
-}
-function parseProposalDraft(input2) {
-  const record2 = object(input2, "proposal");
-  onlyKeys(record2, ["rationale", "confidence", "changes"], "proposal");
-  if (typeof record2.rationale !== "string" || record2.rationale.trim() === "") {
-    throw new PolicyError("proposal.rationale must be a non-empty string");
-  }
-  if (typeof record2.confidence !== "number" || record2.confidence < 0 || record2.confidence > 1) {
-    throw new PolicyError("proposal.confidence must be between 0 and 1");
-  }
-  const rawChanges = object(record2.changes, "proposal.changes");
-  onlyKeys(rawChanges, ["title", "status", "urgent", "important", "summary", "nextStep", "openQuestions", "blockers", "artifacts"], "proposal.changes");
-  const changes = {};
-  if ("title" in rawChanges) changes.title = proposed(rawChanges.title, "title", (value) => {
-    if (typeof value !== "string" || !value.trim() || value.trim().length > 200) throw new PolicyError("The title must contain 1 to 200 characters.");
-    return value.trim();
-  });
-  for (const field of ["urgent", "important"]) {
-    if (field in rawChanges) changes[field] = proposed(rawChanges[field], field, (value) => {
-      if (value !== null && typeof value !== "boolean") throw new PolicyError("Priority must be true, false or null.");
-      return value;
-    });
-  }
-  if ("status" in rawChanges) changes.status = proposed(rawChanges.status, "status", (value) => {
-    if (value !== "open" && value !== "done" && value !== "archived") throw new PolicyError("proposed status must be open, done or archived");
-    return value;
-  });
-  if ("summary" in rawChanges) changes.summary = proposed(rawChanges.summary, "summary", nullableString);
-  if ("nextStep" in rawChanges) changes.nextStep = proposed(rawChanges.nextStep, "nextStep", nullableString);
-  if ("openQuestions" in rawChanges) changes.openQuestions = proposed(rawChanges.openQuestions, "openQuestions", stringArray);
-  if ("blockers" in rawChanges) changes.blockers = proposed(rawChanges.blockers, "blockers", stringArray);
-  if ("artifacts" in rawChanges) changes.artifacts = proposed(rawChanges.artifacts, "artifacts", artifacts);
-  if (Object.keys(changes).length === 0) throw new PolicyError("proposal contains no changes");
-  return { rationale: record2.rationale.trim(), confidence: record2.confidence, changes };
-}
-function validateEvidence(draft, dossier, additional = []) {
-  const facts = new Map([
-    ...dossier.facts.map((fact) => [fact.id, fact]),
-    ...additional.map((item) => [item.ref, { ...item, id: item.ref, taskId: dossier.task.id, occurredAt: dossier.task.updatedAt, createdAt: dossier.task.updatedAt }])
-  ]);
-  for (const [field, change] of Object.entries(draft.changes)) {
-    if (!change) continue;
-    if (change.evidenceRefs.length === 0) throw new PolicyError(`${field} needs evidence`);
-    for (const reference of change.evidenceRefs) {
-      if (!facts.has(reference)) throw new PolicyError(`${field} cites unknown task fact ${reference}`);
-    }
-  }
-  const status = draft.changes.status;
-  if (status && !status.evidenceRefs.some((id3) => ["progress", "decision", "user_instruction"].includes(facts.get(id3).kind))) {
-    throw new PolicyError("A status change requires evidence of a result or a task decision.");
-  }
-  for (const field of ["title", "urgent", "important"]) {
-    const change = draft.changes[field];
-    if (change && !change.evidenceRefs.some((id3) => ["decision", "user_instruction"].includes(facts.get(id3).kind))) {
-      throw new PolicyError(`${field}: a decision or instruction to change the task is required.`);
-    }
-  }
-  const nextStep = draft.changes.nextStep;
-  if (nextStep) {
-    const explicitKinds = /* @__PURE__ */ new Set(["explicit_next_step", "user_instruction"]);
-    if (nextStep.value === null) {
-      const clearingKinds = /* @__PURE__ */ new Set([...explicitKinds, "progress", "decision"]);
-      if (!nextStep.evidenceRefs.some((id3) => clearingKinds.has(facts.get(id3).kind))) {
-        throw new PolicyError("Clearing nextStep requires progress/decision evidence that the step was completed or canceled, or explicit_next_step/user_instruction evidence. The whole task does not need to be completed.");
-      }
-    } else {
-      if (!nextStep.evidenceRefs.some((id3) => explicitKinds.has(facts.get(id3).kind))) {
-        throw new PolicyError("nextStep needs explicit_next_step or user_instruction evidence");
-      }
-      const normalized = normalizeText(nextStep.value);
-      const matches = nextStep.evidenceRefs.some((id3) => {
-        const fact = facts.get(id3);
-        return explicitKinds.has(fact.kind) && normalizeText(fact.text) === normalized;
-      });
-      if (!matches) throw new PolicyError("nextStep must exactly match explicit evidence");
-    }
-  }
-  const questions = draft.changes.openQuestions;
-  if (questions?.value.length) {
-    const questionFacts = questions.evidenceRefs.map((id3) => facts.get(id3)).filter((fact) => fact.kind === "open_question");
-    for (const value of questions.value) {
-      if (!questionFacts.some((fact) => normalizeText(fact.text) === normalizeText(value))) {
-        throw new PolicyError("each open question must exactly match open_question evidence");
-      }
-    }
-  }
-  const blockers = draft.changes.blockers;
-  if (blockers?.value.length) {
-    const blockerFacts = blockers.evidenceRefs.map((id3) => facts.get(id3)).filter((fact) => fact.kind === "blocker" || fact.kind === "constraint");
-    if (blockerFacts.length === 0) throw new PolicyError("blockers need blocker or constraint evidence");
-    for (const value of blockers.value) {
-      if (!blockerFacts.some((fact) => normalizeText(fact.text) === normalizeText(value))) {
-        throw new PolicyError("each blocker must exactly match blocker evidence");
-      }
-    }
-  }
-  const artifacts2 = draft.changes.artifacts;
-  if (artifacts2?.value.length) {
-    const artifactFacts = artifacts2.evidenceRefs.map((id3) => facts.get(id3)).filter((fact) => fact.kind === "artifact");
-    for (const artifact of artifacts2.value) {
-      let protocol;
-      try {
-        protocol = new URL(artifact.uri).protocol;
-      } catch {
-        throw new PolicyError("artifact URI must be absolute");
-      }
-      if (!(/* @__PURE__ */ new Set(["https:", "http:", "file:"])).has(protocol)) throw new PolicyError("artifact URI scheme is not allowed");
-      if (!artifactFacts.some((fact) => fact.sourceRef === artifact.uri)) throw new PolicyError("each artifact URI must exactly match artifact evidence");
-    }
-  }
-}
-function normalizeText(value) {
-  return value.trim().replace(/\s+/g, " ").toLocaleLowerCase();
-}
-
-// core/kernel.ts
-function now() {
-  return (/* @__PURE__ */ new Date()).toISOString();
-}
-function rows(statement, ...parameters) {
-  return statement.all(...parameters);
-}
-function taskFrom(row) {
-  return {
-    id: String(row.id),
-    title: String(row.title),
-    status: row.status,
-    revision: Number(row.revision),
-    createdAt: String(row.created_at),
-    updatedAt: String(row.updated_at)
-  };
-}
-function factFrom(row) {
-  return {
-    id: String(row.id),
-    taskId: String(row.task_id),
-    kind: row.kind,
-    text: String(row.text),
-    source: String(row.source),
-    sourceRef: row.source_ref === null ? null : String(row.source_ref),
-    occurredAt: String(row.occurred_at),
-    createdAt: String(row.created_at)
-  };
-}
-function projectionFrom(row) {
-  return {
-    taskId: String(row.task_id),
-    summary: row.summary === null ? null : String(row.summary),
-    nextStep: row.next_step === null ? null : String(row.next_step),
-    openQuestions: JSON.parse(String(row.open_questions_json)),
-    blockers: JSON.parse(String(row.blockers_json)),
-    artifacts: JSON.parse(String(row.artifacts_json)),
-    updatedAt: String(row.updated_at)
-  };
-}
-function proposalFrom(row) {
-  return {
-    id: String(row.id),
-    taskId: String(row.task_id),
-    baseRevision: Number(row.base_revision),
-    model: String(row.model),
-    rationale: String(row.rationale),
-    confidence: Number(row.confidence),
-    changes: JSON.parse(String(row.changes_json)),
-    status: row.status,
-    createdAt: String(row.created_at),
-    resolvedAt: row.resolved_at === null ? null : String(row.resolved_at),
-    idempotencyKey: row.idempotency_key === null ? null : String(row.idempotency_key)
-  };
-}
-var Kernel = class {
-  constructor(store) {
-    this.store = store;
-  }
-  store;
-  createTask(input2) {
-    if (input2.title.trim() === "") throw new PolicyError("task title cannot be empty");
-    const id3 = input2.id ?? randomUUID();
-    const timestamp = now();
-    return this.store.transaction(() => {
-      this.store.db.prepare(
-        "INSERT INTO tasks(id, title, status, revision, created_at, updated_at) VALUES (?, ?, 'open', 0, ?, ?)"
-      ).run(id3, input2.title.trim(), timestamp, timestamp);
-      this.store.db.prepare(
-        "INSERT INTO task_projections(task_id, summary, next_step, open_questions_json, blockers_json, artifacts_json, updated_at) VALUES (?, NULL, NULL, '[]', '[]', '[]', ?)"
-      ).run(id3, timestamp);
-      this.event(id3, "task.created", { title: input2.title.trim() }, timestamp);
-      return this.getTask(id3);
-    });
-  }
-  appendFact(input2) {
-    this.getTask(input2.taskId);
-    if (!factKinds.includes(input2.kind)) throw new PolicyError(`unknown fact kind: ${input2.kind}`);
-    if (input2.text.trim() === "") throw new PolicyError("fact text cannot be empty");
-    const id3 = input2.id ?? randomUUID();
-    const timestamp = now();
-    const occurredAt = input2.occurredAt ?? timestamp;
-    return this.store.transaction(() => {
-      this.store.db.prepare(`
-        INSERT INTO task_facts(id, task_id, kind, text, source, source_ref, occurred_at, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(id3, input2.taskId, input2.kind, input2.text.trim(), input2.source ?? "user", input2.sourceRef ?? null, occurredAt, timestamp);
-      this.bumpRevision(input2.taskId, timestamp);
-      this.event(input2.taskId, "fact.appended", { factId: id3, kind: input2.kind }, timestamp);
-      return this.getFact(id3);
-    });
-  }
-  getTask(taskId) {
-    const row = this.store.db.prepare("SELECT * FROM tasks WHERE id = ?").get(taskId);
-    if (!row) throw new NotFoundError(`task not found: ${taskId}`);
-    return taskFrom(row);
-  }
-  hasTask(taskId) {
-    return this.store.db.prepare("SELECT 1 FROM tasks WHERE id = ?").get(taskId) !== void 0;
-  }
-  setTaskStatus(taskId, status, expectedRevision) {
-    if (!["open", "done", "archived"].includes(status)) throw new PolicyError("invalid task status");
-    return this.store.transaction(() => {
-      const task = this.getTask(taskId);
-      if (task.revision !== expectedRevision) throw new ConflictError("Task changed; refresh before changing its status");
-      if (task.status === status) return task;
-      const timestamp = now();
-      this.store.db.prepare("UPDATE tasks SET status=?,revision=revision+1,updated_at=? WHERE id=?").run(status, timestamp, taskId);
-      this.event(taskId, "task.status-changed", { before: task.status, after: status, actor: "human" }, timestamp);
-      return this.getTask(taskId);
-    });
-  }
-  listProposals(taskId) {
-    return rows(this.store.db.prepare(`SELECT * FROM proposals ${taskId ? "WHERE task_id=?" : ""} ORDER BY created_at DESC LIMIT 200`), ...taskId ? [taskId] : []).map(proposalFrom);
-  }
-  getFact(factId) {
-    const row = this.store.db.prepare("SELECT * FROM task_facts WHERE id = ?").get(factId);
-    if (!row) throw new NotFoundError(`fact not found: ${factId}`);
-    return factFrom(row);
-  }
-  hasFact(factId) {
-    return this.store.db.prepare("SELECT 1 FROM task_facts WHERE id = ?").get(factId) !== void 0;
-  }
-  getDossier(taskId) {
-    const task = this.getTask(taskId);
-    const projectionRow = this.store.db.prepare("SELECT * FROM task_projections WHERE task_id = ?").get(taskId);
-    const factRows = rows(this.store.db.prepare("SELECT * FROM task_facts WHERE task_id = ? ORDER BY occurred_at, created_at"), taskId);
-    return { task, projection: projectionFrom(projectionRow), facts: factRows.map(factFrom), planning: this.getPlanning(taskId) };
-  }
-  getPlanning(taskId) {
-    const row = this.store.db.prepare("SELECT * FROM planning WHERE task_id=?").get(taskId);
-    return { urgent: row?.urgent == null ? null : Boolean(row.urgent), important: row?.important == null ? null : Boolean(row.important), revision: Number(row?.revision ?? 0) };
-  }
-  createProposal(input2) {
-    if (input2.idempotencyKey) {
-      const existing = this.store.db.prepare("SELECT * FROM proposals WHERE idempotency_key = ?").get(input2.idempotencyKey);
-      if (existing) return proposalFrom(existing);
-    }
-    const dossier = this.getDossier(input2.taskId);
-    if (dossier.task.revision !== input2.baseRevision) {
-      throw new ConflictError(`task revision is ${dossier.task.revision}, proposal used ${input2.baseRevision}`);
-    }
-    const draft = parseProposalDraft(input2.output);
-    const additionalEvidence = normalizeProposalEvidence(input2.additionalEvidence ?? []);
-    validateEvidence(draft, dossier, additionalEvidence);
-    const id3 = randomUUID();
-    const timestamp = now();
-    this.store.transaction(() => {
-      this.store.db.prepare(`
-        INSERT INTO proposals(id, task_id, base_revision, model, rationale, confidence, changes_json, status, created_at, resolved_at, idempotency_key)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, NULL, ?)
-      `).run(id3, input2.taskId, input2.baseRevision, input2.model, draft.rationale, draft.confidence, JSON.stringify(draft.changes), timestamp, input2.idempotencyKey ?? null);
-      const evidenceStatement = this.store.db.prepare(`INSERT INTO proposal_evidence(
-        proposal_id, evidence_ref, kind, text, source, source_ref
-      ) VALUES (?, ?, ?, ?, ?, ?)`);
-      for (const evidence2 of additionalEvidence) {
-        evidenceStatement.run(id3, evidence2.ref, evidence2.kind, evidence2.text, evidence2.source, evidence2.sourceRef);
-      }
-      this.event(input2.taskId, "proposal.created", { proposalId: id3, model: input2.model }, timestamp);
-    });
-    return this.getProposal(id3);
-  }
-  getProposal(proposalId) {
-    const row = this.store.db.prepare("SELECT * FROM proposals WHERE id = ?").get(proposalId);
-    if (!row) throw new NotFoundError(`proposal not found: ${proposalId}`);
-    return proposalFrom(row);
-  }
-  findProposalByIdempotencyKey(idempotencyKey) {
-    const row = this.store.db.prepare("SELECT * FROM proposals WHERE idempotency_key = ?").get(idempotencyKey);
-    return row ? proposalFrom(row) : void 0;
-  }
-  proposalEvidence(proposalId) {
-    this.getProposal(proposalId);
-    return this.store.db.prepare("SELECT * FROM proposal_evidence WHERE proposal_id = ? ORDER BY evidence_ref").all(proposalId).map((row) => ({
-      ref: String(row.evidence_ref),
-      kind: row.kind,
-      text: String(row.text),
-      source: String(row.source),
-      sourceRef: row.source_ref === null ? null : String(row.source_ref)
-    }));
-  }
-  approveProposal(proposalId, actor = "human:cli") {
-    return this.store.transaction(() => {
-      const proposal = this.getProposal(proposalId);
-      if (proposal.status !== "pending") throw new PolicyError(`proposal is already ${proposal.status}`);
-      const approval = {
-        id: randomUUID(),
-        proposalId,
-        proposalHash: this.proposalHash(proposal),
-        actor,
-        createdAt: now()
-      };
-      this.store.db.prepare(
-        "INSERT INTO proposal_approvals(id, proposal_id, proposal_hash, actor, created_at) VALUES (?, ?, ?, ?, ?)"
-      ).run(approval.id, approval.proposalId, approval.proposalHash, approval.actor, approval.createdAt);
-      this.store.db.prepare("UPDATE proposals SET status = 'approved' WHERE id = ? AND status = 'pending'").run(proposalId);
-      this.event(proposal.taskId, "proposal.approved", { proposalId, approvalId: approval.id, actor }, approval.createdAt);
-      return approval;
-    });
-  }
-  applyProposal(proposalId) {
-    const result = this.store.transaction(() => {
-      const proposal = this.getProposal(proposalId);
-      if (proposal.status !== "approved") throw new PolicyError(`proposal must be approved, found ${proposal.status}`);
-      const dossier = this.getDossier(proposal.taskId);
-      if (dossier.task.revision !== proposal.baseRevision) {
-        const message = `task changed after proposal: expected ${proposal.baseRevision}, found ${dossier.task.revision}`;
-        const timestamp2 = now();
-        this.store.db.prepare("UPDATE proposals SET status = 'conflicted', resolved_at = ? WHERE id = ?").run(timestamp2, proposalId);
-        this.event(proposal.taskId, "proposal.conflicted", { proposalId, message }, timestamp2);
-        return { conflict: message };
-      }
-      validateEvidence(proposal, dossier, this.proposalEvidence(proposal.id));
-      const approvalRow = this.store.db.prepare("SELECT * FROM proposal_approvals WHERE proposal_id = ?").get(proposalId);
-      if (!approvalRow || String(approvalRow.proposal_hash) !== this.proposalHash(proposal)) {
-        throw new PolicyError("approval does not match the exact proposal");
-      }
-      const next = { ...dossier.projection };
-      if (proposal.changes.summary) next.summary = proposal.changes.summary.value;
-      if (proposal.changes.nextStep) next.nextStep = proposal.changes.nextStep.value;
-      if (proposal.changes.openQuestions) next.openQuestions = proposal.changes.openQuestions.value;
-      if (proposal.changes.blockers) next.blockers = proposal.changes.blockers.value;
-      if (proposal.changes.artifacts) next.artifacts = proposal.changes.artifacts.value;
-      const nextStatus = proposal.changes.status?.value ?? dossier.task.status;
-      const nextTitle = proposal.changes.title?.value ?? dossier.task.title;
-      const nextPlanning = { ...dossier.planning };
-      if (proposal.changes.urgent) nextPlanning.urgent = proposal.changes.urgent.value;
-      if (proposal.changes.important) nextPlanning.important = proposal.changes.important.value;
-      const timestamp = now();
-      this.store.db.prepare(`
-        UPDATE task_projections
-        SET summary = ?, next_step = ?, open_questions_json = ?, blockers_json = ?, artifacts_json = ?, updated_at = ?
-        WHERE task_id = ?
-      `).run(next.summary, next.nextStep, JSON.stringify(next.openQuestions), JSON.stringify(next.blockers), JSON.stringify(next.artifacts), timestamp, proposal.taskId);
-      this.store.db.prepare("UPDATE proposals SET status = 'applied', resolved_at = ? WHERE id = ?").run(timestamp, proposalId);
-      if (nextStatus !== dossier.task.status) {
-        this.store.db.prepare("UPDATE tasks SET status=? WHERE id=?").run(nextStatus, proposal.taskId);
-        this.event(proposal.taskId, "task.status-changed", { before: dossier.task.status, after: nextStatus, actor: approvalRow.actor, proposalId }, timestamp);
-      }
-      if (nextTitle !== dossier.task.title) {
-        this.store.db.prepare("UPDATE tasks SET title=? WHERE id=?").run(nextTitle, proposal.taskId);
-        this.event(proposal.taskId, "task.title-changed", { before: dossier.task.title, after: nextTitle, actor: approvalRow.actor, proposalId }, timestamp);
-      }
-      if (nextPlanning.urgent !== dossier.planning.urgent || nextPlanning.important !== dossier.planning.important) {
-        this.store.db.prepare("INSERT OR IGNORE INTO planning(task_id) VALUES (?)").run(proposal.taskId);
-        this.store.db.prepare("UPDATE planning SET urgent=?,important=?,revision=revision+1 WHERE task_id=?").run(nextPlanning.urgent === null ? null : Number(nextPlanning.urgent), nextPlanning.important === null ? null : Number(nextPlanning.important), proposal.taskId);
-        this.event(proposal.taskId, "planning.changed", { before: dossier.planning, after: this.getPlanning(proposal.taskId), actor: approvalRow.actor, proposalId }, timestamp);
-      }
-      this.bumpRevision(proposal.taskId, timestamp);
-      const afterRevision = dossier.task.revision + 1;
-      const receiptId = randomUUID();
-      this.store.db.prepare(`
-        INSERT INTO application_receipts(id, proposal_id, approval_id, task_id, before_revision, after_revision, fields_json, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(receiptId, proposalId, String(approvalRow.id), proposal.taskId, dossier.task.revision, afterRevision, JSON.stringify(Object.keys(proposal.changes)), timestamp);
-      this.store.db.prepare("INSERT INTO application_snapshots(proposal_id,before_json,after_json) VALUES(?,?,?)").run(
-        proposalId,
-        JSON.stringify({ ...dossier.projection, status: dossier.task.status, title: dossier.task.title, urgent: dossier.planning.urgent, important: dossier.planning.important }),
-        JSON.stringify({ ...next, status: nextStatus, title: nextTitle, urgent: nextPlanning.urgent, important: nextPlanning.important })
-      );
-      this.event(proposal.taskId, "proposal.applied", { proposalId, approvalId: approvalRow.id, receiptId, fields: Object.keys(proposal.changes) }, timestamp);
-      return this.getDossier(proposal.taskId);
-    });
-    if ("conflict" in result) throw new ConflictError(result.conflict);
-    return result;
-  }
-  /** Reversal is a new exact, evidence-backed proposal; history and later work survive. */
-  proposeRevert(proposalId) {
-    const applied = this.getProposal(proposalId);
-    if (applied.status !== "applied") throw new PolicyError("Only an applied proposal can be reversed");
-    const snapshot = this.store.db.prepare("SELECT * FROM application_snapshots WHERE proposal_id=?").get(proposalId);
-    if (!snapshot) throw new PolicyError("This legacy application has no before snapshot; inspect its history and propose a correction");
-    const before = JSON.parse(String(snapshot.before_json));
-    const after = JSON.parse(String(snapshot.after_json));
-    const dossier = this.getDossier(applied.taskId);
-    const current = { ...dossier.projection, status: dossier.task.status, title: dossier.task.title, urgent: dossier.planning.urgent, important: dossier.planning.important };
-    const changes = {}, additionalEvidence = [];
-    for (const field of Object.keys(applied.changes)) {
-      if (!(field in before) || !(field in after)) throw new PolicyError("The saved operation does not contain the previous task field value.");
-      if (JSON.stringify(current[field]) !== JSON.stringify(after[field])) throw new ConflictError(`${field} changed after this application; automatic reversal would overwrite newer work`);
-      const values = Array.isArray(before[field]) ? before[field] : [before[field]];
-      const evidenceRefs = [];
-      for (const [index, value] of (values.length ? values : [null]).entries()) {
-        const ref = `revert:${proposalId}:${field}:${index}`;
-        evidenceRefs.push(ref);
-        additionalEvidence.push({ ref, kind: ["status", "title", "urgent", "important"].includes(field) ? "decision" : field === "nextStep" ? "explicit_next_step" : field === "openQuestions" ? "open_question" : field === "blockers" ? "blocker" : field === "artifacts" ? "artifact" : "description", text: value === null ? `Restore previously accepted empty ${field}` : typeof value === "string" ? value : JSON.stringify(value), source: `accepted-projection:${proposalId}`, sourceRef: field === "artifacts" && value ? value.uri : null });
-      }
-      changes[field] = { value: before[field], evidenceRefs };
-    }
-    return this.createProposal({ taskId: applied.taskId, baseRevision: dossier.task.revision, model: "kernel:compensating-revert-v1", output: { rationale: `Restore fields from before application ${proposalId}`, confidence: 1, changes }, additionalEvidence, idempotencyKey: `revert:${proposalId}:${dossier.task.revision}` });
-  }
-  rejectProposal(proposalId) {
-    return this.store.transaction(() => {
-      const proposal = this.getProposal(proposalId);
-      if (proposal.status !== "pending" && proposal.status !== "approved") throw new PolicyError(`proposal is already ${proposal.status}`);
-      const timestamp = now();
-      const changed = this.store.db.prepare("UPDATE proposals SET status = 'rejected', resolved_at = ? WHERE id = ? AND status IN ('pending', 'approved')").run(timestamp, proposalId);
-      if (Number(changed.changes) !== 1) throw new ConflictError("proposal status changed concurrently");
-      this.event(proposal.taskId, "proposal.rejected", { proposalId }, timestamp);
-      return this.getProposal(proposalId);
-    });
-  }
-  getApplicationReceipt(proposalId) {
-    const row = this.store.db.prepare("SELECT * FROM application_receipts WHERE proposal_id = ?").get(proposalId);
-    if (!row) throw new NotFoundError(`application receipt not found for proposal: ${proposalId}`);
-    return {
-      id: String(row.id),
-      proposalId: String(row.proposal_id),
-      approvalId: String(row.approval_id),
-      taskId: String(row.task_id),
-      beforeRevision: Number(row.before_revision),
-      afterRevision: Number(row.after_revision),
-      fields: JSON.parse(String(row.fields_json)),
-      createdAt: String(row.created_at)
-    };
-  }
-  prepareBrief(taskId) {
-    const { task, projection, facts, planning } = this.getDossier(taskId);
-    const lines = [`# ${task.title}`, "", `Task: ${task.id} \xB7 revision ${task.revision} \xB7 ${task.status}`];
-    lines.push(`Priority: urgent=${planning.urgent}, important=${planning.important} (null = unclassified).`);
-    if (projection.summary) lines.push("", "## Current summary", projection.summary);
-    if (projection.nextStep) lines.push("", "## Explicit next step", projection.nextStep);
-    if (projection.openQuestions.length) lines.push("", "## Open questions", ...projection.openQuestions.map((item) => `- ${item}`));
-    if (projection.blockers.length) lines.push("", "## Blockers", ...projection.blockers.map((item) => `- ${item}`));
-    if (projection.artifacts.length) lines.push("", "## Artifacts", ...projection.artifacts.map((item) => `- [${escapeMarkdown(item.label)}](<${item.uri.replaceAll(">", "%3E")}>)`));
-    const recent = facts.slice(-20);
-    if (recent.length) {
-      lines.push("", "## Evidence", ...recent.map((fact) => `- [${fact.id}] ${fact.kind}: ${fact.text}`));
-    }
-    if (!projection.nextStep) lines.push("", "No explicit next step has been accepted.");
-    return { taskId, revision: task.revision, markdown: lines.join("\n") + "\n" };
-  }
-  bumpRevision(taskId, timestamp) {
-    this.store.db.prepare("UPDATE tasks SET revision = revision + 1, updated_at = ? WHERE id = ?").run(timestamp, taskId);
-  }
-  event(taskId, type, payload, timestamp) {
-    this.store.db.prepare(
-      "INSERT INTO kernel_events(id, task_id, type, payload_json, created_at) VALUES (?, ?, ?, ?, ?)"
-    ).run(randomUUID(), taskId, type, JSON.stringify(payload), timestamp);
-  }
-  proposalHash(proposal) {
-    return createHash("sha256").update(JSON.stringify({
-      id: proposal.id,
-      taskId: proposal.taskId,
-      baseRevision: proposal.baseRevision,
-      model: proposal.model,
-      rationale: proposal.rationale,
-      confidence: proposal.confidence,
-      changes: proposal.changes,
-      createdAt: proposal.createdAt
-    })).digest("hex");
-  }
-};
-function escapeMarkdown(value) {
-  return value.replace(/[\\\[\]]/g, "\\$&");
-}
-function normalizeProposalEvidence(input2) {
-  const seen = /* @__PURE__ */ new Set();
-  return input2.map((item) => {
-    if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/.test(item.ref) || seen.has(item.ref)) throw new PolicyError("proposal evidence ref is invalid or duplicated");
-    if (!factKinds.includes(item.kind) || item.text.trim() === "" || item.source.trim() === "") throw new PolicyError("proposal evidence is invalid");
-    seen.add(item.ref);
-    return { ...item, text: item.text.trim(), source: item.source.trim() };
-  });
-}
-
-// core/database.ts
-var Store = class {
-  constructor(db) {
-    this.db = db;
-  }
-  db;
-  transaction(operation) {
-    return this.db.transaction(operation).immediate();
-  }
-};
-
-// proposal-parts.ts
-function proposalParts(changes, extraction) {
-  return [
-    ...Object.keys(extraction ? extraction.changes ?? {} : changes).map((field) => `field:${field}`),
-    ...extraction?.facts.map((_, i) => `fact:${i}`) ?? [],
-    ...extraction?.knowledge.map((_, i) => `knowledge:${i}`) ?? []
-  ];
-}
-function sourceParts(candidate2) {
-  return [
-    ...Object.keys(candidate2.changes).map((field) => `field:${field}`),
-    ...(candidate2.recordFactIndexes ?? candidate2.facts.map((_, i) => i)).map((i) => `fact:${i}`)
-  ];
-}
-function partitionParts(all, input2) {
-  const selected = new Set(input2.parts);
-  if (!selected.size || selected.size !== input2.parts.length || input2.parts.some((part) => !all.includes(part))) {
-    throw new PolicyError("Select distinct parts from this proposal. Refresh if it changed.");
-  }
-  return {
-    accepted: input2.decision === "accept" ? input2.parts : [],
-    rejected: input2.decision === "reject" ? input2.parts : [],
-    remaining: all.filter((part) => !selected.has(part))
-  };
-}
-function pickChanges(changes, parts) {
-  return Object.fromEntries(Object.entries(changes).filter(([field]) => parts.includes(`field:${field}`)));
-}
-function extractionRefMap(extraction, parts, proposalId) {
-  let index = 0;
-  return new Map(extraction.facts.map((_, i) => [`fact:${i}`, parts.includes(`fact:${i}`) ? `fact:${index++}` : `review:${proposalId}:fact:${i}`]));
-}
-function pickExtraction(extraction, parts, proposalId) {
-  const refs2 = extractionRefMap(extraction, parts, proposalId);
-  const remap = (values) => values.map((ref) => refs2.get(ref) ?? ref);
-  const changes = Object.fromEntries(Object.entries(pickChanges(extraction.changes ?? {}, parts)).map(([field, change]) => [field, { ...change, evidenceRefs: remap(change.evidenceRefs) }]));
-  return {
-    ...extraction,
-    changes: Object.keys(changes).length ? changes : null,
-    facts: extraction.facts.filter((_, i) => parts.includes(`fact:${i}`)),
-    knowledge: extraction.knowledge.filter((_, i) => parts.includes(`knowledge:${i}`)).map((entry) => ({ ...entry, evidenceRefs: remap(entry.evidenceRefs) }))
-  };
-}
-function receiptDraft(changes, dossier, evidence2) {
-  if (Object.keys(changes).length) return { changes, evidence: evidence2 };
-  const ref = "partial-review:unchanged-summary";
-  return {
-    changes: { summary: { value: dossier.projection.summary, evidenceRefs: [ref] } },
-    evidence: [...evidence2.filter((e) => e.ref !== ref), {
-      ref,
-      kind: "description",
-      text: dossier.projection.summary ?? "Keep the accepted summary unchanged.",
-      source: "accepted-projection",
-      sourceRef: null
-    }]
-  };
-}
-
-// day-schema.ts
-var DAY_SCHEMA = [
-  `CREATE TABLE day_items (id TEXT PRIMARY KEY, date TEXT NOT NULL, reported_date TEXT NOT NULL, task_id TEXT REFERENCES tasks(id), calendar_key TEXT UNIQUE, value_json TEXT NOT NULL)`,
-  `CREATE UNIQUE INDEX day_task_unique ON day_items(date,task_id) WHERE task_id IS NOT NULL`,
-  `CREATE INDEX day_items_date ON day_items(date,reported_date)`,
-  `CREATE TABLE day_configs (date TEXT PRIMARY KEY, value_json TEXT NOT NULL)`,
-  `CREATE TABLE day_item_events (sequence INTEGER PRIMARY KEY AUTOINCREMENT, item_id TEXT NOT NULL REFERENCES day_items(id), at TEXT NOT NULL, actor TEXT NOT NULL, action TEXT NOT NULL, before_json TEXT, after_json TEXT NOT NULL)`,
-  `CREATE INDEX day_item_history ON day_item_events(item_id,sequence)`,
-  `CREATE TABLE day_config_events (sequence INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, at TEXT NOT NULL, actor TEXT NOT NULL, before_json TEXT NOT NULL, after_json TEXT NOT NULL)`,
-  `CREATE TABLE calendar_sync_state (id INTEGER PRIMARY KEY CHECK(id=1), value_json TEXT NOT NULL)`
-];
-
-// agent-time-schema.ts
-var AGENT_TIME_SCHEMA = [
-  `CREATE TABLE agent_time_state (id INTEGER PRIMARY KEY CHECK(id=1), value_json TEXT NOT NULL)`,
-  `CREATE TABLE agent_time_threads (thread_id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES tasks(id), after_seq INTEGER NOT NULL DEFAULT 0)`,
-  `CREATE TABLE agent_time_events (thread_id TEXT NOT NULL REFERENCES agent_time_threads(thread_id), seq INTEGER NOT NULL, value_json TEXT NOT NULL, PRIMARY KEY(thread_id,seq))`
-];
-
-// task-sources.ts
-function sourceUrl(value) {
-  if (!value || value.length > 4096 || /[\u0000-\u001f\u007f]/.test(value)) return null;
-  try {
-    const url2 = new URL(value);
-    return ["https:", "http:"].includes(url2.protocol) && !url2.username && !url2.password && url2.href.length <= 4096 ? url2 : null;
-  } catch {
-    return null;
-  }
-}
-function clickUpTaskId(url2) {
-  const host = url2.hostname.toLowerCase();
-  if (host !== "clickup.com" && !host.endsWith(".clickup.com")) return null;
-  return url2.pathname.match(/^\/t\/(?:[0-9]+\/)?([A-Za-z0-9_-]+)\/?$/)?.[1] ?? null;
-}
-function legacyClickUpUrls(title, text2) {
-  if (!text2.startsWith("\u0418\u0441\u0442\u043E\u0447\u043D\u0438\u043A: Legacy (Windows). \u0418\u043C\u043F\u043E\u0440\u0442 \u043F\u043E \u0437\u0430\u043F\u0440\u043E\u0441\u0443 \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F.\n") || !/^Исходный ID: [0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/im.test(text2)) return [];
-  const extract = (value) => [...value.matchAll(/https?:\/\/[^\s<>"'()[\]{}\\`]+/g)].map((match) => sourceUrl(match[0].replace(/[.,;:!?»]+$/, ""))).filter((url2) => !!url2 && !!clickUpTaskId(url2));
-  const urls = [];
-  const primary = text2.match(/(?:^|\n)[^\n]*\(clickup_url\)\r?\n([^\r\n]+)/)?.[1];
-  if (primary) urls.push(...extract(primary));
-  const links = text2.match(/(?:^|\n)[^\n]*\(links\)\r?\n(\[[\s\S]*?\n\])/);
-  if (links) {
-    try {
-      const values = JSON.parse(links[1]);
-      if (Array.isArray(values)) for (const value of values) {
-        if (typeof value === "string") urls.push(...extract(value));
-      }
-    } catch {
-    }
-  }
-  const titleWords = new Set(title.toLowerCase().split(/[^a-z0-9_-]+/));
-  for (const url2 of extract(text2)) {
-    if (titleWords.has(clickUpTaskId(url2).toLowerCase())) urls.push(url2);
-  }
-  return urls.map((url2) => url2.href);
-}
-function sourceLabel(url2, hint) {
-  const host = url2.hostname.toLowerCase();
-  if (host === "mail.google.com") return "Gmail message";
-  if (host === "slack.com" || host.endsWith(".slack.com")) return "Slack message";
-  const clickUp = clickUpTaskId(url2);
-  if (clickUp) return `ClickUp \xB7 ${clickUp}`;
-  const issue2 = url2.pathname.match(/\/browse\/([A-Z][A-Z0-9_]*-\d+)(?:\/|$)/i)?.[1];
-  if (issue2) return `Jira \xB7 ${issue2.toUpperCase()}`;
-  if (host === "teams.microsoft.com") return "Teams message";
-  if (["outlook.office.com", "outlook.office365.com", "outlook.live.com"].includes(host)) return "Outlook message";
-  if (hint === "clickup") return "ClickUp document";
-  if (hint === "jira") return "Jira issue";
-  return host;
-}
-function taskSourceLinks(dossier, candidates) {
-  const links = /* @__PURE__ */ new Map();
-  const add = (value, occurredAt, acceptedAt, origin = false, hint) => {
-    const url2 = sourceUrl(value);
-    if (!url2) return;
-    const existing = links.get(url2.href);
-    const validDate = occurredAt && Number.isFinite(Date.parse(occurredAt)) ? occurredAt : null;
-    if (existing) {
-      existing.origin ||= origin;
-      if (acceptedAt < existing.acceptedAt) existing.acceptedAt = acceptedAt;
-      existing.occurredAt ??= validDate;
-      return;
-    }
-    links.set(url2.href, { url: url2.href, label: sourceLabel(url2, hint), occurredAt: validDate, origin, acceptedAt });
-  };
-  for (const candidate2 of candidates) {
-    if (candidate2.status !== "applied" || candidate2.resultTaskId !== dossier.task.id) continue;
-    const records = new Set(candidate2.recordFactIndexes ?? candidate2.facts.map((_, i) => i));
-    const refs2 = new Set(Object.values(candidate2.changes).flatMap((change) => change?.evidenceRefs ?? []));
-    candidate2.facts.forEach((fact, index) => {
-      if (!records.has(index) && !refs2.has(`fact:${index}`)) return;
-      for (const citation of fact.citations) add(
-        citation.url,
-        citation.occurredAt,
-        candidate2.resolvedAt ?? candidate2.createdAt,
-        candidate2.taskId === null,
-        citation.source
-      );
-    });
-  }
-  for (const fact of dossier.facts) {
-    add(fact.sourceRef, fact.occurredAt, fact.createdAt);
-    if (fact.kind === "description") for (const url2 of legacyClickUpUrls(dossier.task.title, fact.text)) {
-      add(url2, fact.occurredAt, fact.createdAt, true);
-    }
-  }
-  for (const proposal of dossier.proposals) {
-    if (proposal.status !== "applied" || !proposal.receipt) continue;
-    const refs2 = new Set(Object.values(proposal.changes).flatMap((change) => change?.evidenceRefs ?? []));
-    for (const evidence2 of proposal.evidence) if (refs2.has(evidence2.ref)) {
-      add(evidence2.sourceRef, null, proposal.receipt.createdAt);
-    }
-  }
-  return [...links.values()].sort((a, b) => Number(b.origin) - Number(a.origin) || a.acceptedAt.localeCompare(b.acceptedAt)).map(({ acceptedAt: _, ...link }) => link);
-}
-
-// node_modules/zod/v4/classic/external.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/classic/external.js
 var external_exports = {};
 __export(external_exports, {
   $brand: () => $brand,
@@ -8243,7 +7502,7 @@ __export(external_exports, {
   nullable: () => nullable,
   nullish: () => nullish2,
   number: () => number2,
-  object: () => object2,
+  object: () => object,
   optional: () => optional,
   output: () => output,
   overwrite: () => _overwrite,
@@ -8311,7 +7570,7 @@ __export(external_exports, {
   xor: () => xor
 });
 
-// node_modules/zod/v4/core/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/index.js
 var core_exports2 = {};
 __export(core_exports2, {
   $ZodAny: () => $ZodAny,
@@ -8618,7 +7877,7 @@ __export(core_exports2, {
   version: () => version
 });
 
-// node_modules/zod/v4/core/util.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/util.js
 var util_exports = {};
 __export(util_exports, {
   BIGINT_FORMAT_RANGES: () => BIGINT_FORMAT_RANGES,
@@ -9455,7 +8714,7 @@ function constantCatch(value) {
   return fn;
 }
 
-// node_modules/zod/v4/core/core.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/core.js
 var _a;
 var NEVER = /* @__PURE__ */ Object.freeze({
   status: "aborted"
@@ -9578,7 +8837,7 @@ function config(newConfig) {
   return globalConfig;
 }
 
-// node_modules/zod/v4/core/errors.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/errors.js
 function _getMessage() {
   const internals = this._zod;
   internals.message ?? (internals.message = JSON.stringify(internals.def, jsonStringifyReplacer, 2));
@@ -9774,7 +9033,7 @@ function prettifyError(error61) {
   return lines.join("\n");
 }
 
-// node_modules/zod/v4/core/parse.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/parse.js
 function finalizeParams(callee, params) {
   return { callee: params?.callee ?? callee, Err: params?.Err };
 }
@@ -9917,7 +9176,7 @@ var _safeDecodeAsync = (_Err) => async (schema, value, _ctx) => {
 };
 var safeDecodeAsync = /* @__PURE__ */ _safeDecodeAsync($ZodRealError);
 
-// node_modules/zod/v4/core/regexes.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/regexes.js
 var regexes_exports = {};
 __export(regexes_exports, {
   base64: () => base64,
@@ -10083,7 +9342,7 @@ var sha512_hex = /^[0-9a-fA-F]{128}$/;
 var sha512_base64 = /* @__PURE__ */ fixedBase64(86, "==");
 var sha512_base64url = /* @__PURE__ */ fixedBase64url(86);
 
-// node_modules/zod/v4/core/checks.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/checks.js
 var $ZodCheck = /* @__PURE__ */ $constructor("$ZodCheck", (inst, def) => {
   var _a3;
   inst._zod ?? (inst._zod = {});
@@ -10627,7 +9886,7 @@ var $ZodCheckOverwrite = /* @__PURE__ */ $constructor("$ZodCheckOverwrite", (ins
   };
 });
 
-// node_modules/zod/v4/core/doc.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/doc.js
 var Doc = class {
   constructor(args = [], closed = {}) {
     this.content = [];
@@ -10664,14 +9923,14 @@ ${content.join("\n")}
   }
 };
 
-// node_modules/zod/v4/core/versions.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/versions.js
 var version = {
   major: 4,
   minor: 5,
   patch: 4
 };
 
-// node_modules/zod/v4/core/schemas.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/schemas.js
 var $ZodType = /* @__PURE__ */ $constructor("$ZodType", (inst, def) => {
   var _a3;
   inst ?? (inst = {});
@@ -11594,9 +10853,9 @@ var $ZodObjectJIT = /* @__PURE__ */ $constructor("$ZodObjectJIT", (inst, def) =>
     const syms = normalized.symbolKeys;
     const doc = new Doc(["payload", "ctx"], { shape, inst, memo: memo2, syms });
     const parseStr = (k) => `shape[${k}]._zod.run({ value: input[${k}], issues: [] }, ctx)`;
-    const prefixStr = (id3, k) => `
-          for (let i = 0; i < ${id3}.issues.length; i++) {
-            const iss = ${id3}.issues[i];
+    const prefixStr = (id2, k) => `
+          for (let i = 0; i < ${id2}.issues.length; i++) {
+            const iss = ${id2}.issues[i];
             iss.path = iss.path ? [${k}, ...iss.path] : [${k}];
             payload.issues.push(iss);
           }`;
@@ -11610,34 +10869,34 @@ var $ZodObjectJIT = /* @__PURE__ */ $constructor("$ZodObjectJIT", (inst, def) =>
     for (const key of normalized.allKeys) {
       if (key === "__proto__")
         continue;
-      const id3 = ids[key];
+      const id2 = ids[key];
       const k = typeof key === "symbol" ? `syms[${syms.indexOf(key)}]` : esc(key);
       const isPresent = `${k} in input`;
       const schema = shape[key];
       const optin = schema?._zod?.optin;
       const isOptionalIn = optin !== void 0;
       const isOptionalOut = schema?._zod?.optout === "optional";
-      doc.write(`const ${id3} = ${parseStr(k)};`);
+      doc.write(`const ${id2} = ${parseStr(k)};`);
       if (isOptionalIn && isOptionalOut) {
-        const assign = optin === "optional" ? `${id3}_present` : `${id3}.value !== undefined || ${id3}_present`;
+        const assign = optin === "optional" ? `${id2}_present` : `${id2}.value !== undefined || ${id2}_present`;
         doc.write(`
-        const ${id3}_present = ${isPresent};
-        if (!${id3}.issues.length || ${id3}_present) {
-          if (${id3}.issues.length) {${prefixStr(id3, k)}
+        const ${id2}_present = ${isPresent};
+        if (!${id2}.issues.length || ${id2}_present) {
+          if (${id2}.issues.length) {${prefixStr(id2, k)}
           }
 
           if (${assign}) {
-            newResult[${k}] = ${id3}.value;
+            newResult[${k}] = ${id2}.value;
           }
         }
 
       `);
       } else if (!isOptionalIn) {
         doc.write(`
-        const ${id3}_present = ${isPresent};
-        if (${id3}.issues.length) {${prefixStr(id3, k)}
+        const ${id2}_present = ${isPresent};
+        if (${id2}.issues.length) {${prefixStr(id2, k)}
         }
-        if (!${id3}_present && !${id3}.issues.length) {
+        if (!${id2}_present && !${id2}.issues.length) {
           payload.issues.push({
             code: "invalid_type",
             expected: "nonoptional",
@@ -11646,22 +10905,22 @@ var $ZodObjectJIT = /* @__PURE__ */ $constructor("$ZodObjectJIT", (inst, def) =>
           });
         }
 
-        if (${id3}_present) {
-          newResult[${k}] = ${id3}.value;
+        if (${id2}_present) {
+          newResult[${k}] = ${id2}.value;
         }
 
       `);
       } else {
         doc.write(`
-        if (${id3}.issues.length) {${prefixStr(id3, k)}
+        if (${id2}.issues.length) {${prefixStr(id2, k)}
         }
         
-        if (${id3}.value === undefined) {
+        if (${id2}.value === undefined) {
           if (${isPresent}) {
             newResult[${k}] = undefined;
           }
         } else {
-          newResult[${k}] = ${id3}.value;
+          newResult[${k}] = ${id2}.value;
         }
 
       `);
@@ -12935,7 +12194,7 @@ function handleRefineResult(result, payload, input2, inst) {
   }
 }
 
-// node_modules/zod/v4/core/memoizer.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/memoizer.js
 var $ZodCyclicError = class extends Error {
   constructor() {
     super(`Cannot parse a reference cycle that closes through a transform`);
@@ -13176,7 +12435,7 @@ function isBackEdge(ctx, value) {
   return backEdges !== void 0 && value !== null && typeof value === "object" && backEdges.has(value);
 }
 
-// node_modules/zod/v4/locales/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/index.js
 var locales_exports = {};
 __export(locales_exports, {
   ar: () => ar_default,
@@ -13243,7 +12502,7 @@ __export(locales_exports, {
   zhTW: () => zh_TW_default
 });
 
-// node_modules/zod/v4/locales/ar.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/ar.js
 var error = () => {
   const Sizable = {
     string: { unit: "\u062D\u0631\u0641", verb: "\u0623\u0646 \u064A\u062D\u0648\u064A" },
@@ -13353,7 +12612,7 @@ function ar_default() {
   };
 }
 
-// node_modules/zod/v4/locales/az.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/az.js
 var error2 = () => {
   const Sizable = {
     string: { unit: "simvol", verb: "olmal\u0131d\u0131r" },
@@ -13462,7 +12721,7 @@ function az_default() {
   };
 }
 
-// node_modules/zod/v4/locales/be.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/be.js
 function getBelarusianPlural(count, one, few, many) {
   const absCount = Math.abs(count);
   const lastDigit = absCount % 10;
@@ -13629,7 +12888,7 @@ function be_default() {
   };
 }
 
-// node_modules/zod/v4/locales/bg.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/bg.js
 var error4 = () => {
   const Sizable = {
     string: { unit: "\u0441\u0438\u043C\u0432\u043E\u043B\u0430", verb: "\u0434\u0430 \u0441\u044A\u0434\u044A\u0440\u0436\u0430" },
@@ -13753,7 +13012,7 @@ function bg_default() {
   };
 }
 
-// node_modules/zod/v4/locales/bn.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/bn.js
 var error5 = () => {
   const Sizable = {
     string: { unit: "\u0985\u0995\u09CD\u09B7\u09B0", verb: "\u09A5\u09BE\u0995\u09A4\u09C7 \u09B9\u09AC\u09C7" },
@@ -13865,7 +13124,7 @@ function bn_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ca.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/ca.js
 var error6 = () => {
   const Sizable = {
     string: { unit: "car\xE0cters", verb: "contenir" },
@@ -13977,7 +13236,7 @@ function ca_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ckb.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/ckb.js
 var error7 = () => {
   const Sizable = {
     string: { unit: "\u067E\u06CC\u062A", verb: "\u0628\u06CE\u062A" },
@@ -14108,7 +13367,7 @@ function ckb_default() {
   };
 }
 
-// node_modules/zod/v4/locales/cs.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/cs.js
 var error8 = () => {
   const Sizable = {
     string: { unit: "znak\u016F", verb: "m\xEDt" },
@@ -14223,7 +13482,7 @@ function cs_default() {
   };
 }
 
-// node_modules/zod/v4/locales/da.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/da.js
 var error9 = () => {
   const Sizable = {
     string: { unit: "tegn", verb: "havde" },
@@ -14342,7 +13601,7 @@ function da_default() {
   };
 }
 
-// node_modules/zod/v4/locales/de.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/de.js
 var error10 = () => {
   const Sizable = {
     string: { unit: "Zeichen", verb: "zu haben" },
@@ -14454,7 +13713,7 @@ function de_default() {
   };
 }
 
-// node_modules/zod/v4/locales/el.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/el.js
 var error11 = () => {
   const Sizable = {
     string: { unit: "\u03C7\u03B1\u03C1\u03B1\u03BA\u03C4\u03AE\u03C1\u03B5\u03C2", verb: "\u03BD\u03B1 \u03AD\u03C7\u03B5\u03B9" },
@@ -14565,7 +13824,7 @@ function el_default() {
   };
 }
 
-// node_modules/zod/v4/locales/en.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/en.js
 var error12 = () => {
   const Sizable = {
     string: { unit: "characters", verb: "to have" },
@@ -14688,7 +13947,7 @@ function en_default() {
   };
 }
 
-// node_modules/zod/v4/locales/eo.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/eo.js
 var error13 = () => {
   const Sizable = {
     string: { unit: "karaktrojn", verb: "havi" },
@@ -14801,7 +14060,7 @@ function eo_default() {
   };
 }
 
-// node_modules/zod/v4/locales/es.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/es.js
 var error14 = () => {
   const Sizable = {
     string: { unit: "caracteres", verb: "tener" },
@@ -14936,7 +14195,7 @@ function es_default() {
   };
 }
 
-// node_modules/zod/v4/locales/fa.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/fa.js
 var error15 = () => {
   const Sizable = {
     string: { unit: "\u06A9\u0627\u0631\u0627\u06A9\u062A\u0631", verb: "\u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F" },
@@ -15054,7 +14313,7 @@ function fa_default() {
   };
 }
 
-// node_modules/zod/v4/locales/fi.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/fi.js
 var error16 = () => {
   const Sizable = {
     string: { unit: "merkki\xE4", subject: "merkkijonon" },
@@ -15170,7 +14429,7 @@ function fi_default() {
   };
 }
 
-// node_modules/zod/v4/locales/fr.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/fr.js
 var error17 = () => {
   const Sizable = {
     string: { unit: "caract\xE8res", verb: "avoir" },
@@ -15298,7 +14557,7 @@ function fr_default() {
   };
 }
 
-// node_modules/zod/v4/locales/fr-CA.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/fr-CA.js
 var error18 = () => {
   const Sizable = {
     string: { unit: "caract\xE8res", verb: "avoir" },
@@ -15409,7 +14668,7 @@ function fr_CA_default() {
   };
 }
 
-// node_modules/zod/v4/locales/gu.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/gu.js
 var error19 = () => {
   const Sizable = {
     string: { unit: "\u0A85\u0A95\u0ACD\u0AB7\u0AB0", verb: "\u0AB9\u0ACB\u0AB5\u0ABE \u0A9C\u0ACB\u0A88\u0A8F" },
@@ -15521,7 +14780,7 @@ function gu_default() {
   };
 }
 
-// node_modules/zod/v4/locales/he.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/he.js
 var error20 = () => {
   const TypeNames = {
     string: { label: "\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA", gender: "f" },
@@ -15721,7 +14980,7 @@ function he_default() {
   };
 }
 
-// node_modules/zod/v4/locales/hi.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/hi.js
 var error21 = () => {
   const Sizable = {
     string: { unit: "\u0905\u0915\u094D\u0937\u0930", verb: "\u0930\u0916\u0928\u0947 \u0915\u0947 \u0932\u093F\u090F" },
@@ -15831,7 +15090,7 @@ function hi_default() {
   };
 }
 
-// node_modules/zod/v4/locales/hr.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/hr.js
 var error22 = () => {
   const Sizable = {
     string: { unit: "znakova", verb: "imati" },
@@ -15956,7 +15215,7 @@ function hr_default() {
   };
 }
 
-// node_modules/zod/v4/locales/hu.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/hu.js
 var error23 = () => {
   const Sizable = {
     string: { unit: "karakter", verb: "legyen" },
@@ -16068,7 +15327,7 @@ function hu_default() {
   };
 }
 
-// node_modules/zod/v4/locales/hy.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/hy.js
 function getArmenianPlural(count, one, many) {
   return Math.abs(count) === 1 ? one : many;
 }
@@ -16225,7 +15484,7 @@ function hy_default() {
   };
 }
 
-// node_modules/zod/v4/locales/id.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/id.js
 var error25 = () => {
   const Sizable = {
     string: { unit: "karakter", verb: "memiliki" },
@@ -16335,7 +15594,7 @@ function id_default() {
   };
 }
 
-// node_modules/zod/v4/locales/is.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/is.js
 var error26 = () => {
   const Sizable = {
     string: { unit: "stafi", verb: "a\xF0 hafa" },
@@ -16448,7 +15707,7 @@ function is_default() {
   };
 }
 
-// node_modules/zod/v4/locales/it.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/it.js
 var error27 = () => {
   const Sizable = {
     string: { unit: "caratteri", verb: "avere" },
@@ -16560,7 +15819,7 @@ function it_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ja.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/ja.js
 var error28 = () => {
   const Sizable = {
     string: { unit: "\u6587\u5B57", verb: "\u3067\u3042\u308B" },
@@ -16671,7 +15930,7 @@ function ja_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ka.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/ka.js
 var error29 = () => {
   const Sizable = {
     string: { unit: "\u10E1\u10D8\u10DB\u10D1\u10DD\u10DA\u10DD", verb: "\u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D8\u10EA\u10D0\u10D5\u10D3\u10D4\u10E1" },
@@ -16787,7 +16046,7 @@ function ka_default() {
   };
 }
 
-// node_modules/zod/v4/locales/km.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/km.js
 var error30 = () => {
   const Sizable = {
     string: { unit: "\u178F\u17BD\u17A2\u1780\u17D2\u179F\u179A", verb: "\u1782\u17BD\u179A\u1798\u17B6\u1793" },
@@ -16901,12 +16160,12 @@ function km_default() {
   };
 }
 
-// node_modules/zod/v4/locales/kh.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/kh.js
 function kh_default() {
   return km_default();
 }
 
-// node_modules/zod/v4/locales/kn.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/kn.js
 var error31 = () => {
   const Sizable = {
     string: { unit: "\u0C85\u0C95\u0CCD\u0CB7\u0CB0\u0C97\u0CB3\u0CC1", verb: "\u0CB9\u0CCA\u0C82\u0CA6\u0CB2\u0CC1" },
@@ -17020,7 +16279,7 @@ function kn_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ko.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/ko.js
 var error32 = () => {
   const Sizable = {
     string: { unit: "\uBB38\uC790", verb: "to have" },
@@ -17135,7 +16394,7 @@ function ko_default() {
   };
 }
 
-// node_modules/zod/v4/locales/lt.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/lt.js
 var capitalizeFirstCharacter = (text2) => {
   return text2.charAt(0).toUpperCase() + text2.slice(1);
 };
@@ -17341,7 +16600,7 @@ function lt_default() {
   };
 }
 
-// node_modules/zod/v4/locales/mk.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/mk.js
 var error34 = () => {
   const Sizable = {
     string: { unit: "\u0437\u043D\u0430\u0446\u0438", verb: "\u0434\u0430 \u0438\u043C\u0430\u0430\u0442" },
@@ -17454,7 +16713,7 @@ function mk_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ms.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/ms.js
 var error35 = () => {
   const Sizable = {
     string: { unit: "aksara", verb: "mempunyai" },
@@ -17565,7 +16824,7 @@ function ms_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ne.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/ne.js
 var error36 = () => {
   const Sizable = {
     string: { unit: "\u0905\u0915\u094D\u0937\u0930", verb: "\u0939\u0941\u0928\u0941\u092A\u0930\u094D\u091B" },
@@ -17675,7 +16934,7 @@ function ne_default() {
   };
 }
 
-// node_modules/zod/v4/locales/nl.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/nl.js
 var error37 = () => {
   const Sizable = {
     string: { unit: "tekens", verb: "heeft" },
@@ -17789,7 +17048,7 @@ function nl_default() {
   };
 }
 
-// node_modules/zod/v4/locales/nn.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/nn.js
 var error38 = () => {
   const Sizable = {
     string: { unit: "teikn", verb: "\xE5 ha" },
@@ -17901,7 +17160,7 @@ function nn_default() {
   };
 }
 
-// node_modules/zod/v4/locales/no.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/no.js
 var error39 = () => {
   const Sizable = {
     string: { unit: "tegn", verb: "\xE5 ha" },
@@ -18013,7 +17272,7 @@ function no_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ota.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/ota.js
 var error40 = () => {
   const Sizable = {
     string: { unit: "harf", verb: "olmal\u0131d\u0131r" },
@@ -18126,7 +17385,7 @@ function ota_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ps.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/ps.js
 var error41 = () => {
   const Sizable = {
     string: { unit: "\u062A\u0648\u06A9\u064A", verb: "\u0648\u0644\u0631\u064A" },
@@ -18244,7 +17503,7 @@ function ps_default() {
   };
 }
 
-// node_modules/zod/v4/locales/pl.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/pl.js
 var error42 = () => {
   const Sizable = {
     string: { unit: "znak\xF3w", verb: "mie\u0107" },
@@ -18357,7 +17616,7 @@ function pl_default() {
   };
 }
 
-// node_modules/zod/v4/locales/pt.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/pt.js
 var error43 = () => {
   const Sizable = {
     string: { unit: "caracteres" },
@@ -18499,7 +17758,7 @@ function pt_default() {
   };
 }
 
-// node_modules/zod/v4/locales/pt-BR.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/pt-BR.js
 var error44 = () => {
   const Sizable = {
     string: { unit: "caracteres" },
@@ -18642,7 +17901,7 @@ function pt_BR_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ro.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/ro.js
 var error45 = () => {
   const Sizable = {
     string: { unit: "caractere", verb: "s\u0103 aib\u0103" },
@@ -18763,7 +18022,7 @@ function ro_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ru.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/ru.js
 function getRussianPlural(count, one, few, many) {
   const absCount = Math.abs(count);
   const lastDigit = absCount % 10;
@@ -18930,7 +18189,7 @@ function ru_default() {
   };
 }
 
-// node_modules/zod/v4/locales/sk.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/sk.js
 var error47 = () => {
   const Sizable = {
     string: { unit: "znakov", verb: "ma\u0165" },
@@ -19045,7 +18304,7 @@ function sk_default() {
   };
 }
 
-// node_modules/zod/v4/locales/sl.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/sl.js
 var error48 = () => {
   const Sizable = {
     string: { unit: "znakov", verb: "imeti" },
@@ -19158,7 +18417,7 @@ function sl_default() {
   };
 }
 
-// node_modules/zod/v4/locales/sv.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/sv.js
 var error49 = () => {
   const Sizable = {
     string: { unit: "tecken", verb: "att ha" },
@@ -19272,7 +18531,7 @@ function sv_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ta.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/ta.js
 var error50 = () => {
   const Sizable = {
     string: { unit: "\u0B8E\u0BB4\u0BC1\u0BA4\u0BCD\u0BA4\u0BC1\u0B95\u0BCD\u0B95\u0BB3\u0BCD", verb: "\u0B95\u0BCA\u0BA3\u0BCD\u0B9F\u0BBF\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD" },
@@ -19386,7 +18645,7 @@ function ta_default() {
   };
 }
 
-// node_modules/zod/v4/locales/th.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/th.js
 var error51 = () => {
   const Sizable = {
     string: { unit: "\u0E15\u0E31\u0E27\u0E2D\u0E31\u0E01\u0E29\u0E23", verb: "\u0E04\u0E27\u0E23\u0E21\u0E35" },
@@ -19500,7 +18759,7 @@ function th_default() {
   };
 }
 
-// node_modules/zod/v4/locales/tk.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/tk.js
 var error52 = () => {
   const Sizable = {
     string: { unit: "simwol", verb: "bolmaly" },
@@ -19606,7 +18865,7 @@ function tk_default() {
   };
 }
 
-// node_modules/zod/v4/locales/tr.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/tr.js
 var error53 = () => {
   const Sizable = {
     string: { unit: "karakter", verb: "olmal\u0131" },
@@ -19715,7 +18974,7 @@ function tr_default() {
   };
 }
 
-// node_modules/zod/v4/locales/uk.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/uk.js
 var error54 = () => {
   const Sizable = {
     string: { unit: "\u0441\u0438\u043C\u0432\u043E\u043B\u0456\u0432", verb: "\u043C\u0430\u0442\u0438\u043C\u0435" },
@@ -19827,12 +19086,12 @@ function uk_default() {
   };
 }
 
-// node_modules/zod/v4/locales/ua.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/ua.js
 function ua_default() {
   return uk_default();
 }
 
-// node_modules/zod/v4/locales/ur.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/ur.js
 var error55 = () => {
   const Sizable = {
     string: { unit: "\u062D\u0631\u0648\u0641", verb: "\u06C1\u0648\u0646\u0627" },
@@ -19946,7 +19205,7 @@ function ur_default() {
   };
 }
 
-// node_modules/zod/v4/locales/uz.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/uz.js
 var error56 = () => {
   const Sizable = {
     string: { unit: "belgi", verb: "bo\u2018lishi kerak" },
@@ -20058,7 +19317,7 @@ function uz_default() {
   };
 }
 
-// node_modules/zod/v4/locales/vi.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/vi.js
 var error57 = () => {
   const Sizable = {
     string: { unit: "k\xFD t\u1EF1", verb: "c\xF3" },
@@ -20170,7 +19429,7 @@ function vi_default() {
   };
 }
 
-// node_modules/zod/v4/locales/zh-CN.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/zh-CN.js
 var error58 = () => {
   const Sizable = {
     string: { unit: "\u5B57\u7B26", verb: "\u5305\u542B" },
@@ -20283,7 +19542,7 @@ function zh_CN_default() {
   };
 }
 
-// node_modules/zod/v4/locales/zh-TW.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/zh-TW.js
 var error59 = () => {
   const Sizable = {
     string: { unit: "\u5B57\u5143", verb: "\u64C1\u6709" },
@@ -20394,7 +19653,7 @@ function zh_TW_default() {
   };
 }
 
-// node_modules/zod/v4/locales/yo.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/locales/yo.js
 var error60 = () => {
   const Sizable = {
     string: { unit: "\xE0mi", verb: "n\xED" },
@@ -20505,7 +19764,7 @@ function yo_default() {
   };
 }
 
-// node_modules/zod/v4/core/registries.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/registries.js
 var _a2;
 var $output = /* @__PURE__ */ Symbol("ZodOutput");
 var $input = /* @__PURE__ */ Symbol("ZodInput");
@@ -20555,7 +19814,7 @@ function registry() {
 (_a2 = globalThis).__zod_globalRegistry ?? (_a2.__zod_globalRegistry = registry());
 var globalRegistry = globalThis.__zod_globalRegistry;
 
-// node_modules/zod/v4/core/compile.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/compile.js
 var INVALID = /* @__PURE__ */ Symbol.for("zod.compile.invalid");
 var FALLBACK_FLAG = /* @__PURE__ */ Symbol.for("zod.compile.fallback");
 var ZodCompileAsyncError = class extends Error {
@@ -22098,7 +21357,7 @@ function generateTransformCheck(doc, ctx, schema, accessor) {
   return accessor;
 }
 
-// node_modules/zod/v4/core/api.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/api.js
 // @__NO_SIDE_EFFECTS__
 function _string(Class2, params) {
   return new Class2({
@@ -23154,7 +22413,7 @@ function _stringFormat(Class2, format, fnOrRegex, _params = {}) {
   return inst;
 }
 
-// node_modules/zod/v4/core/to-json-schema.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/to-json-schema.js
 function assignProps(target, ...sources) {
   for (const source of sources) {
     for (const key of Reflect.ownKeys(source)) {
@@ -23266,26 +22525,26 @@ function extractDefs(ctx, schema) {
     return;
   const idToSchema = /* @__PURE__ */ new Map();
   for (const entry of ctx.seen.entries()) {
-    const id3 = ctx.metadataRegistry.get(entry[0])?.id;
-    if (id3) {
-      const existing = idToSchema.get(id3);
+    const id2 = ctx.metadataRegistry.get(entry[0])?.id;
+    if (id2) {
+      const existing = idToSchema.get(id2);
       if (existing && existing !== entry[0]) {
-        throw new Error(`Duplicate schema id "${id3}" detected during JSON Schema conversion. Two different schemas cannot share the same id when converted together.`);
+        throw new Error(`Duplicate schema id "${id2}" detected during JSON Schema conversion. Two different schemas cannot share the same id when converted together.`);
       }
-      idToSchema.set(id3, entry[0]);
+      idToSchema.set(id2, entry[0]);
     }
   }
   const makeURI = (entry) => {
     const defsSegment = ctx.target === "draft-2020-12" ? "$defs" : "definitions";
     if (ctx.external) {
       const externalId = ctx.external.registry.get(entry[0])?.id;
-      const uriGenerator = ctx.external.uri ?? ((id4) => id4);
+      const uriGenerator = ctx.external.uri ?? ((id3) => id3);
       if (externalId) {
         return { ref: uriGenerator(externalId) };
       }
-      const id3 = entry[1].defId ?? entry[1].schema.id ?? `schema${ctx.counter++}`;
-      entry[1].defId = id3;
-      return { defId: id3, ref: `${uriGenerator("__shared")}#/${defsSegment}/${encodeJSONPointerSegment(id3)}` };
+      const id2 = entry[1].defId ?? entry[1].schema.id ?? `schema${ctx.counter++}`;
+      entry[1].defId = id2;
+      return { defId: id2, ref: `${uriGenerator("__shared")}#/${defsSegment}/${encodeJSONPointerSegment(id2)}` };
     }
     const uriPrefix = `#`;
     const defUriPrefix = `${uriPrefix}/${defsSegment}/`;
@@ -23333,8 +22592,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         continue;
       }
     }
-    const id3 = ctx.metadataRegistry.get(entry[0])?.id;
-    if (id3) {
+    const id2 = ctx.metadataRegistry.get(entry[0])?.id;
+    if (id2) {
       extractToDef(entry);
       continue;
     }
@@ -23568,10 +22827,10 @@ function finalize(ctx, schema) {
   } else {
   }
   if (ctx.external?.uri) {
-    const id3 = ctx.external.registry.get(schema)?.id;
-    if (!id3)
+    const id2 = ctx.external.registry.get(schema)?.id;
+    if (!id2)
       throw new Error("Schema is missing an `id` property");
-    result.$id = ctx.external.uri(id3);
+    result.$id = ctx.external.uri(id2);
   }
   assignProps(result, root.defId ? root.schema : root.def ?? root.schema);
   const rootMetaId = ctx.metadataRegistry.get(schema)?.id;
@@ -23685,7 +22944,7 @@ var createStandardJSONSchemaMethod = (schema, io, processors = {}) => (params) =
   return finalize(ctx, schema);
 };
 
-// node_modules/zod/v4/core/json-schema-processors.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/json-schema-processors.js
 var formatMap = {
   guid: "uuid",
   url: "uri",
@@ -24086,7 +23345,7 @@ function stringifyKeyNames(bySchema, json2, visited) {
   const values = json2.enum ?? (json2.const !== void 0 ? [json2.const] : void 0);
   if (!numericType && !values?.some((v) => typeof v === "number"))
     return json2;
-  const { minimum, maximum, exclusiveMinimum, exclusiveMaximum, multipleOf, format, id: id3, ...rest } = json2;
+  const { minimum, maximum, exclusiveMinimum, exclusiveMaximum, multipleOf, format, id: id2, ...rest } = json2;
   if (rest.enum)
     rest.enum = rest.enum.map((v) => typeof v === "number" ? String(v) : v);
   else if (typeof rest.const === "number")
@@ -24343,7 +23602,7 @@ function toJSONSchema(input2, params) {
   return finalize(ctx, input2);
 }
 
-// node_modules/zod/v4/core/json-schema-generator.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/json-schema-generator.js
 var JSONSchemaGenerator = class {
   /** @deprecated Access via ctx instead */
   get metadataRegistry() {
@@ -24421,10 +23680,10 @@ var JSONSchemaGenerator = class {
   }
 };
 
-// node_modules/zod/v4/core/json-schema.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/json-schema.js
 var json_schema_exports = {};
 
-// node_modules/zod/v4/classic/schemas.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/classic/schemas.js
 var schemas_exports2 = {};
 __export(schemas_exports2, {
   ZodAny: () => ZodAny,
@@ -24564,7 +23823,7 @@ __export(schemas_exports2, {
   nullable: () => nullable,
   nullish: () => nullish2,
   number: () => number2,
-  object: () => object2,
+  object: () => object,
   optional: () => optional,
   partialRecord: () => partialRecord,
   pipe: () => pipe,
@@ -24601,7 +23860,7 @@ __export(schemas_exports2, {
   xor: () => xor
 });
 
-// node_modules/zod/v4/classic/checks.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/classic/checks.js
 var checks_exports2 = {};
 __export(checks_exports2, {
   endsWith: () => _endsWith,
@@ -24636,7 +23895,7 @@ __export(checks_exports2, {
   uppercase: () => _uppercase
 });
 
-// node_modules/zod/v4/classic/errors.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/classic/errors.js
 var _installedErrorProtos = /* @__PURE__ */ new WeakSet([Object.prototype, Error.prototype]);
 function _lazyMethod(proto, key, make) {
   Object.defineProperty(proto, key, {
@@ -24682,7 +23941,7 @@ var ZodRealError = /* @__PURE__ */ $constructor("ZodError", initializer2, void 0
   Parent: Error
 });
 
-// node_modules/zod/v4/classic/parse.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/classic/parse.js
 var parse2 = /* @__PURE__ */ _parse(ZodRealError);
 var parseAsync2 = /* @__PURE__ */ _parseAsync(ZodRealError);
 var safeParse2 = /* @__PURE__ */ _safeParse(ZodRealError);
@@ -24696,7 +23955,7 @@ var safeDecode2 = /* @__PURE__ */ _safeDecode(ZodRealError);
 var safeEncodeAsync2 = /* @__PURE__ */ _safeEncodeAsync(ZodRealError);
 var safeDecodeAsync2 = /* @__PURE__ */ _safeDecodeAsync(ZodRealError);
 
-// node_modules/zod/v4/classic/schemas.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/classic/schemas.js
 function _ensureDefaultLocale() {
   if (!globalConfig.localeError)
     config(en_default());
@@ -25511,7 +24770,7 @@ var ZodObject = /* @__PURE__ */ $constructor("ZodObject", (inst, def) => {
     return util_exports.required(ZodNonOptional, this, args[0]);
   }
 });
-function object2(shape, params) {
+function object(shape, params) {
   const def = {
     type: "object",
     shape: shape ?? {},
@@ -26107,7 +25366,7 @@ function preprocess(fn, schema) {
   });
 }
 
-// node_modules/zod/v4/classic/compat.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/classic/compat.js
 var ZodIssueCode = {
   invalid_type: "invalid_type",
   too_big: "too_big",
@@ -26133,7 +25392,7 @@ var ZodFirstPartyTypeKind;
 /* @__PURE__ */ (function(ZodFirstPartyTypeKind2) {
 })(ZodFirstPartyTypeKind || (ZodFirstPartyTypeKind = {}));
 
-// node_modules/zod/v4/classic/iso.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/classic/iso.js
 var iso_exports = {};
 __export(iso_exports, {
   ZodISODate: () => ZodISODate,
@@ -26158,7 +25417,7 @@ function duration2(params) {
   return _isoDuration(ZodISODuration, params);
 }
 
-// node_modules/zod/v4/classic/from-json-schema.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/classic/from-json-schema.js
 var z = {
   ...schemas_exports2,
   ...checks_exports2,
@@ -26698,7 +25957,7 @@ function fromJSONSchema(schema, params) {
   return convertSchema(normalized, ctx);
 }
 
-// node_modules/zod/v4/core/visit.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/core/visit.js
 var RESOLVING = /* @__PURE__ */ Symbol("z.visit/resolving");
 function visit(schema, fnOrHandlers) {
   const fn = typeof fnOrHandlers === "function" ? fnOrHandlers : (node2, rewritten) => {
@@ -26853,7 +26112,7 @@ function visit(schema, fnOrHandlers) {
   return run(schema);
 }
 
-// node_modules/zod/v4/classic/deep-partial.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/classic/deep-partial.js
 function deepPartial(schema) {
   return visit(schema, {
     object: (s) => s.partial(),
@@ -26865,7 +26124,7 @@ function deepPartial(schema) {
   });
 }
 
-// node_modules/zod/v4/classic/in-out.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/classic/in-out.js
 function withChecks(side, checks) {
   if (!checks?.length)
     return side;
@@ -26895,7 +26154,7 @@ function output(schema) {
   });
 }
 
-// node_modules/zod/v4/classic/coerce.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod/v4/classic/coerce.js
 var coerce_exports = {};
 __export(coerce_exports, {
   bigint: () => bigint3,
@@ -26919,6 +26178,9 @@ function bigint3(params) {
 function date4(params) {
   return _coercedDate(ZodDate, params);
 }
+
+// contracts.ts
+import { defineRpcContract } from "@get-bb/plugin-sdk";
 
 // day-contracts.ts
 var DAY_TIME_ZONE = "Europe/Athens";
@@ -27076,24 +26338,7 @@ function weekStart(date5) {
   return shiftDay(date5, 1 - day);
 }
 
-// time-review-contracts.ts
-var id2 = external_exports.string().min(1).max(300);
-var timeEvidenceSchema = external_exports.object({ id: id2, taskId: id2.nullable(), at: external_exports.iso.datetime({ offset: true }), source: external_exports.string().min(1).max(300), url: external_exports.string().max(4096).nullable(), text: external_exports.string().min(1).max(16e3) }).strict();
-var candidate = external_exports.object({ taskId: id2, title: external_exports.string(), itemId: id2.nullable(), revision: external_exports.number().nullable(), summary: external_exports.string().nullable(), sources: external_exports.array(external_exports.unknown()) });
-var timeContextSchema = external_exports.object({ id: id2, date: dayDateSchema, tasks: external_exports.array(candidate), evidence: external_exports.array(timeEvidenceSchema), warnings: external_exports.array(external_exports.string()), nextOffset: external_exports.number().nullable() });
-var timeSuggestionSchema = external_exports.object({ taskId: id2, minutes: dayMinutesSchema, reason: external_exports.string().trim().min(1).max(2e3), question: external_exports.string().trim().max(1e3).nullable(), evidenceRefs: external_exports.array(id2).min(1).max(100) }).strict();
-var timeProposalSchema = timeSuggestionSchema.extend({ id: id2, date: dayDateSchema, title: external_exports.string(), itemId: id2.nullable(), revision: external_exports.number().nullable(), fingerprint: external_exports.string(), evidence: external_exports.array(timeEvidenceSchema), status: external_exports.enum(["pending", "accepted", "rejected", "superseded"]), createdAt: external_exports.string(), resolvedAt: external_exports.string().nullable(), blockedReason: external_exports.string().nullable().default(null) });
-var weekOverridesSchema = external_exports.record(dayDateSchema, external_exports.number().int().min(0).max(10080));
-var timeReviewRpcContract = {
-  timeReviewPrepare: { input: external_exports.object({ date: dayDateSchema, offset: external_exports.number().int().min(0).default(0), external: external_exports.array(timeEvidenceSchema).max(500).default([]) }).strict(), output: timeContextSchema },
-  timeReviewSubmit: { input: external_exports.object({ requestId: external_exports.uuid(), contextId: id2, suggestions: external_exports.array(timeSuggestionSchema).max(10) }).strict(), output: external_exports.object({ proposals: external_exports.array(timeProposalSchema) }) },
-  timeReview: { input: external_exports.object({ date: dayDateSchema.optional(), week: external_exports.boolean().default(false) }).strict(), output: external_exports.object({ date: dayDateSchema, proposals: external_exports.array(timeProposalSchema), weekly: external_exports.object({ from: dayDateSchema, through: dayDateSchema, targetMinutes: external_exports.number(), reportedMinutes: external_exports.number(), remainingMinutes: external_exports.number() }), due: external_exports.boolean(), reviewedAt: external_exports.string().nullable(), revision: external_exports.string(), missingReported: external_exports.number(), reviewHour: external_exports.number() }) },
-  timeReviewDecide: { input: external_exports.object({ requestId: external_exports.uuid(), id: id2, decision: external_exports.enum(["accept", "reject"]), minutes: dayMinutesSchema.optional() }).strict(), output: timeProposalSchema },
-  timeReviewComplete: { input: external_exports.object({ requestId: external_exports.uuid(), date: dayDateSchema, revision: external_exports.string() }).strict(), output: external_exports.object({ reviewedAt: external_exports.string() }) }
-};
-
 // contracts.ts
-import { defineRpcContract } from "@get-bb/plugin-sdk";
 var idSchema = external_exports.string().min(1).max(120);
 var revisionSchema = external_exports.number().int().nonnegative();
 var statusSchema = external_exports.enum(["open", "done", "archived"]);
@@ -27102,17 +26347,17 @@ var axisSchema = external_exports.boolean().nullable();
 var text = external_exports.string().trim().min(1).max(12e3);
 var artifactSchema = external_exports.object({ label: external_exports.string().min(1).max(300), uri: external_exports.string().min(1).max(4096) }).strict();
 var refs = external_exports.array(external_exports.string().min(1).max(256)).min(1).max(80);
-var proposed2 = (value) => external_exports.object({ value, evidenceRefs: refs }).strict();
+var proposed = (value) => external_exports.object({ value, evidenceRefs: refs }).strict();
 var changesObjectSchema = external_exports.object({
-  title: proposed2(external_exports.string().trim().min(1).max(200)).optional(),
-  status: proposed2(statusSchema).optional(),
-  urgent: proposed2(axisSchema).optional(),
-  important: proposed2(axisSchema).optional(),
-  summary: proposed2(text.nullable()).optional(),
-  nextStep: proposed2(text.nullable()).optional(),
-  openQuestions: proposed2(external_exports.array(text).max(30)).optional(),
-  blockers: proposed2(external_exports.array(text).max(30)).optional(),
-  artifacts: proposed2(external_exports.array(artifactSchema).max(20)).optional()
+  title: proposed(external_exports.string().trim().min(1).max(200)).optional(),
+  status: proposed(statusSchema).optional(),
+  urgent: proposed(axisSchema).optional(),
+  important: proposed(axisSchema).optional(),
+  summary: proposed(text.nullable()).optional(),
+  nextStep: proposed(text.nullable()).optional(),
+  openQuestions: proposed(external_exports.array(text).max(30)).optional(),
+  blockers: proposed(external_exports.array(text).max(30)).optional(),
+  artifacts: proposed(external_exports.array(artifactSchema).max(20)).optional()
 }).strict();
 var changesSchema = changesObjectSchema.refine((v) => Object.keys(v).length > 0, "The proposal contains no changes.");
 var draftSchema = external_exports.object({ rationale: text, confidence: external_exports.number().min(0).max(1), changes: changesSchema }).strict();
@@ -27407,7 +26652,6 @@ var syncStateSchema = external_exports.object({ runs: external_exports.array(syn
 var rpcContract = defineRpcContract({
   threadProject: { input: external_exports.object({}).strict(), output: external_exports.object({ projectId: idSchema.nullable(), providerId: external_exports.string().nullable().default(null), model: external_exports.string().nullable().default(null), timeZone: external_exports.string().optional(), workProvider: external_exports.string().optional(), workModel: external_exports.string().optional(), syncProvider: external_exports.string().optional(), syncModel: external_exports.string().optional() }) },
   ...dayRpcContract,
-  ...timeReviewRpcContract,
   proposalInbox: { input: external_exports.object({ offset: external_exports.number().int().min(0).default(0) }).strict(), output: external_exports.object({ items: external_exports.array(reviewItemSchema), total: external_exports.number(), nextOffset: external_exports.number().nullable() }) },
   acceptInbox: { input: external_exports.object({ items: external_exports.array(reviewSelectionSchema).min(1).max(50) }).strict(), output: external_exports.object({ applied: external_exports.array(external_exports.object({ kind: external_exports.enum(["source", "proposal"]), id: idSchema, taskId: idSchema })), failed: external_exports.array(external_exports.object({ kind: external_exports.enum(["source", "proposal"]), id: idSchema, message: external_exports.string() })) }) },
   syncState: { input: external_exports.object({}).strict(), output: syncStateSchema },
@@ -27440,588 +26684,16 @@ var rpcContract = defineRpcContract({
   importKnowledge: { input: knowledgeImportSchema, output: external_exports.object({ imported: external_exports.number(), updated: external_exports.number(), unchanged: external_exports.number(), documents: external_exports.number() }) }
 });
 
-// repository.ts
-var EXTRA_SCHEMA = [
-  `CREATE TABLE planning (task_id TEXT PRIMARY KEY REFERENCES tasks(id), urgent INTEGER, important INTEGER, revision INTEGER NOT NULL DEFAULT 0)`,
-  `CREATE TABLE requests (id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, result_json TEXT NOT NULL)`,
-  `CREATE TABLE sessions (id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES tasks(id), status TEXT NOT NULL, value_json TEXT NOT NULL, request_json TEXT NOT NULL)`,
-  `CREATE INDEX session_task ON sessions(task_id)`,
-  `CREATE UNIQUE INDEX one_active_session ON sessions(task_id) WHERE status IN ('starting','working','collecting','review_starting','reviewing','repair_starting')`,
-  `CREATE TABLE session_events (id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id), kind TEXT NOT NULL, detail TEXT NOT NULL, payload_json TEXT NOT NULL, created_at TEXT NOT NULL)`,
-  `CREATE INDEX session_event_order ON session_events(session_id, created_at)`,
-  `CREATE TABLE session_threads (thread_id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id), role TEXT NOT NULL, round INTEGER NOT NULL)`,
-  `CREATE TABLE session_transcripts (session_id TEXT PRIMARY KEY REFERENCES sessions(id), value_json TEXT NOT NULL)`,
-  `CREATE TABLE session_updates (proposal_id TEXT PRIMARY KEY REFERENCES proposals(id), session_id TEXT NOT NULL REFERENCES sessions(id), value_json TEXT NOT NULL)`,
-  `CREATE TABLE knowledge_entries (id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES tasks(id), proposal_id TEXT NOT NULL REFERENCES proposals(id), fingerprint TEXT NOT NULL UNIQUE, search_text TEXT NOT NULL, value_json TEXT NOT NULL)`,
-  `CREATE TABLE closed_task_thread_archives (thread_id TEXT PRIMARY KEY REFERENCES session_threads(thread_id), task_revision INTEGER NOT NULL, archived_at TEXT, retry_at INTEGER NOT NULL DEFAULT 0)`,
-  `CREATE TABLE knowledge_files (id TEXT PRIMARY KEY, source_key TEXT NOT NULL, relative_path TEXT NOT NULL, search_text TEXT NOT NULL, value_json TEXT NOT NULL, UNIQUE(source_key, relative_path))`,
-  `CREATE TABLE source_sync_runs (id TEXT PRIMARY KEY, status TEXT NOT NULL, thread_id TEXT UNIQUE, value_json TEXT NOT NULL, request_json TEXT NOT NULL)`,
-  `CREATE UNIQUE INDEX one_active_source_sync ON source_sync_runs((1)) WHERE status IN ('starting','working')`,
-  `CREATE TABLE source_sync_checkpoints (source TEXT PRIMARY KEY, through TEXT NOT NULL)`,
-  `CREATE TABLE source_sync_candidates (id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES source_sync_runs(id), task_id TEXT REFERENCES tasks(id), status TEXT NOT NULL, fingerprint TEXT NOT NULL UNIQUE, value_json TEXT NOT NULL)`,
-  `CREATE INDEX source_sync_candidate_task ON source_sync_candidates(task_id,status)`,
-  `CREATE TABLE source_sync_exports (run_id TEXT PRIMARY KEY REFERENCES source_sync_runs(id), value_json TEXT NOT NULL)`,
-  ...DAY_SCHEMA,
-  `CREATE TABLE task_views (task_id TEXT PRIMARY KEY REFERENCES tasks(id), seen_revision INTEGER NOT NULL);
-   INSERT INTO task_views(task_id,seen_revision) SELECT id,revision FROM tasks;`,
-  `CREATE TABLE part_reviews (kind TEXT NOT NULL, id TEXT NOT NULL, value_json TEXT NOT NULL, PRIMARY KEY(kind,id))`,
-  ...AGENT_TIME_SCHEMA,
-  `CREATE TABLE time_review_contexts (id TEXT PRIMARY KEY, value_json TEXT NOT NULL);
-   CREATE TABLE time_proposals (id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES tasks(id), date TEXT NOT NULL, status TEXT NOT NULL, fingerprint TEXT NOT NULL UNIQUE, value_json TEXT NOT NULL);
-   CREATE UNIQUE INDEX one_pending_time_proposal ON time_proposals(task_id,date) WHERE status='pending';
-   CREATE TABLE time_daily_reviews (date TEXT PRIMARY KEY, reviewed_at TEXT NOT NULL, revision TEXT NOT NULL);`
-];
-var ACTIVE = /* @__PURE__ */ new Set(["starting", "working", "collecting", "review_starting", "reviewing", "repair_starting"]);
-var digest = (value) => createHash2("sha256").update(JSON.stringify(value)).digest("hex");
-var now2 = () => (/* @__PURE__ */ new Date()).toISOString();
-var Repository = class {
-  constructor(db, changed) {
-    this.db = db;
-    this.changed = changed;
-    this.store = new Store(db);
-    this.kernel = new Kernel(this.store);
-  }
-  db;
-  changed;
-  store;
-  kernel;
-  request(id3, payload, execute2) {
-    return this.store.transaction(() => {
-      const fingerprint = digest(payload);
-      const previous = this.db.prepare("SELECT * FROM requests WHERE id=?").get(id3);
-      if (previous) {
-        if (previous.fingerprint !== fingerprint) throw new PolicyError("This request has already been used with different data.");
-        return JSON.parse(String(previous.result_json));
-      }
-      const result = execute2();
-      this.db.prepare("INSERT INTO requests VALUES (?,?,?)").run(id3, fingerprint, JSON.stringify(result));
-      return result;
-    });
-  }
-  create(input2) {
-    const result = this.request(input2.requestId, { kind: "create", ...input2 }, () => {
-      const task = this.kernel.createTask({ title: input2.title });
-      this.db.prepare("INSERT INTO planning(task_id) VALUES (?)").run(task.id);
-      if (input2.description) this.kernel.appendFact({ taskId: task.id, kind: "description", text: input2.description, source: "human:bb" });
-      return this.kernel.getTask(task.id);
-    });
-    this.changed();
-    return result;
-  }
-  assertCurrent(taskId, revision, requireOpen = true) {
-    const task = this.kernel.getTask(taskId);
-    if (task.revision !== revision) throw new ConflictError("The dossier changed. Refresh it and check the new data.");
-    if (requireOpen && task.status !== "open") throw new PolicyError("The task is closed. Reopen it first.");
-    return task;
-  }
-  note(input2) {
-    const fact = this.request(input2.requestId, { kind: "note", input: input2 }, () => {
-      this.assertCurrent(input2.taskId, input2.revision);
-      return this.kernel.appendFact({ taskId: input2.taskId, kind: input2.kind, text: input2.text, source: "human:bb" });
-    });
-    this.changed();
-    return fact;
-  }
-  planning(taskId) {
-    return this.kernel.getPlanning(taskId);
-  }
-  classify(input2) {
-    const result = this.store.transaction(() => {
-      this.kernel.getTask(input2.taskId);
-      if (this.planning(input2.taskId).revision !== input2.revision) throw new ConflictError("Priority changed in another window. Refresh the dossier.");
-      const previous = this.planning(input2.taskId);
-      if (previous.urgent === input2.urgent && previous.important === input2.important) return previous;
-      this.db.prepare("INSERT OR IGNORE INTO planning(task_id) VALUES (?)").run(input2.taskId);
-      this.db.prepare("UPDATE planning SET urgent=?,important=?,revision=revision+1 WHERE task_id=?").run(input2.urgent === null ? null : Number(input2.urgent), input2.important === null ? null : Number(input2.important), input2.taskId);
-      this.db.prepare("UPDATE tasks SET revision=revision+1,updated_at=? WHERE id=?").run(now2(), input2.taskId);
-      this.db.prepare("INSERT INTO kernel_events(id,task_id,type,payload_json,created_at) VALUES (?,?,?,?,?)").run(randomUUID2(), input2.taskId, "planning.changed", JSON.stringify(input2), now2());
-      return this.planning(input2.taskId);
-    });
-    this.changed();
-    return result;
-  }
-  status(taskId, status, revision) {
-    if (this.active().some((s) => s.taskId === taskId)) throw new PolicyError("Stop the current work session first.");
-    const task = this.kernel.setTaskStatus(taskId, status, revision);
-    this.changed();
-    return task;
-  }
-  taskProposalTotal() {
-    return Number(this.db.prepare("SELECT (SELECT count(*) FROM proposals WHERE status IN ('pending','approved')) + (SELECT count(*) FROM source_sync_candidates WHERE status='pending') AS n").get().n);
-  }
-  pendingTotal() {
-    return this.taskProposalTotal() + Number(this.db.prepare("SELECT count(*) AS n FROM time_proposals WHERE status='pending'").get().n);
-  }
-  list(history = false) {
-    const where = history ? "" : "WHERE t.status='open'";
-    const total = Number(this.db.prepare(`SELECT count(*) AS n FROM tasks t ${where}`).get().n);
-    const tasks = this.db.prepare(`SELECT t.*,p.summary,p.next_step,v.seen_revision,
-      ((SELECT count(*) FROM proposals x WHERE x.task_id=t.id AND x.status IN ('pending','approved')) +
-       (SELECT count(*) FROM source_sync_candidates c WHERE c.task_id=t.id AND c.status='pending')) AS pending_count,
-      (SELECT id FROM sessions s WHERE s.task_id=t.id AND s.status IN ('starting','working','collecting','review_starting','reviewing','repair_starting') LIMIT 1) AS active_session
-      FROM tasks t JOIN task_projections p ON p.task_id=t.id LEFT JOIN task_views v ON v.task_id=t.id ${where} ORDER BY t.updated_at DESC,t.id LIMIT 500`).all().map((row) => ({
-      ...this.kernel.getTask(String(row.id)),
-      unseen: row.seen_revision == null ? "new" : Number(row.seen_revision) < Number(row.revision) ? "updated" : null,
-      planning: this.planning(String(row.id)),
-      summary: row.summary === null ? null : String(row.summary),
-      nextStep: row.next_step === null ? null : String(row.next_step),
-      pendingCount: Number(row.pending_count),
-      activeSession: row.active_session === null ? null : String(row.active_session)
-    }));
-    return { tasks, total, pendingTotal: this.pendingTotal() };
-  }
-  detail(taskId) {
-    const dossier = this.kernel.getDossier(taskId);
-    const proposals = this.kernel.listProposals(taskId).map((proposal) => {
-      const receipt = proposal.status === "applied" ? this.kernel.getApplicationReceipt(proposal.id) : null;
-      return { ...proposal, ...this.partReviewFields("proposal", proposal.id), evidence: this.kernel.proposalEvidence(proposal.id), receipt: receipt ? { id: receipt.id, beforeRevision: receipt.beforeRevision, afterRevision: receipt.afterRevision, createdAt: receipt.createdAt } : null };
-    });
-    const events = this.db.prepare("SELECT id,type,created_at,payload_json FROM kernel_events WHERE task_id=? ORDER BY sequence DESC LIMIT 100").all(taskId).map((r) => ({ id: String(r.id), kind: String(r.type), createdAt: String(r.created_at), detail: String(r.payload_json) }));
-    const sessionUpdates = this.db.prepare("SELECT u.value_json FROM session_updates u JOIN proposals p ON p.id=u.proposal_id WHERE p.task_id=? ORDER BY p.created_at DESC LIMIT 200").all(taskId).map((r) => sessionUpdateSchema.parse(JSON.parse(String(r.value_json))));
-    const syncUpdates = this.db.prepare("SELECT value_json FROM source_sync_candidates WHERE task_id=? ORDER BY rowid DESC LIMIT 200").all(taskId).map((r) => syncCandidateSchema.parse(JSON.parse(String(r.value_json)))).map((candidate2) => ({ ...candidate2, ...this.partReviewFields("source", candidate2.id) }));
-    const acceptedSources = this.db.prepare("SELECT value_json FROM source_sync_candidates WHERE task_id=? AND status='applied' ORDER BY rowid").iterate(taskId);
-    function* sources() {
-      for (const row of acceptedSources) yield syncCandidateSchema.parse(JSON.parse(row.value_json));
-    }
-    const sourceLinks2 = taskSourceLinks({ ...dossier, proposals }, sources());
-    return { ...dossier, planning: this.planning(taskId), proposals, sessions: this.sessions(taskId), events, brief: this.kernel.prepareBrief(taskId).markdown, sessionUpdates, syncUpdates, sourceLinks: sourceLinks2 };
-  }
-  markSeen(taskId, revision) {
-    const current = this.kernel.getTask(taskId);
-    if (!Number.isSafeInteger(revision) || revision < 0 || revision > current.revision) throw new PolicyError("Invalid viewed task revision.");
-    const result = this.db.prepare(`INSERT INTO task_views(task_id,seen_revision) VALUES (?,?)
-      ON CONFLICT(task_id) DO UPDATE SET seen_revision=MAX(seen_revision,excluded.seen_revision)
-      WHERE seen_revision<excluded.seen_revision`).run(taskId, revision);
-    if (result.changes) this.changed();
-    return this.db.prepare("SELECT seen_revision AS seenRevision FROM task_views WHERE task_id=?").get(taskId);
-  }
-  partReview(kind, id3) {
-    const row = this.db.prepare("SELECT value_json FROM part_reviews WHERE kind=? AND id=?").get(kind, id3);
-    return row ? JSON.parse(row.value_json) : void 0;
-  }
-  partReviewFields(kind, id3) {
-    const partReview = this.partReview(kind, id3);
-    return partReview ? { partReview } : {};
-  }
-  savePartReview(kind, id3, review) {
-    this.db.prepare("INSERT INTO part_reviews VALUES (?,?,?)").run(kind, id3, JSON.stringify(review));
-  }
-  reviewParts(input2) {
-    const result = this.request(input2.requestId, { kind: "review-parts", input: input2 }, () => {
-      const proposal = this.kernel.getProposal(input2.id);
-      if (proposal.status !== "pending") throw new PolicyError("This proposal was already reviewed. Refresh the list.");
-      const task = this.assertCurrent(proposal.taskId, input2.revision, false);
-      if (task.revision !== proposal.baseRevision) throw new ConflictError("The proposal is stale. Request a new review.");
-      if (this.active().some((s) => s.discussionProposalId === proposal.id)) throw new PolicyError("Finish discussing this review first.");
-      const row = this.db.prepare("SELECT value_json FROM session_updates WHERE proposal_id=?").get(proposal.id);
-      const update = row ? sessionUpdateSchema.parse(JSON.parse(row.value_json)) : void 0;
-      const split = partitionParts(proposalParts(proposal.changes, update?.extraction), input2);
-      const evidence2 = this.kernel.proposalEvidence(proposal.id);
-      const make = (parts, suffix) => {
-        const extraction = update ? pickExtraction(update.extraction, parts, proposal.id) : void 0;
-        const picked = extraction ? extraction.changes ?? {} : pickChanges(proposal.changes, parts);
-        const refs2 = update ? extractionRefMap(update.extraction, parts, proposal.id) : /* @__PURE__ */ new Map();
-        const draft = receiptDraft(picked, this.kernel.getDossier(task.id), evidence2.map((e) => ({ ...e, ref: refs2.get(e.ref) ?? e.ref })));
-        const child = this.kernel.createProposal({
-          taskId: task.id,
-          baseRevision: this.kernel.getTask(task.id).revision,
-          model: proposal.model,
-          output: { rationale: proposal.rationale, confidence: proposal.confidence, changes: draft.changes },
-          additionalEvidence: draft.evidence,
-          idempotencyKey: `parts:${input2.requestId}:${suffix}`
-        });
-        if (update && extraction) this.db.prepare("INSERT INTO session_updates VALUES (?,?,?)").run(child.id, update.sessionId, JSON.stringify({ ...update, proposalId: child.id, extraction }));
-        return child;
-      };
-      const accepted = split.accepted.length ? make(split.accepted, "accepted") : null;
-      if (accepted) this.accept(accepted.id, task.revision);
-      const remaining = split.remaining.length ? make(split.remaining, "remaining") : null;
-      this.kernel.rejectProposal(proposal.id);
-      for (const session of this.sessions(task.id)) if (session.proposalId === proposal.id) {
-        this.saveSession({
-          ...session,
-          proposalId: remaining?.id ?? accepted?.id ?? proposal.id,
-          baseRevision: remaining?.baseRevision ?? session.baseRevision,
-          acceptedPartProposalIds: [...session.acceptedPartProposalIds ?? [], ...accepted ? [accepted.id] : []],
-          ...update ? { extraction: remaining ? pickExtraction(update.extraction, split.remaining, proposal.id) : accepted ? pickExtraction(update.extraction, split.accepted, proposal.id) : update.extraction } : {},
-          status: remaining ? "awaiting_approval" : accepted || session.acceptedPartProposalIds?.length ? "applied" : "rejected"
-        });
-      }
-      this.savePartReview("proposal", proposal.id, { ...split, acceptedId: accepted?.id ?? null, remainingId: remaining?.id ?? null, createdAt: now2() });
-      return { taskId: task.id, remainingId: remaining?.id ?? null };
-    });
-    this.changed();
-    return result;
-  }
-  propose(input2, model) {
-    const proposal = this.request(input2.requestId, { kind: "propose", input: input2, model }, () => {
-      this.assertCurrent(input2.taskId, input2.revision, false);
-      return this.kernel.createProposal({ taskId: input2.taskId, baseRevision: input2.revision, model, output: input2.draft, idempotencyKey: input2.requestId });
-    });
-    this.changed();
-    return proposal;
-  }
-  accept(proposalId, revision) {
-    const proposal = this.kernel.getProposal(proposalId);
-    if (proposal.status === "applied") return this.detail(proposal.taskId);
-    this.store.transaction(() => {
-      this.assertCurrent(proposal.taskId, revision, false);
-      if (proposal.baseRevision !== revision) throw new ConflictError("The proposal targets an old dossier revision. A new result is required.");
-      if (proposal.changes.status && this.active().some((s) => s.taskId === proposal.taskId)) throw new PolicyError("Finish this task's current work session first.");
-      if (this.active().some((s) => s.discussionProposalId === proposalId)) throw new PolicyError("Finish discussing this review first. Its revised proposal will appear after the session ends.");
-      if (proposal.status === "pending") this.kernel.approveProposal(proposalId, "human:bb-panel");
-      this.kernel.applyProposal(proposalId);
-      this.applySessionUpdate(proposalId);
-      for (const session of this.sessions(proposal.taskId)) if (session.proposalId === proposalId) this.saveSession({ ...session, status: "applied" });
-    });
-    this.changed();
-    return this.detail(proposal.taskId);
-  }
-  reject(proposalId) {
-    const proposal = this.kernel.getProposal(proposalId);
-    if (proposal.status === "rejected") return proposal;
-    const result = this.store.transaction(() => {
-      const result2 = this.kernel.rejectProposal(proposalId);
-      for (const session of this.sessions(proposal.taskId)) if (session.proposalId === proposalId) this.saveSession({ ...session, status: session.acceptedPartProposalIds?.length ? "applied" : "rejected" });
-      return result2;
-    });
-    this.changed();
-    return result;
-  }
-  saveTranscript(sessionId, value) {
-    this.db.prepare("INSERT OR IGNORE INTO session_transcripts VALUES (?,?)").run(sessionId, JSON.stringify(transcriptSchema.parse(value)));
-  }
-  transcript(sessionId) {
-    const row = this.db.prepare("SELECT value_json FROM session_transcripts WHERE session_id=?").get(sessionId);
-    return row ? transcriptSchema.parse(JSON.parse(String(row.value_json))) : null;
-  }
-  saveSessionUpdate(session, proposalId, extraction) {
-    const transcript = this.transcript(session.id);
-    const cited = new Set(extraction.facts.flatMap((f) => f.citations.map((c) => c.messageRef)));
-    const speakers = Object.fromEntries((transcript?.messages ?? []).filter((m) => cited.has(m.ref)).map((m) => [m.ref, m.role]));
-    const sources = Object.fromEntries((transcript?.messages ?? []).filter((m) => cited.has(m.ref)).map((m) => [m.ref, m.source ?? { threadId: transcript.threadId, messageRef: m.ref }]));
-    const value = sessionUpdateSchema.parse({ proposalId, sessionId: session.id, threadId: session.workerThreadId, extraction, warnings: transcript?.warnings ?? [], speakers, sources });
-    this.db.prepare("INSERT INTO session_updates VALUES (?,?,?)").run(proposalId, session.id, JSON.stringify(value));
-  }
-  applySessionUpdate(proposalId) {
-    const row = this.db.prepare("SELECT value_json FROM session_updates WHERE proposal_id=?").get(proposalId);
-    if (!row) return;
-    const update = sessionUpdateSchema.parse(JSON.parse(String(row.value_json)));
-    const session = this.session(update.sessionId);
-    const task = this.kernel.getTask(session.taskId);
-    const timestamp = now2();
-    const existing = new Set(this.kernel.getDossier(task.id).facts.map((f) => digest([f.kind, f.text.trim().toLocaleLowerCase()])));
-    for (const [index, fact] of update.extraction.facts.entries()) {
-      const key = digest([fact.kind, fact.text.trim().toLocaleLowerCase()]);
-      if (existing.has(key)) continue;
-      existing.add(key);
-      const citation = fact.citations[0];
-      const source = update.sources[citation.messageRef] ?? { threadId: update.threadId, messageRef: citation.messageRef };
-      this.db.prepare("INSERT INTO task_facts(id,task_id,kind,text,source,source_ref,occurred_at,created_at) VALUES (?,?,?,?,?,?,?,?)").run(
-        `session:${session.id}:${proposalId}:fact:${index}`,
-        task.id,
-        fact.kind,
-        fact.text,
-        `approved-conversation:${proposalId}`,
-        `bb-thread:${source.threadId}#${source.messageRef}`,
-        session.finishedAt ?? timestamp,
-        timestamp
-      );
-    }
-    for (const entry of update.extraction.knowledge) {
-      const fingerprint = digest([entry.title.toLocaleLowerCase(), entry.body.toLocaleLowerCase()]);
-      const value = knowledgeEntrySchema.parse({ ...entry, id: randomUUID2(), taskId: task.id, taskTitle: task.title, sessionId: session.id, threadId: update.threadId, proposalId, createdAt: timestamp });
-      this.db.prepare("INSERT OR IGNORE INTO knowledge_entries VALUES (?,?,?,?,?,?)").run(value.id, task.id, proposalId, fingerprint, [entry.title, entry.body, ...entry.tags].join("\n").toLocaleLowerCase(), JSON.stringify(value));
-    }
-    this.sessionEvent(session.id, "knowledge-applied", "Conversation records and knowledge were saved together with the dossier.", { proposalId, facts: update.extraction.facts.length, knowledge: update.extraction.knowledge.length });
-  }
-  importKnowledge(input2) {
-    const parsed = knowledgeImportSchema.parse(input2);
-    const result = this.request(parsed.requestId, { kind: "import-knowledge", ...parsed }, () => {
-      const source = { ...parsed.source, rootPath: path.posix.normalize(parsed.source.rootPath).replace(/\/$/, "") || "/" };
-      const sourceKey = digest([source.hostId, source.rootPath]);
-      const timestamp = now2();
-      const counts = { imported: 0, updated: 0, unchanged: 0, documents: parsed.documents.length };
-      for (const document of parsed.documents) {
-        const id3 = `file:${digest([sourceKey, document.relativePath])}`;
-        const row = this.db.prepare("SELECT value_json FROM knowledge_files WHERE id=?").get(id3);
-        const previous = row ? fileKnowledgeEntrySchema.parse(JSON.parse(String(row.value_json))) : null;
-        const value = fileKnowledgeEntrySchema.parse({
-          kind: "file",
-          id: id3,
-          title: document.title,
-          body: document.body,
-          tags: document.tags,
-          createdAt: previous?.createdAt ?? timestamp,
-          updatedAt: timestamp,
-          source: { ...source, relativePath: document.relativePath, path: path.posix.join(source.rootPath, document.relativePath), sha256: createHash2("sha256").update(document.body, "utf8").digest("hex"), modifiedAt: document.modifiedAt }
-        });
-        if (previous && digest([previous.title, previous.body, previous.tags, previous.source]) === digest([value.title, value.body, value.tags, value.source])) {
-          counts.unchanged++;
-          continue;
-        }
-        this.db.prepare("INSERT INTO knowledge_files VALUES (?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET search_text=excluded.search_text,value_json=excluded.value_json").run(
-          id3,
-          sourceKey,
-          document.relativePath,
-          [value.title, value.body, ...value.tags, source.label, document.relativePath].join("\n").toLocaleLowerCase(),
-          JSON.stringify(value)
-        );
-        if (previous) counts.updated++;
-        else counts.imported++;
-      }
-      return counts;
-    });
-    this.changed();
-    return result;
-  }
-  knowledge(query = "", offset = 0) {
-    const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean).slice(0, 20);
-    const where = terms.length ? `WHERE ${terms.map(() => "search_text LIKE ? ESCAPE '\\'").join(" AND ")}` : "";
-    const params = terms.map((t) => `%${t.replace(/[\\%_]/g, "\\$&")}%`);
-    const combined = "WITH knowledge AS (SELECT id,search_text,value_json FROM knowledge_entries UNION ALL SELECT id,search_text,value_json FROM knowledge_files)";
-    const total = Number(this.db.prepare(`${combined} SELECT count(*) AS n FROM knowledge ${where}`).get(...params).n);
-    const rows2 = this.db.prepare(`${combined} SELECT value_json FROM knowledge ${where} ORDER BY json_extract(value_json,'$.createdAt') DESC,id LIMIT 50 OFFSET ?`).all(...params, offset);
-    const entries = [];
-    let bytes = 0;
-    for (const row of rows2) {
-      const entry = knowledgeEntrySchema.parse(JSON.parse(String(row.value_json)));
-      const size = Buffer.byteLength(JSON.stringify(entry, null, 2)) + 256;
-      if (entries.length && bytes + size > 512 * 1024) break;
-      entries.push(entry);
-      bytes += size;
-    }
-    const next = offset + entries.length;
-    return { entries, total, nextOffset: next < total ? next : null };
-  }
-  session(id3) {
-    const row = this.db.prepare("SELECT value_json FROM sessions WHERE id=?").get(id3);
-    if (!row) throw new PolicyError("Work session not found.");
-    return sessionSchema.parse(JSON.parse(String(row.value_json)));
-  }
-  sessions(taskId) {
-    return this.db.prepare("SELECT value_json FROM sessions WHERE task_id=? ORDER BY rowid DESC LIMIT 100").all(taskId).map((r) => sessionSchema.parse(JSON.parse(String(r.value_json))));
-  }
-  active() {
-    return this.db.prepare("SELECT value_json FROM sessions WHERE status IN ('starting','working','collecting','review_starting','reviewing','repair_starting')").all().map((r) => sessionSchema.parse(JSON.parse(String(r.value_json))));
-  }
-  forThread(threadId) {
-    const row = this.db.prepare("SELECT s.value_json FROM sessions s JOIN session_threads t ON s.id=t.session_id WHERE t.thread_id=?").get(threadId);
-    return row ? sessionSchema.parse(JSON.parse(String(row.value_json))) : void 0;
-  }
-  insertSession(session, request) {
-    this.db.prepare("INSERT INTO sessions VALUES (?,?,?,?,?)").run(session.id, session.taskId, session.status, JSON.stringify(session), JSON.stringify(request));
-    this.changed();
-  }
-  saveSession(session) {
-    const value = sessionSchema.parse({ ...session, updatedAt: now2() });
-    this.db.prepare("UPDATE sessions SET status=?,value_json=? WHERE id=?").run(value.status, JSON.stringify(value), value.id);
-    for (const [threadId, role] of [[value.workerThreadId, "worker"], [value.reviewerThreadId, "reviewer"]]) {
-      if (threadId) this.db.prepare("INSERT OR IGNORE INTO session_threads VALUES (?,?,?,?)").run(threadId, value.id, role, value.round);
-    }
-    this.changed();
-    return value;
-  }
-  sessionRequest(id3) {
-    return JSON.parse(String(this.db.prepare("SELECT request_json FROM sessions WHERE id=?").get(id3).request_json));
-  }
-  sessionEvent(id3, kind, detail, payload = {}) {
-    this.db.prepare("INSERT INTO session_events VALUES (?,?,?,?,?,?)").run(randomUUID2(), id3, kind, detail, JSON.stringify(payload), now2());
-  }
-  threadIds(sessionId) {
-    return this.db.prepare("SELECT thread_id,role FROM session_threads WHERE session_id=?").all(sessionId).map((r) => ({ threadId: String(r.thread_id), role: String(r.role) }));
-  }
-  recorderThreads(sessionId) {
-    return this.db.prepare("SELECT thread_id,round FROM session_threads WHERE session_id=? AND role='reviewer' ORDER BY round DESC,thread_id LIMIT 20").all(sessionId).map((r) => ({ threadId: String(r.thread_id), round: Number(r.round) }));
-  }
-  pendingThreadArchives(taskId) {
-    return this.db.prepare(`WITH RECURSIVE accepted_sessions(id) AS (
-        SELECT id FROM sessions WHERE status='applied'
-        UNION SELECT json_extract(s.value_json,'$.continuedFrom') FROM sessions s JOIN accepted_sessions a ON s.id=a.id
-          WHERE json_extract(s.value_json,'$.continuedFrom') IS NOT NULL
-      ) SELECT st.thread_id,s.task_id,t.revision FROM session_threads st
-      JOIN sessions s ON s.id=st.session_id JOIN tasks t ON t.id=s.task_id
-      LEFT JOIN closed_task_thread_archives a ON a.thread_id=st.thread_id
-      WHERE (t.status IN ('done','archived') OR s.id IN (SELECT id FROM accepted_sessions)) AND (? IS NULL OR t.id=?)
-        AND s.status NOT IN ('starting','working','collecting','review_starting','reviewing','repair_starting')
-        AND (a.thread_id IS NULL OR (t.status IN ('done','archived') AND a.task_revision<>t.revision) OR (a.archived_at IS NULL AND a.retry_at<=?))
-      ORDER BY t.updated_at,st.thread_id LIMIT 100`).all(taskId ?? null, taskId ?? null, Date.now()).map((row) => ({ threadId: String(row.thread_id), taskId: String(row.task_id), revision: Number(row.revision) }));
-  }
-  sessionResultsAccepted(sessionId) {
-    return Boolean(this.db.prepare(`WITH RECURSIVE descendants(id) AS (
-      SELECT id FROM sessions WHERE id=?
-      UNION SELECT s.id FROM sessions s JOIN descendants d ON json_extract(s.value_json,'$.continuedFrom')=d.id
-    ) SELECT 1 FROM sessions WHERE id IN (SELECT id FROM descendants) AND status='applied' LIMIT 1`).get(sessionId));
-  }
-  recordThreadArchive(threadId, revision, succeeded) {
-    this.db.prepare(`INSERT INTO closed_task_thread_archives(thread_id,task_revision,archived_at,retry_at) VALUES(?,?,?,?)
-      ON CONFLICT(thread_id) DO UPDATE SET task_revision=excluded.task_revision,archived_at=excluded.archived_at,retry_at=excluded.retry_at`).run(threadId, revision, succeeded ? now2() : null, succeeded ? 0 : Date.now() + 3e4);
-  }
+// core/errors.ts
+var PolicyError = class extends Error {
+  code = "POLICY_REJECTED";
 };
-
-// time-review.ts
-var TimeReview = class {
-  constructor(bb, days, settings) {
-    this.bb = bb;
-    this.days = days;
-    this.settings = settings;
-  }
-  bb;
-  days;
-  settings;
-  get repo() {
-    return this.days.repo;
-  }
-  eligible(taskId, date5) {
-    const item = this.days.taskItem(taskId, date5);
-    return !item || !item.removed && !item.reportedLocked && item.reportedMinutes === null && item.reportedDate === date5;
-  }
-  async prepare(input2) {
-    if (input2.date > this.days.today()) throw new PolicyError("Future work cannot be reported.");
-    const all = this.repo.list(true).tasks.filter((task) => this.eligible(task.id, input2.date)).sort((a, b) => a.id.localeCompare(b.id));
-    const selected = all.slice(input2.offset, input2.offset + 10), warnings = [];
-    const evidence2 = input2.external.map((row) => {
-      if (!row.id.startsWith("external:") || localDay(new Date(row.at), this.days.timeZone) !== input2.date) throw new PolicyError("Collector evidence must have an external ID and belong to the requested date.");
-      return row;
-    });
-    const tasks = [];
-    for (const task of selected) {
-      const item = this.days.taskItem(task.id, input2.date), dossier = this.repo.detail(task.id);
-      tasks.push({ taskId: task.id, title: task.title, itemId: item?.id ?? null, revision: item?.revision ?? null, summary: dossier.projection.summary, sources: dossier.sourceLinks });
-      for (const fact of dossier.facts) if (localDay(new Date(fact.occurredAt), this.days.timeZone) === input2.date) evidence2.push({ id: `fact:${fact.id}`, taskId: task.id, at: fact.occurredAt, source: "Accepted dossier fact (record date alone is not proof of work)", url: null, text: fact.text.slice(0, 16e3) });
-      const threads = this.repo.db.prepare("SELECT t.thread_id FROM session_threads t JOIN sessions s ON s.id=t.session_id WHERE s.task_id=? AND t.role='worker'").all(task.id);
-      for (const { thread_id: threadId } of threads) {
-        try {
-          let cursor = null;
-          const seen = /* @__PURE__ */ new Set();
-          for (; ; ) {
-            const page = await this.bb.sdk.threads.timeline({ threadId, segmentLimit: "100", summaryOnly: "false", includeNestedRows: "false", ...cursor ? { beforeAnchorId: cursor.anchorId, beforeAnchorSeq: String(cursor.anchorSeq) } : {} });
-            for (const row of page.rows) {
-              if (row.kind !== "conversation" || !row.text || !["user", "assistant"].includes(row.role) || localDay(new Date(row.createdAt), this.days.timeZone) !== input2.date) continue;
-              evidence2.push({ id: `thread:${threadId}:${row.id}`, taskId: task.id, at: new Date(row.createdAt).toISOString(), source: `BB ${row.role} message`, url: null, text: row.text.slice(0, 16e3) });
-            }
-            if (!page.timelinePage.hasOlderRows || page.rows.length && page.rows.every((row) => localDay(new Date(row.createdAt), this.days.timeZone) < input2.date)) break;
-            const next = page.timelinePage.olderCursor;
-            if (!next || seen.has(next.anchorId)) {
-              warnings.push(`Incomplete thread history: ${threadId}`);
-              break;
-            }
-            seen.add(next.anchorId);
-            cursor = next;
-          }
-        } catch {
-          warnings.push(`Thread history unavailable: ${threadId}`);
-        }
-      }
-    }
-    const unique = [...new Map(evidence2.map((row) => [row.id, row])).values()].sort((a, b) => a.id.localeCompare(b.id));
-    const value = { date: input2.date, tasks, evidence: unique, warnings, nextOffset: input2.offset + selected.length < all.length ? input2.offset + selected.length : null };
-    if (Buffer.byteLength(JSON.stringify(value)) > 4 * 1024 * 1024) throw new PolicyError("Time context exceeds 4 MiB. Reduce the collector evidence batch.");
-    const context = { id: digest(value), ...value };
-    this.repo.db.prepare("INSERT OR IGNORE INTO time_review_contexts VALUES (?,?)").run(context.id, JSON.stringify(context));
-    return context;
-  }
-  read(id3) {
-    const row = this.repo.db.prepare("SELECT value_json FROM time_proposals WHERE id=?").get(id3);
-    if (!row) throw new PolicyError("Time proposal not found.");
-    return JSON.parse(row.value_json);
-  }
-  write(value) {
-    this.repo.db.prepare("INSERT INTO time_proposals VALUES (?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET status=excluded.status,value_json=excluded.value_json").run(value.id, value.taskId, value.date, value.status, value.fingerprint, JSON.stringify(value));
-    return value;
-  }
-  blocked(value) {
-    const item = this.days.taskItem(value.taskId, value.date);
-    return !this.eligible(value.taskId, value.date) || (item?.id ?? null) !== value.itemId || (item?.revision ?? null) !== value.revision ? "The day entry changed. Keep the manual entry, reject this proposal, or run a fresh review." : null;
-  }
-  submit(input2) {
-    const result = this.repo.request(input2.requestId, { kind: "time.submit", input: input2 }, () => {
-      const row = this.repo.db.prepare("SELECT value_json FROM time_review_contexts WHERE id=?").get(input2.contextId);
-      if (!row) throw new PolicyError("Prepare the evidence context before submitting time proposals.");
-      const context = JSON.parse(row.value_json), used = /* @__PURE__ */ new Set();
-      return { proposals: input2.suggestions.map((suggestion) => {
-        const task = context.tasks.find((task2) => task2.taskId === suggestion.taskId);
-        if (!task || used.has(task.taskId)) throw new PolicyError("Unknown or repeated task in time review.");
-        used.add(task.taskId);
-        const evidence2 = [...new Set(suggestion.evidenceRefs)].map((ref) => {
-          const row2 = context.evidence.find((row3) => row3.id === ref && (!row3.taskId || row3.taskId === task.taskId));
-          if (!row2) throw new PolicyError("A time proposal cites evidence outside its task and date.");
-          return row2;
-        });
-        const allocations = this.repo.db.prepare("SELECT value_json FROM time_proposals WHERE date=? AND task_id<>? AND status IN ('pending','accepted')").all(context.date, task.taskId).map((row2) => JSON.parse(row2.value_json));
-        if (allocations.some((other) => other.evidence.some((row2) => evidence2.some((current) => current.id === row2.id)))) throw new PolicyError("This evidence is already allocated to another task on this date. Review that allocation before counting the work again.");
-        if (suggestion.minutes === null && !suggestion.question) throw new PolicyError("Ask for the duration when an estimate is unavailable.");
-        const fingerprint = digest({ taskId: task.taskId, date: context.date, evidence: evidence2.slice().sort((a, b) => a.id.localeCompare(b.id)) });
-        const prior = this.repo.db.prepare("SELECT value_json FROM time_proposals WHERE fingerprint=?").get(fingerprint);
-        if (prior) {
-          const saved = JSON.parse(prior.value_json);
-          if (saved.status !== "pending") return saved;
-          const refreshed = { ...saved, ...suggestion, itemId: task.itemId, revision: task.revision };
-          if (this.blocked(refreshed)) throw new ConflictError("The day entry changed after evidence collection. Refresh the time review.");
-          return this.write(refreshed);
-        }
-        const proposal = { ...suggestion, id: randomUUID3(), title: task.title, date: context.date, itemId: task.itemId, revision: task.revision, fingerprint, evidence: evidence2, status: "pending", createdAt: this.days.now(), resolvedAt: null, blockedReason: null };
-        if (this.blocked(proposal)) throw new ConflictError("The day entry changed after evidence collection. Refresh the time review.");
-        const pending = this.repo.db.prepare("SELECT value_json FROM time_proposals WHERE task_id=? AND date=? AND status='pending'").get(task.taskId, context.date);
-        if (pending) this.write({ ...JSON.parse(pending.value_json), status: "superseded", resolvedAt: this.days.now() });
-        return this.write(proposal);
-      }) };
-    });
-    this.repo.changed();
-    return result;
-  }
-  decide(input2) {
-    const result = this.repo.request(input2.requestId, { kind: "time.decide", input: input2 }, () => {
-      const value = this.read(input2.id);
-      if (value.status !== "pending") throw new ConflictError("This time proposal has already been reviewed or replaced.");
-      if (input2.decision === "accept") {
-        const blocked = this.blocked(value);
-        if (blocked) throw new ConflictError(blocked);
-        const minutes = input2.minutes === void 0 ? value.minutes : input2.minutes;
-        if (minutes === null) throw new PolicyError("Enter the time before confirming.");
-        if (value.itemId) this.days.edit({ requestId: randomUUID3(), id: value.itemId, revision: value.revision, reportedMinutes: minutes }, "human:time-review");
-        else this.days.add({ requestId: randomUUID3(), taskId: value.taskId, date: value.date, reportedMinutes: minutes }, "human:time-review");
-        value.minutes = minutes;
-      }
-      return this.write({ ...value, status: input2.decision === "accept" ? "accepted" : "rejected", resolvedAt: this.days.now() });
-    });
-    this.repo.changed();
-    return result;
-  }
-  view(date5 = this.days.today(), week = false) {
-    const from = weekStart(date5), through = shiftDay(from, 6), settings = this.settings();
-    const proposals = this.repo.db.prepare("SELECT value_json FROM time_proposals WHERE status='pending' AND date>=? AND date<=? ORDER BY date,task_id").all(week ? from : date5, week ? through : date5).map((row) => {
-      const value = JSON.parse(row.value_json);
-      return { ...value, blockedReason: this.blocked(value) };
-    });
-    const report = this.days.report({ date: date5, period: "week" });
-    const target = JSON.parse(settings.weeklyReportedOverrides)[from] ?? settings.weeklyReportedTargetMinutes;
-    const day = this.days.day(date5);
-    const revision = digest({ entries: day.items.map((item) => [item.id, item.revision]), pending: this.repo.db.prepare("SELECT id FROM time_proposals WHERE date=? AND status='pending' ORDER BY id").all(date5) });
-    const review = this.repo.db.prepare("SELECT reviewed_at,revision FROM time_daily_reviews WHERE date=?").get(date5);
-    const reviewedAt = review?.revision === revision ? review.reviewed_at : null;
-    const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: this.days.timeZone, hour: "numeric", hourCycle: "h23" }).format(this.days.clock()));
-    return { date: date5, proposals, weekly: { from, through, targetMinutes: target, reportedMinutes: report.totals.reportedMinutes, remainingMinutes: Math.max(0, target - report.totals.reportedMinutes) }, due: !reviewedAt && (date5 < this.days.today() || date5 === this.days.today() && hour >= settings.dailyTimeReviewHour), reviewedAt, revision, missingReported: day.totals.missingReported, reviewHour: settings.dailyTimeReviewHour };
-  }
-  complete(input2) {
-    const result = this.repo.request(input2.requestId, { kind: "time.complete", input: input2 }, () => {
-      const view = this.view(input2.date);
-      if (view.revision !== input2.revision) throw new ConflictError("The day changed. Review the updated entries first.");
-      if (view.proposals.length) throw new PolicyError("Confirm or reject the pending time proposals first.");
-      const reviewedAt = this.days.now();
-      this.repo.db.prepare("INSERT INTO time_daily_reviews VALUES (?,?,?) ON CONFLICT(date) DO UPDATE SET reviewed_at=excluded.reviewed_at,revision=excluded.revision").run(input2.date, reviewedAt, view.revision);
-      return { reviewedAt };
-    });
-    this.repo.changed();
-    return result;
-  }
+var ConflictError = class extends Error {
+  code = "REVISION_CONFLICT";
 };
-
-// source-import.ts
-import { createHash as createHash4 } from "node:crypto";
-import { constants } from "node:fs";
-import { open as open2, realpath } from "node:fs/promises";
-import { isAbsolute, relative, sep } from "node:path";
+var NotFoundError = class extends Error {
+  code = "NOT_FOUND";
+};
 
 // agent-time.ts
 var receiptSchema = external_exports.object({
@@ -28233,6 +26905,64 @@ var AgentTimeRuntime = class {
 };
 var DAY_REVIEW_INSTRUCTIONS = `Before finalizing source analysis, also review the saved day plan through c247_day_review, paging through all entries. Measured work has already been reconciled deterministically; do not create tasks or edit manual time. For eligible entries, use c247_day_estimate to propose reportedMinutes as the TOTAL for that task on that date, based on the volume, complexity and type of work actually supported by the evidence. Allow for the user's reading, understanding, checking and testing of the results. Explain the concrete work and the assumed effort in a short reason. There is no required ratio to actual: no floor or ceiling based on agent runtime. Never derive minutes by multiplying agent runtime or by measuring chat age, message gaps or response length alone. Objectives and planned next steps are not proof that work was done. The supplied workContext may be incomplete; use c247_read for fuller task context when necessary. Session results and recorded facts may still await approval and must not be presented as accepted changes. Do not charge the whole multi-day task to each day; separate that day's incremental work and avoid counting duplicate agent results. If evidence cannot support a useful estimate for the date, leave reported blank or keep the previous estimate instead of guessing. These are visibly marked estimates for the user's review, not measured human hours or approved timesheets. Preserve manual corrections, including zero and blank; skip unchanged estimates. Never claim the user actually spent the estimated time. Finish source analysis normally even if no entries need an estimate.`;
 
+// proposal-parts.ts
+function proposalParts(changes, extraction) {
+  return [
+    ...Object.keys(extraction ? extraction.changes ?? {} : changes).map((field) => `field:${field}`),
+    ...extraction?.facts.map((_, i) => `fact:${i}`) ?? [],
+    ...extraction?.knowledge.map((_, i) => `knowledge:${i}`) ?? []
+  ];
+}
+function sourceParts(candidate) {
+  return [
+    ...Object.keys(candidate.changes).map((field) => `field:${field}`),
+    ...(candidate.recordFactIndexes ?? candidate.facts.map((_, i) => i)).map((i) => `fact:${i}`)
+  ];
+}
+function partitionParts(all, input2) {
+  const selected = new Set(input2.parts);
+  if (!selected.size || selected.size !== input2.parts.length || input2.parts.some((part) => !all.includes(part))) {
+    throw new PolicyError("Select distinct parts from this proposal. Refresh if it changed.");
+  }
+  return {
+    accepted: input2.decision === "accept" ? input2.parts : [],
+    rejected: input2.decision === "reject" ? input2.parts : [],
+    remaining: all.filter((part) => !selected.has(part))
+  };
+}
+function pickChanges(changes, parts) {
+  return Object.fromEntries(Object.entries(changes).filter(([field]) => parts.includes(`field:${field}`)));
+}
+function extractionRefMap(extraction, parts, proposalId) {
+  let index = 0;
+  return new Map(extraction.facts.map((_, i) => [`fact:${i}`, parts.includes(`fact:${i}`) ? `fact:${index++}` : `review:${proposalId}:fact:${i}`]));
+}
+function pickExtraction(extraction, parts, proposalId) {
+  const refs2 = extractionRefMap(extraction, parts, proposalId);
+  const remap = (values) => values.map((ref) => refs2.get(ref) ?? ref);
+  const changes = Object.fromEntries(Object.entries(pickChanges(extraction.changes ?? {}, parts)).map(([field, change]) => [field, { ...change, evidenceRefs: remap(change.evidenceRefs) }]));
+  return {
+    ...extraction,
+    changes: Object.keys(changes).length ? changes : null,
+    facts: extraction.facts.filter((_, i) => parts.includes(`fact:${i}`)),
+    knowledge: extraction.knowledge.filter((_, i) => parts.includes(`knowledge:${i}`)).map((entry) => ({ ...entry, evidenceRefs: remap(entry.evidenceRefs) }))
+  };
+}
+function receiptDraft(changes, dossier, evidence2) {
+  if (Object.keys(changes).length) return { changes, evidence: evidence2 };
+  const ref = "partial-review:unchanged-summary";
+  return {
+    changes: { summary: { value: dossier.projection.summary, evidenceRefs: [ref] } },
+    evidence: [...evidence2.filter((e) => e.ref !== ref), {
+      ref,
+      kind: "description",
+      text: dossier.projection.summary ?? "Keep the accepted summary unchanged.",
+      source: "accepted-projection",
+      sourceRef: null
+    }]
+  };
+}
+
 // source-links.ts
 function jiraReferences(text2) {
   text2 = text2.replace(/\\\//g, "/");
@@ -28328,7 +27058,7 @@ function sourceProfile(config2) {
 }
 
 // source-sync.ts
-import { randomUUID as randomUUID6 } from "node:crypto";
+import { randomUUID as randomUUID5 } from "node:crypto";
 
 // thread-routing.ts
 var ThreadRouting = class {
@@ -28339,11 +27069,11 @@ var ThreadRouting = class {
   bb;
   projectId;
   async configured() {
-    const id3 = (await this.projectId()).trim();
-    if (!id3) return null;
+    const id2 = (await this.projectId()).trim();
+    if (!id2) return null;
     let project;
     try {
-      project = await this.bb.sdk.projects.get({ projectId: id3 });
+      project = await this.bb.sdk.projects.get({ projectId: id2 });
     } catch {
       throw new PolicyError("The configured 247C thread project is unavailable. Update Thread project in plugin settings.");
     }
@@ -28362,6 +27092,1093 @@ var ThreadRouting = class {
     const project = (await this.bb.sdk.projects.list({ includePersonal: true })).find((project2) => project2.kind === "personal");
     if (!project) throw new PolicyError("BB did not provide the personal workspace.");
     return { projectId: project.id, environment: { type: "host", hostId, workspace: { type: "personal" } } };
+  }
+};
+
+// core/validation.ts
+function object2(value, label) {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new PolicyError(`${label} must be an object`);
+  }
+  return value;
+}
+function onlyKeys(record2, allowed, label) {
+  const allowedSet = new Set(allowed);
+  const unknown2 = Object.keys(record2).find((key) => !allowedSet.has(key));
+  if (unknown2) throw new PolicyError(`${label} contains unsupported field: ${unknown2}`);
+}
+function evidence(value, label) {
+  if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) {
+    throw new PolicyError(`${label}.evidenceRefs must be an array of fact ids`);
+  }
+  return [...new Set(value)];
+}
+function proposed2(input2, label, parseValue) {
+  const record2 = object2(input2, label);
+  onlyKeys(record2, ["value", "evidenceRefs"], label);
+  return {
+    value: parseValue(record2.value),
+    evidenceRefs: evidence(record2.evidenceRefs, label)
+  };
+}
+function nullableString(value) {
+  if (value === null) return null;
+  if (typeof value !== "string" || value.trim() === "") throw new PolicyError("value must be a non-empty string or null");
+  return value.trim();
+}
+function stringArray(value) {
+  if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string" || entry.trim() === "")) {
+    throw new PolicyError("value must be an array of non-empty strings");
+  }
+  return value.map((entry) => entry.trim());
+}
+function artifacts(value) {
+  if (!Array.isArray(value)) throw new PolicyError("artifacts must be an array");
+  return value.map((entry, index) => {
+    const record2 = object2(entry, `artifact[${index}]`);
+    onlyKeys(record2, ["label", "uri"], `artifact[${index}]`);
+    if (typeof record2.label !== "string" || typeof record2.uri !== "string") {
+      throw new PolicyError(`artifact[${index}] needs string label and uri`);
+    }
+    return { label: record2.label, uri: record2.uri };
+  });
+}
+function parseProposalDraft(input2) {
+  const record2 = object2(input2, "proposal");
+  onlyKeys(record2, ["rationale", "confidence", "changes"], "proposal");
+  if (typeof record2.rationale !== "string" || record2.rationale.trim() === "") {
+    throw new PolicyError("proposal.rationale must be a non-empty string");
+  }
+  if (typeof record2.confidence !== "number" || record2.confidence < 0 || record2.confidence > 1) {
+    throw new PolicyError("proposal.confidence must be between 0 and 1");
+  }
+  const rawChanges = object2(record2.changes, "proposal.changes");
+  onlyKeys(rawChanges, ["title", "status", "urgent", "important", "summary", "nextStep", "openQuestions", "blockers", "artifacts"], "proposal.changes");
+  const changes = {};
+  if ("title" in rawChanges) changes.title = proposed2(rawChanges.title, "title", (value) => {
+    if (typeof value !== "string" || !value.trim() || value.trim().length > 200) throw new PolicyError("The title must contain 1 to 200 characters.");
+    return value.trim();
+  });
+  for (const field of ["urgent", "important"]) {
+    if (field in rawChanges) changes[field] = proposed2(rawChanges[field], field, (value) => {
+      if (value !== null && typeof value !== "boolean") throw new PolicyError("Priority must be true, false or null.");
+      return value;
+    });
+  }
+  if ("status" in rawChanges) changes.status = proposed2(rawChanges.status, "status", (value) => {
+    if (value !== "open" && value !== "done" && value !== "archived") throw new PolicyError("proposed status must be open, done or archived");
+    return value;
+  });
+  if ("summary" in rawChanges) changes.summary = proposed2(rawChanges.summary, "summary", nullableString);
+  if ("nextStep" in rawChanges) changes.nextStep = proposed2(rawChanges.nextStep, "nextStep", nullableString);
+  if ("openQuestions" in rawChanges) changes.openQuestions = proposed2(rawChanges.openQuestions, "openQuestions", stringArray);
+  if ("blockers" in rawChanges) changes.blockers = proposed2(rawChanges.blockers, "blockers", stringArray);
+  if ("artifacts" in rawChanges) changes.artifacts = proposed2(rawChanges.artifacts, "artifacts", artifacts);
+  if (Object.keys(changes).length === 0) throw new PolicyError("proposal contains no changes");
+  return { rationale: record2.rationale.trim(), confidence: record2.confidence, changes };
+}
+function validateEvidence(draft, dossier, additional = []) {
+  const facts = new Map([
+    ...dossier.facts.map((fact) => [fact.id, fact]),
+    ...additional.map((item) => [item.ref, { ...item, id: item.ref, taskId: dossier.task.id, occurredAt: dossier.task.updatedAt, createdAt: dossier.task.updatedAt }])
+  ]);
+  for (const [field, change] of Object.entries(draft.changes)) {
+    if (!change) continue;
+    if (change.evidenceRefs.length === 0) throw new PolicyError(`${field} needs evidence`);
+    for (const reference of change.evidenceRefs) {
+      if (!facts.has(reference)) throw new PolicyError(`${field} cites unknown task fact ${reference}`);
+    }
+  }
+  const status = draft.changes.status;
+  if (status && !status.evidenceRefs.some((id2) => ["progress", "decision", "user_instruction"].includes(facts.get(id2).kind))) {
+    throw new PolicyError("A status change requires evidence of a result or a task decision.");
+  }
+  for (const field of ["title", "urgent", "important"]) {
+    const change = draft.changes[field];
+    if (change && !change.evidenceRefs.some((id2) => ["decision", "user_instruction"].includes(facts.get(id2).kind))) {
+      throw new PolicyError(`${field}: a decision or instruction to change the task is required.`);
+    }
+  }
+  const nextStep = draft.changes.nextStep;
+  if (nextStep) {
+    const explicitKinds = /* @__PURE__ */ new Set(["explicit_next_step", "user_instruction"]);
+    if (nextStep.value === null) {
+      const clearingKinds = /* @__PURE__ */ new Set([...explicitKinds, "progress", "decision"]);
+      if (!nextStep.evidenceRefs.some((id2) => clearingKinds.has(facts.get(id2).kind))) {
+        throw new PolicyError("Clearing nextStep requires progress/decision evidence that the step was completed or canceled, or explicit_next_step/user_instruction evidence. The whole task does not need to be completed.");
+      }
+    } else {
+      if (!nextStep.evidenceRefs.some((id2) => explicitKinds.has(facts.get(id2).kind))) {
+        throw new PolicyError("nextStep needs explicit_next_step or user_instruction evidence");
+      }
+      const normalized = normalizeText(nextStep.value);
+      const matches = nextStep.evidenceRefs.some((id2) => {
+        const fact = facts.get(id2);
+        return explicitKinds.has(fact.kind) && normalizeText(fact.text) === normalized;
+      });
+      if (!matches) throw new PolicyError("nextStep must exactly match explicit evidence");
+    }
+  }
+  const questions = draft.changes.openQuestions;
+  if (questions?.value.length) {
+    const questionFacts = questions.evidenceRefs.map((id2) => facts.get(id2)).filter((fact) => fact.kind === "open_question");
+    for (const value of questions.value) {
+      if (!questionFacts.some((fact) => normalizeText(fact.text) === normalizeText(value))) {
+        throw new PolicyError("each open question must exactly match open_question evidence");
+      }
+    }
+  }
+  const blockers = draft.changes.blockers;
+  if (blockers?.value.length) {
+    const blockerFacts = blockers.evidenceRefs.map((id2) => facts.get(id2)).filter((fact) => fact.kind === "blocker" || fact.kind === "constraint");
+    if (blockerFacts.length === 0) throw new PolicyError("blockers need blocker or constraint evidence");
+    for (const value of blockers.value) {
+      if (!blockerFacts.some((fact) => normalizeText(fact.text) === normalizeText(value))) {
+        throw new PolicyError("each blocker must exactly match blocker evidence");
+      }
+    }
+  }
+  const artifacts2 = draft.changes.artifacts;
+  if (artifacts2?.value.length) {
+    const artifactFacts = artifacts2.evidenceRefs.map((id2) => facts.get(id2)).filter((fact) => fact.kind === "artifact");
+    for (const artifact of artifacts2.value) {
+      let protocol;
+      try {
+        protocol = new URL(artifact.uri).protocol;
+      } catch {
+        throw new PolicyError("artifact URI must be absolute");
+      }
+      if (!(/* @__PURE__ */ new Set(["https:", "http:", "file:"])).has(protocol)) throw new PolicyError("artifact URI scheme is not allowed");
+      if (!artifactFacts.some((fact) => fact.sourceRef === artifact.uri)) throw new PolicyError("each artifact URI must exactly match artifact evidence");
+    }
+  }
+}
+function normalizeText(value) {
+  return value.trim().replace(/\s+/g, " ").toLocaleLowerCase();
+}
+
+// repository.ts
+import { createHash as createHash2, randomUUID as randomUUID2 } from "node:crypto";
+import path from "node:path";
+
+// core/kernel.ts
+import { createHash, randomUUID } from "node:crypto";
+
+// core/types.ts
+var factKinds = [
+  "description",
+  "progress",
+  "user_instruction",
+  "explicit_next_step",
+  "decision",
+  "open_question",
+  "artifact",
+  "constraint",
+  "blocker"
+];
+
+// core/kernel.ts
+function now() {
+  return (/* @__PURE__ */ new Date()).toISOString();
+}
+function rows(statement, ...parameters) {
+  return statement.all(...parameters);
+}
+function taskFrom(row) {
+  return {
+    id: String(row.id),
+    title: String(row.title),
+    status: row.status,
+    revision: Number(row.revision),
+    createdAt: String(row.created_at),
+    updatedAt: String(row.updated_at)
+  };
+}
+function factFrom(row) {
+  return {
+    id: String(row.id),
+    taskId: String(row.task_id),
+    kind: row.kind,
+    text: String(row.text),
+    source: String(row.source),
+    sourceRef: row.source_ref === null ? null : String(row.source_ref),
+    occurredAt: String(row.occurred_at),
+    createdAt: String(row.created_at)
+  };
+}
+function projectionFrom(row) {
+  return {
+    taskId: String(row.task_id),
+    summary: row.summary === null ? null : String(row.summary),
+    nextStep: row.next_step === null ? null : String(row.next_step),
+    openQuestions: JSON.parse(String(row.open_questions_json)),
+    blockers: JSON.parse(String(row.blockers_json)),
+    artifacts: JSON.parse(String(row.artifacts_json)),
+    updatedAt: String(row.updated_at)
+  };
+}
+function proposalFrom(row) {
+  return {
+    id: String(row.id),
+    taskId: String(row.task_id),
+    baseRevision: Number(row.base_revision),
+    model: String(row.model),
+    rationale: String(row.rationale),
+    confidence: Number(row.confidence),
+    changes: JSON.parse(String(row.changes_json)),
+    status: row.status,
+    createdAt: String(row.created_at),
+    resolvedAt: row.resolved_at === null ? null : String(row.resolved_at),
+    idempotencyKey: row.idempotency_key === null ? null : String(row.idempotency_key)
+  };
+}
+var Kernel = class {
+  constructor(store) {
+    this.store = store;
+  }
+  store;
+  createTask(input2) {
+    if (input2.title.trim() === "") throw new PolicyError("task title cannot be empty");
+    const id2 = input2.id ?? randomUUID();
+    const timestamp = now();
+    return this.store.transaction(() => {
+      this.store.db.prepare(
+        "INSERT INTO tasks(id, title, status, revision, created_at, updated_at) VALUES (?, ?, 'open', 0, ?, ?)"
+      ).run(id2, input2.title.trim(), timestamp, timestamp);
+      this.store.db.prepare(
+        "INSERT INTO task_projections(task_id, summary, next_step, open_questions_json, blockers_json, artifacts_json, updated_at) VALUES (?, NULL, NULL, '[]', '[]', '[]', ?)"
+      ).run(id2, timestamp);
+      this.event(id2, "task.created", { title: input2.title.trim() }, timestamp);
+      return this.getTask(id2);
+    });
+  }
+  appendFact(input2) {
+    this.getTask(input2.taskId);
+    if (!factKinds.includes(input2.kind)) throw new PolicyError(`unknown fact kind: ${input2.kind}`);
+    if (input2.text.trim() === "") throw new PolicyError("fact text cannot be empty");
+    const id2 = input2.id ?? randomUUID();
+    const timestamp = now();
+    const occurredAt = input2.occurredAt ?? timestamp;
+    return this.store.transaction(() => {
+      this.store.db.prepare(`
+        INSERT INTO task_facts(id, task_id, kind, text, source, source_ref, occurred_at, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(id2, input2.taskId, input2.kind, input2.text.trim(), input2.source ?? "user", input2.sourceRef ?? null, occurredAt, timestamp);
+      this.bumpRevision(input2.taskId, timestamp);
+      this.event(input2.taskId, "fact.appended", { factId: id2, kind: input2.kind }, timestamp);
+      return this.getFact(id2);
+    });
+  }
+  getTask(taskId) {
+    const row = this.store.db.prepare("SELECT * FROM tasks WHERE id = ?").get(taskId);
+    if (!row) throw new NotFoundError(`task not found: ${taskId}`);
+    return taskFrom(row);
+  }
+  hasTask(taskId) {
+    return this.store.db.prepare("SELECT 1 FROM tasks WHERE id = ?").get(taskId) !== void 0;
+  }
+  setTaskStatus(taskId, status, expectedRevision) {
+    if (!["open", "done", "archived"].includes(status)) throw new PolicyError("invalid task status");
+    return this.store.transaction(() => {
+      const task = this.getTask(taskId);
+      if (task.revision !== expectedRevision) throw new ConflictError("Task changed; refresh before changing its status");
+      if (task.status === status) return task;
+      const timestamp = now();
+      this.store.db.prepare("UPDATE tasks SET status=?,revision=revision+1,updated_at=? WHERE id=?").run(status, timestamp, taskId);
+      this.event(taskId, "task.status-changed", { before: task.status, after: status, actor: "human" }, timestamp);
+      return this.getTask(taskId);
+    });
+  }
+  listProposals(taskId) {
+    return rows(this.store.db.prepare(`SELECT * FROM proposals ${taskId ? "WHERE task_id=?" : ""} ORDER BY created_at DESC LIMIT 200`), ...taskId ? [taskId] : []).map(proposalFrom);
+  }
+  getFact(factId) {
+    const row = this.store.db.prepare("SELECT * FROM task_facts WHERE id = ?").get(factId);
+    if (!row) throw new NotFoundError(`fact not found: ${factId}`);
+    return factFrom(row);
+  }
+  hasFact(factId) {
+    return this.store.db.prepare("SELECT 1 FROM task_facts WHERE id = ?").get(factId) !== void 0;
+  }
+  getDossier(taskId) {
+    const task = this.getTask(taskId);
+    const projectionRow = this.store.db.prepare("SELECT * FROM task_projections WHERE task_id = ?").get(taskId);
+    const factRows = rows(this.store.db.prepare("SELECT * FROM task_facts WHERE task_id = ? ORDER BY occurred_at, created_at"), taskId);
+    return { task, projection: projectionFrom(projectionRow), facts: factRows.map(factFrom), planning: this.getPlanning(taskId) };
+  }
+  getPlanning(taskId) {
+    const row = this.store.db.prepare("SELECT * FROM planning WHERE task_id=?").get(taskId);
+    return { urgent: row?.urgent == null ? null : Boolean(row.urgent), important: row?.important == null ? null : Boolean(row.important), revision: Number(row?.revision ?? 0) };
+  }
+  createProposal(input2) {
+    if (input2.idempotencyKey) {
+      const existing = this.store.db.prepare("SELECT * FROM proposals WHERE idempotency_key = ?").get(input2.idempotencyKey);
+      if (existing) return proposalFrom(existing);
+    }
+    const dossier = this.getDossier(input2.taskId);
+    if (dossier.task.revision !== input2.baseRevision) {
+      throw new ConflictError(`task revision is ${dossier.task.revision}, proposal used ${input2.baseRevision}`);
+    }
+    const draft = parseProposalDraft(input2.output);
+    const additionalEvidence = normalizeProposalEvidence(input2.additionalEvidence ?? []);
+    validateEvidence(draft, dossier, additionalEvidence);
+    const id2 = randomUUID();
+    const timestamp = now();
+    this.store.transaction(() => {
+      this.store.db.prepare(`
+        INSERT INTO proposals(id, task_id, base_revision, model, rationale, confidence, changes_json, status, created_at, resolved_at, idempotency_key)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, NULL, ?)
+      `).run(id2, input2.taskId, input2.baseRevision, input2.model, draft.rationale, draft.confidence, JSON.stringify(draft.changes), timestamp, input2.idempotencyKey ?? null);
+      const evidenceStatement = this.store.db.prepare(`INSERT INTO proposal_evidence(
+        proposal_id, evidence_ref, kind, text, source, source_ref
+      ) VALUES (?, ?, ?, ?, ?, ?)`);
+      for (const evidence2 of additionalEvidence) {
+        evidenceStatement.run(id2, evidence2.ref, evidence2.kind, evidence2.text, evidence2.source, evidence2.sourceRef);
+      }
+      this.event(input2.taskId, "proposal.created", { proposalId: id2, model: input2.model }, timestamp);
+    });
+    return this.getProposal(id2);
+  }
+  getProposal(proposalId) {
+    const row = this.store.db.prepare("SELECT * FROM proposals WHERE id = ?").get(proposalId);
+    if (!row) throw new NotFoundError(`proposal not found: ${proposalId}`);
+    return proposalFrom(row);
+  }
+  findProposalByIdempotencyKey(idempotencyKey) {
+    const row = this.store.db.prepare("SELECT * FROM proposals WHERE idempotency_key = ?").get(idempotencyKey);
+    return row ? proposalFrom(row) : void 0;
+  }
+  proposalEvidence(proposalId) {
+    this.getProposal(proposalId);
+    return this.store.db.prepare("SELECT * FROM proposal_evidence WHERE proposal_id = ? ORDER BY evidence_ref").all(proposalId).map((row) => ({
+      ref: String(row.evidence_ref),
+      kind: row.kind,
+      text: String(row.text),
+      source: String(row.source),
+      sourceRef: row.source_ref === null ? null : String(row.source_ref)
+    }));
+  }
+  approveProposal(proposalId, actor = "human:cli") {
+    return this.store.transaction(() => {
+      const proposal = this.getProposal(proposalId);
+      if (proposal.status !== "pending") throw new PolicyError(`proposal is already ${proposal.status}`);
+      const approval = {
+        id: randomUUID(),
+        proposalId,
+        proposalHash: this.proposalHash(proposal),
+        actor,
+        createdAt: now()
+      };
+      this.store.db.prepare(
+        "INSERT INTO proposal_approvals(id, proposal_id, proposal_hash, actor, created_at) VALUES (?, ?, ?, ?, ?)"
+      ).run(approval.id, approval.proposalId, approval.proposalHash, approval.actor, approval.createdAt);
+      this.store.db.prepare("UPDATE proposals SET status = 'approved' WHERE id = ? AND status = 'pending'").run(proposalId);
+      this.event(proposal.taskId, "proposal.approved", { proposalId, approvalId: approval.id, actor }, approval.createdAt);
+      return approval;
+    });
+  }
+  applyProposal(proposalId) {
+    const result = this.store.transaction(() => {
+      const proposal = this.getProposal(proposalId);
+      if (proposal.status !== "approved") throw new PolicyError(`proposal must be approved, found ${proposal.status}`);
+      const dossier = this.getDossier(proposal.taskId);
+      if (dossier.task.revision !== proposal.baseRevision) {
+        const message = `task changed after proposal: expected ${proposal.baseRevision}, found ${dossier.task.revision}`;
+        const timestamp2 = now();
+        this.store.db.prepare("UPDATE proposals SET status = 'conflicted', resolved_at = ? WHERE id = ?").run(timestamp2, proposalId);
+        this.event(proposal.taskId, "proposal.conflicted", { proposalId, message }, timestamp2);
+        return { conflict: message };
+      }
+      validateEvidence(proposal, dossier, this.proposalEvidence(proposal.id));
+      const approvalRow = this.store.db.prepare("SELECT * FROM proposal_approvals WHERE proposal_id = ?").get(proposalId);
+      if (!approvalRow || String(approvalRow.proposal_hash) !== this.proposalHash(proposal)) {
+        throw new PolicyError("approval does not match the exact proposal");
+      }
+      const next = { ...dossier.projection };
+      if (proposal.changes.summary) next.summary = proposal.changes.summary.value;
+      if (proposal.changes.nextStep) next.nextStep = proposal.changes.nextStep.value;
+      if (proposal.changes.openQuestions) next.openQuestions = proposal.changes.openQuestions.value;
+      if (proposal.changes.blockers) next.blockers = proposal.changes.blockers.value;
+      if (proposal.changes.artifacts) next.artifacts = proposal.changes.artifacts.value;
+      const nextStatus = proposal.changes.status?.value ?? dossier.task.status;
+      const nextTitle = proposal.changes.title?.value ?? dossier.task.title;
+      const nextPlanning = { ...dossier.planning };
+      if (proposal.changes.urgent) nextPlanning.urgent = proposal.changes.urgent.value;
+      if (proposal.changes.important) nextPlanning.important = proposal.changes.important.value;
+      const timestamp = now();
+      this.store.db.prepare(`
+        UPDATE task_projections
+        SET summary = ?, next_step = ?, open_questions_json = ?, blockers_json = ?, artifacts_json = ?, updated_at = ?
+        WHERE task_id = ?
+      `).run(next.summary, next.nextStep, JSON.stringify(next.openQuestions), JSON.stringify(next.blockers), JSON.stringify(next.artifacts), timestamp, proposal.taskId);
+      this.store.db.prepare("UPDATE proposals SET status = 'applied', resolved_at = ? WHERE id = ?").run(timestamp, proposalId);
+      if (nextStatus !== dossier.task.status) {
+        this.store.db.prepare("UPDATE tasks SET status=? WHERE id=?").run(nextStatus, proposal.taskId);
+        this.event(proposal.taskId, "task.status-changed", { before: dossier.task.status, after: nextStatus, actor: approvalRow.actor, proposalId }, timestamp);
+      }
+      if (nextTitle !== dossier.task.title) {
+        this.store.db.prepare("UPDATE tasks SET title=? WHERE id=?").run(nextTitle, proposal.taskId);
+        this.event(proposal.taskId, "task.title-changed", { before: dossier.task.title, after: nextTitle, actor: approvalRow.actor, proposalId }, timestamp);
+      }
+      if (nextPlanning.urgent !== dossier.planning.urgent || nextPlanning.important !== dossier.planning.important) {
+        this.store.db.prepare("INSERT OR IGNORE INTO planning(task_id) VALUES (?)").run(proposal.taskId);
+        this.store.db.prepare("UPDATE planning SET urgent=?,important=?,revision=revision+1 WHERE task_id=?").run(nextPlanning.urgent === null ? null : Number(nextPlanning.urgent), nextPlanning.important === null ? null : Number(nextPlanning.important), proposal.taskId);
+        this.event(proposal.taskId, "planning.changed", { before: dossier.planning, after: this.getPlanning(proposal.taskId), actor: approvalRow.actor, proposalId }, timestamp);
+      }
+      this.bumpRevision(proposal.taskId, timestamp);
+      const afterRevision = dossier.task.revision + 1;
+      const receiptId = randomUUID();
+      this.store.db.prepare(`
+        INSERT INTO application_receipts(id, proposal_id, approval_id, task_id, before_revision, after_revision, fields_json, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(receiptId, proposalId, String(approvalRow.id), proposal.taskId, dossier.task.revision, afterRevision, JSON.stringify(Object.keys(proposal.changes)), timestamp);
+      this.store.db.prepare("INSERT INTO application_snapshots(proposal_id,before_json,after_json) VALUES(?,?,?)").run(
+        proposalId,
+        JSON.stringify({ ...dossier.projection, status: dossier.task.status, title: dossier.task.title, urgent: dossier.planning.urgent, important: dossier.planning.important }),
+        JSON.stringify({ ...next, status: nextStatus, title: nextTitle, urgent: nextPlanning.urgent, important: nextPlanning.important })
+      );
+      this.event(proposal.taskId, "proposal.applied", { proposalId, approvalId: approvalRow.id, receiptId, fields: Object.keys(proposal.changes) }, timestamp);
+      return this.getDossier(proposal.taskId);
+    });
+    if ("conflict" in result) throw new ConflictError(result.conflict);
+    return result;
+  }
+  /** Reversal is a new exact, evidence-backed proposal; history and later work survive. */
+  proposeRevert(proposalId) {
+    const applied = this.getProposal(proposalId);
+    if (applied.status !== "applied") throw new PolicyError("Only an applied proposal can be reversed");
+    const snapshot = this.store.db.prepare("SELECT * FROM application_snapshots WHERE proposal_id=?").get(proposalId);
+    if (!snapshot) throw new PolicyError("This legacy application has no before snapshot; inspect its history and propose a correction");
+    const before = JSON.parse(String(snapshot.before_json));
+    const after = JSON.parse(String(snapshot.after_json));
+    const dossier = this.getDossier(applied.taskId);
+    const current = { ...dossier.projection, status: dossier.task.status, title: dossier.task.title, urgent: dossier.planning.urgent, important: dossier.planning.important };
+    const changes = {}, additionalEvidence = [];
+    for (const field of Object.keys(applied.changes)) {
+      if (!(field in before) || !(field in after)) throw new PolicyError("The saved operation does not contain the previous task field value.");
+      if (JSON.stringify(current[field]) !== JSON.stringify(after[field])) throw new ConflictError(`${field} changed after this application; automatic reversal would overwrite newer work`);
+      const values = Array.isArray(before[field]) ? before[field] : [before[field]];
+      const evidenceRefs = [];
+      for (const [index, value] of (values.length ? values : [null]).entries()) {
+        const ref = `revert:${proposalId}:${field}:${index}`;
+        evidenceRefs.push(ref);
+        additionalEvidence.push({ ref, kind: ["status", "title", "urgent", "important"].includes(field) ? "decision" : field === "nextStep" ? "explicit_next_step" : field === "openQuestions" ? "open_question" : field === "blockers" ? "blocker" : field === "artifacts" ? "artifact" : "description", text: value === null ? `Restore previously accepted empty ${field}` : typeof value === "string" ? value : JSON.stringify(value), source: `accepted-projection:${proposalId}`, sourceRef: field === "artifacts" && value ? value.uri : null });
+      }
+      changes[field] = { value: before[field], evidenceRefs };
+    }
+    return this.createProposal({ taskId: applied.taskId, baseRevision: dossier.task.revision, model: "kernel:compensating-revert-v1", output: { rationale: `Restore fields from before application ${proposalId}`, confidence: 1, changes }, additionalEvidence, idempotencyKey: `revert:${proposalId}:${dossier.task.revision}` });
+  }
+  rejectProposal(proposalId) {
+    return this.store.transaction(() => {
+      const proposal = this.getProposal(proposalId);
+      if (proposal.status !== "pending" && proposal.status !== "approved") throw new PolicyError(`proposal is already ${proposal.status}`);
+      const timestamp = now();
+      const changed = this.store.db.prepare("UPDATE proposals SET status = 'rejected', resolved_at = ? WHERE id = ? AND status IN ('pending', 'approved')").run(timestamp, proposalId);
+      if (Number(changed.changes) !== 1) throw new ConflictError("proposal status changed concurrently");
+      this.event(proposal.taskId, "proposal.rejected", { proposalId }, timestamp);
+      return this.getProposal(proposalId);
+    });
+  }
+  getApplicationReceipt(proposalId) {
+    const row = this.store.db.prepare("SELECT * FROM application_receipts WHERE proposal_id = ?").get(proposalId);
+    if (!row) throw new NotFoundError(`application receipt not found for proposal: ${proposalId}`);
+    return {
+      id: String(row.id),
+      proposalId: String(row.proposal_id),
+      approvalId: String(row.approval_id),
+      taskId: String(row.task_id),
+      beforeRevision: Number(row.before_revision),
+      afterRevision: Number(row.after_revision),
+      fields: JSON.parse(String(row.fields_json)),
+      createdAt: String(row.created_at)
+    };
+  }
+  prepareBrief(taskId) {
+    const { task, projection, facts, planning } = this.getDossier(taskId);
+    const lines = [`# ${task.title}`, "", `Task: ${task.id} \xB7 revision ${task.revision} \xB7 ${task.status}`];
+    lines.push(`Priority: urgent=${planning.urgent}, important=${planning.important} (null = unclassified).`);
+    if (projection.summary) lines.push("", "## Current summary", projection.summary);
+    if (projection.nextStep) lines.push("", "## Explicit next step", projection.nextStep);
+    if (projection.openQuestions.length) lines.push("", "## Open questions", ...projection.openQuestions.map((item) => `- ${item}`));
+    if (projection.blockers.length) lines.push("", "## Blockers", ...projection.blockers.map((item) => `- ${item}`));
+    if (projection.artifacts.length) lines.push("", "## Artifacts", ...projection.artifacts.map((item) => `- [${escapeMarkdown(item.label)}](<${item.uri.replaceAll(">", "%3E")}>)`));
+    const recent = facts.slice(-20);
+    if (recent.length) {
+      lines.push("", "## Evidence", ...recent.map((fact) => `- [${fact.id}] ${fact.kind}: ${fact.text}`));
+    }
+    if (!projection.nextStep) lines.push("", "No explicit next step has been accepted.");
+    return { taskId, revision: task.revision, markdown: lines.join("\n") + "\n" };
+  }
+  bumpRevision(taskId, timestamp) {
+    this.store.db.prepare("UPDATE tasks SET revision = revision + 1, updated_at = ? WHERE id = ?").run(timestamp, taskId);
+  }
+  event(taskId, type, payload, timestamp) {
+    this.store.db.prepare(
+      "INSERT INTO kernel_events(id, task_id, type, payload_json, created_at) VALUES (?, ?, ?, ?, ?)"
+    ).run(randomUUID(), taskId, type, JSON.stringify(payload), timestamp);
+  }
+  proposalHash(proposal) {
+    return createHash("sha256").update(JSON.stringify({
+      id: proposal.id,
+      taskId: proposal.taskId,
+      baseRevision: proposal.baseRevision,
+      model: proposal.model,
+      rationale: proposal.rationale,
+      confidence: proposal.confidence,
+      changes: proposal.changes,
+      createdAt: proposal.createdAt
+    })).digest("hex");
+  }
+};
+function escapeMarkdown(value) {
+  return value.replace(/[\\\[\]]/g, "\\$&");
+}
+function normalizeProposalEvidence(input2) {
+  const seen = /* @__PURE__ */ new Set();
+  return input2.map((item) => {
+    if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/.test(item.ref) || seen.has(item.ref)) throw new PolicyError("proposal evidence ref is invalid or duplicated");
+    if (!factKinds.includes(item.kind) || item.text.trim() === "" || item.source.trim() === "") throw new PolicyError("proposal evidence is invalid");
+    seen.add(item.ref);
+    return { ...item, text: item.text.trim(), source: item.source.trim() };
+  });
+}
+
+// core/database.ts
+var Store = class {
+  constructor(db) {
+    this.db = db;
+  }
+  db;
+  transaction(operation) {
+    return this.db.transaction(operation).immediate();
+  }
+};
+
+// day-schema.ts
+var DAY_SCHEMA = [
+  `CREATE TABLE day_items (id TEXT PRIMARY KEY, date TEXT NOT NULL, reported_date TEXT NOT NULL, task_id TEXT REFERENCES tasks(id), calendar_key TEXT UNIQUE, value_json TEXT NOT NULL)`,
+  `CREATE UNIQUE INDEX day_task_unique ON day_items(date,task_id) WHERE task_id IS NOT NULL`,
+  `CREATE INDEX day_items_date ON day_items(date,reported_date)`,
+  `CREATE TABLE day_configs (date TEXT PRIMARY KEY, value_json TEXT NOT NULL)`,
+  `CREATE TABLE day_item_events (sequence INTEGER PRIMARY KEY AUTOINCREMENT, item_id TEXT NOT NULL REFERENCES day_items(id), at TEXT NOT NULL, actor TEXT NOT NULL, action TEXT NOT NULL, before_json TEXT, after_json TEXT NOT NULL)`,
+  `CREATE INDEX day_item_history ON day_item_events(item_id,sequence)`,
+  `CREATE TABLE day_config_events (sequence INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, at TEXT NOT NULL, actor TEXT NOT NULL, before_json TEXT NOT NULL, after_json TEXT NOT NULL)`,
+  `CREATE TABLE calendar_sync_state (id INTEGER PRIMARY KEY CHECK(id=1), value_json TEXT NOT NULL)`
+];
+
+// agent-time-schema.ts
+var AGENT_TIME_SCHEMA = [
+  `CREATE TABLE agent_time_state (id INTEGER PRIMARY KEY CHECK(id=1), value_json TEXT NOT NULL)`,
+  `CREATE TABLE agent_time_threads (thread_id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES tasks(id), after_seq INTEGER NOT NULL DEFAULT 0)`,
+  `CREATE TABLE agent_time_events (thread_id TEXT NOT NULL REFERENCES agent_time_threads(thread_id), seq INTEGER NOT NULL, value_json TEXT NOT NULL, PRIMARY KEY(thread_id,seq))`
+];
+
+// task-sources.ts
+function sourceUrl(value) {
+  if (!value || value.length > 4096 || /[\u0000-\u001f\u007f]/.test(value)) return null;
+  try {
+    const url2 = new URL(value);
+    return ["https:", "http:"].includes(url2.protocol) && !url2.username && !url2.password && url2.href.length <= 4096 ? url2 : null;
+  } catch {
+    return null;
+  }
+}
+function clickUpTaskId(url2) {
+  const host = url2.hostname.toLowerCase();
+  if (host !== "clickup.com" && !host.endsWith(".clickup.com")) return null;
+  return url2.pathname.match(/^\/t\/(?:[0-9]+\/)?([A-Za-z0-9_-]+)\/?$/)?.[1] ?? null;
+}
+function legacyClickUpUrls(title, text2) {
+  if (!text2.startsWith("\u0418\u0441\u0442\u043E\u0447\u043D\u0438\u043A: Legacy (Windows). \u0418\u043C\u043F\u043E\u0440\u0442 \u043F\u043E \u0437\u0430\u043F\u0440\u043E\u0441\u0443 \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F.\n") || !/^Исходный ID: [0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/im.test(text2)) return [];
+  const extract = (value) => [...value.matchAll(/https?:\/\/[^\s<>"'()[\]{}\\`]+/g)].map((match) => sourceUrl(match[0].replace(/[.,;:!?»]+$/, ""))).filter((url2) => !!url2 && !!clickUpTaskId(url2));
+  const urls = [];
+  const primary = text2.match(/(?:^|\n)[^\n]*\(clickup_url\)\r?\n([^\r\n]+)/)?.[1];
+  if (primary) urls.push(...extract(primary));
+  const links = text2.match(/(?:^|\n)[^\n]*\(links\)\r?\n(\[[\s\S]*?\n\])/);
+  if (links) {
+    try {
+      const values = JSON.parse(links[1]);
+      if (Array.isArray(values)) for (const value of values) {
+        if (typeof value === "string") urls.push(...extract(value));
+      }
+    } catch {
+    }
+  }
+  const titleWords = new Set(title.toLowerCase().split(/[^a-z0-9_-]+/));
+  for (const url2 of extract(text2)) {
+    if (titleWords.has(clickUpTaskId(url2).toLowerCase())) urls.push(url2);
+  }
+  return urls.map((url2) => url2.href);
+}
+function sourceLabel(url2, hint) {
+  const host = url2.hostname.toLowerCase();
+  if (host === "mail.google.com") return "Gmail message";
+  if (host === "slack.com" || host.endsWith(".slack.com")) return "Slack message";
+  const clickUp = clickUpTaskId(url2);
+  if (clickUp) return `ClickUp \xB7 ${clickUp}`;
+  const issue2 = url2.pathname.match(/\/browse\/([A-Z][A-Z0-9_]*-\d+)(?:\/|$)/i)?.[1];
+  if (issue2) return `Jira \xB7 ${issue2.toUpperCase()}`;
+  if (host === "teams.microsoft.com") return "Teams message";
+  if (["outlook.office.com", "outlook.office365.com", "outlook.live.com"].includes(host)) return "Outlook message";
+  if (hint === "clickup") return "ClickUp document";
+  if (hint === "jira") return "Jira issue";
+  return host;
+}
+function taskSourceLinks(dossier, candidates) {
+  const links = /* @__PURE__ */ new Map();
+  const add = (value, occurredAt, acceptedAt, origin = false, hint) => {
+    const url2 = sourceUrl(value);
+    if (!url2) return;
+    const existing = links.get(url2.href);
+    const validDate = occurredAt && Number.isFinite(Date.parse(occurredAt)) ? occurredAt : null;
+    if (existing) {
+      existing.origin ||= origin;
+      if (acceptedAt < existing.acceptedAt) existing.acceptedAt = acceptedAt;
+      existing.occurredAt ??= validDate;
+      return;
+    }
+    links.set(url2.href, { url: url2.href, label: sourceLabel(url2, hint), occurredAt: validDate, origin, acceptedAt });
+  };
+  for (const candidate of candidates) {
+    if (candidate.status !== "applied" || candidate.resultTaskId !== dossier.task.id) continue;
+    const records = new Set(candidate.recordFactIndexes ?? candidate.facts.map((_, i) => i));
+    const refs2 = new Set(Object.values(candidate.changes).flatMap((change) => change?.evidenceRefs ?? []));
+    candidate.facts.forEach((fact, index) => {
+      if (!records.has(index) && !refs2.has(`fact:${index}`)) return;
+      for (const citation of fact.citations) add(
+        citation.url,
+        citation.occurredAt,
+        candidate.resolvedAt ?? candidate.createdAt,
+        candidate.taskId === null,
+        citation.source
+      );
+    });
+  }
+  for (const fact of dossier.facts) {
+    add(fact.sourceRef, fact.occurredAt, fact.createdAt);
+    if (fact.kind === "description") for (const url2 of legacyClickUpUrls(dossier.task.title, fact.text)) {
+      add(url2, fact.occurredAt, fact.createdAt, true);
+    }
+  }
+  for (const proposal of dossier.proposals) {
+    if (proposal.status !== "applied" || !proposal.receipt) continue;
+    const refs2 = new Set(Object.values(proposal.changes).flatMap((change) => change?.evidenceRefs ?? []));
+    for (const evidence2 of proposal.evidence) if (refs2.has(evidence2.ref)) {
+      add(evidence2.sourceRef, null, proposal.receipt.createdAt);
+    }
+  }
+  return [...links.values()].sort((a, b) => Number(b.origin) - Number(a.origin) || a.acceptedAt.localeCompare(b.acceptedAt)).map(({ acceptedAt: _, ...link }) => link);
+}
+
+// repository.ts
+var EXTRA_SCHEMA = [
+  `CREATE TABLE planning (task_id TEXT PRIMARY KEY REFERENCES tasks(id), urgent INTEGER, important INTEGER, revision INTEGER NOT NULL DEFAULT 0)`,
+  `CREATE TABLE requests (id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, result_json TEXT NOT NULL)`,
+  `CREATE TABLE sessions (id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES tasks(id), status TEXT NOT NULL, value_json TEXT NOT NULL, request_json TEXT NOT NULL)`,
+  `CREATE INDEX session_task ON sessions(task_id)`,
+  `CREATE UNIQUE INDEX one_active_session ON sessions(task_id) WHERE status IN ('starting','working','collecting','review_starting','reviewing','repair_starting')`,
+  `CREATE TABLE session_events (id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id), kind TEXT NOT NULL, detail TEXT NOT NULL, payload_json TEXT NOT NULL, created_at TEXT NOT NULL)`,
+  `CREATE INDEX session_event_order ON session_events(session_id, created_at)`,
+  `CREATE TABLE session_threads (thread_id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id), role TEXT NOT NULL, round INTEGER NOT NULL)`,
+  `CREATE TABLE session_transcripts (session_id TEXT PRIMARY KEY REFERENCES sessions(id), value_json TEXT NOT NULL)`,
+  `CREATE TABLE session_updates (proposal_id TEXT PRIMARY KEY REFERENCES proposals(id), session_id TEXT NOT NULL REFERENCES sessions(id), value_json TEXT NOT NULL)`,
+  `CREATE TABLE knowledge_entries (id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES tasks(id), proposal_id TEXT NOT NULL REFERENCES proposals(id), fingerprint TEXT NOT NULL UNIQUE, search_text TEXT NOT NULL, value_json TEXT NOT NULL)`,
+  `CREATE TABLE closed_task_thread_archives (thread_id TEXT PRIMARY KEY REFERENCES session_threads(thread_id), task_revision INTEGER NOT NULL, archived_at TEXT, retry_at INTEGER NOT NULL DEFAULT 0)`,
+  `CREATE TABLE knowledge_files (id TEXT PRIMARY KEY, source_key TEXT NOT NULL, relative_path TEXT NOT NULL, search_text TEXT NOT NULL, value_json TEXT NOT NULL, UNIQUE(source_key, relative_path))`,
+  `CREATE TABLE source_sync_runs (id TEXT PRIMARY KEY, status TEXT NOT NULL, thread_id TEXT UNIQUE, value_json TEXT NOT NULL, request_json TEXT NOT NULL)`,
+  `CREATE UNIQUE INDEX one_active_source_sync ON source_sync_runs((1)) WHERE status IN ('starting','working')`,
+  `CREATE TABLE source_sync_checkpoints (source TEXT PRIMARY KEY, through TEXT NOT NULL)`,
+  `CREATE TABLE source_sync_candidates (id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES source_sync_runs(id), task_id TEXT REFERENCES tasks(id), status TEXT NOT NULL, fingerprint TEXT NOT NULL UNIQUE, value_json TEXT NOT NULL)`,
+  `CREATE INDEX source_sync_candidate_task ON source_sync_candidates(task_id,status)`,
+  `CREATE TABLE source_sync_exports (run_id TEXT PRIMARY KEY REFERENCES source_sync_runs(id), value_json TEXT NOT NULL)`,
+  ...DAY_SCHEMA,
+  `CREATE TABLE task_views (task_id TEXT PRIMARY KEY REFERENCES tasks(id), seen_revision INTEGER NOT NULL);
+   INSERT INTO task_views(task_id,seen_revision) SELECT id,revision FROM tasks;`,
+  `CREATE TABLE part_reviews (kind TEXT NOT NULL, id TEXT NOT NULL, value_json TEXT NOT NULL, PRIMARY KEY(kind,id))`,
+  ...AGENT_TIME_SCHEMA
+];
+var ACTIVE = /* @__PURE__ */ new Set(["starting", "working", "collecting", "review_starting", "reviewing", "repair_starting"]);
+var digest = (value) => createHash2("sha256").update(JSON.stringify(value)).digest("hex");
+var now2 = () => (/* @__PURE__ */ new Date()).toISOString();
+var Repository = class {
+  constructor(db, changed) {
+    this.db = db;
+    this.changed = changed;
+    this.store = new Store(db);
+    this.kernel = new Kernel(this.store);
+  }
+  db;
+  changed;
+  store;
+  kernel;
+  request(id2, payload, execute2) {
+    return this.store.transaction(() => {
+      const fingerprint = digest(payload);
+      const previous = this.db.prepare("SELECT * FROM requests WHERE id=?").get(id2);
+      if (previous) {
+        if (previous.fingerprint !== fingerprint) throw new PolicyError("This request has already been used with different data.");
+        return JSON.parse(String(previous.result_json));
+      }
+      const result = execute2();
+      this.db.prepare("INSERT INTO requests VALUES (?,?,?)").run(id2, fingerprint, JSON.stringify(result));
+      return result;
+    });
+  }
+  create(input2) {
+    const result = this.request(input2.requestId, { kind: "create", ...input2 }, () => {
+      const task = this.kernel.createTask({ title: input2.title });
+      this.db.prepare("INSERT INTO planning(task_id) VALUES (?)").run(task.id);
+      if (input2.description) this.kernel.appendFact({ taskId: task.id, kind: "description", text: input2.description, source: "human:bb" });
+      return this.kernel.getTask(task.id);
+    });
+    this.changed();
+    return result;
+  }
+  assertCurrent(taskId, revision, requireOpen = true) {
+    const task = this.kernel.getTask(taskId);
+    if (task.revision !== revision) throw new ConflictError("The dossier changed. Refresh it and check the new data.");
+    if (requireOpen && task.status !== "open") throw new PolicyError("The task is closed. Reopen it first.");
+    return task;
+  }
+  note(input2) {
+    const fact = this.request(input2.requestId, { kind: "note", input: input2 }, () => {
+      this.assertCurrent(input2.taskId, input2.revision);
+      return this.kernel.appendFact({ taskId: input2.taskId, kind: input2.kind, text: input2.text, source: "human:bb" });
+    });
+    this.changed();
+    return fact;
+  }
+  planning(taskId) {
+    return this.kernel.getPlanning(taskId);
+  }
+  classify(input2) {
+    const result = this.store.transaction(() => {
+      this.kernel.getTask(input2.taskId);
+      if (this.planning(input2.taskId).revision !== input2.revision) throw new ConflictError("Priority changed in another window. Refresh the dossier.");
+      const previous = this.planning(input2.taskId);
+      if (previous.urgent === input2.urgent && previous.important === input2.important) return previous;
+      this.db.prepare("INSERT OR IGNORE INTO planning(task_id) VALUES (?)").run(input2.taskId);
+      this.db.prepare("UPDATE planning SET urgent=?,important=?,revision=revision+1 WHERE task_id=?").run(input2.urgent === null ? null : Number(input2.urgent), input2.important === null ? null : Number(input2.important), input2.taskId);
+      this.db.prepare("UPDATE tasks SET revision=revision+1,updated_at=? WHERE id=?").run(now2(), input2.taskId);
+      this.db.prepare("INSERT INTO kernel_events(id,task_id,type,payload_json,created_at) VALUES (?,?,?,?,?)").run(randomUUID2(), input2.taskId, "planning.changed", JSON.stringify(input2), now2());
+      return this.planning(input2.taskId);
+    });
+    this.changed();
+    return result;
+  }
+  status(taskId, status, revision) {
+    if (this.active().some((s) => s.taskId === taskId)) throw new PolicyError("Stop the current work session first.");
+    const task = this.kernel.setTaskStatus(taskId, status, revision);
+    this.changed();
+    return task;
+  }
+  pendingTotal() {
+    return Number(this.db.prepare("SELECT (SELECT count(*) FROM proposals WHERE status IN ('pending','approved')) + (SELECT count(*) FROM source_sync_candidates WHERE status='pending') AS n").get().n);
+  }
+  list(history = false) {
+    const where = history ? "" : "WHERE t.status='open'";
+    const total = Number(this.db.prepare(`SELECT count(*) AS n FROM tasks t ${where}`).get().n);
+    const tasks = this.db.prepare(`SELECT t.*,p.summary,p.next_step,v.seen_revision,
+      ((SELECT count(*) FROM proposals x WHERE x.task_id=t.id AND x.status IN ('pending','approved')) +
+       (SELECT count(*) FROM source_sync_candidates c WHERE c.task_id=t.id AND c.status='pending')) AS pending_count,
+      (SELECT id FROM sessions s WHERE s.task_id=t.id AND s.status IN ('starting','working','collecting','review_starting','reviewing','repair_starting') LIMIT 1) AS active_session
+      FROM tasks t JOIN task_projections p ON p.task_id=t.id LEFT JOIN task_views v ON v.task_id=t.id ${where} ORDER BY t.updated_at DESC,t.id LIMIT 500`).all().map((row) => ({
+      ...this.kernel.getTask(String(row.id)),
+      unseen: row.seen_revision == null ? "new" : Number(row.seen_revision) < Number(row.revision) ? "updated" : null,
+      planning: this.planning(String(row.id)),
+      summary: row.summary === null ? null : String(row.summary),
+      nextStep: row.next_step === null ? null : String(row.next_step),
+      pendingCount: Number(row.pending_count),
+      activeSession: row.active_session === null ? null : String(row.active_session)
+    }));
+    return { tasks, total, pendingTotal: this.pendingTotal() };
+  }
+  detail(taskId) {
+    const dossier = this.kernel.getDossier(taskId);
+    const proposals = this.kernel.listProposals(taskId).map((proposal) => {
+      const receipt = proposal.status === "applied" ? this.kernel.getApplicationReceipt(proposal.id) : null;
+      return { ...proposal, ...this.partReviewFields("proposal", proposal.id), evidence: this.kernel.proposalEvidence(proposal.id), receipt: receipt ? { id: receipt.id, beforeRevision: receipt.beforeRevision, afterRevision: receipt.afterRevision, createdAt: receipt.createdAt } : null };
+    });
+    const events = this.db.prepare("SELECT id,type,created_at,payload_json FROM kernel_events WHERE task_id=? ORDER BY sequence DESC LIMIT 100").all(taskId).map((r) => ({ id: String(r.id), kind: String(r.type), createdAt: String(r.created_at), detail: String(r.payload_json) }));
+    const sessionUpdates = this.db.prepare("SELECT u.value_json FROM session_updates u JOIN proposals p ON p.id=u.proposal_id WHERE p.task_id=? ORDER BY p.created_at DESC LIMIT 200").all(taskId).map((r) => sessionUpdateSchema.parse(JSON.parse(String(r.value_json))));
+    const syncUpdates = this.db.prepare("SELECT value_json FROM source_sync_candidates WHERE task_id=? ORDER BY rowid DESC LIMIT 200").all(taskId).map((r) => syncCandidateSchema.parse(JSON.parse(String(r.value_json)))).map((candidate) => ({ ...candidate, ...this.partReviewFields("source", candidate.id) }));
+    const acceptedSources = this.db.prepare("SELECT value_json FROM source_sync_candidates WHERE task_id=? AND status='applied' ORDER BY rowid").iterate(taskId);
+    function* sources() {
+      for (const row of acceptedSources) yield syncCandidateSchema.parse(JSON.parse(row.value_json));
+    }
+    const sourceLinks2 = taskSourceLinks({ ...dossier, proposals }, sources());
+    return { ...dossier, planning: this.planning(taskId), proposals, sessions: this.sessions(taskId), events, brief: this.kernel.prepareBrief(taskId).markdown, sessionUpdates, syncUpdates, sourceLinks: sourceLinks2 };
+  }
+  markSeen(taskId, revision) {
+    const current = this.kernel.getTask(taskId);
+    if (!Number.isSafeInteger(revision) || revision < 0 || revision > current.revision) throw new PolicyError("Invalid viewed task revision.");
+    const result = this.db.prepare(`INSERT INTO task_views(task_id,seen_revision) VALUES (?,?)
+      ON CONFLICT(task_id) DO UPDATE SET seen_revision=MAX(seen_revision,excluded.seen_revision)
+      WHERE seen_revision<excluded.seen_revision`).run(taskId, revision);
+    if (result.changes) this.changed();
+    return this.db.prepare("SELECT seen_revision AS seenRevision FROM task_views WHERE task_id=?").get(taskId);
+  }
+  partReview(kind, id2) {
+    const row = this.db.prepare("SELECT value_json FROM part_reviews WHERE kind=? AND id=?").get(kind, id2);
+    return row ? JSON.parse(row.value_json) : void 0;
+  }
+  partReviewFields(kind, id2) {
+    const partReview = this.partReview(kind, id2);
+    return partReview ? { partReview } : {};
+  }
+  savePartReview(kind, id2, review) {
+    this.db.prepare("INSERT INTO part_reviews VALUES (?,?,?)").run(kind, id2, JSON.stringify(review));
+  }
+  reviewParts(input2) {
+    const result = this.request(input2.requestId, { kind: "review-parts", input: input2 }, () => {
+      const proposal = this.kernel.getProposal(input2.id);
+      if (proposal.status !== "pending") throw new PolicyError("This proposal was already reviewed. Refresh the list.");
+      const task = this.assertCurrent(proposal.taskId, input2.revision, false);
+      if (task.revision !== proposal.baseRevision) throw new ConflictError("The proposal is stale. Request a new review.");
+      if (this.active().some((s) => s.discussionProposalId === proposal.id)) throw new PolicyError("Finish discussing this review first.");
+      const row = this.db.prepare("SELECT value_json FROM session_updates WHERE proposal_id=?").get(proposal.id);
+      const update = row ? sessionUpdateSchema.parse(JSON.parse(row.value_json)) : void 0;
+      const split = partitionParts(proposalParts(proposal.changes, update?.extraction), input2);
+      const evidence2 = this.kernel.proposalEvidence(proposal.id);
+      const make = (parts, suffix) => {
+        const extraction = update ? pickExtraction(update.extraction, parts, proposal.id) : void 0;
+        const picked = extraction ? extraction.changes ?? {} : pickChanges(proposal.changes, parts);
+        const refs2 = update ? extractionRefMap(update.extraction, parts, proposal.id) : /* @__PURE__ */ new Map();
+        const draft = receiptDraft(picked, this.kernel.getDossier(task.id), evidence2.map((e) => ({ ...e, ref: refs2.get(e.ref) ?? e.ref })));
+        const child = this.kernel.createProposal({
+          taskId: task.id,
+          baseRevision: this.kernel.getTask(task.id).revision,
+          model: proposal.model,
+          output: { rationale: proposal.rationale, confidence: proposal.confidence, changes: draft.changes },
+          additionalEvidence: draft.evidence,
+          idempotencyKey: `parts:${input2.requestId}:${suffix}`
+        });
+        if (update && extraction) this.db.prepare("INSERT INTO session_updates VALUES (?,?,?)").run(child.id, update.sessionId, JSON.stringify({ ...update, proposalId: child.id, extraction }));
+        return child;
+      };
+      const accepted = split.accepted.length ? make(split.accepted, "accepted") : null;
+      if (accepted) this.accept(accepted.id, task.revision);
+      const remaining = split.remaining.length ? make(split.remaining, "remaining") : null;
+      this.kernel.rejectProposal(proposal.id);
+      for (const session of this.sessions(task.id)) if (session.proposalId === proposal.id) {
+        this.saveSession({
+          ...session,
+          proposalId: remaining?.id ?? accepted?.id ?? proposal.id,
+          baseRevision: remaining?.baseRevision ?? session.baseRevision,
+          acceptedPartProposalIds: [...session.acceptedPartProposalIds ?? [], ...accepted ? [accepted.id] : []],
+          ...update ? { extraction: remaining ? pickExtraction(update.extraction, split.remaining, proposal.id) : accepted ? pickExtraction(update.extraction, split.accepted, proposal.id) : update.extraction } : {},
+          status: remaining ? "awaiting_approval" : accepted || session.acceptedPartProposalIds?.length ? "applied" : "rejected"
+        });
+      }
+      this.savePartReview("proposal", proposal.id, { ...split, acceptedId: accepted?.id ?? null, remainingId: remaining?.id ?? null, createdAt: now2() });
+      return { taskId: task.id, remainingId: remaining?.id ?? null };
+    });
+    this.changed();
+    return result;
+  }
+  propose(input2, model) {
+    const proposal = this.request(input2.requestId, { kind: "propose", input: input2, model }, () => {
+      this.assertCurrent(input2.taskId, input2.revision, false);
+      return this.kernel.createProposal({ taskId: input2.taskId, baseRevision: input2.revision, model, output: input2.draft, idempotencyKey: input2.requestId });
+    });
+    this.changed();
+    return proposal;
+  }
+  accept(proposalId, revision) {
+    const proposal = this.kernel.getProposal(proposalId);
+    if (proposal.status === "applied") return this.detail(proposal.taskId);
+    this.store.transaction(() => {
+      this.assertCurrent(proposal.taskId, revision, false);
+      if (proposal.baseRevision !== revision) throw new ConflictError("The proposal targets an old dossier revision. A new result is required.");
+      if (proposal.changes.status && this.active().some((s) => s.taskId === proposal.taskId)) throw new PolicyError("Finish this task's current work session first.");
+      if (this.active().some((s) => s.discussionProposalId === proposalId)) throw new PolicyError("Finish discussing this review first. Its revised proposal will appear after the session ends.");
+      if (proposal.status === "pending") this.kernel.approveProposal(proposalId, "human:bb-panel");
+      this.kernel.applyProposal(proposalId);
+      this.applySessionUpdate(proposalId);
+      for (const session of this.sessions(proposal.taskId)) if (session.proposalId === proposalId) this.saveSession({ ...session, status: "applied" });
+    });
+    this.changed();
+    return this.detail(proposal.taskId);
+  }
+  reject(proposalId) {
+    const proposal = this.kernel.getProposal(proposalId);
+    if (proposal.status === "rejected") return proposal;
+    const result = this.store.transaction(() => {
+      const result2 = this.kernel.rejectProposal(proposalId);
+      for (const session of this.sessions(proposal.taskId)) if (session.proposalId === proposalId) this.saveSession({ ...session, status: session.acceptedPartProposalIds?.length ? "applied" : "rejected" });
+      return result2;
+    });
+    this.changed();
+    return result;
+  }
+  saveTranscript(sessionId, value) {
+    this.db.prepare("INSERT OR IGNORE INTO session_transcripts VALUES (?,?)").run(sessionId, JSON.stringify(transcriptSchema.parse(value)));
+  }
+  transcript(sessionId) {
+    const row = this.db.prepare("SELECT value_json FROM session_transcripts WHERE session_id=?").get(sessionId);
+    return row ? transcriptSchema.parse(JSON.parse(String(row.value_json))) : null;
+  }
+  saveSessionUpdate(session, proposalId, extraction) {
+    const transcript = this.transcript(session.id);
+    const cited = new Set(extraction.facts.flatMap((f) => f.citations.map((c) => c.messageRef)));
+    const speakers = Object.fromEntries((transcript?.messages ?? []).filter((m) => cited.has(m.ref)).map((m) => [m.ref, m.role]));
+    const sources = Object.fromEntries((transcript?.messages ?? []).filter((m) => cited.has(m.ref)).map((m) => [m.ref, m.source ?? { threadId: transcript.threadId, messageRef: m.ref }]));
+    const value = sessionUpdateSchema.parse({ proposalId, sessionId: session.id, threadId: session.workerThreadId, extraction, warnings: transcript?.warnings ?? [], speakers, sources });
+    this.db.prepare("INSERT INTO session_updates VALUES (?,?,?)").run(proposalId, session.id, JSON.stringify(value));
+  }
+  applySessionUpdate(proposalId) {
+    const row = this.db.prepare("SELECT value_json FROM session_updates WHERE proposal_id=?").get(proposalId);
+    if (!row) return;
+    const update = sessionUpdateSchema.parse(JSON.parse(String(row.value_json)));
+    const session = this.session(update.sessionId);
+    const task = this.kernel.getTask(session.taskId);
+    const timestamp = now2();
+    const existing = new Set(this.kernel.getDossier(task.id).facts.map((f) => digest([f.kind, f.text.trim().toLocaleLowerCase()])));
+    for (const [index, fact] of update.extraction.facts.entries()) {
+      const key = digest([fact.kind, fact.text.trim().toLocaleLowerCase()]);
+      if (existing.has(key)) continue;
+      existing.add(key);
+      const citation = fact.citations[0];
+      const source = update.sources[citation.messageRef] ?? { threadId: update.threadId, messageRef: citation.messageRef };
+      this.db.prepare("INSERT INTO task_facts(id,task_id,kind,text,source,source_ref,occurred_at,created_at) VALUES (?,?,?,?,?,?,?,?)").run(
+        `session:${session.id}:${proposalId}:fact:${index}`,
+        task.id,
+        fact.kind,
+        fact.text,
+        `approved-conversation:${proposalId}`,
+        `bb-thread:${source.threadId}#${source.messageRef}`,
+        session.finishedAt ?? timestamp,
+        timestamp
+      );
+    }
+    for (const entry of update.extraction.knowledge) {
+      const fingerprint = digest([entry.title.toLocaleLowerCase(), entry.body.toLocaleLowerCase()]);
+      const value = knowledgeEntrySchema.parse({ ...entry, id: randomUUID2(), taskId: task.id, taskTitle: task.title, sessionId: session.id, threadId: update.threadId, proposalId, createdAt: timestamp });
+      this.db.prepare("INSERT OR IGNORE INTO knowledge_entries VALUES (?,?,?,?,?,?)").run(value.id, task.id, proposalId, fingerprint, [entry.title, entry.body, ...entry.tags].join("\n").toLocaleLowerCase(), JSON.stringify(value));
+    }
+    this.sessionEvent(session.id, "knowledge-applied", "Conversation records and knowledge were saved together with the dossier.", { proposalId, facts: update.extraction.facts.length, knowledge: update.extraction.knowledge.length });
+  }
+  importKnowledge(input2) {
+    const parsed = knowledgeImportSchema.parse(input2);
+    const result = this.request(parsed.requestId, { kind: "import-knowledge", ...parsed }, () => {
+      const source = { ...parsed.source, rootPath: path.posix.normalize(parsed.source.rootPath).replace(/\/$/, "") || "/" };
+      const sourceKey = digest([source.hostId, source.rootPath]);
+      const timestamp = now2();
+      const counts = { imported: 0, updated: 0, unchanged: 0, documents: parsed.documents.length };
+      for (const document of parsed.documents) {
+        const id2 = `file:${digest([sourceKey, document.relativePath])}`;
+        const row = this.db.prepare("SELECT value_json FROM knowledge_files WHERE id=?").get(id2);
+        const previous = row ? fileKnowledgeEntrySchema.parse(JSON.parse(String(row.value_json))) : null;
+        const value = fileKnowledgeEntrySchema.parse({
+          kind: "file",
+          id: id2,
+          title: document.title,
+          body: document.body,
+          tags: document.tags,
+          createdAt: previous?.createdAt ?? timestamp,
+          updatedAt: timestamp,
+          source: { ...source, relativePath: document.relativePath, path: path.posix.join(source.rootPath, document.relativePath), sha256: createHash2("sha256").update(document.body, "utf8").digest("hex"), modifiedAt: document.modifiedAt }
+        });
+        if (previous && digest([previous.title, previous.body, previous.tags, previous.source]) === digest([value.title, value.body, value.tags, value.source])) {
+          counts.unchanged++;
+          continue;
+        }
+        this.db.prepare("INSERT INTO knowledge_files VALUES (?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET search_text=excluded.search_text,value_json=excluded.value_json").run(
+          id2,
+          sourceKey,
+          document.relativePath,
+          [value.title, value.body, ...value.tags, source.label, document.relativePath].join("\n").toLocaleLowerCase(),
+          JSON.stringify(value)
+        );
+        if (previous) counts.updated++;
+        else counts.imported++;
+      }
+      return counts;
+    });
+    this.changed();
+    return result;
+  }
+  knowledge(query = "", offset = 0) {
+    const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean).slice(0, 20);
+    const where = terms.length ? `WHERE ${terms.map(() => "search_text LIKE ? ESCAPE '\\'").join(" AND ")}` : "";
+    const params = terms.map((t) => `%${t.replace(/[\\%_]/g, "\\$&")}%`);
+    const combined = "WITH knowledge AS (SELECT id,search_text,value_json FROM knowledge_entries UNION ALL SELECT id,search_text,value_json FROM knowledge_files)";
+    const total = Number(this.db.prepare(`${combined} SELECT count(*) AS n FROM knowledge ${where}`).get(...params).n);
+    const rows2 = this.db.prepare(`${combined} SELECT value_json FROM knowledge ${where} ORDER BY json_extract(value_json,'$.createdAt') DESC,id LIMIT 50 OFFSET ?`).all(...params, offset);
+    const entries = [];
+    let bytes = 0;
+    for (const row of rows2) {
+      const entry = knowledgeEntrySchema.parse(JSON.parse(String(row.value_json)));
+      const size = Buffer.byteLength(JSON.stringify(entry, null, 2)) + 256;
+      if (entries.length && bytes + size > 512 * 1024) break;
+      entries.push(entry);
+      bytes += size;
+    }
+    const next = offset + entries.length;
+    return { entries, total, nextOffset: next < total ? next : null };
+  }
+  session(id2) {
+    const row = this.db.prepare("SELECT value_json FROM sessions WHERE id=?").get(id2);
+    if (!row) throw new PolicyError("Work session not found.");
+    return sessionSchema.parse(JSON.parse(String(row.value_json)));
+  }
+  sessions(taskId) {
+    return this.db.prepare("SELECT value_json FROM sessions WHERE task_id=? ORDER BY rowid DESC LIMIT 100").all(taskId).map((r) => sessionSchema.parse(JSON.parse(String(r.value_json))));
+  }
+  active() {
+    return this.db.prepare("SELECT value_json FROM sessions WHERE status IN ('starting','working','collecting','review_starting','reviewing','repair_starting')").all().map((r) => sessionSchema.parse(JSON.parse(String(r.value_json))));
+  }
+  forThread(threadId) {
+    const row = this.db.prepare("SELECT s.value_json FROM sessions s JOIN session_threads t ON s.id=t.session_id WHERE t.thread_id=?").get(threadId);
+    return row ? sessionSchema.parse(JSON.parse(String(row.value_json))) : void 0;
+  }
+  insertSession(session, request) {
+    this.db.prepare("INSERT INTO sessions VALUES (?,?,?,?,?)").run(session.id, session.taskId, session.status, JSON.stringify(session), JSON.stringify(request));
+    this.changed();
+  }
+  saveSession(session) {
+    const value = sessionSchema.parse({ ...session, updatedAt: now2() });
+    this.db.prepare("UPDATE sessions SET status=?,value_json=? WHERE id=?").run(value.status, JSON.stringify(value), value.id);
+    for (const [threadId, role] of [[value.workerThreadId, "worker"], [value.reviewerThreadId, "reviewer"]]) {
+      if (threadId) this.db.prepare("INSERT OR IGNORE INTO session_threads VALUES (?,?,?,?)").run(threadId, value.id, role, value.round);
+    }
+    this.changed();
+    return value;
+  }
+  sessionRequest(id2) {
+    return JSON.parse(String(this.db.prepare("SELECT request_json FROM sessions WHERE id=?").get(id2).request_json));
+  }
+  sessionEvent(id2, kind, detail, payload = {}) {
+    this.db.prepare("INSERT INTO session_events VALUES (?,?,?,?,?,?)").run(randomUUID2(), id2, kind, detail, JSON.stringify(payload), now2());
+  }
+  threadIds(sessionId) {
+    return this.db.prepare("SELECT thread_id,role FROM session_threads WHERE session_id=?").all(sessionId).map((r) => ({ threadId: String(r.thread_id), role: String(r.role) }));
+  }
+  recorderThreads(sessionId) {
+    return this.db.prepare("SELECT thread_id,round FROM session_threads WHERE session_id=? AND role='reviewer' ORDER BY round DESC,thread_id LIMIT 20").all(sessionId).map((r) => ({ threadId: String(r.thread_id), round: Number(r.round) }));
+  }
+  pendingThreadArchives(taskId) {
+    return this.db.prepare(`WITH RECURSIVE accepted_sessions(id) AS (
+        SELECT id FROM sessions WHERE status='applied'
+        UNION SELECT json_extract(s.value_json,'$.continuedFrom') FROM sessions s JOIN accepted_sessions a ON s.id=a.id
+          WHERE json_extract(s.value_json,'$.continuedFrom') IS NOT NULL
+      ) SELECT st.thread_id,s.task_id,t.revision FROM session_threads st
+      JOIN sessions s ON s.id=st.session_id JOIN tasks t ON t.id=s.task_id
+      LEFT JOIN closed_task_thread_archives a ON a.thread_id=st.thread_id
+      WHERE (t.status IN ('done','archived') OR s.id IN (SELECT id FROM accepted_sessions)) AND (? IS NULL OR t.id=?)
+        AND s.status NOT IN ('starting','working','collecting','review_starting','reviewing','repair_starting')
+        AND (a.thread_id IS NULL OR (t.status IN ('done','archived') AND a.task_revision<>t.revision) OR (a.archived_at IS NULL AND a.retry_at<=?))
+      ORDER BY t.updated_at,st.thread_id LIMIT 100`).all(taskId ?? null, taskId ?? null, Date.now()).map((row) => ({ threadId: String(row.thread_id), taskId: String(row.task_id), revision: Number(row.revision) }));
+  }
+  sessionResultsAccepted(sessionId) {
+    return Boolean(this.db.prepare(`WITH RECURSIVE descendants(id) AS (
+      SELECT id FROM sessions WHERE id=?
+      UNION SELECT s.id FROM sessions s JOIN descendants d ON json_extract(s.value_json,'$.continuedFrom')=d.id
+    ) SELECT 1 FROM sessions WHERE id IN (SELECT id FROM descendants) AND status='applied' LIMIT 1`).get(sessionId));
+  }
+  recordThreadArchive(threadId, revision, succeeded) {
+    this.db.prepare(`INSERT INTO closed_task_thread_archives(thread_id,task_revision,archived_at,retry_at) VALUES(?,?,?,?)
+      ON CONFLICT(thread_id) DO UPDATE SET task_revision=excluded.task_revision,archived_at=excluded.archived_at,retry_at=excluded.retry_at`).run(threadId, revision, succeeded ? now2() : null, succeeded ? 0 : Date.now() + 3e4);
   }
 };
 
@@ -28493,17 +28310,17 @@ For scheduled source analysis without a new user message, preserve the establish
 Keep source quotes verbatim in their original language, script, punctuation and whitespace. Summaries and explanations may use the user's preferred language while preserving meaning, attribution and uncertainty.`;
 
 // source-collector.ts
-import { randomUUID as randomUUID5 } from "node:crypto";
+import { randomUUID as randomUUID4 } from "node:crypto";
 
 // source-connectors.ts
 import { execFile } from "node:child_process";
-import { createHash as createHash3, randomUUID as randomUUID4 } from "node:crypto";
+import { createHash as createHash3, randomUUID as randomUUID3 } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { userInfo } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-compat.js
+// ../../247c-wsl-sdk/plugin/node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-compat.js
 function isZ4Schema(s) {
   const schema = s;
   return !!schema._zod;
@@ -28566,7 +28383,7 @@ function getLiteralValue(schema) {
   return void 0;
 }
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/types.js
+// ../../247c-wsl-sdk/plugin/node_modules/@modelcontextprotocol/sdk/dist/esm/types.js
 var LATEST_PROTOCOL_VERSION = "2025-11-25";
 var SUPPORTED_PROTOCOL_VERSIONS = [LATEST_PROTOCOL_VERSION, "2025-06-18", "2025-03-26", "2024-11-05", "2024-10-07"];
 var RELATED_TASK_META_KEY = "io.modelcontextprotocol/related-task";
@@ -28584,10 +28401,10 @@ var TaskCreationParamsSchema = looseObject({
    */
   pollInterval: number2().optional()
 });
-var TaskMetadataSchema = object2({
+var TaskMetadataSchema = object({
   ttl: number2().optional()
 });
-var RelatedTaskMetadataSchema = object2({
+var RelatedTaskMetadataSchema = object({
   taskId: string2()
 });
 var RequestMetaSchema = looseObject({
@@ -28600,7 +28417,7 @@ var RequestMetaSchema = looseObject({
    */
   [RELATED_TASK_META_KEY]: RelatedTaskMetadataSchema.optional()
 });
-var BaseRequestParamsSchema = object2({
+var BaseRequestParamsSchema = object({
   /**
    * See [General fields: `_meta`](/specification/draft/basic/index#meta) for notes on `_meta` usage.
    */
@@ -28618,18 +28435,18 @@ var TaskAugmentedRequestParamsSchema = BaseRequestParamsSchema.extend({
   task: TaskMetadataSchema.optional()
 });
 var isTaskAugmentedRequestParams = (value) => TaskAugmentedRequestParamsSchema.safeParse(value).success;
-var RequestSchema = object2({
+var RequestSchema = object({
   method: string2(),
   params: BaseRequestParamsSchema.loose().optional()
 });
-var NotificationsParamsSchema = object2({
+var NotificationsParamsSchema = object({
   /**
    * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
    * for notes on _meta usage.
    */
   _meta: RequestMetaSchema.optional()
 });
-var NotificationSchema = object2({
+var NotificationSchema = object({
   method: string2(),
   params: NotificationsParamsSchema.loose().optional()
 });
@@ -28641,18 +28458,18 @@ var ResultSchema = looseObject({
   _meta: RequestMetaSchema.optional()
 });
 var RequestIdSchema = union([string2(), number2().int()]);
-var JSONRPCRequestSchema = object2({
+var JSONRPCRequestSchema = object({
   jsonrpc: literal(JSONRPC_VERSION),
   id: RequestIdSchema,
   ...RequestSchema.shape
 }).strict();
 var isJSONRPCRequest = (value) => JSONRPCRequestSchema.safeParse(value).success;
-var JSONRPCNotificationSchema = object2({
+var JSONRPCNotificationSchema = object({
   jsonrpc: literal(JSONRPC_VERSION),
   ...NotificationSchema.shape
 }).strict();
 var isJSONRPCNotification = (value) => JSONRPCNotificationSchema.safeParse(value).success;
-var JSONRPCResultResponseSchema = object2({
+var JSONRPCResultResponseSchema = object({
   jsonrpc: literal(JSONRPC_VERSION),
   id: RequestIdSchema,
   result: ResultSchema
@@ -28669,10 +28486,10 @@ var ErrorCode;
   ErrorCode2[ErrorCode2["InternalError"] = -32603] = "InternalError";
   ErrorCode2[ErrorCode2["UrlElicitationRequired"] = -32042] = "UrlElicitationRequired";
 })(ErrorCode || (ErrorCode = {}));
-var JSONRPCErrorResponseSchema = object2({
+var JSONRPCErrorResponseSchema = object({
   jsonrpc: literal(JSONRPC_VERSION),
   id: RequestIdSchema.optional(),
-  error: object2({
+  error: object({
     /**
      * The error type that occurred.
      */
@@ -28712,7 +28529,7 @@ var CancelledNotificationSchema = NotificationSchema.extend({
   method: literal("notifications/cancelled"),
   params: CancelledNotificationParamsSchema
 });
-var IconSchema = object2({
+var IconSchema = object({
   /**
    * URL or data URI for the icon.
    */
@@ -28737,7 +28554,7 @@ var IconSchema = object2({
    */
   theme: _enum2(["light", "dark"]).optional()
 });
-var IconsSchema = object2({
+var IconsSchema = object({
   /**
    * Optional set of sized icons that the client can display in a user interface.
    *
@@ -28751,7 +28568,7 @@ var IconsSchema = object2({
    */
   icons: array(IconSchema).optional()
 });
-var BaseMetadataSchema = object2({
+var BaseMetadataSchema = object({
   /** Intended for programmatic or logical use, but used as a display name in past specs or fallback */
   name: string2(),
   /**
@@ -28781,7 +28598,7 @@ var ImplementationSchema = BaseMetadataSchema.extend({
    */
   description: string2().optional()
 });
-var FormElicitationCapabilitySchema = intersection(object2({
+var FormElicitationCapabilitySchema = intersection(object({
   applyDefaults: boolean2().optional()
 }), record(string2(), unknown()));
 var ElicitationCapabilitySchema = preprocess((value) => {
@@ -28791,7 +28608,7 @@ var ElicitationCapabilitySchema = preprocess((value) => {
     }
   }
   return value;
-}, intersection(object2({
+}, intersection(object({
   form: FormElicitationCapabilitySchema.optional(),
   url: AssertObjectSchema.optional()
 }), record(string2(), unknown()).optional()));
@@ -28843,7 +28660,7 @@ var ServerTasksCapabilitySchema = looseObject({
     }).optional()
   }).optional()
 });
-var ClientCapabilitiesSchema = object2({
+var ClientCapabilitiesSchema = object({
   /**
    * Experimental, non-standard capabilities that the client supports.
    */
@@ -28851,7 +28668,7 @@ var ClientCapabilitiesSchema = object2({
   /**
    * Present if the client supports sampling from an LLM.
    */
-  sampling: object2({
+  sampling: object({
     /**
      * Present if the client supports context inclusion via includeContext parameter.
      * If not declared, servers SHOULD only use `includeContext: "none"` (or omit it).
@@ -28869,7 +28686,7 @@ var ClientCapabilitiesSchema = object2({
   /**
    * Present if the client supports listing roots.
    */
-  roots: object2({
+  roots: object({
     /**
      * Whether the client supports issuing notifications for changes to the roots list.
      */
@@ -28896,7 +28713,7 @@ var InitializeRequestSchema = RequestSchema.extend({
   method: literal("initialize"),
   params: InitializeRequestParamsSchema
 });
-var ServerCapabilitiesSchema = object2({
+var ServerCapabilitiesSchema = object({
   /**
    * Experimental, non-standard capabilities that the server supports.
    */
@@ -28912,7 +28729,7 @@ var ServerCapabilitiesSchema = object2({
   /**
    * Present if the server offers any prompt templates.
    */
-  prompts: object2({
+  prompts: object({
     /**
      * Whether this server supports issuing notifications for changes to the prompt list.
      */
@@ -28921,7 +28738,7 @@ var ServerCapabilitiesSchema = object2({
   /**
    * Present if the server offers any resources to read.
    */
-  resources: object2({
+  resources: object({
     /**
      * Whether this server supports clients subscribing to resource updates.
      */
@@ -28934,7 +28751,7 @@ var ServerCapabilitiesSchema = object2({
   /**
    * Present if the server offers any tools to call.
    */
-  tools: object2({
+  tools: object({
     /**
      * Whether this server supports issuing notifications for changes to the tool list.
      */
@@ -28972,7 +28789,7 @@ var PingRequestSchema = RequestSchema.extend({
   method: literal("ping"),
   params: BaseRequestParamsSchema.optional()
 });
-var ProgressSchema = object2({
+var ProgressSchema = object({
   /**
    * The progress thus far. This should increase every time progress is made, even if the total is unknown.
    */
@@ -28986,7 +28803,7 @@ var ProgressSchema = object2({
    */
   message: optional(string2())
 });
-var ProgressNotificationParamsSchema = object2({
+var ProgressNotificationParamsSchema = object({
   ...NotificationsParamsSchema.shape,
   ...ProgressSchema.shape,
   /**
@@ -29016,7 +28833,7 @@ var PaginatedResultSchema = ResultSchema.extend({
   nextCursor: CursorSchema.optional()
 });
 var TaskStatusSchema = _enum2(["working", "input_required", "completed", "failed", "cancelled"]);
-var TaskSchema = object2({
+var TaskSchema = object({
   taskId: string2(),
   status: TaskStatusSchema,
   /**
@@ -29073,7 +28890,7 @@ var CancelTaskRequestSchema = RequestSchema.extend({
   })
 });
 var CancelTaskResultSchema = ResultSchema.merge(TaskSchema);
-var ResourceContentsSchema = object2({
+var ResourceContentsSchema = object({
   /**
    * The URI of this resource.
    */
@@ -29109,7 +28926,7 @@ var BlobResourceContentsSchema = ResourceContentsSchema.extend({
   blob: Base64Schema
 });
 var RoleSchema = _enum2(["user", "assistant"]);
-var AnnotationsSchema = object2({
+var AnnotationsSchema = object({
   /**
    * Intended audience(s) for the resource.
    */
@@ -29123,7 +28940,7 @@ var AnnotationsSchema = object2({
    */
   lastModified: iso_exports.datetime({ offset: true }).optional()
 });
-var ResourceSchema = object2({
+var ResourceSchema = object({
   ...BaseMetadataSchema.shape,
   ...IconsSchema.shape,
   /**
@@ -29156,7 +28973,7 @@ var ResourceSchema = object2({
    */
   _meta: optional(looseObject({}))
 });
-var ResourceTemplateSchema = object2({
+var ResourceTemplateSchema = object({
   ...BaseMetadataSchema.shape,
   ...IconsSchema.shape,
   /**
@@ -29235,7 +29052,7 @@ var ResourceUpdatedNotificationSchema = NotificationSchema.extend({
   method: literal("notifications/resources/updated"),
   params: ResourceUpdatedNotificationParamsSchema
 });
-var PromptArgumentSchema = object2({
+var PromptArgumentSchema = object({
   /**
    * The name of the argument.
    */
@@ -29249,7 +29066,7 @@ var PromptArgumentSchema = object2({
    */
   required: optional(boolean2())
 });
-var PromptSchema = object2({
+var PromptSchema = object({
   ...BaseMetadataSchema.shape,
   ...IconsSchema.shape,
   /**
@@ -29286,7 +29103,7 @@ var GetPromptRequestSchema = RequestSchema.extend({
   method: literal("prompts/get"),
   params: GetPromptRequestParamsSchema
 });
-var TextContentSchema = object2({
+var TextContentSchema = object({
   type: literal("text"),
   /**
    * The text content of the message.
@@ -29302,7 +29119,7 @@ var TextContentSchema = object2({
    */
   _meta: record(string2(), unknown()).optional()
 });
-var ImageContentSchema = object2({
+var ImageContentSchema = object({
   type: literal("image"),
   /**
    * The base64-encoded image data.
@@ -29322,7 +29139,7 @@ var ImageContentSchema = object2({
    */
   _meta: record(string2(), unknown()).optional()
 });
-var AudioContentSchema = object2({
+var AudioContentSchema = object({
   type: literal("audio"),
   /**
    * The base64-encoded audio data.
@@ -29342,7 +29159,7 @@ var AudioContentSchema = object2({
    */
   _meta: record(string2(), unknown()).optional()
 });
-var ToolUseContentSchema = object2({
+var ToolUseContentSchema = object({
   type: literal("tool_use"),
   /**
    * The name of the tool to invoke.
@@ -29365,7 +29182,7 @@ var ToolUseContentSchema = object2({
    */
   _meta: record(string2(), unknown()).optional()
 });
-var EmbeddedResourceSchema = object2({
+var EmbeddedResourceSchema = object({
   type: literal("resource"),
   resource: union([TextResourceContentsSchema, BlobResourceContentsSchema]),
   /**
@@ -29388,7 +29205,7 @@ var ContentBlockSchema = union([
   ResourceLinkSchema,
   EmbeddedResourceSchema
 ]);
-var PromptMessageSchema = object2({
+var PromptMessageSchema = object({
   role: RoleSchema,
   content: ContentBlockSchema
 });
@@ -29403,7 +29220,7 @@ var PromptListChangedNotificationSchema = NotificationSchema.extend({
   method: literal("notifications/prompts/list_changed"),
   params: NotificationsParamsSchema.optional()
 });
-var ToolAnnotationsSchema = object2({
+var ToolAnnotationsSchema = object({
   /**
    * A human-readable title for the tool.
    */
@@ -29442,7 +29259,7 @@ var ToolAnnotationsSchema = object2({
    */
   openWorldHint: boolean2().optional()
 });
-var ToolExecutionSchema = object2({
+var ToolExecutionSchema = object({
   /**
    * Indicates the tool's preference for task-augmented execution.
    * - "required": Clients MUST invoke the tool as a task
@@ -29453,7 +29270,7 @@ var ToolExecutionSchema = object2({
    */
   taskSupport: _enum2(["required", "optional", "forbidden"]).optional()
 });
-var ToolSchema = object2({
+var ToolSchema = object({
   ...BaseMetadataSchema.shape,
   ...IconsSchema.shape,
   /**
@@ -29464,7 +29281,7 @@ var ToolSchema = object2({
    * A JSON Schema 2020-12 object defining the expected parameters for the tool.
    * Must have type: 'object' at the root level per MCP spec.
    */
-  inputSchema: object2({
+  inputSchema: object({
     type: literal("object"),
     properties: record(string2(), AssertObjectSchema).optional(),
     required: array(string2()).optional()
@@ -29474,7 +29291,7 @@ var ToolSchema = object2({
    * returned in the structuredContent field of a CallToolResult.
    * Must have type: 'object' at the root level per MCP spec.
    */
-  outputSchema: object2({
+  outputSchema: object({
     type: literal("object"),
     properties: record(string2(), AssertObjectSchema).optional(),
     required: array(string2()).optional()
@@ -29550,7 +29367,7 @@ var ToolListChangedNotificationSchema = NotificationSchema.extend({
   method: literal("notifications/tools/list_changed"),
   params: NotificationsParamsSchema.optional()
 });
-var ListChangedOptionsBaseSchema = object2({
+var ListChangedOptionsBaseSchema = object({
   /**
    * If true, the list will be refreshed automatically when a list changed notification is received.
    * The callback will be called with the updated list.
@@ -29599,13 +29416,13 @@ var LoggingMessageNotificationSchema = NotificationSchema.extend({
   method: literal("notifications/message"),
   params: LoggingMessageNotificationParamsSchema
 });
-var ModelHintSchema = object2({
+var ModelHintSchema = object({
   /**
    * A hint for a model name.
    */
   name: string2().optional()
 });
-var ModelPreferencesSchema = object2({
+var ModelPreferencesSchema = object({
   /**
    * Optional hints to use for model selection.
    */
@@ -29623,7 +29440,7 @@ var ModelPreferencesSchema = object2({
    */
   intelligencePriority: number2().min(0).max(1).optional()
 });
-var ToolChoiceSchema = object2({
+var ToolChoiceSchema = object({
   /**
    * Controls when tools are used:
    * - "auto": Model decides whether to use tools (default)
@@ -29632,11 +29449,11 @@ var ToolChoiceSchema = object2({
    */
   mode: _enum2(["auto", "required", "none"]).optional()
 });
-var ToolResultContentSchema = object2({
+var ToolResultContentSchema = object({
   type: literal("tool_result"),
   toolUseId: string2().describe("The unique identifier for the corresponding tool call."),
   content: array(ContentBlockSchema).default([]),
-  structuredContent: object2({}).loose().optional(),
+  structuredContent: object({}).loose().optional(),
   isError: boolean2().optional(),
   /**
    * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
@@ -29652,7 +29469,7 @@ var SamplingMessageContentBlockSchema = discriminatedUnion("type", [
   ToolUseContentSchema,
   ToolResultContentSchema
 ]);
-var SamplingMessageSchema = object2({
+var SamplingMessageSchema = object({
   role: RoleSchema,
   content: union([SamplingMessageContentBlockSchema, array(SamplingMessageContentBlockSchema)]),
   /**
@@ -29752,13 +29569,13 @@ var CreateMessageResultWithToolsSchema = ResultSchema.extend({
    */
   content: union([SamplingMessageContentBlockSchema, array(SamplingMessageContentBlockSchema)])
 });
-var BooleanSchemaSchema = object2({
+var BooleanSchemaSchema = object({
   type: literal("boolean"),
   title: string2().optional(),
   description: string2().optional(),
   default: boolean2().optional()
 });
-var StringSchemaSchema = object2({
+var StringSchemaSchema = object({
   type: literal("string"),
   title: string2().optional(),
   description: string2().optional(),
@@ -29767,7 +29584,7 @@ var StringSchemaSchema = object2({
   format: _enum2(["email", "uri", "date", "date-time"]).optional(),
   default: string2().optional()
 });
-var NumberSchemaSchema = object2({
+var NumberSchemaSchema = object({
   type: _enum2(["number", "integer"]),
   title: string2().optional(),
   description: string2().optional(),
@@ -29775,24 +29592,24 @@ var NumberSchemaSchema = object2({
   maximum: number2().optional(),
   default: number2().optional()
 });
-var UntitledSingleSelectEnumSchemaSchema = object2({
+var UntitledSingleSelectEnumSchemaSchema = object({
   type: literal("string"),
   title: string2().optional(),
   description: string2().optional(),
   enum: array(string2()),
   default: string2().optional()
 });
-var TitledSingleSelectEnumSchemaSchema = object2({
+var TitledSingleSelectEnumSchemaSchema = object({
   type: literal("string"),
   title: string2().optional(),
   description: string2().optional(),
-  oneOf: array(object2({
+  oneOf: array(object({
     const: string2(),
     title: string2()
   })),
   default: string2().optional()
 });
-var LegacyTitledEnumSchemaSchema = object2({
+var LegacyTitledEnumSchemaSchema = object({
   type: literal("string"),
   title: string2().optional(),
   description: string2().optional(),
@@ -29801,26 +29618,26 @@ var LegacyTitledEnumSchemaSchema = object2({
   default: string2().optional()
 });
 var SingleSelectEnumSchemaSchema = union([UntitledSingleSelectEnumSchemaSchema, TitledSingleSelectEnumSchemaSchema]);
-var UntitledMultiSelectEnumSchemaSchema = object2({
+var UntitledMultiSelectEnumSchemaSchema = object({
   type: literal("array"),
   title: string2().optional(),
   description: string2().optional(),
   minItems: number2().optional(),
   maxItems: number2().optional(),
-  items: object2({
+  items: object({
     type: literal("string"),
     enum: array(string2())
   }),
   default: array(string2()).optional()
 });
-var TitledMultiSelectEnumSchemaSchema = object2({
+var TitledMultiSelectEnumSchemaSchema = object({
   type: literal("array"),
   title: string2().optional(),
   description: string2().optional(),
   minItems: number2().optional(),
   maxItems: number2().optional(),
-  items: object2({
-    anyOf: array(object2({
+  items: object({
+    anyOf: array(object({
       const: string2(),
       title: string2()
     }))
@@ -29845,7 +29662,7 @@ var ElicitRequestFormParamsSchema = TaskAugmentedRequestParamsSchema.extend({
    * A restricted subset of JSON Schema.
    * Only top-level properties are allowed, without nesting.
    */
-  requestedSchema: object2({
+  requestedSchema: object({
     type: literal("object"),
     properties: record(string2(), PrimitiveSchemaDefinitionSchema),
     required: array(string2()).optional()
@@ -29901,14 +29718,14 @@ var ElicitResultSchema = ResultSchema.extend({
    */
   content: preprocess((val) => val === null ? void 0 : val, record(string2(), union([string2(), number2(), boolean2(), array(string2())])).optional())
 });
-var ResourceTemplateReferenceSchema = object2({
+var ResourceTemplateReferenceSchema = object({
   type: literal("ref/resource"),
   /**
    * The URI or URI template of the resource.
    */
   uri: string2()
 });
-var PromptReferenceSchema = object2({
+var PromptReferenceSchema = object({
   type: literal("ref/prompt"),
   /**
    * The name of the prompt or prompt template
@@ -29920,7 +29737,7 @@ var CompleteRequestParamsSchema = BaseRequestParamsSchema.extend({
   /**
    * The argument's information
    */
-  argument: object2({
+  argument: object({
     /**
      * The name of the argument
      */
@@ -29930,7 +29747,7 @@ var CompleteRequestParamsSchema = BaseRequestParamsSchema.extend({
      */
     value: string2()
   }),
-  context: object2({
+  context: object({
     /**
      * Previously-resolved variables in a URI template or prompt.
      */
@@ -29957,7 +29774,7 @@ var CompleteResultSchema = ResultSchema.extend({
     hasMore: optional(boolean2())
   })
 });
-var RootSchema = object2({
+var RootSchema = object({
   /**
    * The URI identifying the root. This *must* start with file:// for now.
    */
@@ -30086,15 +29903,15 @@ var UrlElicitationRequiredError = class extends McpError {
   }
 };
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/interfaces.js
+// ../../247c-wsl-sdk/plugin/node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/interfaces.js
 function isTerminal(status) {
   return status === "completed" || status === "failed" || status === "cancelled";
 }
 
-// node_modules/zod-to-json-schema/dist/esm/parsers/string.js
+// ../../247c-wsl-sdk/plugin/node_modules/zod-to-json-schema/dist/esm/parsers/string.js
 var ALPHA_NUMERIC = new Set("ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvxyz0123456789");
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-json-schema-compat.js
+// ../../247c-wsl-sdk/plugin/node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-json-schema-compat.js
 function getMethodLiteral(schema) {
   const shape = getObjectShape(schema);
   const methodSchema = shape?.method;
@@ -30115,7 +29932,7 @@ function parseWithCompat(schema, data) {
   return result.data;
 }
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/shared/protocol.js
+// ../../247c-wsl-sdk/plugin/node_modules/@modelcontextprotocol/sdk/dist/esm/shared/protocol.js
 var DEFAULT_REQUEST_TIMEOUT_MSEC = 6e4;
 var Protocol = class {
   constructor(_options) {
@@ -31069,7 +30886,7 @@ function mergeCapabilities(base, additional) {
   return result;
 }
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/validation/ajv-provider.js
+// ../../247c-wsl-sdk/plugin/node_modules/@modelcontextprotocol/sdk/dist/esm/validation/ajv-provider.js
 var import_ajv = __toESM(require_ajv(), 1);
 var import_ajv_formats = __toESM(require_dist(), 1);
 function createDefaultAjvInstance() {
@@ -31137,7 +30954,7 @@ var AjvJsonSchemaValidator = class {
   }
 };
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/client.js
+// ../../247c-wsl-sdk/plugin/node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/client.js
 var ExperimentalClientTasks = class {
   constructor(_client) {
     this._client = _client;
@@ -31291,7 +31108,7 @@ var ExperimentalClientTasks = class {
   }
 };
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/helpers.js
+// ../../247c-wsl-sdk/plugin/node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/helpers.js
 function assertToolsCallTaskCapability(requests, method, entityName) {
   if (!requests) {
     throw new Error(`${entityName} does not support task creation (required for ${method})`);
@@ -31326,7 +31143,7 @@ function assertClientRequestTaskCapability(requests, method, entityName) {
   }
 }
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/client/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/@modelcontextprotocol/sdk/dist/esm/client/index.js
 function applyElicitationDefaults(schema, data) {
   if (!schema || data === null || typeof data !== "object")
     return;
@@ -31837,7 +31654,7 @@ var Client = class extends Protocol {
   }
 };
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/shared/mediaType.js
+// ../../247c-wsl-sdk/plugin/node_modules/@modelcontextprotocol/sdk/dist/esm/shared/mediaType.js
 var import_content_type = __toESM(require_content_type(), 1);
 function mediaTypeEssence(header) {
   if (!header) {
@@ -31854,7 +31671,7 @@ function mediaTypeEssence(header) {
   }
 }
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/shared/transport.js
+// ../../247c-wsl-sdk/plugin/node_modules/@modelcontextprotocol/sdk/dist/esm/shared/transport.js
 function normalizeHeaders(headers) {
   if (!headers)
     return {};
@@ -31881,7 +31698,7 @@ function createFetchWithInit(baseFetch = fetch, baseInit) {
   };
 }
 
-// node_modules/pkce-challenge/dist/index.node.js
+// ../../247c-wsl-sdk/plugin/node_modules/pkce-challenge/dist/index.node.js
 var crypto;
 crypto = globalThis.crypto?.webcrypto ?? // Node.js [18-16] REPL
 globalThis.crypto ?? // Node.js >18
@@ -31924,7 +31741,7 @@ async function pkceChallenge(length) {
   };
 }
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/shared/auth.js
+// ../../247c-wsl-sdk/plugin/node_modules/@modelcontextprotocol/sdk/dist/esm/shared/auth.js
 var SafeUrlSchema = url().superRefine((val, ctx) => {
   if (!URL.canParse(val)) {
     ctx.addIssue({
@@ -32013,13 +31830,13 @@ var OpenIdProviderMetadataSchema = looseObject({
   op_tos_uri: SafeUrlSchema.optional(),
   client_id_metadata_document_supported: boolean2().optional()
 });
-var OpenIdProviderDiscoveryMetadataSchema = object2({
+var OpenIdProviderDiscoveryMetadataSchema = object({
   ...OpenIdProviderMetadataSchema.shape,
   ...OAuthMetadataSchema.pick({
     code_challenge_methods_supported: true
   }).shape
 });
-var OAuthTokensSchema = object2({
+var OAuthTokensSchema = object({
   access_token: string2(),
   id_token: string2().optional(),
   // Optional for OAuth 2.1, but necessary in OpenID Connect
@@ -32028,13 +31845,13 @@ var OAuthTokensSchema = object2({
   scope: string2().optional(),
   refresh_token: string2().optional()
 }).strip();
-var OAuthErrorResponseSchema = object2({
+var OAuthErrorResponseSchema = object({
   error: string2(),
   error_description: string2().optional(),
   error_uri: string2().optional()
 });
 var OptionalSafeUrlSchema = SafeUrlSchema.optional().or(literal("").transform(() => void 0));
-var OAuthClientMetadataSchema = object2({
+var OAuthClientMetadataSchema = object({
   redirect_uris: array(SafeUrlSchema),
   token_endpoint_auth_method: string2().optional(),
   grant_types: array(string2()).optional(),
@@ -32052,23 +31869,23 @@ var OAuthClientMetadataSchema = object2({
   software_version: string2().optional(),
   software_statement: string2().optional()
 }).strip();
-var OAuthClientInformationSchema = object2({
+var OAuthClientInformationSchema = object({
   client_id: string2(),
   client_secret: string2().optional(),
   client_id_issued_at: number2().optional(),
   client_secret_expires_at: number2().optional()
 }).strip();
 var OAuthClientInformationFullSchema = OAuthClientMetadataSchema.merge(OAuthClientInformationSchema);
-var OAuthClientRegistrationErrorSchema = object2({
+var OAuthClientRegistrationErrorSchema = object({
   error: string2(),
   error_description: string2().optional()
 }).strip();
-var OAuthTokenRevocationRequestSchema = object2({
+var OAuthTokenRevocationRequestSchema = object({
   token: string2(),
   token_type_hint: string2().optional()
 }).strip();
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/shared/auth-utils.js
+// ../../247c-wsl-sdk/plugin/node_modules/@modelcontextprotocol/sdk/dist/esm/shared/auth-utils.js
 function resourceUrlFromServerUrl(url2) {
   const resourceURL = typeof url2 === "string" ? new URL(url2) : new URL(url2.href);
   resourceURL.hash = "";
@@ -32088,7 +31905,7 @@ function checkResourceAllowed({ requestedResource, configuredResource }) {
   return requestedPath.startsWith(configuredPath);
 }
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/server/auth/errors.js
+// ../../247c-wsl-sdk/plugin/node_modules/@modelcontextprotocol/sdk/dist/esm/server/auth/errors.js
 var OAuthError = class extends Error {
   constructor(message, errorUri) {
     super(message);
@@ -32183,7 +32000,7 @@ var OAUTH_ERRORS = {
   [InvalidTargetError.errorCode]: InvalidTargetError
 };
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/client/auth.js
+// ../../247c-wsl-sdk/plugin/node_modules/@modelcontextprotocol/sdk/dist/esm/client/auth.js
 var UnauthorizedError = class extends Error {
   constructor(message) {
     super(message ?? "Unauthorized");
@@ -32724,7 +32541,7 @@ async function registerClient(authorizationServerUrl, { metadata, clientMetadata
   return OAuthClientInformationFullSchema.parse(await response.json());
 }
 
-// node_modules/eventsource-parser/dist/index.js
+// ../../247c-wsl-sdk/plugin/node_modules/eventsource-parser/dist/index.js
 var ParseError = class extends Error {
   constructor(message, options) {
     super(message), this.name = "ParseError", this.type = options.type, this.field = options.field, this.value = options.value, this.line = options.line;
@@ -32741,7 +32558,7 @@ function createParser(config2) {
       "`config` must be an object, got a function instead. Did you mean `createParser({onEvent: fn})`?"
     );
   const { onEvent = noop, onError = noop, onRetry = noop, onComment, maxBufferSize } = config2, pendingFragments = [];
-  let pendingFragmentsLength = 0, isFirstChunk = true, id3, data = "", dataLines = 0, eventType, terminated = false;
+  let pendingFragmentsLength = 0, isFirstChunk = true, id2, data = "", dataLines = 0, eventType, terminated = false;
   function feed(chunk) {
     if (terminated)
       throw new Error(
@@ -32764,7 +32581,7 @@ function createParser(config2) {
     trailing !== "" && (pendingFragments.push(trailing), pendingFragmentsLength = trailing.length), checkBufferSize();
   }
   function checkBufferSize() {
-    maxBufferSize !== void 0 && (pendingFragmentsLength + data.length <= maxBufferSize || (terminated = true, pendingFragments.length = 0, pendingFragmentsLength = 0, id3 = void 0, data = "", dataLines = 0, eventType = void 0, onError(
+    maxBufferSize !== void 0 && (pendingFragmentsLength + data.length <= maxBufferSize || (terminated = true, pendingFragments.length = 0, pendingFragmentsLength = 0, id2 = void 0, data = "", dataLines = 0, eventType = void 0, onError(
       new ParseError(`Buffered data exceeded max buffer size of ${maxBufferSize} characters`, {
         type: "max-buffer-size-exceeded"
       })
@@ -32777,7 +32594,7 @@ function createParser(config2) {
 `, searchIndex);
       for (; lfIndex !== -1; ) {
         if (searchIndex === lfIndex) {
-          dataLines > 0 && onEvent({ id: id3, event: eventType, data }), id3 = void 0, data = "", dataLines = 0, eventType = void 0, searchIndex = lfIndex + 1, lfIndex = chunk.indexOf(`
+          dataLines > 0 && onEvent({ id: id2, event: eventType, data }), id2 = void 0, data = "", dataLines = 0, eventType = void 0, searchIndex = lfIndex + 1, lfIndex = chunk.indexOf(`
 `, searchIndex);
           continue;
         }
@@ -32785,7 +32602,7 @@ function createParser(config2) {
         if (isDataPrefix(chunk, searchIndex, firstCharCode)) {
           const valueStart = chunk.charCodeAt(searchIndex + 5) === SPACE ? searchIndex + 6 : searchIndex + 5, value = chunk.slice(valueStart, lfIndex);
           if (dataLines === 0 && chunk.charCodeAt(lfIndex + 1) === LF) {
-            onEvent({ id: id3, event: eventType, data: value }), id3 = void 0, data = "", eventType = void 0, searchIndex = lfIndex + 2, lfIndex = chunk.indexOf(`
+            onEvent({ id: id2, event: eventType, data: value }), id2 = void 0, data = "", eventType = void 0, searchIndex = lfIndex + 2, lfIndex = chunk.indexOf(`
 `, searchIndex);
             continue;
           }
@@ -32828,7 +32645,7 @@ ${value2}`, dataLines++;
     }
     if (firstCharCode === 105 && chunk.charCodeAt(start + 1) === 100 && chunk.charCodeAt(start + 2) === 58) {
       const value2 = chunk.slice(chunk.charCodeAt(start + 3) === SPACE ? start + 4 : start + 3, end);
-      value2.includes("\0") || (id3 = value2);
+      value2.includes("\0") || (id2 = value2);
       return;
     }
     if (firstCharCode === 58) {
@@ -32856,7 +32673,7 @@ ${value2}`, dataLines++;
 ${value}`, dataLines++;
         break;
       case "id":
-        value.includes("\0") || (id3 = value);
+        value.includes("\0") || (id2 = value);
         break;
       case "retry":
         /^\d+$/.test(value) ? onRetry(parseInt(value, 10)) : onError(
@@ -32879,17 +32696,17 @@ ${value}`, dataLines++;
   }
   function dispatchEvent() {
     dataLines > 0 && onEvent({
-      id: id3,
+      id: id2,
       event: eventType,
       data
-    }), id3 = void 0, data = "", dataLines = 0, eventType = void 0;
+    }), id2 = void 0, data = "", dataLines = 0, eventType = void 0;
   }
   function reset(options = {}) {
     if (options.consume && pendingFragments.length > 0) {
       const incompleteLine = pendingFragments.join("");
       parseLine(incompleteLine, 0, incompleteLine.length);
     }
-    isFirstChunk = true, id3 = void 0, data = "", dataLines = 0, eventType = void 0, pendingFragments.length = 0, pendingFragmentsLength = 0, terminated = false;
+    isFirstChunk = true, id2 = void 0, data = "", dataLines = 0, eventType = void 0, pendingFragments.length = 0, pendingFragmentsLength = 0, terminated = false;
   }
   return { feed, reset };
 }
@@ -32900,7 +32717,7 @@ function isEventPrefix(chunk, i, firstCharCode) {
   return firstCharCode === 101 && chunk.charCodeAt(i + 1) === 118 && chunk.charCodeAt(i + 2) === 101 && chunk.charCodeAt(i + 3) === 110 && chunk.charCodeAt(i + 4) === 116 && chunk.charCodeAt(i + 5) === 58;
 }
 
-// node_modules/eventsource-parser/dist/stream.js
+// ../../247c-wsl-sdk/plugin/node_modules/eventsource-parser/dist/stream.js
 var EventSourceParserStream = class extends TransformStream {
   constructor({ onError, onRetry, onComment, maxBufferSize } = {}) {
     let parser;
@@ -32925,7 +32742,7 @@ var EventSourceParserStream = class extends TransformStream {
   }
 };
 
-// node_modules/@modelcontextprotocol/sdk/dist/esm/client/streamableHttp.js
+// ../../247c-wsl-sdk/plugin/node_modules/@modelcontextprotocol/sdk/dist/esm/client/streamableHttp.js
 var DEFAULT_STREAMABLE_HTTP_RECONNECTION_OPTIONS = {
   initialReconnectionDelay: 1e3,
   maxReconnectionDelay: 3e4,
@@ -33402,7 +33219,7 @@ async function connectSources(signal, config2 = defaultSourceConfig) {
     if (!server || server.eligible === false || !/^mcpsrv_[A-Za-z0-9]+$/.test(server.id)) return [source, { error: `Connector ${names[source]} is unavailable in the configured Claude profile.` }];
     const client = new Client({ name: "247c-source-reader", version: "1.0.0" }, { capabilities: {} });
     const transport = new StreamableHTTPClientTransport(new URL(`https://mcp-proxy.anthropic.com/v1/mcp/${server.id}`), {
-      requestInit: { redirect: "error", headers: { Authorization: `Bearer ${token}`, "anthropic-beta": "mcp-servers-2025-12-04", "anthropic-version": "2023-06-01", "X-Mcp-Client-Session-Id": randomUUID4() } }
+      requestInit: { redirect: "error", headers: { Authorization: `Bearer ${token}`, "anthropic-beta": "mcp-servers-2025-12-04", "anthropic-version": "2023-06-01", "X-Mcp-Client-Session-Id": randomUUID3() } }
     });
     try {
       await client.connect(transport, { signal, timeout: 2e4 });
@@ -33438,7 +33255,7 @@ async function connectCalendar(signal, config2 = defaultSourceConfig) {
   const allowed = ["list_calendars", "list_events", "get_event"];
   try {
     await client.connect(new StreamableHTTPClientTransport(new URL(`https://mcp-proxy.anthropic.com/v1/mcp/${server.id}`), {
-      requestInit: { redirect: "error", headers: { Authorization: `Bearer ${token}`, "anthropic-beta": "mcp-servers-2025-12-04", "anthropic-version": "2023-06-01", "X-Mcp-Client-Session-Id": randomUUID4() } }
+      requestInit: { redirect: "error", headers: { Authorization: `Bearer ${token}`, "anthropic-beta": "mcp-servers-2025-12-04", "anthropic-version": "2023-06-01", "X-Mcp-Client-Session-Id": randomUUID3() } }
     }), { signal, timeout: 2e4 });
     const tools = await client.listTools({}, { signal, timeout: 2e4 });
     if (!allowed.every((name) => tools.tools.some((t) => t.name === name))) throw new Error("The Google Calendar interface changed. The collector needs updating.");
@@ -33585,8 +33402,8 @@ async function collectSources(run, dossiers, options = {}) {
   const progress = (source, detail) => options.onProgress?.({ source, detail, calls: calls.filter((c) => c.source === source).length, reads: calls.filter((c) => c.source === source && c.read && c.completed).length });
   const addLinks = (text2) => {
     const found = sourceLinks(text2);
-    found.gmail.forEach((id3) => pending.gmail.add(id3));
-    found.jira.forEach((id3) => pending.jira.add(id3));
+    found.gmail.forEach((id2) => pending.gmail.add(id2));
+    found.jira.forEach((id2) => pending.jira.add(id2));
     found.slack.forEach((s) => pending.slack.set(`${s.channel}:${s.ts}`, s));
   };
   async function call2(source, tool, args, full = false) {
@@ -33600,7 +33417,7 @@ async function collectSources(run, dossiers, options = {}) {
       return null;
     }
     count++;
-    const ref = `export:${run.id}:${randomUUID5()}`;
+    const ref = `export:${run.id}:${randomUUID4()}`;
     try {
       let result;
       for (let attempt = 0; ; attempt++) {
@@ -33687,19 +33504,19 @@ async function collectSources(run, dossiers, options = {}) {
     await readGmail();
   }
   async function readGmail() {
-    const fetchThread = async (id3) => {
-      let threadId = gmailThreads.get(id3) ?? id3;
-      if (!searchedGmail.has(id3) && !gmailThreads.has(id3)) {
-        const message = await call2("gmail", "get_message", { messageId: id3, messageFormat: "METADATA_ONLY" });
+    const fetchThread = async (id2) => {
+      let threadId = gmailThreads.get(id2) ?? id2;
+      if (!searchedGmail.has(id2) && !gmailThreads.has(id2)) {
+        const message = await call2("gmail", "get_message", { messageId: id2, messageFormat: "METADATA_ONLY" });
         if (!message) {
-          read.gmail.add(id3);
+          read.gmail.add(id2);
           return;
         }
         threadId = message.threadId;
-        gmailThreads.set(id3, threadId);
+        gmailThreads.set(id2, threadId);
       }
       const alreadyRead = read.gmail.has(threadId);
-      read.gmail.add(id3);
+      read.gmail.add(id2);
       if (alreadyRead) return;
       read.gmail.add(threadId);
       const data = await call2("gmail", "get_thread", { threadId, messageFormat: "PLAIN_TEXT" }, true);
@@ -33709,8 +33526,8 @@ async function collectSources(run, dossiers, options = {}) {
         }
       }
     };
-    await pool([...searchedGmail].filter((id3) => !read.gmail.has(id3)), fetchThread, 4);
-    await pool([...pending.gmail].filter((id3) => !read.gmail.has(id3)), fetchThread, 4);
+    await pool([...searchedGmail].filter((id2) => !read.gmail.has(id2)), fetchThread, 4);
+    await pool([...pending.gmail].filter((id2) => !read.gmail.has(id2)), fetchThread, 4);
   }
   async function readPullRequestContext() {
     const urls = [...pendingPullRequests].filter((url2) => !searchedPullRequests.has(url2));
@@ -33774,16 +33591,16 @@ async function collectSources(run, dossiers, options = {}) {
     await readJira();
   }
   async function readJira() {
-    await pool([...pending.jira].filter((id3) => !read.jira.has(id3)), async (id3) => {
-      read.jira.add(id3);
-      const data = await call2("jira", "getJiraIssue", { cloudId: config2.jiraSite, issueIdOrKey: id3, fields: ["summary", "status", "updated", "assignee", "priority", "description", "comment"], responseContentFormat: "markdown", updateHistory: false }, true);
+    await pool([...pending.jira].filter((id2) => !read.jira.has(id2)), async (id2) => {
+      read.jira.add(id2);
+      const data = await call2("jira", "getJiraIssue", { cloudId: config2.jiraSite, issueIdOrKey: id2, fields: ["summary", "status", "updated", "assignee", "priority", "description", "comment"], responseContentFormat: "markdown", updateHistory: false }, true);
       if (!data) return;
       if (!data.fields || !data.key) {
-        error61("jira", `Could not read issue ${id3}.`);
+        error61("jira", `Could not read issue ${id2}.`);
         return;
       }
       const c = data.fields.comment, comments = data.comments ?? c?.comments;
-      if (!Array.isArray(comments) || c?.total > comments.length || c?.startAt > 0 || comments.length >= 100) error61("jira", `${id3}: the connector did not confirm that all comments were included.`);
+      if (!Array.isArray(comments) || c?.total > comments.length || c?.startAt > 0 || comments.length >= 100) error61("jira", `${id2}: the connector did not confirm that all comments were included.`);
     });
   }
   try {
@@ -33797,7 +33614,7 @@ async function collectSources(run, dossiers, options = {}) {
       if (before === read.gmail.size + read.slack.size + read.jira.size + searchedPullRequests.size || signal.aborted) break;
     }
     for (const source of SOURCES) {
-      const unread = [...pending[source].keys()].filter((id3) => !read[source].has(id3));
+      const unread = [...pending[source].keys()].filter((id2) => !read[source].has(id2));
       if (unread.length) error61(source, `Linked references were not read: ${unread.slice(0, 10).join(", ")}${unread.length > 10 ? "\u2026" : ""}.`);
     }
   } catch (cause) {
@@ -34060,9 +33877,9 @@ function planSourceAnalysis(bundle, contextKey, work, incremental, baseline, dos
     return [dossier.task.id, { key: digest(dossier), anchors }];
   }));
   const changedAnchors = [];
-  if (reason === "changes") for (const id3 of /* @__PURE__ */ new Set([...Object.keys(tasks), ...Object.keys(baseline.tasks)])) {
-    if (tasks[id3]?.key === baseline.tasks[id3]?.key) continue;
-    const anchors = [...tasks[id3]?.anchors ?? [], ...baseline.tasks[id3]?.anchors ?? []];
+  if (reason === "changes") for (const id2 of /* @__PURE__ */ new Set([...Object.keys(tasks), ...Object.keys(baseline.tasks)])) {
+    if (tasks[id2]?.key === baseline.tasks[id2]?.key) continue;
+    const anchors = [...tasks[id2]?.anchors ?? [], ...baseline.tasks[id2]?.anchors ?? []];
     if (!anchors.length) reason = "context";
     changedAnchors.push(...anchors.map((anchor2) => anchor2.toLocaleLowerCase()));
   }
@@ -34073,7 +33890,7 @@ function planSourceAnalysis(bundle, contextKey, work, incremental, baseline, dos
     const text2 = JSON.stringify([doc.args, doc.content]).toLocaleLowerCase();
     if (reason !== "changes" || baseline?.documents[key] !== value || changedAnchors.some((anchor2) => text2.includes(anchor2))) selectedRefs.push(doc.ref);
   }
-  const reviewItemIds = Object.keys(work.dayWork).filter((id3) => reason === "manual" || !baseline || contextKey !== baseline.contextKey || !work.dayComplete || !baseline.dayComplete || baseline.dayWork[id3] !== work.dayWork[id3]);
+  const reviewItemIds = Object.keys(work.dayWork).filter((id2) => reason === "manual" || !baseline || contextKey !== baseline.contextKey || !work.dayComplete || !baseline.dayComplete || baseline.dayWork[id2] !== work.dayWork[id2]);
   return { version: 1, contextKey, tasks, documents, selectedRefs, dayWork: work.dayWork, dayComplete: work.dayComplete, reviewItemIds, reason };
 }
 function needsDayAnalysis(plan, baseline) {
@@ -34286,8 +34103,8 @@ function validateSyncReports(reports, calls, snapshots = [], pending = []) {
       if (report.scanned > 0 && !live.some((call2) => call2.read)) problems.push("no thread or Jira comment reads");
       if (selected.some((call2) => !call2.completed || call2.truncated)) problems.push("an error or truncated response is present");
       if (selected.some((call2) => hasUnfetchedPage(call2, selected))) problems.push("the next source page was not read");
-      const missing = requiredSourceReads(snapshots, report.source, pending).filter((id3) => !live.some((call2) => call2.read && `${JSON.stringify(call2.args)}
-${call2.output}`.includes(id3)));
+      const missing = requiredSourceReads(snapshots, report.source, pending).filter((id2) => !live.some((call2) => call2.read && `${JSON.stringify(call2.args)}
+${call2.output}`.includes(id2)));
       if (missing.length) problems.push(`linked threads/issues were not read: ${missing.slice(0, 10).join(", ")}${missing.length > 10 ? "\u2026" : ""}`);
     }
     return {
@@ -34304,18 +34121,18 @@ var SourceSyncStore = class {
     this.repo = repo;
   }
   repo;
-  run(id3) {
-    const row = this.repo.db.prepare("SELECT value_json FROM source_sync_runs WHERE id=?").get(id3);
+  run(id2) {
+    const row = this.repo.db.prepare("SELECT value_json FROM source_sync_runs WHERE id=?").get(id2);
     if (!row) throw new PolicyError("Update check not found.");
     return syncRunSchema.parse(JSON.parse(String(row.value_json)));
   }
-  request(id3) {
-    const row = this.repo.db.prepare("SELECT request_json FROM source_sync_runs WHERE id=?").get(id3);
+  request(id2) {
+    const row = this.repo.db.prepare("SELECT request_json FROM source_sync_runs WHERE id=?").get(id2);
     if (!row) throw new PolicyError("Update check not found.");
     return JSON.parse(String(row.request_json));
   }
-  export(id3) {
-    const row = this.repo.db.prepare("SELECT value_json FROM source_sync_exports WHERE run_id=?").get(id3);
+  export(id2) {
+    const row = this.repo.db.prepare("SELECT value_json FROM source_sync_exports WHERE run_id=?").get(id2);
     return row ? JSON.parse(String(row.value_json)) : null;
   }
   saveExport(bundle) {
@@ -34327,24 +34144,24 @@ var SourceSyncStore = class {
     const parsed = sourceAnalysisSchema.safeParse(request?.analysis);
     if (!parsed.success) return void 0;
     const plan = parsed.data, read = new Set(request?.dayItemsRead ?? []);
-    for (const id3 of plan.reviewItemIds) if (!read.has(id3)) delete plan.dayWork[id3];
+    for (const id2 of plan.reviewItemIds) if (!read.has(id2)) delete plan.dayWork[id2];
     const bundle = row ? this.export(row.id) : null;
     return bundle ? rekeyAnalysisDocuments(plan, bundle) : plan;
   }
-  recordDayReview(id3, itemIds) {
-    const request = this.request(id3);
-    this.repo.db.prepare("UPDATE source_sync_runs SET request_json=? WHERE id=?").run(JSON.stringify({ ...request, dayItemsRead: [.../* @__PURE__ */ new Set([...request.dayItemsRead ?? [], ...itemIds])] }), id3);
+  recordDayReview(id2, itemIds) {
+    const request = this.request(id2);
+    this.repo.db.prepare("UPDATE source_sync_runs SET request_json=? WHERE id=?").run(JSON.stringify({ ...request, dayItemsRead: [.../* @__PURE__ */ new Set([...request.dayItemsRead ?? [], ...itemIds])] }), id2);
   }
-  saveAnalysis(id3, analysis) {
-    this.repo.db.prepare("UPDATE source_sync_runs SET request_json=? WHERE id=?").run(JSON.stringify({ ...this.request(id3), analysis: sourceAnalysisSchema.parse(analysis) }), id3);
+  saveAnalysis(id2, analysis) {
+    this.repo.db.prepare("UPDATE source_sync_runs SET request_json=? WHERE id=?").run(JSON.stringify({ ...this.request(id2), analysis: sourceAnalysisSchema.parse(analysis) }), id2);
   }
-  analysisExport(id3, bundle) {
-    const plan = this.request(id3).analysis;
+  analysisExport(id2, bundle) {
+    const plan = this.request(id2).analysis;
     return analysisExport(bundle, plan ? sourceAnalysisSchema.parse(plan) : void 0);
   }
-  recordDataPage(id3, page) {
-    const request = this.request(id3);
-    this.repo.db.prepare("UPDATE source_sync_runs SET request_json=? WHERE id=?").run(JSON.stringify({ ...request, dataPagesRead: [.../* @__PURE__ */ new Set([...request.dataPagesRead ?? [], page])] }), id3);
+  recordDataPage(id2, page) {
+    const request = this.request(id2);
+    this.repo.db.prepare("UPDATE source_sync_runs SET request_json=? WHERE id=?").run(JSON.stringify({ ...request, dataPagesRead: [.../* @__PURE__ */ new Set([...request.dataPagesRead ?? [], page])] }), id2);
   }
   forThread(threadId) {
     const row = this.repo.db.prepare("SELECT id FROM source_sync_runs WHERE thread_id=?").get(threadId);
@@ -34371,10 +34188,10 @@ var SourceSyncStore = class {
     }
     return initial;
   }
-  candidate(id3) {
-    const row = this.repo.db.prepare("SELECT value_json FROM source_sync_candidates WHERE id=?").get(id3);
+  candidate(id2) {
+    const row = this.repo.db.prepare("SELECT value_json FROM source_sync_candidates WHERE id=?").get(id2);
     if (!row) throw new PolicyError("Update proposal not found.");
-    return { ...syncCandidateSchema.parse(JSON.parse(String(row.value_json))), ...this.repo.partReviewFields("source", id3) };
+    return { ...syncCandidateSchema.parse(JSON.parse(String(row.value_json))), ...this.repo.partReviewFields("source", id2) };
   }
   candidates() {
     const candidates = [];
@@ -34383,8 +34200,8 @@ var SourceSyncStore = class {
       const raw = String(row.value_json);
       bytes += Buffer.byteLength(raw);
       if (candidates.length && bytes > 1024 * 1024) break;
-      const candidate2 = syncCandidateSchema.parse(JSON.parse(raw));
-      candidates.push({ ...candidate2, ...this.repo.partReviewFields("source", candidate2.id) });
+      const candidate = syncCandidateSchema.parse(JSON.parse(raw));
+      candidates.push({ ...candidate, ...this.repo.partReviewFields("source", candidate.id) });
     }
     return candidates;
   }
@@ -34468,9 +34285,9 @@ var SourceSyncStore = class {
       return this.submit(run.id, imported.input, calls);
     });
   }
-  submit(id3, input2, calls, options = {}) {
+  submit(id2, input2, calls, options = {}) {
     return this.repo.store.transaction(() => {
-      const run = this.run(id3), request = this.request(id3);
+      const run = this.run(id2), request = this.request(id2);
       const finalize2 = options.finalize ?? true, supplement = options.supplement ?? false;
       const fingerprint = digest({ input: input2, finalize: finalize2, supplement });
       if (request.submittedFingerprints?.includes(fingerprint) || !supplement && finalize2 && request.submittedFingerprint === digest(input2)) return run;
@@ -34490,11 +34307,11 @@ var SourceSyncStore = class {
           const ids = raw.mergeCandidateIds ?? [];
           if (new Set(ids).size !== ids.length) throw new PolicyError("List each mergeCandidateId once.");
           const related = this.repo.db.prepare("SELECT value_json FROM source_sync_candidates WHERE task_id IS ? OR json_extract(value_json,'$.resultTaskId')=?").all(raw.taskId, raw.taskId).map((row) => syncCandidateSchema.parse(JSON.parse(String(row.value_json)))).filter((c) => raw.taskId || normalize2(c.title) === normalize2(raw.title) || ids.includes(c.id));
-          const previousBatch = related.find((c) => c.runId === id3 && c.status === "pending");
+          const previousBatch = related.find((c) => c.runId === id2 && c.status === "pending");
           const parents = [...new Map([...ids.map((parentId) => this.candidate(parentId)), ...previousBatch ? [previousBatch] : []].map((p) => [p.id, p])).values()];
           for (const parent of parents) {
             if (parent.status !== "pending") throw new ConflictError("Proposal " + parent.id + " was already reviewed or superseded. Start a new check against the current proposals.");
-            if (parent.runId !== id3 && !request.pendingCandidates?.some((p) => p.id === parent.id)) throw new PolicyError("The merge proposal was not in this run's pending snapshot.");
+            if (parent.runId !== id2 && !request.pendingCandidates?.some((p) => p.id === parent.id)) throw new PolicyError("The merge proposal was not in this run's pending snapshot.");
             if (parent.taskId && parent.taskId !== raw.taskId) throw new PolicyError("Cannot merge proposals for different existing tasks.");
             if (claimed.has(parent.id)) throw new PolicyError("A pending proposal cannot be merged into two results in the same batch.");
             claimed.add(parent.id);
@@ -34528,7 +34345,7 @@ ${errors.join("\n").slice(0, 16e3)}`);
           duplicates++;
           continue;
         }
-        const known = new Set(related.filter((c) => (!previousBatch || c.runId !== id3 || c.status === "applied" || c.status === "rejected") && (c.status === "applied" || (draft.taskId ? c.baseRevision === dossier.task.revision : c.taskId === null))).flatMap(eventIds));
+        const known = new Set(related.filter((c) => (!previousBatch || c.runId !== id2 || c.status === "applied" || c.status === "rejected") && (c.status === "applied" || (draft.taskId ? c.baseRevision === dossier.task.revision : c.taskId === null))).flatMap(eventIds));
         if (parents.length < 2 && related.filter((c) => c.status === "pending").length < 2 && incoming.size && [...incoming].every((event) => known.has(event))) {
           duplicates++;
           continue;
@@ -34537,11 +34354,11 @@ ${errors.join("\n").slice(0, 16e3)}`);
           const missing = related.filter((c) => c.status === "pending" && !parents.some((p) => p.id === c.id));
           if (missing.length) throw new PolicyError("Combine this finding with the pending proposals using mergeCandidateIds: " + missing.map((c) => c.id).join(", ") + ". All previous findings and untouched fields will be preserved.");
         }
-        if (draft.taskId && related.some((c) => c.runId === id3 && ["applied", "rejected"].includes(c.status))) throw new PolicyError(`The proposal for task ${draft.taskId} has already been reviewed by the user. This run cannot replace it; start a new check with the current dossier.`);
+        if (draft.taskId && related.some((c) => c.runId === id2 && ["applied", "rejected"].includes(c.status))) throw new PolicyError(`The proposal for task ${draft.taskId} has already been reviewed by the user. This run cannot replace it; start a new check with the current dossier.`);
         if (!draft.taskId && this.repo.list(true).tasks.some((d) => normalize2(d.title) === normalize2(draft.title))) throw new ConflictError("A task with this title already exists. Start a new check and link the finding to that task.");
-        const candidate2 = syncCandidateSchema.parse({
+        const candidate = syncCandidateSchema.parse({
           ...draft,
-          id: randomUUID6(),
+          id: randomUUID5(),
           runId: run.id,
           baseRevision: draft.taskId ? dossier.task.revision : null,
           before: draft.taskId ? {
@@ -34561,15 +34378,15 @@ ${errors.join("\n").slice(0, 16e3)}`);
           proposalId: null,
           resultTaskId: null
         });
-        this.repo.db.prepare("INSERT INTO source_sync_candidates VALUES (?,?,?,?,?,?)").run(candidate2.id, run.id, candidate2.taskId, candidate2.status, key, JSON.stringify(candidate2));
+        this.repo.db.prepare("INSERT INTO source_sync_candidates VALUES (?,?,?,?,?,?)").run(candidate.id, run.id, candidate.taskId, candidate.status, key, JSON.stringify(candidate));
         for (const parent of parents) this.saveCandidate({ ...parent, status: "superseded", resolvedAt: now3() });
         if (!request.pendingCandidates) {
-          for (const older of related) if (older.status === "pending" && older.baseRevision !== candidate2.baseRevision && eventIds(older).every((event) => incoming.has(event))) {
+          for (const older of related) if (older.status === "pending" && older.baseRevision !== candidate.baseRevision && eventIds(older).every((event) => incoming.has(event))) {
             this.saveCandidate({ ...older, status: "superseded", resolvedAt: now3() });
           }
         }
       }
-      const retained = this.repo.db.prepare("SELECT value_json FROM source_sync_candidates WHERE run_id=? AND status!='superseded'").all(id3).map((row) => candidateDraft(JSON.parse(String(row.value_json))));
+      const retained = this.repo.db.prepare("SELECT value_json FROM source_sync_candidates WHERE run_id=? AND status!='superseded'").all(id2).map((row) => candidateDraft(JSON.parse(String(row.value_json))));
       if (retained.length > 100 || Buffer.byteLength(JSON.stringify(retained)) > 1024 * 1024) throw new PolicyError("The run limit of 100 proposals or 1 MiB was exceeded. The last batch was not saved.");
       for (const report of finalize2 && !supplement ? reports : []) {
         const range = run.ranges[report.source];
@@ -34587,43 +34404,43 @@ ${errors.join("\n").slice(0, 16e3)}`);
       });
     });
   }
-  saveCandidate(candidate2) {
-    this.repo.db.prepare("UPDATE source_sync_candidates SET status=?,task_id=?,value_json=? WHERE id=?").run(candidate2.status, candidate2.taskId ?? candidate2.resultTaskId, JSON.stringify(candidate2), candidate2.id);
-    return candidate2;
+  saveCandidate(candidate) {
+    this.repo.db.prepare("UPDATE source_sync_candidates SET status=?,task_id=?,value_json=? WHERE id=?").run(candidate.status, candidate.taskId ?? candidate.resultTaskId, JSON.stringify(candidate), candidate.id);
+    return candidate;
   }
-  accept(id3) {
+  accept(id2) {
     const result = this.repo.store.transaction(() => {
-      const candidate2 = this.candidate(id3);
-      if (candidate2.status === "applied") return this.repo.detail(candidate2.resultTaskId);
-      if (candidate2.status !== "pending") throw new PolicyError("This proposal was already rejected or superseded by a new check.");
-      let taskId = candidate2.taskId;
-      if (taskId) this.repo.assertCurrent(taskId, candidate2.baseRevision, false);
+      const candidate = this.candidate(id2);
+      if (candidate.status === "applied") return this.repo.detail(candidate.resultTaskId);
+      if (candidate.status !== "pending") throw new PolicyError("This proposal was already rejected or superseded by a new check.");
+      let taskId = candidate.taskId;
+      if (taskId) this.repo.assertCurrent(taskId, candidate.baseRevision, false);
       else {
-        const duplicate = this.repo.list(true).tasks.find((task) => normalize2(task.title) === normalize2(candidate2.title));
+        const duplicate = this.repo.list(true).tasks.find((task) => normalize2(task.title) === normalize2(candidate.title));
         if (duplicate) throw new ConflictError("This task was created while the check was running. Reject the duplicate and check again.");
-        taskId = this.repo.create({ title: candidate2.title, description: "", requestId: candidate2.id }).id;
+        taskId = this.repo.create({ title: candidate.title, description: "", requestId: candidate.id }).id;
       }
       const dossier = this.repo.kernel.getDossier(taskId);
-      const run = this.run(candidate2.runId);
-      const draft = receiptDraft(candidate2.changes, dossier, syncEvidence(candidate2, run.id, dossier));
+      const run = this.run(candidate.runId);
+      const draft = receiptDraft(candidate.changes, dossier, syncEvidence(candidate, run.id, dossier));
       const proposal = this.repo.kernel.createProposal({
         taskId,
         baseRevision: dossier.task.revision,
         model: `external-sync:${run.provider}:${run.model}`,
-        output: { rationale: candidate2.rationale, confidence: candidate2.confidence, changes: draft.changes },
+        output: { rationale: candidate.rationale, confidence: candidate.confidence, changes: draft.changes },
         additionalEvidence: draft.evidence,
-        idempotencyKey: `sync:${candidate2.id}`
+        idempotencyKey: `sync:${candidate.id}`
       });
       this.repo.accept(proposal.id, dossier.task.revision);
       const timestamp = now3();
-      for (const [index, fact] of candidate2.facts.entries()) {
-        if (candidate2.recordFactIndexes && !candidate2.recordFactIndexes.includes(index)) continue;
+      for (const [index, fact] of candidate.facts.entries()) {
+        if (candidate.recordFactIndexes && !candidate.recordFactIndexes.includes(index)) continue;
         const exists = this.repo.db.prepare("SELECT kind,text FROM task_facts WHERE task_id=?").all(taskId).some((row) => row.kind === fact.kind && normalize2(String(row.text)) === normalize2(fact.text));
         if (exists) continue;
         const citation = fact.citations[0];
-        this.repo.db.prepare("INSERT INTO task_facts VALUES (?,?,?,?,?,?,?,?)").run(`sync:${candidate2.id}:${index}`, taskId, fact.kind, fact.text, `approved-external-sync:${proposal.id}`, citation.url, citation.occurredAt, timestamp);
+        this.repo.db.prepare("INSERT INTO task_facts VALUES (?,?,?,?,?,?,?,?)").run(`sync:${candidate.id}:${index}`, taskId, fact.kind, fact.text, `approved-external-sync:${proposal.id}`, citation.url, citation.occurredAt, timestamp);
       }
-      this.saveCandidate({ ...candidate2, status: "applied", resolvedAt: timestamp, proposalId: proposal.id, resultTaskId: taskId });
+      this.saveCandidate({ ...candidate, status: "applied", resolvedAt: timestamp, proposalId: proposal.id, resultTaskId: taskId });
       return this.repo.detail(taskId);
     });
     this.repo.changed();
@@ -34631,22 +34448,22 @@ ${errors.join("\n").slice(0, 16e3)}`);
   }
   reviewParts(input2) {
     const result = this.repo.request(input2.requestId, { kind: "review-source-parts", input: input2 }, () => {
-      const candidate2 = this.candidate(input2.id);
-      if (candidate2.status !== "pending") throw new PolicyError("This proposal was already reviewed. Refresh the list.");
-      if (candidate2.baseRevision !== input2.revision) throw new ConflictError("The proposal changed. Refresh the list.");
-      if (candidate2.taskId) this.repo.assertCurrent(candidate2.taskId, candidate2.baseRevision, false);
-      const split = partitionParts(sourceParts(candidate2), input2);
-      const make = (parts, suffix, taskId2 = candidate2.taskId) => {
+      const candidate = this.candidate(input2.id);
+      if (candidate.status !== "pending") throw new PolicyError("This proposal was already reviewed. Refresh the list.");
+      if (candidate.baseRevision !== input2.revision) throw new ConflictError("The proposal changed. Refresh the list.");
+      if (candidate.taskId) this.repo.assertCurrent(candidate.taskId, candidate.baseRevision, false);
+      const split = partitionParts(sourceParts(candidate), input2);
+      const make = (parts, suffix, taskId2 = candidate.taskId) => {
         const dossier = taskId2 ? this.repo.kernel.getDossier(taskId2) : null;
         const child = syncCandidateSchema.parse({
-          ...candidate2,
-          id: randomUUID6(),
+          ...candidate,
+          id: randomUUID5(),
           partReview: void 0,
           taskId: taskId2,
           baseRevision: dossier?.task.revision ?? null,
           before: dossier ? { ...dossier.projection, ...dossier.planning, title: dossier.task.title, status: dossier.task.status } : null,
-          title: dossier?.task.title ?? candidate2.title,
-          changes: pickChanges(candidate2.changes, parts),
+          title: dossier?.task.title ?? candidate.title,
+          changes: pickChanges(candidate.changes, parts),
           recordFactIndexes: parts.filter((p) => p.startsWith("fact:")).map((p) => Number(p.slice(5))),
           createdAt: now3(),
           resolvedAt: null,
@@ -34658,20 +34475,20 @@ ${errors.join("\n").slice(0, 16e3)}`);
         return child;
       };
       const accepted = split.accepted.length ? make(split.accepted, "accepted") : null;
-      const taskId = accepted ? this.accept(accepted.id).task.id : candidate2.taskId;
+      const taskId = accepted ? this.accept(accepted.id).task.id : candidate.taskId;
       const remaining = split.remaining.length ? make(split.remaining, "remaining", taskId) : null;
-      this.saveCandidate({ ...candidate2, status: "superseded", resolvedAt: now3(), resultTaskId: taskId });
-      this.repo.savePartReview("source", candidate2.id, { ...split, acceptedId: accepted?.id ?? null, remainingId: remaining?.id ?? null, createdAt: now3() });
+      this.saveCandidate({ ...candidate, status: "superseded", resolvedAt: now3(), resultTaskId: taskId });
+      this.repo.savePartReview("source", candidate.id, { ...split, acceptedId: accepted?.id ?? null, remainingId: remaining?.id ?? null, createdAt: now3() });
       return { taskId, remainingId: remaining?.id ?? null };
     });
     this.repo.changed();
     return result;
   }
-  reject(id3) {
-    const candidate2 = this.candidate(id3);
-    if (candidate2.status === "applied") throw new PolicyError("The changes were already accepted. Use an undo proposal in the dossier to reverse them.");
-    if (candidate2.status === "rejected" || candidate2.status === "superseded") return candidate2;
-    const result = this.saveCandidate({ ...candidate2, status: "rejected", resolvedAt: now3() });
+  reject(id2) {
+    const candidate = this.candidate(id2);
+    if (candidate.status === "applied") throw new PolicyError("The changes were already accepted. Use an undo proposal in the dossier to reverse them.");
+    if (candidate.status === "rejected" || candidate.status === "superseded") return candidate;
+    const result = this.saveCandidate({ ...candidate, status: "rejected", resolvedAt: now3() });
     this.repo.changed();
     return result;
   }
@@ -34699,11 +34516,11 @@ var SourceSyncRuntime = class {
   processing = /* @__PURE__ */ new Set();
   collectors = /* @__PURE__ */ new Map();
   companions = /* @__PURE__ */ new Map();
-  launchTitle(id3) {
-    return `247C \xB7 updates \xB7 ${id3}`;
+  launchTitle(id2) {
+    return `247C \xB7 updates \xB7 ${id2}`;
   }
-  isLaunchTitle(title, id3) {
-    return title === this.launchTitle(id3) || title === `247C \xB7 \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F \xB7 ${id3}`;
+  isLaunchTitle(title, id2) {
+    return title === this.launchTitle(id2) || title === `247C \xB7 \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F \xB7 ${id2}`;
   }
   resolveThread(threadId, title) {
     const bound = this.store.forThread(threadId);
@@ -34755,43 +34572,43 @@ var SourceSyncRuntime = class {
     return run;
   }
   async collectAndLaunch(initial, input2, controller) {
-    const id3 = initial.id;
+    const id2 = initial.id;
     const progress = /* @__PURE__ */ new Map();
     try {
       const config2 = await this.sourceConfiguration();
-      const context = this.store.request(id3);
+      const context = this.store.request(id2);
       const bundle = await collectSources(initial, context.snapshots, { config: config2, pendingCandidates: context.pendingCandidates, signal: controller.signal, onProgress: (p) => {
         if (this.disposed || controller.signal.aborted) return;
         progress.set(p.source, p);
-        const run2 = this.store.run(id3);
+        const run2 = this.store.run(id2);
         if (!SYNC_ACTIVE.has(run2.status)) return;
         this.store.save({ ...run2, collection: { phase: "collecting", calls: [...progress.values()].reduce((n, v) => n + v.calls, 0), reads: [...progress.values()].reduce((n, v) => n + v.reads, 0), elapsedMs: Date.now() - Date.parse(initial.startedAt) } });
       } });
       if (this.disposed) return;
       this.store.saveExport(bundle);
-      let run = this.store.run(id3);
+      let run = this.store.run(id2);
       if (!SYNC_ACTIVE.has(run.status) || controller.signal.aborted) return;
       run = this.store.save({ ...run, reports: validateSyncReports(bundle.reports, bundle.calls, context.snapshots, context.pendingCandidates), collection: { phase: "analyzing", calls: bundle.calls.length, reads: bundle.documents.length, elapsedMs: bundle.elapsedMs } });
       if (bundle.reports.every((r) => r.status === "unavailable")) throw new PolicyError("Could not load sources. See the Gmail, Slack and Jira cards for details; analysis was not started.");
       const work = await this.analysisWork();
-      if (this.disposed || controller.signal.aborted || !SYNC_ACTIVE.has(this.store.run(id3).status)) return;
+      if (this.disposed || controller.signal.aborted || !SYNC_ACTIVE.has(this.store.run(id2).status)) return;
       const baseline = this.store.analysisBaseline();
       const plan = planSourceAnalysis(bundle, digest({ config: config2, policy: work.policy, timeZone: this.timeZone() }), work, Boolean(context.incremental), baseline, context.snapshots);
-      this.store.saveAnalysis(id3, plan);
+      this.store.saveAnalysis(id2, plan);
       const selected = analysisExport(bundle, plan);
       const modelSkipped = Boolean(context.incremental) && !selected.documents.length && !needsDayAnalysis(plan, baseline);
       run = this.store.save({ ...run, analysis: { documents: selected.documents.length, reusedDocuments: bundle.documents.length - selected.documents.length, modelSkipped } });
       if (modelSkipped) {
-        this.store.submit(id3, { reports: bundle.reports, suggestions: [] }, bundle.calls);
+        this.store.submit(id2, { reports: bundle.reports, suggestions: [] }, bundle.calls);
         return;
       }
       const prompt = DAY_REVIEW_INSTRUCTIONS + "\n\n" + syncAnalysisInstructions(run, context.snapshots, [...context.pendingCandidates ?? this.store.pendingCandidates(), ...this.store.candidates().filter((c) => c.status !== "pending")], selected, config2, this.timeZone());
       if (Buffer.byteLength(prompt) > 768 * 1024) throw new PolicyError("The task snapshot is too large for one analysis.");
-      this.store.recordDataPage(id3, 0);
+      this.store.recordDataPage(id2, 0);
       const request = nativeRequest(input2.request);
-      const thread = await this.bb.sdk.threads.spawn({ ...request, title: this.launchTitle(id3), visibility: "visible", input: [...request.input, { type: "text", text: prompt, mentions: [], visibility: "agent-only" }] });
+      const thread = await this.bb.sdk.threads.spawn({ ...request, title: this.launchTitle(id2), visibility: "visible", input: [...request.input, { type: "text", text: prompt, mentions: [], visibility: "agent-only" }] });
       if (this.disposed) return;
-      run = this.store.save({ ...this.store.run(id3), threadId: thread.id });
+      run = this.store.save({ ...this.store.run(id2), threadId: thread.id });
       if (!SYNC_ACTIVE.has(run.status) || controller.signal.aborted) {
         await this.bb.sdk.threads.stop({ threadId: thread.id });
         return;
@@ -34801,14 +34618,14 @@ var SourceSyncRuntime = class {
     } catch (error61) {
       if (this.disposed) return;
       try {
-        await this.findThread(this.store.run(id3));
+        await this.findThread(this.store.run(id2));
       } catch {
       }
-      const run = this.store.run(id3);
+      const run = this.store.run(id2);
       if (SYNC_ACTIVE.has(run.status)) this.store.save({ ...run, status: run.threadId ? "working" : "blocked", ...run.threadId ? {} : { finishedAt: now3(), error: error61 instanceof Error ? error61.message : String(error61) } });
     } finally {
-      this.processing.delete(id3);
-      this.collectors.delete(id3);
+      this.processing.delete(id2);
+      this.collectors.delete(id2);
     }
   }
   async findThread(run) {
@@ -34885,46 +34702,46 @@ var SourceSyncRuntime = class {
       message: finalize2 ? "The check is complete. The user will apply proposals in the 247C panel." : "Batch saved; you can submit the remaining proposals. When finished, call c247_sync_submit with {suggestions:[],finalize:true}. Source checkpoints do not advance until completion. The user will apply proposals in the 247C panel."
     };
   }
-  supplement(id3, raw) {
-    const bundle = this.store.export(id3);
+  supplement(id2, raw) {
+    const bundle = this.store.export(id2);
     if (!bundle) throw new PolicyError("Recovery requires a saved source export.");
     const input2 = syncSubmitSchema.parse({ suggestions: raw, reports: bundle.reports });
-    const result = this.store.submit(id3, input2, bundle.calls, { supplement: true, finalize: false });
+    const result = this.store.submit(id2, input2, bundle.calls, { supplement: true, finalize: false });
     return { runId: result.id, status: result.status, suggestions: result.suggestions, canonicalTasksChanged: false, checkpointsChanged: false };
   }
-  async cancel(id3) {
-    const run = this.store.run(id3);
+  async cancel(id2) {
+    const run = this.store.run(id2);
     if (!SYNC_ACTIVE.has(run.status)) return run;
     const cancelled = this.store.save({ ...run, status: "cancelled", finishedAt: now3() });
-    this.collectors.get(id3)?.abort();
-    this.companions.get(id3)?.abort();
+    this.collectors.get(id2)?.abort();
+    this.companions.get(id2)?.abort();
     if (run.threadId) await this.bb.sdk.threads.stop({ threadId: run.threadId });
     return cancelled;
   }
-  async tick(id3) {
-    if (this.disposed || this.processing.has(id3)) return;
-    this.processing.add(id3);
+  async tick(id2) {
+    if (this.disposed || this.processing.has(id2)) return;
+    this.processing.add(id2);
     try {
-      let run = this.store.run(id3);
+      let run = this.store.run(id2);
       if (!SYNC_ACTIVE.has(run.status)) return;
       if (!run.threadId) {
         await this.findThread(run);
-        run = this.store.run(id3);
+        run = this.store.run(id2);
       }
       if (!run.threadId) throw new PolicyError("The check launch was interrupted before the chat was created. Start a new check.");
       const thread = await this.bb.sdk.threads.get({ threadId: run.threadId });
-      if (this.disposed || !SYNC_ACTIVE.has(this.store.run(id3).status)) return;
+      if (this.disposed || !SYNC_ACTIVE.has(this.store.run(id2).status)) return;
       if (["idle", "error", "failed", "archived", "deleted"].includes(thread.status)) throw new PolicyError("The collector stopped without a confirmed result. Open the check chat; source checkpoints are preserved.");
       if (Date.now() - Date.parse(run.startedAt) > 45 * 6e4) {
-        await this.cancel(id3);
+        await this.cancel(id2);
         return;
       }
       if (run.status === "starting") this.store.save({ ...run, status: "working" });
       await this.nameThread(run, thread);
     } catch (error61) {
-      if (!this.disposed && SYNC_ACTIVE.has(this.store.run(id3).status)) this.store.save({ ...this.store.run(id3), status: "blocked", finishedAt: now3(), error: error61 instanceof Error ? error61.message : String(error61) });
+      if (!this.disposed && SYNC_ACTIVE.has(this.store.run(id2).status)) this.store.save({ ...this.store.run(id2), status: "blocked", finishedAt: now3(), error: error61 instanceof Error ? error61.message : String(error61) });
     } finally {
-      this.processing.delete(id3);
+      this.processing.delete(id2);
     }
   }
   dispose() {
@@ -35132,16 +34949,6 @@ function parseExcludedReviewModels(value = "[]") {
   return excludedReviewModelsSchema.parse(JSON.parse(value));
 }
 var settingDescriptors = {
-  weeklyReportedTargetMinutes: { type: "number", label: "Weekly reported minimum (minutes)", description: "A progress indicator only. Never used to generate time estimates. Zero disables it.", default: 0, experimental_schema: external_exports.number().int().min(0).max(10080) },
-  weeklyReportedOverrides: { type: "string", label: "Weekly minimum exceptions (JSON)", description: "Map Monday dates to target minutes for exceptional weeks.", default: "{}", experimental_schema: external_exports.string().max(32e3).refine((value) => {
-    try {
-      const entries = weekOverridesSchema.parse(JSON.parse(value));
-      return Object.keys(entries).every((date5) => (/* @__PURE__ */ new Date(date5 + "T12:00:00Z")).getUTCDay() === 1);
-    } catch {
-      return false;
-    }
-  }) },
-  dailyTimeReviewHour: { type: "number", label: "Daily time review reminder hour", description: "Show a review reminder in the day plan after this local hour until the day is reviewed.", default: 20, experimental_schema: external_exports.number().int().min(0).max(23) },
   localSettingsPatch: { type: "string", label: "Local settings patch", description: "Absolute path to a private JSON settings patch, applied whenever 247C loads, including after updates. Keep it outside the plugin checkout. Leave blank to use the automatically maintained patch next to the database.", default: "", experimental_schema: external_exports.string().trim().max(4096) },
   composerDefaults: { type: "string", label: "Conversation account and model", description: "Optional JSON with providerId and model for new work, review discussions and source checks. Leave {} to use the native composer defaults and previous conversation selection.", default: "{}", experimental_schema: external_exports.string().max(1e3).refine((value) => {
     try {
@@ -35216,7 +35023,7 @@ function validateSettings(value) {
 // local-patch.ts
 import { closeSync, existsSync, fsyncSync, openSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute as isAbsolute4, join as join2 } from "node:path";
-import { randomUUID as randomUUID7 } from "node:crypto";
+import { randomUUID as randomUUID6 } from "node:crypto";
 var PATCH_FILE = "local.patch.json";
 var PATCH_FORMAT = "247c-local-settings-v1";
 var MAX_BYTES = 256 * 1024;
@@ -35239,7 +35046,7 @@ function writePatch(path2, settings) {
   validateSettings(values);
   const text2 = JSON.stringify({ format: PATCH_FORMAT, settings: values }, null, 2) + "\n";
   if (Buffer.byteLength(text2) > MAX_BYTES) throw new Error("The local settings patch is too large.");
-  const temporary = `${path2}.${randomUUID7()}.tmp`;
+  const temporary = `${path2}.${randomUUID6()}.tmp`;
   try {
     const fd = openSync(temporary, "wx", 384);
     try {
@@ -35427,15 +35234,15 @@ async function readCalendar(input2, connect = connectCalendar) {
 }
 
 // server.ts
-import { randomUUID as randomUUID11 } from "node:crypto";
+import { randomUUID as randomUUID10 } from "node:crypto";
 
 // core/schema.ts
 var CORE_SCHEMA = "\n      CREATE TABLE IF NOT EXISTS tasks (\n        id TEXT PRIMARY KEY,\n        title TEXT NOT NULL,\n        status TEXT NOT NULL CHECK(status IN ('open', 'done', 'archived')),\n        revision INTEGER NOT NULL DEFAULT 0,\n        created_at TEXT NOT NULL,\n        updated_at TEXT NOT NULL\n      );\n      CREATE TABLE IF NOT EXISTS task_facts (\n        id TEXT PRIMARY KEY,\n        task_id TEXT NOT NULL REFERENCES tasks(id),\n        kind TEXT NOT NULL,\n        text TEXT NOT NULL,\n        source TEXT NOT NULL,\n        source_ref TEXT,\n        occurred_at TEXT NOT NULL,\n        created_at TEXT NOT NULL\n      );\n      CREATE INDEX IF NOT EXISTS idx_task_facts_task ON task_facts(task_id, occurred_at);\n      CREATE TABLE IF NOT EXISTS task_projections (\n        task_id TEXT PRIMARY KEY REFERENCES tasks(id),\n        summary TEXT,\n        next_step TEXT,\n        open_questions_json TEXT NOT NULL DEFAULT '[]',\n        blockers_json TEXT NOT NULL DEFAULT '[]',\n        artifacts_json TEXT NOT NULL DEFAULT '[]',\n        updated_at TEXT NOT NULL\n      );\n      CREATE TABLE IF NOT EXISTS proposals (\n        id TEXT PRIMARY KEY,\n        task_id TEXT NOT NULL REFERENCES tasks(id),\n        base_revision INTEGER NOT NULL,\n        model TEXT NOT NULL,\n        rationale TEXT NOT NULL,\n        confidence REAL NOT NULL,\n        changes_json TEXT NOT NULL,\n        status TEXT NOT NULL CHECK(status IN ('pending', 'approved', 'applied', 'rejected', 'conflicted')),\n        created_at TEXT NOT NULL,\n        resolved_at TEXT\n        ,idempotency_key TEXT UNIQUE\n      );\n      CREATE INDEX IF NOT EXISTS idx_proposals_idempotency ON proposals(idempotency_key);\n      CREATE TABLE IF NOT EXISTS proposal_evidence (\n        proposal_id TEXT NOT NULL REFERENCES proposals(id),\n        evidence_ref TEXT NOT NULL,\n        kind TEXT NOT NULL,\n        text TEXT NOT NULL,\n        source TEXT NOT NULL,\n        source_ref TEXT,\n        PRIMARY KEY(proposal_id, evidence_ref)\n      );\n      CREATE TABLE IF NOT EXISTS proposal_approvals (\n        id TEXT PRIMARY KEY,\n        proposal_id TEXT NOT NULL UNIQUE REFERENCES proposals(id),\n        proposal_hash TEXT NOT NULL,\n        actor TEXT NOT NULL,\n        created_at TEXT NOT NULL\n      );\n      CREATE TABLE IF NOT EXISTS application_receipts (\n        id TEXT PRIMARY KEY,\n        proposal_id TEXT NOT NULL UNIQUE REFERENCES proposals(id),\n        approval_id TEXT NOT NULL REFERENCES proposal_approvals(id),\n        task_id TEXT NOT NULL REFERENCES tasks(id),\n        before_revision INTEGER NOT NULL,\n        after_revision INTEGER NOT NULL,\n        fields_json TEXT NOT NULL,\n        created_at TEXT NOT NULL\n      );\n      CREATE TABLE IF NOT EXISTS kernel_events (\n        sequence INTEGER PRIMARY KEY AUTOINCREMENT,\n        id TEXT NOT NULL UNIQUE,\n        task_id TEXT,\n        type TEXT NOT NULL,\n        payload_json TEXT NOT NULL,\n        created_at TEXT NOT NULL\n      );\n      CREATE TABLE IF NOT EXISTS application_snapshots (\n        proposal_id TEXT PRIMARY KEY REFERENCES proposals(id),\n        before_json TEXT NOT NULL,\n        after_json TEXT NOT NULL\n      );\n    ";
 
 // proposal-refresh.ts
-import { randomUUID as randomUUID8 } from "node:crypto";
-function updateFor(repo, id3) {
-  const row = repo.db.prepare("SELECT value_json FROM session_updates WHERE proposal_id=?").get(id3);
+import { randomUUID as randomUUID7 } from "node:crypto";
+function updateFor(repo, id2) {
+  const row = repo.db.prepare("SELECT value_json FROM session_updates WHERE proposal_id=?").get(id2);
   return row ? sessionUpdateSchema.parse(JSON.parse(row.value_json)) : void 0;
 }
 function proposalRefreshPreview(repo, proposalId) {
@@ -35498,7 +35305,7 @@ function refreshProposal(repo, input2) {
       createdAt: (/* @__PURE__ */ new Date()).toISOString()
     });
     repo.db.prepare("INSERT INTO kernel_events(id,task_id,type,payload_json,created_at) VALUES (?,?,?,?,?)").run(
-      randomUUID8(),
+      randomUUID7(),
       old.taskId,
       "proposal.refreshed",
       JSON.stringify({ proposalId: replacement.id, replacesId: old.id, fromRevision: old.baseRevision, revision: preview.revision, reviewed: input2.reviewed, parts: input2.parts }),
@@ -35750,8 +35557,8 @@ var SessionRuntime = class {
   archiving = /* @__PURE__ */ new Set();
   unavailableMonitors = /* @__PURE__ */ new Set();
   disposed = false;
-  current(id3) {
-    const session = this.repo.session(id3);
+  current(id2) {
+    const session = this.repo.session(id2);
     if (this.disposed || !ACTIVE.has(session.status)) throw new PolicyError("The session has already stopped.");
     if (session.mode === "conversation" && ["starting", "working", "collecting"].includes(session.status) && !(session.status === "collecting" && session.extractionRepair)) {
       if (!session.continuedFrom && this.repo.kernel.getTask(session.taskId).status !== "open") throw new PolicyError("The task is already closed.");
@@ -35799,7 +35606,7 @@ var SessionRuntime = class {
       this.bb.sdk.providers.models({ ...routing, providerId: reviewerProvider }),
       this.bb.sdk.providers.models({ ...routing, providerId: input2.request.providerId })
     ]);
-    if (![input2.request.providerId, reviewerProvider].every((id3) => providers.some((p) => p.id === id3 && p.available))) throw new PolicyError(mode === "conversation" ? "The selected account is unavailable on this machine." : "Both Codex and Claude Code must be available on the selected machine to start.");
+    if (![input2.request.providerId, reviewerProvider].every((id2) => providers.some((p) => p.id === id2 && p.available))) throw new PolicyError(mode === "conversation" ? "The selected account is unavailable on this machine." : "Both Codex and Claude Code must be available on the selected machine to start.");
     if (reviewerCatalog.modelLoadError || !reviewerCatalog.models.some((m) => m.model === reviewerModel || m.id === reviewerModel)) throw new PolicyError(`Verification model ${reviewerModel} is unavailable. Another model will not be substituted automatically.`);
     if (workerCatalog.modelLoadError || !workerCatalog.models.some((m) => m.model === input2.request.model || m.id === input2.request.model)) throw new PolicyError("The selected worker model is unavailable.");
     const timestamp = (/* @__PURE__ */ new Date()).toISOString();
@@ -35952,11 +35759,11 @@ var SessionRuntime = class {
     const observed = await this.observeArtifacts(session);
     if (observed.length !== session.artifacts.length || observed.some((a, i) => a.path !== session.artifacts[i]?.path || a.sha256 !== session.artifacts[i]?.sha256)) throw new PolicyError("Files changed after verification. Start a new session for the updated files.");
   }
-  async tick(id3) {
-    if (this.disposed || this.processing.has(id3)) return;
-    this.processing.add(id3);
+  async tick(id2) {
+    if (this.disposed || this.processing.has(id2)) return;
+    this.processing.add(id2);
     try {
-      let session = this.repo.session(id3);
+      let session = this.repo.session(id2);
       if (!ACTIVE.has(session.status)) return;
       if (session.mode === "conversation") {
         await this.tickConversation(session);
@@ -35987,11 +35794,11 @@ var SessionRuntime = class {
         const execution = await this.bb.sdk.threads.defaultExecutionOptions({ threadId: thread.id });
         if (thread.providerId !== session.workerProvider || execution?.model !== session.workerModel) throw new PolicyError("The worker model changed or was not confirmed. Start a new session with the selected model.");
         const output2 = await this.bb.sdk.threads.output({ threadId: session.workerThreadId });
-        this.current(id3);
+        this.current(id2);
         if (thread.environmentId && session.environmentId !== thread.environmentId) session = this.repo.saveSession({ ...session, environmentId: thread.environmentId });
         const result = session.result ?? resultSchema.parse(parseJsonResult(output2.output));
         session = this.repo.saveSession({ ...session, status: "collecting", result });
-        this.repo.sessionEvent(id3, "worker-finished", "Worker response received; the dossier is unchanged.", { output: output2.output, result });
+        this.repo.sessionEvent(id2, "worker-finished", "Worker response received; the dossier is unchanged.", { output: output2.output, result });
         await this.bb.sdk.threads.stop({ threadId: session.workerThreadId });
         await this.beginReview(session);
       } else if (session.status === "reviewing" && session.reviewerThreadId) {
@@ -36004,26 +35811,26 @@ var SessionRuntime = class {
         let review;
         try {
           review = validateReview(parseJsonResult(output2.output), session);
-          this.repo.sessionEvent(id3, "review", "Independent verification completed.", { reviewerThreadId: thread.id, review, artifacts: session.artifacts });
+          this.repo.sessionEvent(id2, "review", "Independent verification completed.", { reviewerThreadId: thread.id, review, artifacts: session.artifacts });
         } finally {
           await this.stopThread(thread.id, true);
         }
-        this.current(id3);
+        this.current(id2);
         session = this.repo.saveSession({ ...session, review });
         if (review.verdict === "pass") {
           await this.assertArtifacts(session);
-          this.current(id3);
+          this.current(id2);
           this.makeProposal(session);
         } else if (review.verdict === "repair" && session.round < session.maximumRepairs) {
           session = this.repo.saveSession({ ...session, status: "repair_starting", round: session.round + 1, result: null, artifacts: [], reviewerThreadId: null });
           await this.bb.sdk.threads.send({ threadId: session.workerThreadId, mode: "auto", input: [{ type: "text", text: repairInstructions(session, review), mentions: [] }] });
-          this.repo.saveSession({ ...this.current(id3), status: "working" });
-        } else await this.block(id3, new PolicyError(review.findings.join("\n")));
+          this.repo.saveSession({ ...this.current(id2), status: "working" });
+        } else await this.block(id2, new PolicyError(review.findings.join("\n")));
       }
     } catch (error61) {
-      if (!this.disposed) await this.block(id3, error61);
+      if (!this.disposed) await this.block(id2, error61);
     } finally {
-      this.processing.delete(id3);
+      this.processing.delete(id2);
     }
   }
   async chooseRecorder(session, choice, options) {
@@ -36034,7 +35841,7 @@ var SessionRuntime = class {
     if (choice === "auto") {
       const providers2 = await this.bb.sdk.providers.list(routing);
       const permitted = ["claude-code", "codex", ...session.workerProvider === "claude-work" ? ["claude-work"] : []];
-      const catalogs = await Promise.all(permitted.filter((id3) => providers2.some((p) => p.id === id3 && p.available)).map(async (providerId) => {
+      const catalogs = await Promise.all(permitted.filter((id2) => providers2.some((p) => p.id === id2 && p.available)).map(async (providerId) => {
         try {
           const catalog2 = await this.bb.sdk.providers.models({ ...routing, providerId });
           return { providerId, models: catalog2.modelLoadError ? [] : catalog2.models };
@@ -36055,100 +35862,100 @@ var SessionRuntime = class {
     const reviewerReasoning = model.supportedReasoningEfforts?.length && !model.supportedReasoningEfforts.some((e) => e.reasoningEffort === desired) ? model.defaultReasoningEffort : desired;
     return { workerModel, reviewerProvider, reviewerModel, reviewerReasoning, selectionReason: `Review model selected manually: ${reviewerModel} (${reviewerProvider}).` };
   }
-  async finish(id3, recorder = "auto") {
-    let session = this.repo.session(id3);
+  async finish(id2, recorder = "auto") {
+    let session = this.repo.session(id2);
     if (session.mode !== "conversation") throw new PolicyError("This session was created with acceptance criteria and uses the earlier verification workflow.");
     if (session.finishedAt || !ACTIVE.has(session.status)) return session;
-    if (session.status !== "working" || !session.workerThreadId || this.processing.has(id3)) throw new PolicyError("The chat is still starting. You will be able to finish it in a few seconds.");
+    if (session.status !== "working" || !session.workerThreadId || this.processing.has(id2)) throw new PolicyError("The chat is still starting. You will be able to finish it in a few seconds.");
     const options = await this.settings();
     const { selectionReason, ...selection } = await this.chooseRecorder(session, recorder, options);
-    session = this.repo.session(id3);
+    session = this.repo.session(id2);
     if (session.finishedAt || !ACTIVE.has(session.status)) return session;
-    session = this.repo.saveSession({ ...this.current(id3), ...selection, status: "collecting", finishedAt: (/* @__PURE__ */ new Date()).toISOString(), deadlineAt: Date.now() + options.sessionMinutes * 6e4 });
-    this.unavailableMonitors.delete(id3);
-    this.repo.sessionEvent(id3, "conversation-finished", "The user ended the conversation; a separate review is starting.");
-    this.repo.sessionEvent(id3, "recorder-selected", selectionReason, selection);
-    this.processing.add(id3);
+    session = this.repo.saveSession({ ...this.current(id2), ...selection, status: "collecting", finishedAt: (/* @__PURE__ */ new Date()).toISOString(), deadlineAt: Date.now() + options.sessionMinutes * 6e4 });
+    this.unavailableMonitors.delete(id2);
+    this.repo.sessionEvent(id2, "conversation-finished", "The user ended the conversation; a separate review is starting.");
+    this.repo.sessionEvent(id2, "recorder-selected", selectionReason, selection);
+    this.processing.add(id2);
     try {
       await this.bb.sdk.threads.stop({ threadId: session.workerThreadId });
     } catch (error61) {
-      await this.block(id3, error61);
+      await this.block(id2, error61);
     } finally {
-      this.processing.delete(id3);
+      this.processing.delete(id2);
     }
-    await this.tick(id3);
-    return this.repo.session(id3);
+    await this.tick(id2);
+    return this.repo.session(id2);
   }
-  async retry(id3, recorder = "auto") {
-    let session = this.repo.session(id3);
-    if (session.mode !== "conversation" || !session.finishedAt || this.processing.has(id3)) throw new PolicyError("Finish the conversation before retrying the review.");
+  async retry(id2, recorder = "auto") {
+    let session = this.repo.session(id2);
+    if (session.mode !== "conversation" || !session.finishedAt || this.processing.has(id2)) throw new PolicyError("Finish the conversation before retrying the review.");
     if (ACTIVE.has(session.status)) return session;
     if (!["blocked", "awaiting_approval", "rejected"].includes(session.status)) throw new PolicyError("This session's review has already finished.");
     if (this.repo.sessions(session.taskId).some((s) => s.continuedFrom === session.id && s.proposalId)) throw new PolicyError("This review was revised in a later session. Retry or discuss the latest review to preserve the corrections.");
     if (this.repo.active().some((s) => s.taskId === session.taskId)) throw new PolicyError("Finish this task's other open session first.");
     const task = this.repo.kernel.getTask(session.taskId);
     this.repo.assertCurrent(task.id, task.revision, !session.continuedFrom);
-    this.processing.add(id3);
+    this.processing.add(id2);
     try {
-      if (recorder === "auto" && session.status === "blocked" && !session.proposalId && await this.recoverExtraction(session)) return this.repo.session(id3);
+      if (recorder === "auto" && session.status === "blocked" && !session.proposalId && await this.recoverExtraction(session)) return this.repo.session(id2);
       const options = await this.settings();
       const { selectionReason, ...selection } = await this.chooseRecorder(session, recorder, options);
-      await this.stopSession(id3);
+      await this.stopSession(id2);
       if (session.proposalId) {
         const proposal = this.repo.kernel.getProposal(session.proposalId);
         if (["pending", "approved"].includes(proposal.status)) this.repo.reject(proposal.id);
       }
       if (this.repo.active().some((s) => s.taskId === session.taskId)) throw new PolicyError("Another conversation is already open for this task.");
-      session = this.repo.saveSession({ ...this.repo.session(id3), ...selection, status: "collecting", baseRevision: task.revision, reviewerThreadId: null, proposalId: null, round: session.round + 1, extraction: null, extractionRepair: null, error: null, deadlineAt: Date.now() + options.sessionMinutes * 6e4 });
-      this.repo.sessionEvent(id3, "recorder-selected", selectionReason, selection);
+      session = this.repo.saveSession({ ...this.repo.session(id2), ...selection, status: "collecting", baseRevision: task.revision, reviewerThreadId: null, proposalId: null, round: session.round + 1, extraction: null, extractionRepair: null, error: null, deadlineAt: Date.now() + options.sessionMinutes * 6e4 });
+      this.repo.sessionEvent(id2, "recorder-selected", selectionReason, selection);
     } finally {
-      this.processing.delete(id3);
+      this.processing.delete(id2);
     }
-    await this.tick(id3);
-    return this.repo.session(id3);
+    await this.tick(id2);
+    return this.repo.session(id2);
   }
-  async resume(id3) {
-    const session = this.repo.session(id3);
-    if (session.mode === "conversation" && session.status === "working" && !session.finishedAt) return this.current(id3);
+  async resume(id2) {
+    const session = this.repo.session(id2);
+    if (session.mode === "conversation" && session.status === "working" && !session.finishedAt) return this.current(id2);
     const assertResumable = (value) => {
-      if (this.disposed || value.mode !== "conversation" || value.status !== "blocked" || value.finishedAt || !value.workerThreadId || value.reviewerThreadId || value.proposalId || value.extraction || value.extractionRepair || value.result || value.review || this.repo.transcript(id3)) {
+      if (this.disposed || value.mode !== "conversation" || value.status !== "blocked" || value.finishedAt || !value.workerThreadId || value.reviewerThreadId || value.proposalId || value.extraction || value.extractionRepair || value.result || value.review || this.repo.transcript(id2)) {
         throw new PolicyError("Only a blocked, unfinished conversation with its original chat can be resumed. Finished conversations stay frozen; use Retry review or Discuss review.");
       }
       if (!value.continuedFrom && this.repo.kernel.getTask(value.taskId).status !== "open") throw new PolicyError("The task is already closed.");
       if (this.repo.active().some((other) => other.taskId === value.taskId)) throw new PolicyError("Finish this task's other open session first.");
     };
     assertResumable(session);
-    if (this.processing.has(id3)) throw new PolicyError("The session is still being checked. Try again in a few seconds.");
-    this.processing.add(id3);
+    if (this.processing.has(id2)) throw new PolicyError("The session is still being checked. Try again in a few seconds.");
+    this.processing.add(id2);
     try {
       const thread = await this.bb.sdk.threads.get({ threadId: session.workerThreadId });
-      if (thread.id !== session.workerThreadId || thread.originPluginId !== this.bb.pluginId || this.repo.forThread(thread.id)?.id !== id3 || thread.archivedAt || thread.deletedAt || ["archived", "deleted"].includes(thread.status)) {
+      if (thread.id !== session.workerThreadId || thread.originPluginId !== this.bb.pluginId || this.repo.forThread(thread.id)?.id !== id2 || thread.archivedAt || thread.deletedAt || ["archived", "deleted"].includes(thread.status)) {
         throw new PolicyError("The original work chat is unavailable or archived. Open its saved history before choosing how to continue.");
       }
       return this.repo.store.transaction(() => {
-        const current = this.repo.session(id3);
+        const current = this.repo.session(id2);
         if (JSON.stringify(current) !== JSON.stringify(session)) throw new PolicyError("The session changed while checking the chat. Refresh the dossier and try again.");
         assertResumable(current);
         const resumed = this.repo.saveSession({ ...current, status: "working", error: null });
-        this.repo.sessionEvent(id3, "conversation-resumed", "The user resumed the existing unfinished conversation; no message was sent.", { threadId: thread.id, previousError: current.error });
+        this.repo.sessionEvent(id2, "conversation-resumed", "The user resumed the existing unfinished conversation; no message was sent.", { threadId: thread.id, previousError: current.error });
         return resumed;
       });
     } finally {
-      this.processing.delete(id3);
+      this.processing.delete(id2);
     }
   }
   async recoverExtraction(session) {
     const transcript = this.repo.transcript(session.id);
     const dossier = this.repo.detail(session.taskId);
     if (!transcript || dossier.task.revision !== session.baseRevision) return false;
-    for (const candidate2 of this.repo.recorderThreads(session.id)) {
-      const recoveryKey = `conversation:${session.id}:recovered:${candidate2.threadId}`;
-      if (dossier.proposals.some((p) => p.idempotencyKey === `conversation:${session.id}:${candidate2.round}` || p.idempotencyKey === recoveryKey)) continue;
+    for (const candidate of this.repo.recorderThreads(session.id)) {
+      const recoveryKey = `conversation:${session.id}:recovered:${candidate.threadId}`;
+      if (dossier.proposals.some((p) => p.idempotencyKey === `conversation:${session.id}:${candidate.round}` || p.idempotencyKey === recoveryKey)) continue;
       let saved;
       try {
-        saved = await readSavedRecorder(this.bb, candidate2.threadId, session, dossier, transcript);
+        saved = await readSavedRecorder(this.bb, candidate.threadId, session, dossier, transcript);
       } catch (error61) {
-        this.bb.log.warn(`Could not inspect saved recorder ${candidate2.threadId}: ${String(error61)}`);
+        this.bb.log.warn(`Could not inspect saved recorder ${candidate.threadId}: ${String(error61)}`);
         continue;
       }
       if (!saved) continue;
@@ -36170,7 +35977,7 @@ var SessionRuntime = class {
           ...current,
           status: "reviewing",
           round: current.round + 1,
-          reviewerThreadId: candidate2.threadId,
+          reviewerThreadId: candidate.threadId,
           reviewerProvider: saved.reviewerProvider,
           reviewerModel: saved.reviewerModel,
           reviewerReasoning: saved.reviewerReasoning,
@@ -36179,7 +35986,7 @@ var SessionRuntime = class {
           error: null
         });
         this.makeConversationProposal(recovered, extraction, proposalInput, recoveryKey);
-        this.repo.sessionEvent(session.id, "extraction-recovered", "The saved review response passed revalidation; no new generation was needed.", { threadId: candidate2.threadId, sourceRound: candidate2.round });
+        this.repo.sessionEvent(session.id, "extraction-recovered", "The saved review response passed revalidation; no new generation was needed.", { threadId: candidate.threadId, sourceRound: candidate.round });
       });
       return true;
     }
@@ -36442,23 +36249,23 @@ var SessionRuntime = class {
       }
     }
   }
-  async cancel(id3) {
-    const session = this.repo.session(id3);
+  async cancel(id2) {
+    const session = this.repo.session(id2);
     if (!ACTIVE.has(session.status)) return session;
     this.repo.saveSession({ ...session, status: "cancelled", error: "The user stopped the session." });
-    this.unavailableMonitors.delete(id3);
-    await this.stopSession(id3);
-    return this.repo.session(id3);
+    this.unavailableMonitors.delete(id2);
+    await this.stopSession(id2);
+    return this.repo.session(id2);
   }
-  async block(id3, error61) {
-    const session = this.repo.session(id3);
+  async block(id2, error61) {
+    const session = this.repo.session(id2);
     if (!ACTIVE.has(session.status)) return session;
     const message = error61 instanceof Error ? error61.message : String(error61);
     this.repo.saveSession({ ...session, status: "blocked", error: message.slice(0, 4e3) });
-    this.unavailableMonitors.delete(id3);
-    this.repo.sessionEvent(id3, "blocked", message.slice(0, 4e3));
-    await this.stopSession(id3);
-    return this.repo.session(id3);
+    this.unavailableMonitors.delete(id2);
+    this.repo.sessionEvent(id2, "blocked", message.slice(0, 4e3));
+    await this.stopSession(id2);
+    return this.repo.session(id2);
   }
   async stopThread(threadId, archive) {
     try {
@@ -36467,8 +36274,8 @@ var SessionRuntime = class {
       await this.bb.sdk.threads.stop({ threadId });
     }
   }
-  async stopSession(id3) {
-    const results = await Promise.allSettled(this.repo.threadIds(id3).map((t) => this.stopThread(t.threadId, t.role === "reviewer")));
+  async stopSession(id2) {
+    const results = await Promise.allSettled(this.repo.threadIds(id2).map((t) => this.stopThread(t.threadId, t.role === "reviewer")));
     for (const result of results) if (result.status === "rejected") this.bb.log.warn(`Could not release a session thread: ${String(result.reason)}`);
   }
   dispatch(threadId) {
@@ -36506,7 +36313,7 @@ var SessionRuntime = class {
 };
 
 // proposal-inbox.ts
-import { randomUUID as randomUUID9 } from "node:crypto";
+import { randomUUID as randomUUID8 } from "node:crypto";
 var ProposalInbox = class {
   constructor(repo, sync, runtime) {
     this.repo = repo;
@@ -36516,23 +36323,23 @@ var ProposalInbox = class {
   repo;
   sync;
   runtime;
-  item(kind, id3) {
+  item(kind, id2) {
     if (kind === "source") {
-      const candidate2 = this.sync.candidate(id3);
-      const task = candidate2.taskId ? this.repo.kernel.getTask(candidate2.taskId) : null;
+      const candidate = this.sync.candidate(id2);
+      const task = candidate.taskId ? this.repo.kernel.getTask(candidate.taskId) : null;
       const active = task ? this.repo.active().some((s) => s.taskId === task.id) : false;
       const currentTask = task ? { revision: task.revision, status: task.status, activeSession: active ? "active" : null } : null;
-      const duplicate = !task && this.repo.list(true).tasks.some((t) => t.title.trim().toLocaleLowerCase() === candidate2.title.trim().toLocaleLowerCase());
-      const blockedReason2 = task && task.revision !== candidate2.baseRevision ? "The dossier changed after the check. An updated proposal is required." : active && candidate2.changes.status ? "Finish the work session before changing the task status." : duplicate ? "A task with this title already exists. Check for a duplicate." : null;
-      return { kind, candidate: candidate2, currentTask, blockedReason: blockedReason2 };
+      const duplicate = !task && this.repo.list(true).tasks.some((t) => t.title.trim().toLocaleLowerCase() === candidate.title.trim().toLocaleLowerCase());
+      const blockedReason2 = task && task.revision !== candidate.baseRevision ? "The dossier changed after the check. An updated proposal is required." : active && candidate.changes.status ? "Finish the work session before changing the task status." : duplicate ? "A task with this title already exists. Check for a duplicate." : null;
+      return { kind, candidate, currentTask, blockedReason: blockedReason2 };
     }
-    const raw = this.repo.kernel.getProposal(id3), dossier = this.repo.kernel.getDossier(raw.taskId);
-    const proposal = { ...raw, ...this.repo.partReviewFields("proposal", raw.id), evidence: this.repo.kernel.proposalEvidence(id3), receipt: null };
-    const sessions = this.repo.sessions(raw.taskId).filter((s) => ACTIVE.has(s.status)).map(({ id: id4, status, discussionProposalId }) => ({ id: id4, status, discussionProposalId }));
-    const update = this.repo.db.prepare("SELECT value_json FROM session_updates WHERE proposal_id=?").get(id3);
+    const raw = this.repo.kernel.getProposal(id2), dossier = this.repo.kernel.getDossier(raw.taskId);
+    const proposal = { ...raw, ...this.repo.partReviewFields("proposal", raw.id), evidence: this.repo.kernel.proposalEvidence(id2), receipt: null };
+    const sessions = this.repo.sessions(raw.taskId).filter((s) => ACTIVE.has(s.status)).map(({ id: id3, status, discussionProposalId }) => ({ id: id3, status, discussionProposalId }));
+    const update = this.repo.db.prepare("SELECT value_json FROM session_updates WHERE proposal_id=?").get(id2);
     const used = new Set(Object.values(raw.changes).flatMap((change) => change?.evidenceRefs ?? []));
     const context = reviewDossierSchema.parse({ ...dossier, facts: dossier.facts.filter((f) => used.has(f.id)), sessions, sessionUpdates: update ? [JSON.parse(update.value_json)] : [] });
-    const blockedReason = raw.baseRevision !== dossier.task.revision ? "The dossier changed. Expand this proposal to refresh it or review the current task." : sessions.some((s) => s.discussionProposalId === id3) ? "Finish discussing this review first." : raw.changes.status && sessions.length ? "Finish the work session before changing the task status." : null;
+    const blockedReason = raw.baseRevision !== dossier.task.revision ? "The dossier changed. Expand this proposal to refresh it or review the current task." : sessions.some((s) => s.discussionProposalId === id2) ? "Finish discussing this review first." : raw.changes.status && sessions.length ? "Finish the work session before changing the task status." : null;
     return { kind, proposal, dossier: context, blockedReason };
   }
   list(offset = 0) {
@@ -36549,8 +36356,8 @@ var ProposalInbox = class {
       items.push(item);
       bytes += size;
     }
-    const total = this.repo.taskProposalTotal();
-    return { items, total, nextOffset: items.length > 0 && offset + items.length < total ? offset + items.length : null };
+    const total = this.repo.pendingTotal();
+    return { items, total, nextOffset: offset + items.length < total ? offset + items.length : null };
   }
   async accept(items) {
     const taskIds = /* @__PURE__ */ new Set(), keys = /* @__PURE__ */ new Set();
@@ -36575,7 +36382,7 @@ var ProposalInbox = class {
         if (value.baseRevision !== item.revision) throw new ConflictError("The proposal changed. Refresh the list and review it again.");
         let taskId;
         if (item.parts) {
-          const input2 = { ...item, parts: item.parts, decision: "accept", requestId: randomUUID9() };
+          const input2 = { ...item, parts: item.parts, decision: "accept", requestId: randomUUID8() };
           const result = item.kind === "source" ? this.sync.reviewParts(input2) : await this.runtime.reviewParts(input2);
           taskId = result.taskId;
         } else {
@@ -36592,7 +36399,7 @@ var ProposalInbox = class {
 };
 
 // day-planning.ts
-import { randomUUID as randomUUID10 } from "node:crypto";
+import { randomUUID as randomUUID9 } from "node:crypto";
 var EMPTY_CALENDAR = { status: "idle", startedAt: null, completedAt: null, message: null, events: 0, from: null, through: null };
 var same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 var plannedCounts = (item) => !item.removed && (!item.calendar || item.calendar.status === "confirmed");
@@ -36622,8 +36429,8 @@ var DayPlanning = class {
   today() {
     return localDay(this.clock(), this.timeZone);
   }
-  get(id3) {
-    const row = this.repo.db.prepare("SELECT value_json FROM day_items WHERE id=?").get(id3);
+  get(id2) {
+    const row = this.repo.db.prepare("SELECT value_json FROM day_items WHERE id=?").get(id2);
     if (!row) throw new PolicyError("Day entry not found. Refresh the plan.");
     return decode3(JSON.parse(row.value_json));
   }
@@ -36639,8 +36446,8 @@ var DayPlanning = class {
     this.repo.db.prepare("INSERT INTO day_item_events(item_id,at,actor,action,before_json,after_json) VALUES (?,?,?,?,?,?)").run(next.id, this.now(), actor, action, before ? JSON.stringify(before) : null, JSON.stringify(next));
     return next;
   }
-  current(id3, revision) {
-    const item = this.get(id3);
+  current(id2, revision) {
+    const item = this.get(id2);
     if (item.revision !== revision) throw new ConflictError("The time entry changed in another window. Refresh it and retry your edit.");
     return item;
   }
@@ -36648,7 +36455,7 @@ var DayPlanning = class {
     const count = this.repo.db.prepare("SELECT count(*) AS n FROM day_items WHERE date=?").get(date5);
     if (count.n >= 1e3) throw new PolicyError("This day already has 1,000 entries.");
     return {
-      id: randomUUID10(),
+      id: randomUUID9(),
       date: date5,
       reportedDate: date5,
       kind: taskId ? "task" : "meeting",
@@ -36816,7 +36623,7 @@ var DayPlanning = class {
       const onDay = (at) => Number.isFinite(Date.parse(at)) && localDay(new Date(at), this.timeZone) === item.date;
       const facts = dossier.facts.filter((f) => onDay(f.occurredAt));
       const sessions = this.repo.sessions(item.taskId).filter((s) => onDay(s.finishedAt ?? s.updatedAt));
-      const candidate2 = {
+      const candidate = {
         ...item,
         title: dossier.task.title,
         summary: dossier.projection.summary?.slice(0, 4e3) ?? null,
@@ -36835,9 +36642,9 @@ var DayPlanning = class {
           contextMayBeIncomplete: true
         }
       };
-      const size = Buffer.byteLength(JSON.stringify(candidate2, null, 2));
+      const size = Buffer.byteLength(JSON.stringify(candidate, null, 2));
       if (page.length && bytes + size > 650 * 1024) break;
-      page.push(candidate2);
+      page.push(candidate);
       bytes += size;
     }
     const next = offset + page.length;
@@ -36865,7 +36672,7 @@ var DayPlanning = class {
       if (new Set(input2.ids).size !== input2.ids.length) throw new PolicyError("The day order contains a duplicate entry.");
       const current = this.rows("WHERE date=?", input2.date).filter((item) => item.kind === "task" && !item.removed);
       if (current.length !== input2.ids.length || current.some((item) => !input2.ids.includes(item.id))) throw new ConflictError("The day's entries changed. Refresh the plan and retry the move.");
-      const items = input2.ids.map((id3) => this.current(id3, input2.revisions[id3]));
+      const items = input2.ids.map((id2) => this.current(id2, input2.revisions[id2]));
       items.forEach((item, ordinal) => {
         if (item.ordinal !== ordinal) this.write({ ...item, ordinal }, item, actor, "reordered");
       });
@@ -36953,9 +36760,9 @@ var DayPlanning = class {
     this.repo.kernel.getTask(taskId);
     return this.totals(this.rows("WHERE task_id=?", taskId));
   }
-  history(id3, offset = 0) {
-    this.get(id3);
-    const rows2 = this.repo.db.prepare("SELECT * FROM day_item_events WHERE item_id=? ORDER BY sequence DESC LIMIT 51 OFFSET ?").all(id3, offset);
+  history(id2, offset = 0) {
+    this.get(id2);
+    const rows2 = this.repo.db.prepare("SELECT * FROM day_item_events WHERE item_id=? ORDER BY sequence DESC LIMIT 51 OFFSET ?").all(id2, offset);
     return { items: rows2.slice(0, 50).map((r) => ({ sequence: r.sequence, at: r.at, actor: r.actor, action: r.action, before: r.before_json ? decode3(JSON.parse(r.before_json)) : null, after: decode3(JSON.parse(r.after_json)) })), nextOffset: rows2.length > 50 ? offset + 50 : null };
   }
   calendarItems(from, through) {
@@ -37206,7 +37013,6 @@ async function plugin(bb) {
   const threadRouting = new ThreadRouting(bb, async () => (await settings.get()).threadProjectId);
   const runtime = new SessionRuntime(bb, repo, getSettings, threadRouting);
   const days = new DayPlanning(repo, () => /* @__PURE__ */ new Date(), () => configuration.timeZone, () => configuration.reportMeetingsWhenPlanned);
-  const timeReview = new TimeReview(bb, days, () => configuration);
   const dayPlanner = new DayPlanner(bb, () => settings.get(), () => days.today());
   const agentTime = new AgentTimeRuntime(bb, days);
   const sourceConfiguration = async () => parseSourceConfig((await settings.get()).sources);
@@ -37242,11 +37048,6 @@ async function plugin(bb) {
       syncModel: configuration.syncModel
     }),
     day: ({ date: date5 }) => ({ ...days.day(date5), agentTime: agentTime.state() }),
-    timeReviewPrepare: (input2) => timeReview.prepare(input2),
-    timeReviewSubmit: (input2) => timeReview.submit(input2),
-    timeReview: ({ date: date5, week }) => timeReview.view(date5, week),
-    timeReviewDecide: (input2) => timeReview.decide(input2),
-    timeReviewComplete: (input2) => timeReview.complete(input2),
     dayPlannerState: () => dayPlanner.state(),
     dayPlannerStart: (input2) => dayPlanner.start(input2),
     agentTimeSync: () => agentTime.refresh(),
@@ -37255,7 +37056,7 @@ async function plugin(bb) {
     dayCarry: (input2) => days.carry(input2),
     dayReorder: (input2) => days.reorder(input2),
     dayConfig: (input2) => days.setConfig(input2),
-    dayHistory: ({ id: id3, offset }) => days.history(id3, offset),
+    dayHistory: ({ id: id2, offset }) => days.history(id2, offset),
     timeReport: (input2) => days.report(input2),
     taskTime: ({ taskId }) => days.taskTotals(taskId),
     calendarState: () => days.calendarState(),
@@ -37277,8 +37078,8 @@ async function plugin(bb) {
     },
     syncReject: ({ candidateId }) => sync.store.reject(candidateId),
     list: async ({ history }) => ({ ...repo.list(history), settings: await getSettings() }),
-    detail: ({ id: id3 }) => repo.detail(id3),
-    taskSeen: ({ id: id3, revision }) => repo.markSeen(id3, revision),
+    detail: ({ id: id2 }) => repo.detail(id2),
+    taskSeen: ({ id: id2, revision }) => repo.markSeen(id2, revision),
     reviewParts: async (input2) => {
       const result = input2.kind === "source" ? sync.store.reviewParts(input2) : await runtime.reviewParts(input2);
       if (input2.kind === "source" && result.taskId) await runtime.archiveFinishedThreads(result.taskId);
@@ -37287,9 +37088,9 @@ async function plugin(bb) {
     threadSession: ({ threadId }) => {
       const session = repo.forThread(threadId);
       if (!session) return { session: null };
-      const { id: id3, taskId, workerThreadId, mode, status } = session;
+      const { id: id2, taskId, workerThreadId, mode, status } = session;
       const date5 = days.today(), item = days.taskItem(taskId, date5);
-      return { session: { id: id3, taskId, workerThreadId, mode, status }, reportedToday: {
+      return { session: { id: id2, taskId, workerThreadId, mode, status }, reportedToday: {
         date: date5,
         timeZone: days.timeZone,
         minutes: item?.reportedMinutes ?? null,
@@ -37705,10 +37506,10 @@ Use the 247C panel to approve, archive, start or finish sessions.
           value = repo.knowledge(input2.query, input2.offset);
         } else if (command === "new" && args.length) {
           independentCaller(ctx.threadId);
-          value = repo.create(rpcContract.create.input.parse({ title: args.join(" "), description: "", requestId: randomUUID11() }));
+          value = repo.create(rpcContract.create.input.parse({ title: args.join(" "), description: "", requestId: randomUUID10() }));
         } else if (command === "propose" && args.length === 3) {
           independentCaller(ctx.threadId);
-          value = repo.propose(rpcContract.propose.input.parse({ taskId: args[0], revision: Number(args[1]), draft: draftSchema.parse(JSON.parse(args[2])), requestId: randomUUID11() }), ctx.threadId ? `bb-thread:${ctx.threadId}` : "cli");
+          value = repo.propose(rpcContract.propose.input.parse({ taskId: args[0], revision: Number(args[1]), draft: draftSchema.parse(JSON.parse(args[2])), requestId: randomUUID10() }), ctx.threadId ? `bb-thread:${ctx.threadId}` : "cli");
         } else return { exitCode: 1, stderr: usage };
         return { exitCode: 0, stdout: boundedJson(value) };
       } catch (error61) {
