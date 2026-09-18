@@ -27,6 +27,7 @@ export const settingDescriptors = {
     calendarMeetings: { type: "boolean", label: "Import work Google Calendar meetings when checking updates", default: true },
     reportMeetingsWhenPlanned: { type: "boolean", label: "Meetings: report planned time immediately", description: "Set automatic reported time to planned time when a meeting enters the plan, including upcoming meetings. Manual reported corrections always win. When disabled, wait until the meeting ends.", default: false },
     hourlyUpdates: { type: "boolean", label: "Check sources on the configured hourly schedule", default: false },
+    updateWeekdaysOnly: { type: "boolean", label: "Hourly checks: weekdays only", description: "Skip Saturday and Sunday in the configured time zone. The next check resumes from the saved source checkpoints; manual checks remain available.", default: false },
     timeZone: { type: "string", label: "Planning and hourly checks: time zone", description: "IANA name, such as Europe/London. Changing it affects future date calculations; existing manual entries keep their dates.", default: DAY_TIME_ZONE, experimental_schema: timeZoneSchema },
     updateStartHour: { type: "number", label: "Hourly checks: first hour (inclusive)", default: 8, experimental_schema: z.number().int().min(0).max(23) },
     updateEndHour: { type: "number", label: "Hourly checks: last hour (inclusive)", description: "An end before the start covers an overnight window.", default: 20, experimental_schema: z.number().int().min(0).max(23) },

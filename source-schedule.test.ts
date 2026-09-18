@@ -30,6 +30,46 @@ it("selects exactly 08 through 20 every day in Athens, including winter and DST 
   expect(hourlyUpdateSlot(new Date("2026-12-11T06:00:00Z"))).toBe("2026-12-11T08");
 });
 
+it("skips local weekends, including overnight windows and UTC date boundaries, only when enabled", () => {
+  const schedule = { timeZone: "Europe/Athens", updateStartHour: 0, updateEndHour: 23, updateWeekdaysOnly: true };
+  expect(hourlyUpdateSlot(new Date("2026-09-18T20:00:00Z"), schedule)).toBe("2026-09-18T23");
+  expect(hourlyUpdateSlot(new Date("2026-09-18T21:00:00Z"), schedule)).toBeNull();
+  expect(hourlyUpdateSlot(new Date("2026-09-19T09:00:00Z"), schedule)).toBeNull();
+  expect(hourlyUpdateSlot(new Date("2026-09-20T20:00:00Z"), schedule)).toBeNull();
+  expect(hourlyUpdateSlot(new Date("2026-09-20T21:00:00Z"), schedule)).toBe("2026-09-21T00");
+  expect(hourlyUpdateSlot(new Date("2026-09-19T09:00:00Z"), { ...schedule, updateWeekdaysOnly: false })).toBe("2026-09-19T12");
+  const overnight = { ...schedule, timeZone: "America/Los_Angeles", updateStartHour: 22, updateEndHour: 3 };
+  expect(hourlyUpdateSlot(new Date("2026-09-19T05:00:00Z"), overnight)).toBe("2026-09-18T22");
+  expect(hourlyUpdateSlot(new Date("2026-09-19T07:00:00Z"), overnight)).toBeNull();
+  expect(hourlyUpdateSlot(new Date("2026-10-25T06:00:00Z"), schedule)).toBeNull();
+});
+
+it("leaves source checkpoints untouched over the weekend and resumes Friday's interval on Monday", async () => {
+  const { sync } = await setup();
+  const checkpoint = "2026-09-18T17:00:00.000Z";
+  for (const source of ["gmail", "slack", "jira"]) sync.repo.db.prepare("INSERT OR REPLACE INTO source_sync_checkpoints VALUES (?,?)").run(source, checkpoint);
+  const before = sync.store.checkpoints(), start = vi.spyOn(sync, "start").mockImplementation(async input => sync.store.insert(input));
+  const schedule = { timeZone: "Europe/Athens", updateStartHour: 8, updateEndHour: 20, updateWeekdaysOnly: true };
+  for (const date of ["2026-09-19T05:00:00Z", "2026-09-20T17:00:00Z"]) expect(await scheduledSourceUpdate(sync, async () => true, new Date(date), schedule)).toBeNull();
+  expect(start).not.toHaveBeenCalled(); expect(sync.store.checkpoints()).toEqual(before);
+  vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-09-21T05:00:00Z"));
+  const id = await scheduledSourceUpdate(sync, async () => true, new Date(), schedule);
+  expect(start).toHaveBeenCalledOnce();
+  for (const range of Object.values(sync.store.run(id!).ranges)) expect(range.since).toBe(checkpoint);
+});
+
+it("persists the weekday setting across reloads without preventing manual weekend checks", async () => {
+  const { f, source } = await setup();
+  const collect = vi.spyOn(collector, "collectSources").mockRejectedValue(new Error("Fixture collector finished"));
+  await f.harness.behavior.setSettings({ hourlyUpdates: true, updateWeekdaysOnly: true }); await f.reload();
+  vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-09-19T05:00:00Z"));
+  await f.harness.behavior.runSchedule(UPDATE_SCHEDULE);
+  expect(new SourceSyncStore(f.repo).state().runs).toHaveLength(1); expect(collect).not.toHaveBeenCalled();
+  await f.harness.behavior.callRpc("syncStart", { ...source, requestId: randomUUID() });
+  expect(new SourceSyncStore(f.repo).state().runs).toHaveLength(2);
+  await vi.waitFor(() => expect(collect).toHaveBeenCalledOnce());
+});
+
 it("reuses the last successful execution settings and resumes source checkpoints", async () => {
   const { f, sync } = await setup();
   const start = vi.spyOn(sync, "start").mockImplementation(async input => sync.store.insert(input));

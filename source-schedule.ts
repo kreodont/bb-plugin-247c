@@ -5,7 +5,7 @@ import { PolicyError } from "./core/errors.js";
 import type { SourceSyncRuntime } from "./source-sync.js";
 
 export const UPDATE_TIME_ZONE = DAY_TIME_ZONE; // Compatibility default; installed settings override it.
-type Schedule = { timeZone: string; updateStartHour: number; updateEndHour: number; syncProvider?: string; syncModel?: string; syncReasoningLevel?: string };
+type Schedule = { timeZone: string; updateStartHour: number; updateEndHour: number; updateWeekdaysOnly?: boolean; syncProvider?: string; syncModel?: string; syncReasoningLevel?: string };
 const defaultSchedule: Schedule = { timeZone: UPDATE_TIME_ZONE, updateStartHour: 8, updateEndHour: 20 };
 export const UPDATE_SCHEDULE = "hourly-source-updates";
 // BB cron uses the server timezone. Check a minute boundary, then select the
@@ -14,9 +14,10 @@ export const UPDATE_CRON = "* * * * *";
 
 export function hourlyUpdateSlot(date: Date, schedule = defaultSchedule): string | null {
   const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
-    timeZone: schedule.timeZone, year: "numeric", month: "2-digit", day: "2-digit",
+    timeZone: schedule.timeZone, year: "numeric", month: "2-digit", day: "2-digit", weekday: "short",
     hour: "2-digit", minute: "2-digit", hourCycle: "h23",
   }).formatToParts(date).map(part => [part.type, part.value]));
+  if (schedule.updateWeekdaysOnly && (parts.weekday === "Sat" || parts.weekday === "Sun")) return null;
   const hour = Number(parts.hour);
   const inWindow = schedule.updateStartHour <= schedule.updateEndHour
     ? hour >= schedule.updateStartHour && hour <= schedule.updateEndHour

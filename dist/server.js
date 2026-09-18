@@ -34986,6 +34986,7 @@ var settingDescriptors = {
   calendarMeetings: { type: "boolean", label: "Import work Google Calendar meetings when checking updates", default: true },
   reportMeetingsWhenPlanned: { type: "boolean", label: "Meetings: report planned time immediately", description: "Set automatic reported time to planned time when a meeting enters the plan, including upcoming meetings. Manual reported corrections always win. When disabled, wait until the meeting ends.", default: false },
   hourlyUpdates: { type: "boolean", label: "Check sources on the configured hourly schedule", default: false },
+  updateWeekdaysOnly: { type: "boolean", label: "Hourly checks: weekdays only", description: "Skip Saturday and Sunday in the configured time zone. The next check resumes from the saved source checkpoints; manual checks remain available.", default: false },
   timeZone: { type: "string", label: "Planning and hourly checks: time zone", description: "IANA name, such as Europe/London. Changing it affects future date calculations; existing manual entries keep their dates.", default: DAY_TIME_ZONE, experimental_schema: timeZoneSchema },
   updateStartHour: { type: "number", label: "Hourly checks: first hour (inclusive)", default: 8, experimental_schema: external_exports.number().int().min(0).max(23) },
   updateEndHour: { type: "number", label: "Hourly checks: last hour (inclusive)", description: "An end before the start covers an overnight window.", default: 20, experimental_schema: external_exports.number().int().min(0).max(23) },
@@ -36927,10 +36928,12 @@ function hourlyUpdateSlot(date5, schedule = defaultSchedule) {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
+    weekday: "short",
     hour: "2-digit",
     minute: "2-digit",
     hourCycle: "h23"
   }).formatToParts(date5).map((part) => [part.type, part.value]));
+  if (schedule.updateWeekdaysOnly && (parts.weekday === "Sat" || parts.weekday === "Sun")) return null;
   const hour = Number(parts.hour);
   const inWindow = schedule.updateStartHour <= schedule.updateEndHour ? hour >= schedule.updateStartHour && hour <= schedule.updateEndHour : hour >= schedule.updateStartHour || hour <= schedule.updateEndHour;
   return parts.minute === "00" && inWindow ? `${parts.year}-${parts.month}-${parts.day}T${parts.hour}` : null;
