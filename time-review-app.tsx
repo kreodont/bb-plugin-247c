@@ -15,7 +15,7 @@ export function TimeReviewPanel({ date, week = false, beforeChange, onChanged }:
   const locked = useRef(false), sequence = useRef(0), keys = useRef(new Map<string, string>());
   const load = useCallback(async () => {
     const seq = ++sequence.current;
-    try { const next = await rpc.call("timeReview", { date, week }); if (seq === sequence.current) setData(next); }
+    try { const next = await rpc.call("timeReview", { ...(date === undefined ? {} : { date }), week }); if (seq === sequence.current) setData(next); }
     catch (e) { if (seq === sequence.current) setError(String(e)); }
   }, [rpc, date, week]);
   useEffect(() => { void load(); const timer = setInterval(() => { if (document.visibilityState !== "hidden") void load(); }, 10000); return () => { sequence.current++; clearInterval(timer); }; }, [load]);

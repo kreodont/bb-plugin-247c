@@ -107,7 +107,8 @@ it("reviews new tasks and existing task updates together and accepts the selecte
   const fresh = structuredClone(input.suggestions[0]); fresh.taskId = null; fresh.title = "Новая просьба из письма";
   input.suggestions.push(fresh); await submitSourceData(f, run, input);
   const { slot } = await setup("proposals", f);
-  await slot.findByRole("heading", { name: "Proposals · 2" });
+  await slot.findByRole("heading", { name: "Proposals" });
+  await waitFor(() => expect(slot.queryByText("Loading proposals…")).toBeNull());
   expect(f.repo.list().total).toBe(1); expect(f.repo.list().pendingTotal).toBe(2);
   expect(slot.getByText("New task")).toBeTruthy();
   fireEvent.click(slot.getByRole("button", { name: "Expand all" }));
@@ -138,7 +139,8 @@ it("keeps session proposals in the same inbox and excludes stale entries from se
   f.repo.db.prepare("UPDATE tasks SET revision=revision+1 WHERE id=?").run(task.id);
   const { run } = await startSourceSync(f); const { input } = await sourceData(f, run); await submitSourceData(f, run, input);
   const { slot } = await setup("proposals", f);
-  await slot.findByRole("heading", { name: "Proposals · 2" });
+  await slot.findByRole("heading", { name: "Proposals" });
+  await waitFor(() => expect(slot.queryByText("Loading proposals…")).toBeNull());
   expect(slot.getByRole("button", { name: "Dossiers and sessions · 1" })).toBeTruthy();
   expect((slot.getByRole("checkbox", { name: `Select: ${task.title}` }) as HTMLInputElement).disabled).toBe(true);
   fireEvent.click(slot.getByRole("checkbox", { name: "Select all" }));
@@ -155,7 +157,7 @@ it.each(["task", "inbox"])("refreshes a priority-only conflict directly in the %
   f.repo.classify({ taskId: task.id, revision: 0, urgent: false, important: true });
   const { slot } = await setup(location === "task" ? task.id : "proposals", f);
   if (location === "task") fireEvent.click(await slot.findByRole("tab", { name: "Proposals · 1" }));
-  else { await slot.findByRole("heading", { name: "Proposals · 1" }); fireEvent.click(slot.getByRole("button", { name: "Expand all" })); }
+  else { await slot.findByRole("heading", { name: "Proposals" }); await waitFor(() => expect(slot.queryByText("Loading proposals…")).toBeNull()); fireEvent.click(slot.getByRole("button", { name: "Expand all" })); }
   fireEvent.click(await slot.findByRole("button", { name: "Refresh proposal" }));
   await waitFor(() => expect(f.repo.kernel.getProposal(old.id).status).toBe("rejected"));
   expect(f.repo.detail(task.id).projection.summary).toBeNull();
@@ -873,4 +875,18 @@ it("uses the installation's work model defaults instead of assuming a corporate 
   const composer = await slot.findByTestId("bb-new-thread-composer");
   expect(composer.getAttribute("data-default-provider-id")).toBe("codex");
   expect(composer.getAttribute("data-default-model")).toBe("gpt-5.6-sol");
+});
+
+it("opens time review in Proposals with a JSON-safe request when no date is selected", async () => {
+  const f = await fixture(); hosts.push(f);
+  const rpc = Object.fromEntries(Object.keys(rpcContract).map(name => [name, (input: unknown) => {
+    // The live app bridge rejects undefined before Zod sees optional fields.
+    // The fake RPC transport normally bypasses that boundary.
+    if (name === "timeReview") expect(input).toStrictEqual(JSON.parse(JSON.stringify(input)));
+    return f.harness.behavior.callRpc(name, input);
+  }]));
+  const slot = renderSlot(app.navPanels[0], { subPath: "proposals" }, { rpc }); mounts.push(slot);
+  await slot.findByText("No pending time proposals for this week.");
+  expect(slot.inspection.rpcCalls.filter(call => call.method === "timeReview")[0].input).toEqual({ week: true });
+  expect(slot.queryByText(/not a JSON value/)).toBeNull();
 });
