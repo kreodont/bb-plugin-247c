@@ -124,8 +124,11 @@ export class Repository {
     return task;
   }
 
+  taskProposalTotal(): number {
+    return Number((this.db.prepare("SELECT (SELECT count(*) FROM proposals WHERE status IN ('pending','approved')) + (SELECT count(*) FROM source_sync_candidates WHERE status='pending') AS n").get() as Row).n);
+  }
   pendingTotal(): number {
-    return Number((this.db.prepare("SELECT (SELECT count(*) FROM proposals WHERE status IN ('pending','approved')) + (SELECT count(*) FROM source_sync_candidates WHERE status='pending') + (SELECT count(*) FROM time_proposals WHERE status='pending') AS n").get() as Row).n);
+    return this.taskProposalTotal() + Number((this.db.prepare("SELECT count(*) AS n FROM time_proposals WHERE status='pending'").get() as Row).n);
   }
   list(history = false): { tasks: TaskCard[]; total: number; pendingTotal: number } {
     const where = history ? "" : "WHERE t.status='open'";

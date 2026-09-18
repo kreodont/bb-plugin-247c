@@ -27546,8 +27546,11 @@ var Repository = class {
     this.changed();
     return task;
   }
+  taskProposalTotal() {
+    return Number(this.db.prepare("SELECT (SELECT count(*) FROM proposals WHERE status IN ('pending','approved')) + (SELECT count(*) FROM source_sync_candidates WHERE status='pending') AS n").get().n);
+  }
   pendingTotal() {
-    return Number(this.db.prepare("SELECT (SELECT count(*) FROM proposals WHERE status IN ('pending','approved')) + (SELECT count(*) FROM source_sync_candidates WHERE status='pending') + (SELECT count(*) FROM time_proposals WHERE status='pending') AS n").get().n);
+    return this.taskProposalTotal() + Number(this.db.prepare("SELECT count(*) AS n FROM time_proposals WHERE status='pending'").get().n);
   }
   list(history = false) {
     const where = history ? "" : "WHERE t.status='open'";
@@ -36546,8 +36549,8 @@ var ProposalInbox = class {
       items.push(item);
       bytes += size;
     }
-    const total = this.repo.pendingTotal();
-    return { items, total, nextOffset: offset + items.length < total ? offset + items.length : null };
+    const total = this.repo.taskProposalTotal();
+    return { items, total, nextOffset: items.length > 0 && offset + items.length < total ? offset + items.length : null };
   }
   async accept(items) {
     const taskIds = /* @__PURE__ */ new Set(), keys = /* @__PURE__ */ new Set();

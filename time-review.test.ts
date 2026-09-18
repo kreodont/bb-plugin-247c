@@ -97,3 +97,9 @@ it("refines a pending estimate without creating a second proposal or changing re
   review.decide({ requestId: randomUUID(), id: first.id, decision: "reject" });
   expect((await submit()).status).toBe("rejected");
 });
+it("does not let time proposal counts create a non-advancing task inbox page", async () => {
+  const { f, submit } = await setup(); await submit();
+  expect(f.repo.pendingTotal()).toBe(1);
+  expect(await f.harness.behavior.callRpc("proposalInbox", { offset: 0 })).toMatchObject({ items: [], total: 0, nextOffset: null });
+  expect(await f.harness.behavior.callRpc("proposalInbox", { offset: 1 })).toMatchObject({ items: [], total: 0, nextOffset: null });
+});
