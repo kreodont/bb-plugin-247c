@@ -89,7 +89,15 @@ export class TimeReview {
         // The same work cannot reappear after acceptance/rejection just because a model changed its estimate.
         const fingerprint = digest({ taskId: task.taskId, date: context.date, evidence: evidence.slice().sort((a,b) => a.id.localeCompare(b.id)) });
         const prior = this.repo.db.prepare("SELECT value_json FROM time_proposals WHERE fingerprint=?").get(fingerprint) as JsonRow | undefined;
-        if (prior) return JSON.parse(prior.value_json) as TimeProposal;
+        if (prior) {
+          const saved: TimeProposal = JSON.parse(prior.value_json);
+          if (saved.status !== "pending") return saved;
+          const refreshed = { ...saved, itemId: task.itemId, revision: task.revision };
+          if (this.blocked(refreshed)) throw new ConflictError("The day entry changed after evidence collection. Refresh the time review.");
+          // A fresh context can rebase an unchanged estimate after a plan edit.
+          // Manual reported values are still excluded by eligible().
+          return this.write(refreshed);
+        }
         const proposal: TimeProposal = { ...suggestion, id: randomUUID(), title: task.title, date: context.date, itemId: task.itemId, revision: task.revision, fingerprint, evidence, status: "pending", createdAt: this.days.now(), resolvedAt: null, blockedReason: null };
         if (this.blocked(proposal)) throw new ConflictError("The day entry changed after evidence collection. Refresh the time review.");
         const pending = this.repo.db.prepare("SELECT value_json FROM time_proposals WHERE task_id=? AND date=? AND status='pending'").get(task.taskId, context.date) as JsonRow | undefined;

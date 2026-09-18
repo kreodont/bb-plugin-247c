@@ -77,3 +77,14 @@ it("collects dated worker messages across pages and prevents allocating the same
   const next = await prepare();
   expect(() => review.submit({ requestId: randomUUID(), contextId: next.id, suggestions: [{ taskId: second.id, minutes: 35, reason: "Repeated work", question: null, evidenceRefs: [external[0].id] }] })).toThrow(/already allocated/);
 });
+it("refreshes unchanged pending evidence after a plan edit without overwriting manual reported time", async () => {
+  const { days, task, review, submit } = await setup();
+  const item = days.add({ requestId: randomUUID(), date: "2026-09-18", taskId: task.id, plannedMinutes: 30 });
+  const first = await submit();
+  days.edit({ requestId: randomUUID(), id: item.id, revision: item.revision, plannedMinutes: 45 });
+  expect(review.view().proposals[0].blockedReason).toBeTruthy();
+  const next = await submit(); expect(next.id).toBe(first.id);
+  expect(review.view().proposals[0].blockedReason).toBeNull();
+  review.decide({ requestId: randomUUID(), id: next.id, decision: "accept" });
+  expect(days.get(item.id)).toMatchObject({ plannedMinutes: 45, reportedMinutes: 35 });
+});
