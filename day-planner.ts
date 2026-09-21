@@ -9,7 +9,26 @@ const automationSchema = z.object({
   id: z.string(), projectId: z.string(), name: z.string(), enabled: z.boolean(),
   nextRunAt: z.number().nullable(),
 });
-const runsSchema = z.object({ runs: z.array(dayPlannerRunSchema) });
+const rawRunSchema = dayPlannerRunSchema.extend({ output: z.string().nullable().optional() });
+const runsSchema = z.object({ runs: z.array(rawRunSchema) });
+const noticeSchema = z.object({ kind: z.literal("247c-day-planner"), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  outcome: z.enum(["already-planned", "already-running"]) });
+function displayRun(raw: z.infer<typeof rawRunSchema>) {
+  const run = dayPlannerRunSchema.parse(raw);
+  // Only a typed planner outcome becomes UI text. Never expose raw script output.
+  if (raw.output && raw.status === "succeeded") {
+    try {
+      const notice = noticeSchema.parse(JSON.parse(raw.output.trim()));
+      run.message = notice.outcome === "already-planned"
+        ? `The plan for ${notice.date} already exists. No duplicate tasks were added.`
+        : "Day planning is already running. Wait for it to finish.";
+    } catch { /* Older scripts report ordinary completion text. */ }
+  }
+  if (run.status === "skipped" && run.skipReason === "wakeAgent false") {
+    run.message = "No new plan was created during this run. See the saved day plan below.";
+  }
+  return run;
+}
 
 export class DayPlanner {
   constructor(private bb: BbPluginApi, private settings: () => Promise<PlannerSettings>, private today: () => string = () => localDay()) {}
@@ -31,7 +50,7 @@ export class DayPlanner {
     return {
       configured: true, today: this.today(), name: automation.name, scheduled: automation.enabled,
       nextRunAt: automation.nextRunAt,
-      run: history.runs.find(run => run.status === "running") ?? history.runs[0] ?? null,
+      run: (() => { const latest = history.runs.find(run => run.status === "running") ?? history.runs[0]; return latest ? displayRun(latest) : null; })(),
     };
   }
 
@@ -42,8 +61,8 @@ export class DayPlanner {
     const { run } = await this.bb.sdk.plugins.callRpc({
       pluginId: "automations", method: "automations_run",
       input: { ...target, idempotencyKey: `247c-day:${date}:${requestId}` },
-      outputSchema: z.object({ run: dayPlannerRunSchema }),
+      outputSchema: z.object({ run: rawRunSchema }),
     });
-    return run;
+    return displayRun(run);
   }
 }

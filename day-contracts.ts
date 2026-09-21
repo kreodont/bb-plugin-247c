@@ -45,6 +45,7 @@ export const dayPlannerRunSchema = z.object({
   id: z.string(), status: z.enum(["running", "succeeded", "failed", "skipped"]),
   startedAt: z.number(), finishedAt: z.number().nullable(),
   error: z.string().nullable(), skipReason: z.string().nullable(),
+  message: z.string().max(1000).optional(),
 });
 export const dayPlannerStateSchema = z.object({
   configured: z.boolean(), today: dayDateSchema, name: z.string().nullable(),

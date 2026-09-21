@@ -26255,7 +26255,8 @@ var dayPlannerRunSchema = external_exports.object({
   startedAt: external_exports.number(),
   finishedAt: external_exports.number().nullable(),
   error: external_exports.string().nullable(),
-  skipReason: external_exports.string().nullable()
+  skipReason: external_exports.string().nullable(),
+  message: external_exports.string().max(1e3).optional()
 });
 var dayPlannerStateSchema = external_exports.object({
   configured: external_exports.boolean(),
@@ -36924,7 +36925,27 @@ var automationSchema = external_exports.object({
   enabled: external_exports.boolean(),
   nextRunAt: external_exports.number().nullable()
 });
-var runsSchema = external_exports.object({ runs: external_exports.array(dayPlannerRunSchema) });
+var rawRunSchema = dayPlannerRunSchema.extend({ output: external_exports.string().nullable().optional() });
+var runsSchema = external_exports.object({ runs: external_exports.array(rawRunSchema) });
+var noticeSchema = external_exports.object({
+  kind: external_exports.literal("247c-day-planner"),
+  date: external_exports.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  outcome: external_exports.enum(["already-planned", "already-running"])
+});
+function displayRun(raw) {
+  const run = dayPlannerRunSchema.parse(raw);
+  if (raw.output && raw.status === "succeeded") {
+    try {
+      const notice = noticeSchema.parse(JSON.parse(raw.output.trim()));
+      run.message = notice.outcome === "already-planned" ? `The plan for ${notice.date} already exists. No duplicate tasks were added.` : "Day planning is already running. Wait for it to finish.";
+    } catch {
+    }
+  }
+  if (run.status === "skipped" && run.skipReason === "wakeAgent false") {
+    run.message = "No new plan was created during this run. See the saved day plan below.";
+  }
+  return run;
+}
 var DayPlanner = class {
   constructor(bb, settings, today = () => localDay()) {
     this.bb = bb;
@@ -36953,7 +36974,10 @@ var DayPlanner = class {
       name: automation.name,
       scheduled: automation.enabled,
       nextRunAt: automation.nextRunAt,
-      run: history.runs.find((run) => run.status === "running") ?? history.runs[0] ?? null
+      run: (() => {
+        const latest = history.runs.find((run) => run.status === "running") ?? history.runs[0];
+        return latest ? displayRun(latest) : null;
+      })()
     };
   }
   async start({ date: date5, requestId }) {
@@ -36964,9 +36988,9 @@ var DayPlanner = class {
       pluginId: "automations",
       method: "automations_run",
       input: { ...target, idempotencyKey: `247c-day:${date5}:${requestId}` },
-      outputSchema: external_exports.object({ run: dayPlannerRunSchema })
+      outputSchema: external_exports.object({ run: rawRunSchema })
     });
-    return run;
+    return displayRun(run);
   }
 };
 

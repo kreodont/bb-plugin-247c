@@ -109,9 +109,9 @@ it("saves manual reported time above measured actual without a cap warning, incl
   const { task, days, item, mount } = await setup();
   days.reconcileActual([{ taskId: task.id, date: item.date, minutes: 10 }]);
   const slot = mount(`day/${item.date}`), reported = await slot.findByLabelText(`Reported: ${task.title}`);
-  fireEvent.change(reported, { target: { value: "31m" } }); fireEvent.click(slot.getByRole("button", { name: "Save time" }));
+  fireEvent.change(reported, { target: { value: "31m" } }); fireEvent.blur(reported);
   await waitFor(() => expect(days.get(item.id)).toMatchObject({ reportedMinutes: 31, reportedMode: "manual", reportedLocked: true }));
-  await waitFor(() => expect(slot.queryByText("Unsaved edit")).toBeNull());
+  await waitFor(() => expect(slot.queryByText("Saving…")).toBeNull());
   expect((reported as HTMLInputElement).value).toBe("31m");
   expect(slot.queryByText(/Saved manual time exceeds|Reported time cannot exceed/)).toBeNull();
   slot.lifecycle.unmount();
@@ -254,14 +254,14 @@ it("keeps a conflicting draft, blocks navigation, and applies it only after the 
   expect(slot.inspection.navigateCalls).toHaveLength(0); expect((slot.getByLabelText(`Reported: ${task.title}`) as HTMLInputElement).value).toBe("3h");
   fireEvent.click(await slot.findByRole("button", { name: "Apply my edit" }));
   await waitFor(() => expect(days.get(item.id)).toMatchObject({ plannedMinutes: 10, reportedMinutes: 180 }));
-  await waitFor(() => expect(slot.queryByText("Unsaved edit")).toBeNull());
+  await waitFor(() => expect(slot.queryByText("Saving…")).toBeNull());
 });
 
 it("lets a validation error be corrected and flushes day parameters when the date changes", async () => {
   const { days, mount } = await setup(); const slot = mount("day/2026-09-10");
   fireEvent.click(await slot.findByText("Day settings"));
   fireEvent.change(slot.getByLabelText("Available time"), { target: { value: "-2" } });
-  fireEvent.click(slot.getByRole("button", { name: "Save day" })); await slot.findByRole("alert");
+  fireEvent.blur(slot.getByLabelText("Available time")); await slot.findByRole("alert");
   fireEvent.change(slot.getByLabelText("Available time"), { target: { value: "5h" } });
   fireEvent.click(slot.getByRole("button", { name: "Next day" }));
   await waitFor(() => expect(JSON.stringify(slot.inspection.navigateCalls)).toContain("day/2026-09-11"));
@@ -278,7 +278,7 @@ it("overrides a meeting manually, preserves it through calendar changes and rest
   fireEvent.click(row.getByRole("button", { name: "Details" }));
   fireEvent.click(row.getByRole("button", { name: "Did not attend" }));
   await waitFor(() => expect(days.get(id)).toMatchObject({ plannedMinutes: 45, reportedMinutes: 0, reportedMode: "manual" }));
-  await waitFor(() => expect(row.queryByText("Unsaved edit")).toBeNull());
+  await waitFor(() => expect(row.queryByText("Saving…")).toBeNull());
   days.mergeCalendar([{ ...event, endAt: "2026-09-10T09:00:00Z" }]); await slot.behavior.emitRealtime("desk-changed", {});
   await waitFor(() => expect((row.getByLabelText("Reported: Work meeting") as HTMLInputElement).value).toBe("0m"));
   fireEvent.click(row.getByRole("button", { name: "Planned from calendar" }));
@@ -309,4 +309,117 @@ it("preserves a time draft when refreshing installation settings temporarily fai
   await slot.behavior.emitRealtime("desk-changed", {});
   await slot.findByText("Settings temporarily unavailable");
   expect((slot.getByLabelText(`Reported: ${task.title}`) as HTMLInputElement).value).toBe("1h");
+});
+
+it("autosaves time after a pause without losing focus and keeps blank distinct from zero", async () => {
+  const { task, days, item, mount } = await setup();
+  const slot = mount(`day/${item.date}`), input = await slot.findByLabelText(`Reported: ${task.title}`) as HTMLInputElement;
+  input.focus();
+  fireEvent.change(input, { target: { value: "60" } });
+  expect(slot.queryByRole("button", { name: "Save time" })).toBeNull();
+  expect(days.get(item.id).reportedMinutes).toBeNull();
+  await waitFor(() => expect(days.get(item.id).reportedMinutes).toBe(60), { timeout: 3000 });
+  await slot.findByText("Saved");
+  expect(document.activeElement).toBe(input);
+  expect(input.value).toBe("60");
+  expect(input.disabled).toBe(false);
+  fireEvent.change(input, { target: { value: "0" } }); fireEvent.blur(input);
+  await waitFor(() => expect(days.get(item.id).reportedMinutes).toBe(0));
+  await slot.findByText("Saved");
+  fireEvent.change(input, { target: { value: "" } }); fireEvent.blur(input);
+  await waitFor(() => expect(days.get(item.id)).toMatchObject({ reportedMinutes: null, reportedLocked: true }));
+});
+
+it("saves edits typed during a request before allowing navigation", async () => {
+  const { task, days, item, mount } = await setup();
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const edit = vi.fn(async input => { if (edit.mock.calls.length === 1) await gate; return days.edit(input); });
+  const slot = mount(`day/${item.date}`, { dayEdit: edit });
+  const input = await slot.findByLabelText(`Reported: ${task.title}`) as HTMLInputElement;
+  input.focus(); fireEvent.change(input, { target: { value: "10m" } });
+  await waitFor(() => expect(edit).toHaveBeenCalledOnce(), { timeout: 3000 });
+  expect(input.disabled).toBe(false); expect(document.activeElement).toBe(input);
+  fireEvent.change(input, { target: { value: "35m" } });
+  fireEvent.change(slot.getByLabelText(`Planned: ${task.title}`), { target: { value: "1h" } });
+  fireEvent.click(slot.getByRole("button", { name: "Next day" }));
+  expect(slot.inspection.navigateCalls).toHaveLength(0);
+  await act(async () => { release(); });
+  await waitFor(() => expect(slot.inspection.navigateCalls.length).toBeGreaterThan(0));
+  expect(days.get(item.id)).toMatchObject({ reportedMinutes: 35, plannedMinutes: 60 });
+  expect(edit).toHaveBeenCalledTimes(2);
+  expect(edit.mock.calls[1][0].revision).toBe(item.revision + 1);
+});
+
+it("retains a failed autosave and retries an uncertain result with the same request ID", async () => {
+  const { task, days, item, mount } = await setup();
+  const edit = vi.fn(async input => {
+    const result = days.edit(input);
+    if (edit.mock.calls.length === 1) throw new Error("Connection lost after save");
+    return result;
+  });
+  const slot = mount(`day/${item.date}`, { dayEdit: edit });
+  const input = await slot.findByLabelText(`Reported: ${task.title}`) as HTMLInputElement;
+  fireEvent.change(input, { target: { value: "25m" } }); fireEvent.blur(input);
+  await slot.findByText("Connection lost after save");
+  expect(input.value).toBe("25m"); expect(slot.getByText("Not saved")).toBeTruthy();
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 750)); });
+  expect(edit).toHaveBeenCalledOnce();
+  fireEvent.click(slot.getByRole("button", { name: "Retry save" }));
+  await slot.findByText("Saved");
+  expect(edit.mock.calls[0][0]).toEqual(edit.mock.calls[1][0]);
+  expect(days.get(item.id)).toMatchObject({ reportedMinutes: 25, revision: item.revision + 1 });
+});
+
+it("keeps invalid time visible and autosaves its correction", async () => {
+  const { task, days, item, mount } = await setup();
+  const slot = mount(`day/${item.date}`), input = await slot.findByLabelText(`Planned: ${task.title}`) as HTMLInputElement;
+  fireEvent.change(input, { target: { value: "-5" } }); fireEvent.blur(input);
+  await slot.findByRole("alert"); expect(input.value).toBe("-5");
+  expect(days.get(item.id).plannedMinutes).toBeNull();
+  fireEvent.change(input, { target: { value: "45m" } });
+  await waitFor(() => expect(days.get(item.id).plannedMinutes).toBe(45), { timeout: 3000 });
+  await slot.findByText("Saved"); expect(slot.queryByRole("alert")).toBeNull();
+});
+
+it("autosaves available time and preserves day notes typed while saving", async () => {
+  const { days, item, mount } = await setup();
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const saveConfig = vi.fn(async input => { if (saveConfig.mock.calls.length === 1) await gate; return days.setConfig(input); });
+  const slot = mount(`day/${item.date}`, { dayConfig: saveConfig });
+  fireEvent.click(await slot.findByText("Day settings"));
+  fireEvent.change(slot.getByLabelText("Available time"), { target: { value: "4h" } });
+  await waitFor(() => expect(saveConfig).toHaveBeenCalledOnce(), { timeout: 3000 });
+  fireEvent.change(slot.getByLabelText("Day note"), { target: { value: "Focus on review" } });
+  await act(async () => { release(); });
+  await slot.findByText("Saved");
+  expect(days.config(item.date)).toMatchObject({ capacityMinutes: 240, note: "Focus on review" });
+  expect(saveConfig).toHaveBeenCalledTimes(2);
+});
+
+it("refreshes a focused clean field when its saved value changes elsewhere", async () => {
+  const { task, days, item, mount } = await setup();
+  const slot = mount(`day/${item.date}`), input = await slot.findByLabelText(`Reported: ${task.title}`) as HTMLInputElement;
+  input.focus(); fireEvent.change(input, { target: { value: "60" } });
+  await slot.findByText("Saved", {}, { timeout: 3000 });
+  expect(input.value).toBe("60");
+  days.edit({ id: item.id, revision: days.get(item.id).revision, reportedMinutes: 90, requestId: randomUUID() });
+  await slot.behavior.emitRealtime("desk-changed", {});
+  await waitFor(() => expect(input.value).toBe("1h 30m"));
+});
+
+it("queues a completion click while the time field is saving", async () => {
+  const { task, days, item, mount } = await setup();
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const edit = vi.fn(async input => { if (edit.mock.calls.length === 1) await gate; return days.edit(input); });
+  const slot = mount(`day/${item.date}`, { dayEdit: edit });
+  const input = await slot.findByLabelText(`Reported: ${task.title}`);
+  fireEvent.change(input, { target: { value: "30m" } }); fireEvent.blur(input);
+  await waitFor(() => expect(edit).toHaveBeenCalledOnce());
+  const checkbox = slot.getByLabelText(`Step completed: ${task.title}`) as HTMLInputElement;
+  expect(checkbox.disabled).toBe(false); fireEvent.click(checkbox);
+  await act(async () => { release(); });
+  await waitFor(() => expect(days.get(item.id)).toMatchObject({ reportedMinutes: 30, state: "done" }));
 });

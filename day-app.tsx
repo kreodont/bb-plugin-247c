@@ -59,7 +59,7 @@ function DayPlannerControl({ date, beforeStart, refreshDay }: { date: string; be
   return <section aria-label="Day planning" className="rounded-xl border border-border bg-card p-4">
     <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-sm font-medium">Day planning</h2><p className="mt-1 text-xs text-muted-foreground">{data?.name ?? "Day planner"}{data?.scheduled && data.nextRunAt ? ` · next ${at(data.nextRunAt)}` : data?.configured ? " · schedule paused" : ""}</p></div><Button disabled={busy || running || !!error || !data?.configured || date !== data.today} onClick={() => void start()}><Icon name="Zap" />{busy ? "Starting…" : running ? "Creating plan…" : "Create day plan"}</Button></div>
     {date !== data?.today && data && <p className="mt-2 text-xs text-muted-foreground">Open Today to create a day plan.</p>}
-    {run && <p role="status" className="mt-2 text-xs text-muted-foreground">{running ? "Creating today's plan. Saved tasks will appear here automatically." : run.status === "succeeded" ? `Day planning finished · ${at(run.finishedAt ?? run.startedAt)}` : run.status === "skipped" ? `Run skipped${run.skipReason ? `: ${run.skipReason}` : "."}` : `Day planning failed · ${at(run.finishedAt ?? run.startedAt)}`}</p>}
+    {run && <p role="status" className="mt-2 text-xs text-muted-foreground">{running ? "Creating today's plan. Saved tasks will appear here automatically." : run.message ? run.message : run.status === "succeeded" ? `Day planning finished · ${at(run.finishedAt ?? run.startedAt)}` : run.status === "skipped" ? `Run skipped${run.skipReason ? `: ${run.skipReason}` : "."}` : `Day planning failed · ${at(run.finishedAt ?? run.startedAt)}`}</p>}
     <ErrorText error={mutationError ?? error ?? (run?.status === "failed" ? run.error : null)} />
   </section>;
 }
@@ -109,36 +109,75 @@ function DayRow({ item, refresh, register, openTask, openDay, move, moveDisabled
     if (focused) { row.current?.scrollIntoView?.({ block: "center" }); reportedInput.current?.focus({ preventScroll: true }); reportedInput.current?.select(); }
   }, [focused, item.id]);
   const dirty = fields.size > 0;
-  useLayoutEffect(() => { if (!dirty) { setDraft({ planned: inputTime(item.plannedMinutes), reported: inputTime(item.reportedMinutes), step: item.step, reportedDate: item.reportedDate }); setBaseRevision(item.revision); } }, [item.revision, item.plannedMinutes, item.reportedMinutes, item.step, item.reportedDate, dirty]);
+  const pending = useRef({ draft, fields, revision: baseRevision });
+  const focusedField = useRef<keyof typeof draft | null>(null);
+  const [saved, setSaved] = useState(false);
+  useLayoutEffect(() => {
+    if (!pending.current.fields.size && !flight.current && item.revision >= pending.current.revision) {
+      const next = { planned: inputTime(item.plannedMinutes), reported: inputTime(item.reportedMinutes), step: item.step, reportedDate: item.reportedDate };
+      if (focusedField.current && item.revision === pending.current.revision) next[focusedField.current] = pending.current.draft[focusedField.current];
+      pending.current = { draft: next, fields: new Set(), revision: item.revision };
+      setDraft(next); setBaseRevision(item.revision);
+    }
+  }, [item.revision, item.plannedMinutes, item.reportedMinutes, item.step, item.reportedDate, dirty, busy]);
   function edit(field: keyof typeof draft, value: string) {
-    if (!dirty) setBaseRevision(item.revision);
-    setDraft(previous => ({ ...previous, [field]: value })); setFields(previous => new Set([...previous, field])); setError(null);
+    const current = pending.current;
+    const revision = !current.fields.size && !flight.current ? item.revision : current.revision;
+    pending.current = { draft: { ...current.draft, [field]: value }, fields: new Set([...current.fields, field]), revision };
+    setDraft(pending.current.draft); setFields(pending.current.fields); setBaseRevision(revision); setError(null); setSaved(false);
+  }
+  function discard() {
+    pending.current.fields = new Set(); retry.current = null;
+    setFields(new Set()); setError(null); setSaved(false);
   }
   function save(extra: Patch = {}, overwrite = false): Promise<boolean> {
-    if (flight.current) return flight.current;
-    if (!dirty && Object.keys(extra).length === 0) return Promise.resolve(true);
-    const run = async () => {
+    if (flight.current) {
+      const active = flight.current;
+      return Object.keys(extra).length || overwrite ? active.then(ok => ok || overwrite ? save(extra, overwrite) : false) : active;
+    }
+    if (!pending.current.fields.size && Object.keys(extra).length === 0) return Promise.resolve(true);
+    // Defer execution so even a synchronous validation failure clears flight.
+    flight.current = Promise.resolve().then(async () => {
       setBusy(true); setError(null);
       try {
-        const patch: Patch = {};
-        if (!extra.restoreAuto) {
-          if (fields.has("planned")) patch.plannedMinutes = parseMinutes(draft.planned);
-          if (fields.has("reported")) patch.reportedMinutes = parseMinutes(draft.reported);
-          if (fields.has("step")) patch.step = draft.step;
-          if (fields.has("reportedDate")) patch.reportedDate = dayDateSchema.parse(draft.reportedDate);
-        }
-        const body = { id: item.id, revision: overwrite || !dirty ? item.revision : baseRevision, ...patch, ...extra };
-        const key = JSON.stringify(body);
-        if (retry.current?.key !== key) retry.current = { key, id: crypto.randomUUID() };
-        const result = await rpc.call("dayEdit", { ...body, requestId: retry.current.id });
-        setFields(new Set()); setBaseRevision(result.revision); setDraft({ planned: inputTime(result.plannedMinutes), reported: inputTime(result.reportedMinutes), step: result.step, reportedDate: result.reportedDate }); retry.current = null;
-        await refresh(); return true;
+        do {
+          const snapshot = pending.current;
+          const patch: Patch = {};
+          if (!extra.restoreAuto) {
+            if (snapshot.fields.has("planned")) patch.plannedMinutes = parseMinutes(snapshot.draft.planned);
+            if (snapshot.fields.has("reported")) patch.reportedMinutes = parseMinutes(snapshot.draft.reported);
+            if (snapshot.fields.has("step")) patch.step = snapshot.draft.step;
+            if (snapshot.fields.has("reportedDate")) patch.reportedDate = dayDateSchema.parse(snapshot.draft.reportedDate);
+          }
+          const body = { id: item.id, revision: overwrite ? item.revision : snapshot.revision, ...patch, ...extra };
+          const key = JSON.stringify(body);
+          if (retry.current?.key !== key) retry.current = { key, id: crypto.randomUUID() };
+          const result = await rpc.call("dayEdit", { ...body, requestId: retry.current.id });
+          const current = pending.current;
+          const remaining = new Set([...current.fields].filter(field => !snapshot.fields.has(field) || current.draft[field] !== snapshot.draft[field]));
+          const next = { planned: inputTime(result.plannedMinutes), reported: inputTime(result.reportedMinutes), step: result.step, reportedDate: result.reportedDate };
+          for (const field of remaining) next[field] = current.draft[field];
+          if (focusedField.current) next[focusedField.current] = current.draft[focusedField.current];
+          pending.current = { draft: next, fields: remaining, revision: result.revision };
+          setFields(remaining); setBaseRevision(result.revision); setDraft(next); retry.current = null;
+          extra = {}; overwrite = false;
+          await refresh();
+          // Include edits typed during the request before navigation can proceed.
+        } while (pending.current.fields.size);
+        setSaved(true); return true;
       } catch (e) { setError(e instanceof Error ? e.message : String(e)); await refresh(); return false; }
-      finally { setBusy(false); flight.current = null; }
-    };
-    flight.current = run(); return flight.current;
+      finally { flight.current = null; setBusy(false); }
+    });
+    return flight.current;
   }
-  useEffect(() => { register(item.id, () => save()); return () => register(item.id, null); });
+  const saveLatest = useRef(save);
+  useLayoutEffect(() => { saveLatest.current = save; });
+  useEffect(() => {
+    if (!dirty || busy || error) return;
+    const timer = setTimeout(() => void saveLatest.current(), 600);
+    return () => clearTimeout(timer);
+  }, [draft, dirty, busy, error]);
+  useEffect(() => { register(item.id, () => saveLatest.current()); return () => register(item.id, null); }, [item.id, register]);
   async function carry() {
     if (dirty && !await save()) return;
     setBusy(true); setError(null);
@@ -153,7 +192,7 @@ function DayRow({ item, refresh, register, openTask, openDay, move, moveDisabled
   return <article ref={row} aria-label={`Day entry: ${item.title}`} className={cn("border-t border-border p-4", focused && "bg-primary/5", inactive && "bg-muted/20")}>
     <div className="grid grid-cols-3 items-start gap-3 md:grid-cols-[minmax(0,1fr)_6.5rem_6.5rem_6.5rem]">
       <div className="col-span-3 flex min-w-0 items-start gap-3 md:col-span-1">
-        {item.kind === "task" ? <input type="checkbox" className="mt-1 size-4 shrink-0 accent-current" aria-label={`Step completed: ${item.title}`} checked={item.state === "done"} disabled={busy || inactive || item.state === "carried"} onChange={e => void save({ state: e.target.checked ? "done" : "open" })} /> : <span aria-label="Calendar meeting" className="mt-0.5 text-primary">▦</span>}
+        {item.kind === "task" ? <input type="checkbox" className="mt-1 size-4 shrink-0 accent-current" aria-label={`Step completed: ${item.title}`} checked={item.state === "done"} disabled={busy && !flight.current || inactive || item.state === "carried"} onChange={e => void save({ state: e.target.checked ? "done" : "open" })} /> : <span aria-label="Calendar meeting" className="mt-0.5 text-primary">▦</span>}
         <div className="min-w-0"><div className="flex flex-wrap items-center gap-2">{item.taskId ? <button type="button" className={cn("break-words text-left text-sm font-medium underline-offset-4 hover:text-primary hover:underline", inactive && "text-muted-foreground")} onClick={() => void openTask(item.taskId!)}>{item.title}</button> : item.calendar?.url ? <a href={item.calendar.url} target="_blank" rel="noreferrer" className="break-words text-sm font-medium underline-offset-4 hover:underline">{item.title}</a> : <h3 className="break-words text-sm font-medium">{item.title}</h3>}{item.taskStatus && item.taskStatus !== "open" && <span className="text-xs text-muted-foreground">Task {item.taskStatus === "done" ? "closed" : "archived"}</span>}</div>
           {item.calendar ? <p className="mt-1 text-xs text-muted-foreground">{shortDate(item.date)} · {eventTime(item.calendar.startAt, timeZone)}–{eventTime(item.calendar.endAt, timeZone)} · {item.calendar.status === "cancelled" ? "canceled" : item.calendar.status === "declined" ? "invitation declined" : item.calendar.status === "excluded" ? "excluded from meeting time" : "from calendar"}</p> : item.step && <p className="mt-1 whitespace-pre-wrap break-words text-xs leading-relaxed text-muted-foreground">{item.step}</p>}
           {item.carriedTo && <button className="mt-1 text-xs text-primary hover:underline" onClick={() => void openDay(item.carriedTo!)}>Continuation {shortDate(item.carriedTo)}</button>}
@@ -162,21 +201,21 @@ function DayRow({ item, refresh, register, openTask, openDay, move, moveDisabled
           {!item.calendar && item.plannedMinutes === null && item.reportedMinutes !== null && <p className="mt-1 text-xs text-muted-foreground">Outside the plan</p>}
         </div>
       </div>
-      <label className="text-xs text-muted-foreground">Planned<Input aria-label={`Planned: ${item.title}`} className="mt-1 text-right tabular-nums" value={draft.planned} placeholder="—" disabled={busy} onChange={e => edit("planned", e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); void save(); } }} />{item.calendar && <span className="mt-1 block text-right text-xs">{item.plannedMode === "calendar" ? "calendar" : "manual"}</span>}</label>
+      <label className="text-xs text-muted-foreground">Planned<Input aria-label={`Planned: ${item.title}`} className="mt-1 text-right tabular-nums" value={draft.planned} placeholder="—" onFocus={() => { focusedField.current = "planned"; }} onBlur={() => { focusedField.current = null; if (!error) void save(); }} onChange={e => edit("planned", e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); void save(); } }} />{item.calendar && <span className="mt-1 block text-right text-xs">{item.plannedMode === "calendar" ? "calendar" : "manual"}</span>}</label>
       <div className="text-xs text-muted-foreground">Actual<output aria-label={`Actual: ${item.title}`} className="mt-1 flex h-9 items-center justify-end rounded-md border border-transparent px-3 text-sm tabular-nums text-foreground">{formatMinutes(item.actualMinutes)}</output><span className="mt-1 block text-right text-xs">{item.kind === "meeting" ? "= reported" : "agents"}</span></div>
-      <label className="text-xs text-muted-foreground">Reported<Input ref={reportedInput} aria-label={`Reported: ${item.title}`} className="mt-1 text-right tabular-nums" value={draft.reported} placeholder="—" disabled={busy} onChange={e => edit("reported", e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); void save(); } }} />{item.calendar && <span className="mt-1 block text-right text-xs">{item.reportedMode === "calendar" ? item.reportedMinutes === null ? "after the meeting" : "auto" : "manual"}</span>}{!item.calendar && <span className="mt-1 block text-right text-xs">{item.reportedMode === "estimate" && item.reportedMinutes !== null ? "estimate · review" : item.reportedMinutes !== null || item.reportedLocked ? "manual" : (item.actualMinutes ?? 0) > 0 ? "awaiting AI estimate" : ""}</span>}</label>
+      <label className="text-xs text-muted-foreground">Reported<Input ref={reportedInput} aria-label={`Reported: ${item.title}`} className="mt-1 text-right tabular-nums" value={draft.reported} placeholder="—" onFocus={() => { focusedField.current = "reported"; }} onBlur={() => { focusedField.current = null; if (!error) void save(); }} onChange={e => edit("reported", e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); void save(); } }} />{item.calendar && <span className="mt-1 block text-right text-xs">{item.reportedMode === "calendar" ? item.reportedMinutes === null ? "after the meeting" : "auto" : "manual"}</span>}{!item.calendar && <span className="mt-1 block text-right text-xs">{item.reportedMode === "estimate" && item.reportedMinutes !== null ? "estimate · review" : item.reportedMinutes !== null || item.reportedLocked ? "manual" : (item.actualMinutes ?? 0) > 0 ? "awaiting AI estimate" : ""}</span>}</label>
     </div>
     {item.reportedMode === "estimate" && item.reportedMinutes !== null && <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><p className="min-w-48 flex-1">{item.reportedEstimate?.reason}</p><Button size="sm" variant="outline" disabled={busy || dirty} onClick={() => void save({ reportedMinutes: item.reportedMinutes })}>Confirm reported</Button></div>}
-    <div className="mt-3 flex flex-wrap items-center gap-2"><Button size="sm" variant="ghost" onClick={() => setDetails(!details)} aria-expanded={details}>Details</Button>{dirty && <><span className="mr-auto text-xs text-muted-foreground">Unsaved edit</span><Button size="sm" variant="ghost" disabled={busy} onClick={() => { setFields(new Set()); setError(null); }}>Discard edit</Button><Button size="sm" disabled={busy} onClick={() => void save()}>Save time</Button></>}{item.removed && <Button size="sm" variant="outline" disabled={busy} onClick={() => void save({ removed: false })}>Restore to plan</Button>}</div>
+    <div className="mt-3 flex flex-wrap items-center gap-2"><Button size="sm" variant="ghost" onClick={() => setDetails(!details)} aria-expanded={details}>Details</Button>{(dirty || busy || saved) && <span role="status" className="mr-auto text-xs text-muted-foreground">{busy ? "Saving…" : error ? "Not saved" : dirty ? "Waiting to save…" : "Saved"}</span>}{dirty && error && <><Button size="sm" variant="ghost" disabled={busy} onClick={discard}>Discard edit</Button><Button size="sm" disabled={busy} onClick={() => void save()}>Retry save</Button></>}{item.removed && <Button size="sm" variant="outline" disabled={busy && !flight.current} onClick={() => void save({ removed: false })}>Restore to plan</Button>}</div>
     <ErrorText error={error} />
     {dirty && error && item.revision !== baseRevision && <div className="mt-2 rounded-lg bg-muted/40 p-3 text-xs"><p>Currently saved: planned {formatMinutes(item.plannedMinutes)}, reported {formatMinutes(item.reportedMinutes)}.</p><Button className="mt-2" size="sm" variant="outline" onClick={() => void save({}, true)}>Apply my edit</Button></div>}
     {details && <div className="mt-3 space-y-3 border-t border-border pt-3">
-      <label className="block text-xs text-muted-foreground">{item.calendar ? "Meeting note" : "What to do on this day"}<textarea className="mt-1 min-h-16 w-full rounded-lg border border-input bg-transparent p-2 text-sm text-foreground" value={draft.step} disabled={busy} onChange={e => edit("step", e.target.value)} /></label>
+      <label className="block text-xs text-muted-foreground">{item.calendar ? "Meeting note" : "What to do on this day"}<textarea className="mt-1 min-h-16 w-full rounded-lg border border-input bg-transparent p-2 text-sm text-foreground" value={draft.step} onFocus={() => { focusedField.current = "step"; }} onBlur={() => { focusedField.current = null; if (!error) void save(); }} onChange={e => edit("step", e.target.value)} /></label>
       {item.kind === "task" && !item.removed && <div className="flex flex-wrap items-center gap-2"><Input type="date" aria-label={`Continuation date: ${item.title}`} className="w-40" value={carryDate} onChange={e => setCarryDate(e.target.value)} /><Button variant="outline" size="sm" disabled={busy || item.state === "carried"} onClick={() => void carry()}>Continue on another day</Button><Button size="sm" variant="ghost" disabled={busy || moveDisabled} onClick={() => void move(item.id, -1)}>Move up</Button><Button size="sm" variant="ghost" disabled={busy || moveDisabled} onClick={() => void move(item.id, 1)}>Move down</Button></div>}
-      {item.calendar && <label className="block text-xs text-muted-foreground">Reported date<Input type="date" className="mt-1 w-40" aria-label={`Reported date: ${item.title}`} value={draft.reportedDate} disabled={busy} onChange={e => edit("reportedDate", e.target.value)} /></label>}
-      {item.calendar && <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" disabled={busy} onClick={() => void save({ reportedMinutes: 0 })}>Did not attend</Button>{item.plannedMode === "manual" && <Button size="sm" variant="ghost" disabled={busy || dirty} onClick={() => void save({ restoreAuto: "planned" })}>Planned from calendar</Button>}{item.reportedMode === "manual" && <Button size="sm" variant="ghost" disabled={busy || dirty} onClick={() => void save({ restoreAuto: "reported" })}>Automatic reported time</Button>}</div>}
+      {item.calendar && <label className="block text-xs text-muted-foreground">Reported date<Input type="date" className="mt-1 w-40" aria-label={`Reported date: ${item.title}`} value={draft.reportedDate} onFocus={() => { focusedField.current = "reportedDate"; }} onBlur={() => { focusedField.current = null; if (!error) void save(); }} onChange={e => edit("reportedDate", e.target.value)} /></label>}
+      {item.calendar && <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" disabled={busy && !flight.current} onClick={() => void save({ reportedMinutes: 0 })}>Did not attend</Button>{item.plannedMode === "manual" && <Button size="sm" variant="ghost" disabled={busy || dirty} onClick={() => void save({ restoreAuto: "planned" })}>Planned from calendar</Button>}{item.reportedMode === "manual" && <Button size="sm" variant="ghost" disabled={busy || dirty} onClick={() => void save({ restoreAuto: "reported" })}>Automatic reported time</Button>}</div>}
       {item.taskId && item.reportedMode !== "estimate" && (item.reportedLocked || item.reportedMinutes !== null) && (item.actualMinutes ?? 0) > 0 && <Button size="sm" variant="outline" disabled={busy || dirty} onClick={() => void save({ restoreAuto: "reported" })}>Request AI estimate</Button>}
-      <div className="flex flex-wrap gap-2">{!item.removed && <Button size="sm" variant="ghost" disabled={busy} onClick={() => void save({ removed: true })}>Remove from plan</Button>}<Button size="sm" variant="ghost" onClick={() => setHistory(!history)} aria-expanded={history}>Edit history</Button></div>
+      <div className="flex flex-wrap gap-2">{!item.removed && <Button size="sm" variant="ghost" disabled={busy && !flight.current} onClick={() => void save({ removed: true })}>Remove from plan</Button>}<Button size="sm" variant="ghost" onClick={() => setHistory(!history)} aria-expanded={history}>Edit history</Button></div>
       {history && <ItemHistory id={item.id} />}
     </div>}
   </article>;
@@ -240,7 +279,7 @@ export function DayPage({ date, report = false, period = "week", threadId, focus
         {!data.day.items.length && <p className="border-t border-border p-7 text-center text-sm text-muted-foreground">The plan is empty. Add tasks or check the calendar.</p>}
         <form className="space-y-3 border-t border-border p-4" onSubmit={e => { e.preventDefault(); const chosen = chosenTaskId; if (chosen && choices.some(t => t.id === chosen)) void action(async () => { await rpc.call("dayAdd", { date, taskId: chosen, requestId: crypto.randomUUID() }); setTaskId(""); }); }}><div className="flex flex-wrap gap-2"><Input value={query} onChange={e => { setQuery(e.target.value); setTaskId(""); }} aria-label="Find a task for this day" placeholder="Find a task for this day" className="min-w-48 flex-1" /><label className="flex items-center gap-2 text-xs text-muted-foreground"><input type="checkbox" checked={showClosed} onChange={e => { setShowClosed(e.target.checked); setTaskId(""); }} /> Include closed tasks</label></div><div className="flex flex-wrap gap-2"><select className="min-w-48 flex-1 rounded-lg border border-input bg-background p-2 text-sm" aria-label="Task to plan" value={chosenTaskId} onChange={e => setTaskId(e.target.value)} disabled={!choices.length || busy}>{choices.length ? choices.map(task => <option key={task.id} value={task.id}>{task.title}</option>) : <option value="">No matching tasks</option>}</select><Button type="submit" variant="outline" disabled={busy || !choices.length}>Add to day</Button></div></form>
       </section>
-      <p className="text-xs leading-relaxed text-muted-foreground">Planned time stays as entered. Actual counts agent runtime and excludes your reading, checking and other work. Completed agent work outside the plan is added with planned = 0. AI proposes reported minutes from the volume and type of work, including reading and checking. Estimates need your review. Manual reported time is independent and preserved. A blank field means unspecified time; 0 means an explicit zero minutes. The checkbox marks the daily step. Save edits with the button, Enter, or by opening a task or another day.</p>
+      <p className="text-xs leading-relaxed text-muted-foreground">Planned time stays as entered. Actual counts agent runtime and excludes your reading, checking and other work. Completed agent work outside the plan is added with planned = 0. AI proposes reported minutes from the volume and type of work, including reading and checking. Estimates need your review. Manual reported time is independent and preserved. A blank field means unspecified time; 0 means an explicit zero minutes. The checkbox marks the daily step. Entry edits save automatically after a short pause, when leaving the field, or when pressing Enter.</p>
       <CalendarStatus date={date} />
     </>}
     {data?.time && <section className="overflow-hidden rounded-xl border border-border bg-card"><h2 className="p-4 text-sm font-medium">{shortDate(data.time.from)} — {shortDate(data.time.through)}</h2><div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-muted/30 text-xs text-muted-foreground"><tr><th className="px-4 py-3 font-medium">Task / meeting</th><th className="px-4 py-3 text-right font-medium">Planned</th><th className="px-4 py-3 text-right font-medium">Actual</th><th className="px-4 py-3 text-right font-medium">Reported</th></tr></thead><tbody>{data.time.rows.map(row => <tr key={row.key} className="border-t border-border"><td className="px-4 py-3">{row.taskId ? <button className="text-left font-medium underline-offset-4 hover:text-primary hover:underline" onClick={() => void openTask(row.taskId!)}>{row.title}</button> : <span className="font-medium">{row.title}</span>}<div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">{row.days.map(day => <button key={`${day.itemId}:${day.date}`} className="text-xs text-muted-foreground hover:text-primary hover:underline" onClick={() => void openDay(day.date)}>{shortDate(day.date)} · actual {formatMinutes(day.actualMinutes)} · reported {formatMinutes(day.reportedMinutes)}{day.estimatedReported ? " (estimate)" : ""}</button>)}</div></td><td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">{formatMinutes(row.plannedMinutes)}</td><td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">{formatMinutes(row.actualMinutes)}</td><td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">{formatMinutes(row.reportedMinutes)}{row.estimatedReported && <span className="block text-xs text-muted-foreground">includes estimate</span>}</td></tr>)}</tbody><tfoot className="border-t border-border font-medium"><tr><td className="px-4 py-3">Total</td><td className="px-4 py-3 text-right tabular-nums">{formatMinutes(data.time.totals.plannedMinutes)}</td><td className="px-4 py-3 text-right tabular-nums">{formatMinutes(data.time.totals.actualMinutes)}</td><td className="px-4 py-3 text-right tabular-nums">{formatMinutes(data.time.totals.reportedMinutes)}</td></tr></tfoot></table></div>{!data.time.rows.length && <p className="px-4 pb-5 text-sm text-muted-foreground">No time has been entered for this period yet.</p>}<p className="border-t border-border px-4 py-3 text-xs text-muted-foreground">{data.time.totals.missingReported ? `Without reported time: ${data.time.totals.missingReported}. ` : ""}Click a date to open that day and edit an entry. Timezone: {data.time.timeZone}.</p></section>}
@@ -249,17 +288,55 @@ export function DayPage({ date, report = false, period = "week", threadId, focus
 
 function DayParameters({ config, register, refresh, planned }: { config: DayView["config"]; register: (id: string, flush: Flush | null) => void; refresh: () => Promise<void>; planned: number }) {
   const rpc = useRpc<typeof rpcContract>();
-  const [capacity, setCapacity] = useState(inputTime(config.capacityMinutes)), [note, setNote] = useState(config.note), [dirty, setDirty] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
-  const revision = useRef(config.revision), flight = useRef<Promise<boolean> | null>(null), request = useRef<string>(crypto.randomUUID());
-  useEffect(() => { if (!dirty) { setCapacity(inputTime(config.capacityMinutes)); setNote(config.note); revision.current = config.revision; } }, [config.revision, config.capacityMinutes, config.note, dirty]);
-  function change(fn: () => void) { if (!dirty) revision.current = config.revision; request.current = crypto.randomUUID(); fn(); setDirty(true); }
+  const [draft, setDraft] = useState({ capacity: inputTime(config.capacityMinutes), note: config.note });
+  const [dirty, setDirty] = useState(false), [busy, setBusy] = useState(false), [saved, setSaved] = useState(false), [error, setError] = useState<string | null>(null);
+  const pending = useRef({ draft, dirty: false, revision: config.revision });
+  const focusedField = useRef<keyof typeof draft | null>(null);
+  const flight = useRef<Promise<boolean> | null>(null), retry = useRef<{ key: string; id: string } | null>(null);
+  useLayoutEffect(() => {
+    if (!pending.current.dirty && !flight.current && config.revision >= pending.current.revision) {
+      const next = { capacity: inputTime(config.capacityMinutes), note: config.note };
+      if (focusedField.current && config.revision === pending.current.revision) next[focusedField.current] = pending.current.draft[focusedField.current];
+      pending.current = { draft: next, dirty: false, revision: config.revision }; setDraft(next);
+    }
+  }, [config.revision, config.capacityMinutes, config.note, dirty, busy]);
+  function change(field: keyof typeof draft, value: string) {
+    pending.current = { ...pending.current, draft: { ...pending.current.draft, [field]: value }, dirty: true };
+    setDraft(pending.current.draft); setDirty(true); setError(null); setSaved(false);
+  }
   function save(): Promise<boolean> {
     if (flight.current) return flight.current;
-    if (!dirty) return Promise.resolve(true);
-    flight.current = Promise.resolve().then(async () => { setBusy(true); setError(null); try { await rpc.call("dayConfig", { ...config, revision: revision.current, capacityMinutes: parseMinutes(capacity), note, requestId: request.current }); setDirty(false); await refresh(); return true; } catch (e) { setError(e instanceof Error ? e.message : String(e)); return false; } finally { setBusy(false); flight.current = null; } }); return flight.current;
+    if (!pending.current.dirty) return Promise.resolve(true);
+    flight.current = Promise.resolve().then(async () => {
+      setBusy(true); setError(null);
+      try {
+        do {
+          const snapshot = pending.current;
+          const body = { date: config.date, revision: snapshot.revision, capacityMinutes: parseMinutes(snapshot.draft.capacity), note: snapshot.draft.note };
+          const key = JSON.stringify(body);
+          if (retry.current?.key !== key) retry.current = { key, id: crypto.randomUUID() };
+          const result = await rpc.call("dayConfig", { ...body, requestId: retry.current.id });
+          const changed = pending.current.draft !== snapshot.draft;
+          const next = changed ? pending.current.draft : { capacity: inputTime(result.capacityMinutes), note: result.note };
+          if (focusedField.current) next[focusedField.current] = pending.current.draft[focusedField.current];
+          pending.current = { draft: next, dirty: changed, revision: result.revision };
+          setDraft(next); setDirty(changed); retry.current = null;
+          await refresh();
+        } while (pending.current.dirty);
+        setSaved(true); return true;
+      } catch (e) { setError(e instanceof Error ? e.message : String(e)); await refresh(); return false; }
+      finally { flight.current = null; setBusy(false); }
+    }); return flight.current;
   }
-  useEffect(() => { register("config", save); return () => register("config", null); });
-  return <details className="rounded-xl border border-border p-4"><summary className="cursor-pointer text-sm">Day settings{config.capacityMinutes !== null ? ` · available ${formatMinutes(config.capacityMinutes)} · ${planned <= config.capacityMinutes ? `free ${formatMinutes(config.capacityMinutes - planned)}` : `over capacity by ${formatMinutes(planned - config.capacityMinutes)}`}` : ""}</summary><div className="mt-3 space-y-3"><label className="block text-xs text-muted-foreground">How much time is available?<Input className="mt-1 max-w-48" value={capacity} aria-label="Available time" placeholder="For example, 5h" disabled={busy} onChange={e => change(() => setCapacity(e.target.value))} /></label><label className="block text-xs text-muted-foreground">Day note<textarea className="mt-1 min-h-16 w-full rounded-lg border border-input bg-transparent p-2 text-sm text-foreground" value={note} disabled={busy} onChange={e => change(() => setNote(e.target.value))} /></label><ErrorText error={error} />{dirty && <div className="flex gap-2"><Button size="sm" disabled={busy} onClick={() => void save()}>Save day</Button><Button size="sm" variant="ghost" disabled={busy} onClick={() => { setDirty(false); setError(null); }}>Discard edit</Button></div>}</div></details>;
+  const saveLatest = useRef(save);
+  useLayoutEffect(() => { saveLatest.current = save; });
+  useEffect(() => {
+    if (!dirty || busy || error) return;
+    const timer = setTimeout(() => void saveLatest.current(), 600);
+    return () => clearTimeout(timer);
+  }, [draft, dirty, busy, error]);
+  useEffect(() => { register("config", () => saveLatest.current()); return () => register("config", null); }, [register]);
+  return <details className="rounded-xl border border-border p-4"><summary className="cursor-pointer text-sm">Day settings{config.capacityMinutes !== null ? ` · available ${formatMinutes(config.capacityMinutes)} · ${planned <= config.capacityMinutes ? `free ${formatMinutes(config.capacityMinutes - planned)}` : `over capacity by ${formatMinutes(planned - config.capacityMinutes)}`}` : ""}</summary><div className="mt-3 space-y-3"><label className="block text-xs text-muted-foreground">How much time is available?<Input className="mt-1 max-w-48" value={draft.capacity} aria-label="Available time" placeholder="For example, 5h" onChange={e => change("capacity", e.target.value)} onFocus={() => { focusedField.current = "capacity"; }} onBlur={() => { focusedField.current = null; if (!error) void save(); }} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); void save(); } }} /></label><label className="block text-xs text-muted-foreground">Day note<textarea className="mt-1 min-h-16 w-full rounded-lg border border-input bg-transparent p-2 text-sm text-foreground" value={draft.note} onChange={e => change("note", e.target.value)} onFocus={() => { focusedField.current = "note"; }} onBlur={() => { focusedField.current = null; if (!error) void save(); }} /></label><ErrorText error={error} />{(dirty || busy || saved) && <p role="status" className="text-xs text-muted-foreground">{busy ? "Saving…" : error ? "Not saved" : dirty ? "Waiting to save…" : "Saved"}</p>}{dirty && error && <div className="flex gap-2"><Button size="sm" disabled={busy} onClick={() => void save()}>Retry save</Button><Button size="sm" variant="ghost" disabled={busy} onClick={() => { pending.current.dirty = false; retry.current = null; setDirty(false); setError(null); setSaved(false); }}>Discard edit</Button></div>}</div></details>;
 }
 
 export function TaskTimeSummary({ taskId, threadId, initialDate }: { taskId: string; threadId?: string; initialDate?: string }) {

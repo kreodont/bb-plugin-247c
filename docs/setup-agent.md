@@ -107,8 +107,17 @@ The **Create day plan** button saves pending day edits before starting the
 configured automation for today in Europe/Athens. It keeps the automation's
 provider, model, prompt or script, schedule and duplicate-run behavior. Run
 status appears next to the button, and saved entries refresh automatically.
+Entry time and day settings save after a short pause or when leaving the field.
+The inputs remain editable while saving. Failed saves preserve the draft and
+offer a retry; conflicting revisions require an explicit decision.
 Opening another date never launches a plan for today by accident. Clearing
 either setting hides the control. No automation is created or run by setup.
+
+A script planner can report a no-op with a single JSON output object containing
+`kind: "247c-day-planner"`, an ISO `date`, and `outcome: "already-planned"` or
+`"already-running"`. The panel shows a readable explanation for these outcomes.
+Legacy runs skipped with `wakeAgent false` show a neutral message because their
+original reason was not retained.
 
 ## Corporate source-read policy
 
