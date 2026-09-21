@@ -423,3 +423,24 @@ it("queues a completion click while the time field is saving", async () => {
   await act(async () => { release(); });
   await waitFor(() => expect(days.get(item.id)).toMatchObject({ reportedMinutes: 30, state: "done" }));
 });
+
+it("hides removed entries immediately and after reopening, with optional restoration and preserved reported time", async () => {
+  const { task, days, item, mount } = await setup();
+  days.edit({ id: item.id, revision: item.revision, plannedMinutes: 60, reportedMinutes: 30, requestId: randomUUID() });
+  const slot = mount(`day/${item.date}`);
+  fireEvent.click(await slot.findByRole("button", { name: "Remove from day" }));
+  await waitFor(() => expect(slot.queryByRole("article", { name: `Day entry: ${task.title}` })).toBeNull());
+  expect(slot.queryByRole("button", { name: "Restore to day" })).toBeNull();
+  expect(slot.getByText("The plan is empty. Add tasks or check the calendar.")).toBeTruthy();
+  expect(days.get(item.id)).toMatchObject({ removed: true, reportedMinutes: 30 });
+  expect(days.day(item.date).totals).toMatchObject({ plannedMinutes: 0, reportedMinutes: 30 });
+  slot.lifecycle.unmount();
+  const reopened = mount(`day/${item.date}`);
+  const toggle = await reopened.findByRole("checkbox", { name: "Show removed (1)" });
+  expect(reopened.queryByRole("article", { name: `Day entry: ${task.title}` })).toBeNull();
+  fireEvent.click(toggle);
+  fireEvent.click(await reopened.findByRole("button", { name: "Restore to day" }));
+  await waitFor(() => expect(days.get(item.id).removed).toBe(false));
+  expect(await reopened.findByRole("article", { name: `Day entry: ${task.title}` })).toBeTruthy();
+  expect(days.day(item.date).totals).toMatchObject({ plannedMinutes: 60, reportedMinutes: 30 });
+});
