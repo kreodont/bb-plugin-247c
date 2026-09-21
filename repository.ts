@@ -11,7 +11,8 @@ import type { FactKind, StewardProposalDraft, TaskRecord } from "./core/types.js
 import { extractionRefMap, partitionParts, pickChanges, pickExtraction, proposalParts, receiptDraft } from "./proposal-parts.js";
 import { DAY_SCHEMA } from "./day-schema.js";
 import { AGENT_TIME_SCHEMA } from "./agent-time-schema.js";
-import { taskSourceLinks } from "./task-sources.js";
+import { sourceUrl, taskSourceLinks } from "./task-sources.js";
+import type { TaskSourceLink } from "./contracts.js";
 import { sessionSchema, sessionUpdateSchema, transcriptSchema, knowledgeEntrySchema, fileKnowledgeEntrySchema, knowledgeImportSchema, syncCandidateSchema, type Dossier, type Session, type TaskCard, type Transcript, type Extraction, type KnowledgeEntry, type KnowledgeImport, type PartDecision, type PartReview } from "./contracts.js";
 
 export const EXTRA_SCHEMA = [
@@ -39,6 +40,7 @@ export const EXTRA_SCHEMA = [
    INSERT INTO task_views(task_id,seen_revision) SELECT id,revision FROM tasks;`,
   `CREATE TABLE part_reviews (kind TEXT NOT NULL, id TEXT NOT NULL, value_json TEXT NOT NULL, PRIMARY KEY(kind,id))`,
   ...AGENT_TIME_SCHEMA,
+  `CREATE TABLE task_source_preferences (task_id TEXT PRIMARY KEY REFERENCES tasks(id), url TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1)`,
 ];
 export const ACTIVE = new Set<Session["status"]>(["starting", "working", "collecting", "review_starting", "reviewing", "repair_starting"]);
 export const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -69,11 +71,14 @@ export class Repository {
     });
   }
 
-  create(input: { title: string; description: string; requestId: string }): TaskRecord {
+  create(input: { title: string; description: string; primarySourceUrl?: string | null; requestId: string }): TaskRecord {
     const result = this.request(input.requestId, { kind: "create", ...input }, () => {
+      const url = input.primarySourceUrl ? sourceUrl(input.primarySourceUrl)?.href : null;
+      if (input.primarySourceUrl && !url) throw new PolicyError("Invalid primary source URL.");
       const task = this.kernel.createTask({ title: input.title });
       this.db.prepare("INSERT INTO planning(task_id) VALUES (?)").run(task.id);
-      if (input.description) this.kernel.appendFact({ taskId: task.id, kind: "description", text: input.description, source: "human:bb" });
+      if (input.description || url) this.kernel.appendFact({ taskId: task.id, kind: "description", text: input.description || `Task source: ${url}`, source: "human:bb", sourceRef: url ?? undefined });
+      if (url) this.db.prepare("INSERT INTO task_source_preferences(task_id,url) VALUES (?,?)").run(task.id, url);
       return this.kernel.getTask(task.id);
     });
     this.changed();
@@ -155,7 +160,33 @@ export class Repository {
     const acceptedSources = this.db.prepare("SELECT value_json FROM source_sync_candidates WHERE task_id=? AND status='applied' ORDER BY rowid").iterate(taskId) as Iterable<{ value_json: string }>;
     function* sources() { for (const row of acceptedSources) yield syncCandidateSchema.parse(JSON.parse(row.value_json)); }
     const sourceLinks = taskSourceLinks({ ...dossier, proposals }, sources());
-    return { ...dossier, planning: this.planning(taskId), proposals, sessions: this.sessions(taskId), events, brief: this.kernel.prepareBrief(taskId).markdown, sessionUpdates, syncUpdates, sourceLinks };
+    return { ...dossier, planning: this.planning(taskId), proposals, sessions: this.sessions(taskId), events, brief: this.kernel.prepareBrief(taskId).markdown, sessionUpdates, syncUpdates, sourceLinks, ...this.sourceSelection(taskId, sourceLinks) };
+  }
+
+  sourceSelection(taskId: string, links: TaskSourceLink[]) {
+    const saved = this.db.prepare("SELECT url,revision FROM task_source_preferences WHERE task_id=?").get(taskId) as { url: string; revision: number } | undefined;
+    return { primarySource: links.find(link => link.url === saved?.url) ?? links[0] ?? null, sourceRevision: saved?.revision ?? 0 };
+  }
+
+  initializePrimarySource(taskId: string) {
+    const primary = this.detail(taskId).primarySource;
+    if (primary) this.db.prepare("INSERT OR IGNORE INTO task_source_preferences(task_id,url) VALUES (?,?)").run(taskId, primary.url);
+  }
+
+  // Selecting an already accepted source is a navigation preference, independent
+  // of task revisions and approvals. A stale window cannot overwrite a choice.
+  setPrimarySource(input: { taskId: string; url: string; revision: number; requestId: string }) {
+    const result = this.request(input.requestId, { kind: "primary-source", input }, () => {
+      const dossier = this.detail(input.taskId);
+      if (dossier.sourceRevision !== input.revision) throw new ConflictError("The primary source changed in another window. Refresh the task.");
+      const url = sourceUrl(input.url)?.href;
+      if (!url || !dossier.sourceLinks.some(link => link.url === url)) throw new PolicyError("Choose a source already accepted for this task.");
+      this.db.prepare(`INSERT INTO task_source_preferences(task_id,url) VALUES (?,?)
+        ON CONFLICT(task_id) DO UPDATE SET url=excluded.url,revision=revision+1 WHERE url!=excluded.url`).run(input.taskId, url);
+      return this.sourceSelection(input.taskId, dossier.sourceLinks);
+    });
+    this.changed();
+    return result;
   }
 
   markSeen(taskId: string, revision: number) {

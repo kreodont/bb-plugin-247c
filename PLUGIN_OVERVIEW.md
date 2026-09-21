@@ -20,6 +20,8 @@ Reviews can propose title, status, urgency and importance alongside other dossie
 
 **Reported today** in a linked thread opens today's Day Plan at the task, ready to enter time. Missing rows are added without inventing reported hours. **Return to thread** saves edits and returns to the same conversation.
 
+**Source** in the thread header opens the task's primary message, issue or document. Set a source when creating a task, or choose **Make primary** beside an accepted source in its dossier. Source proposals select an original source when accepted; existing tasks also get the shortcut from their saved sources.
+
 Each computer has a separate database. Accounts and sources are configured locally. The backup utility captures a consistent SQLite snapshot, code, settings and related chat text. Recovery verifies checksums and writes a new directory. Requires Python 3.11 or newer.
 
 Local collectors can feed Teams, Outlook and ClickUp findings into the same

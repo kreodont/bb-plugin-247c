@@ -117,6 +117,11 @@ export default async function plugin(bb: BbPluginApi) {
         date, timeZone: days.timeZone, minutes: item?.reportedMinutes ?? null, estimated: item?.reportedMode === "estimate" && item.reportedMinutes !== null,
       } };
     },
+    threadSource: ({ threadId }) => {
+      const session = repo.forThread(threadId);
+      return { source: session ? repo.detail(session.taskId).primarySource : null };
+    },
+    setPrimarySource: (input) => repo.setPrimarySource(input),
     create: (input) => repo.create(input),
     note: (input) => repo.note(input),
     classify: (input) => repo.classify(input),
@@ -254,7 +259,7 @@ export default async function plugin(bb: BbPluginApi) {
     },
   });
   bb.agents.registerTool({
-    name: "c247_create", description: "Create a 247C task when the user asks to record a task. Use one stable UUID requestId per user request. Does not start workers, import projects, or send messages.",
+    name: "c247_create", description: "Create a 247C task when the user asks to record a task. Include primarySourceUrl when the request identifies its originating message, issue or document. Use one stable UUID requestId per user request. Does not start workers, import projects, or send messages.",
     instructions: "Use 247C for the user's durable personal tasks. A task outlives its BB work sessions. Do not create tasks from incidental discussion or external content without user intent. Results update the dossier only through proposals approved by the user in the 247C panel.",
     parameters: rpcContract.create.input,
     execute(input, ctx) { independentCaller(ctx.threadId); return boundedJson(repo.create(input)); },

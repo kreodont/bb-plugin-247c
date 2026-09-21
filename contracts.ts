@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { defineRpcContract, type NewThreadRequest } from "@get-bb/plugin-sdk";
 import { dayDateSchema, dayMinutesSchema, dayRpcContract } from "./day-contracts.js";
+import { sourceUrl } from "./task-sources.js";
 
 export const idSchema = z.string().min(1).max(120);
 export const revisionSchema = z.number().int().nonnegative();
@@ -177,7 +178,9 @@ export const syncCandidateSchema = syncDraftSchema.extend({
 });
 export const sessionUpdateSchema = z.object({ proposalId: idSchema, sessionId: idSchema, threadId: idSchema, extraction: extractionSchema, reportedTimeContext: sessionTimeContextSchema.optional(), warnings: z.array(z.string()), speakers: z.record(z.string(), z.enum(["user", "assistant", "context"])).default({}), sources: z.record(z.string(), z.object({ threadId: idSchema, messageRef: idSchema })).default({}) });
 export const taskSourceLinkSchema = z.object({ url: z.url().max(4096), label: z.string(), occurredAt: z.string().nullable(), origin: z.boolean() });
-export const dossierSchema = z.object({ task: taskSchema, projection: projectionSchema, facts: z.array(factSchema), planning: planningSchema, proposals: z.array(proposalViewSchema), sessions: z.array(sessionSchema), events: z.array(eventSchema), brief: z.string(), sessionUpdates: z.array(sessionUpdateSchema).default([]), syncUpdates: z.array(syncCandidateSchema).default([]), sourceLinks: z.array(taskSourceLinkSchema).default([]) });
+const sourceUrlSchema = z.string().trim().max(4096).refine(value => !!sourceUrl(value), "Use an HTTP or HTTPS source URL without embedded credentials.");
+export const sourceSelectionSchema = z.object({ primarySource: taskSourceLinkSchema.nullable(), sourceRevision: revisionSchema });
+export const dossierSchema = z.object({ task: taskSchema, projection: projectionSchema, facts: z.array(factSchema), planning: planningSchema, proposals: z.array(proposalViewSchema), sessions: z.array(sessionSchema), events: z.array(eventSchema), brief: z.string(), sessionUpdates: z.array(sessionUpdateSchema).default([]), syncUpdates: z.array(syncCandidateSchema).default([]), sourceLinks: z.array(taskSourceLinkSchema).default([]), primarySource: taskSourceLinkSchema.nullable().default(null), sourceRevision: revisionSchema.default(0) });
 export const reviewDossierSchema = dossierSchema.pick({ task: true, projection: true, planning: true, facts: true, sessionUpdates: true }).extend({
   sessions: z.array(sessionSchema.pick({ id: true, status: true, discussionProposalId: true })),
 });
@@ -246,7 +249,9 @@ export const rpcContract = defineRpcContract({
   reviewParts: { input: partDecisionSchema, output: partDecisionResultSchema },
   detail: { input: z.object({ id: idSchema }).strict(), output: dossierSchema },
   threadSession: { input: z.object({ threadId: idSchema }).strict(), output: z.object({ session: sessionSchema.pick({ id: true, taskId: true, workerThreadId: true, mode: true, status: true }).nullable(), reportedToday: z.object({ date: dayDateSchema, timeZone: z.string().optional(), minutes: dayMinutesSchema, estimated: z.boolean() }).optional() }) },
-  create: { input: z.object({ title: z.string().trim().min(1).max(200), description: z.string().trim().max(12000).default(""), requestId: z.uuid() }).strict(), output: taskSchema },
+  threadSource: { input: z.object({ threadId: idSchema }).strict(), output: z.object({ source: taskSourceLinkSchema.nullable() }) },
+  setPrimarySource: { input: z.object({ taskId: idSchema, url: sourceUrlSchema, revision: revisionSchema, requestId: z.uuid() }).strict(), output: sourceSelectionSchema },
+  create: { input: z.object({ title: z.string().trim().min(1).max(200), description: z.string().trim().max(12000).default(""), primarySourceUrl: sourceUrlSchema.nullable().optional(), requestId: z.uuid() }).strict(), output: taskSchema },
   note: { input: z.object({ taskId: idSchema, revision: revisionSchema, kind: factKindSchema, text, requestId: z.uuid() }).strict(), output: factSchema },
   classify: { input: z.object({ taskId: idSchema, revision: revisionSchema, urgent: axisSchema, important: axisSchema }).strict(), output: planningSchema },
   status: { input: z.object({ taskId: idSchema, revision: revisionSchema, status: statusSchema }).strict(), output: taskSchema },

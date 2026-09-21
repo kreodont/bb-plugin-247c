@@ -3,6 +3,7 @@ import { proposalParts, sourceParts } from "./proposal-parts.js";
 import { usePartSelection, PartReviewNote, partOutcome } from "./review-parts-ui.js";
 import { TaskViewMarker } from "./task-view-marker.js";
 import { TaskSources } from "./task-sources-ui.js";
+import { sourceUrl } from "./task-sources.js";
 import { NavigationFrame } from "./navigation.js";
 import { deskRoute, taskDayPath, withThread } from "./desk-routes.js";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -129,6 +130,23 @@ function ThreadTaskAction(props: PluginThreadHeaderActionProps) {
   return <ThreadSessionControl key={props.threadId} {...props} action="task" />;
 }
 
+function ThreadSource({ threadId, isCompactViewport }: PluginThreadHeaderActionProps) {
+  const rpc = useRpc<typeof rpcContract>();
+  const load = useCallback(() => rpc.call("threadSource", { threadId }), [rpc, threadId]);
+  const { data, error } = useSnapshot(load);
+  const source = data?.source;
+  if (error || !source || !sourceUrl(source.url)) return null;
+  return <Button asChild size="sm" variant="outline" className={cn("h-7 shrink-0", isCompactViewport ? "w-7 px-0" : "px-2")}>
+    <a href={source.url} target="_blank" rel="noopener noreferrer" title={`Primary source · ${source.label}\n${source.url}`} aria-label={`Open primary source: ${source.label}`}>
+      <Icon name="ExternalLink" aria-hidden="true" />{!isCompactViewport && "Source"}
+    </a>
+  </Button>;
+}
+
+function ThreadSourceAction(props: PluginThreadHeaderActionProps) {
+  return <ThreadSource key={props.threadId} {...props} />;
+}
+
 function ThreadReportedTime({ threadId, isCompactViewport }: PluginThreadHeaderActionProps) {
   const rpc = useRpc<typeof rpcContract>();
   const navigate = useBbNavigate();
@@ -186,6 +204,7 @@ function CreateTask({ done, cancel }: { done: (id: string) => void; cancel: () =
   const rpc = useRpc<typeof rpcContract>();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [primarySourceUrl, setPrimarySourceUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requestId = useRef(crypto.randomUUID());
@@ -193,7 +212,7 @@ function CreateTask({ done, cancel }: { done: (id: string) => void; cancel: () =
     event.preventDefault();
     if (!title.trim() || busy) return;
     setBusy(true); setError(null);
-    try { const task = await rpc.call("create", { title, description, requestId: requestId.current }); done(task.id); }
+    try { const task = await rpc.call("create", { title, description, ...(primarySourceUrl.trim() ? { primarySourceUrl: primarySourceUrl.trim() } : {}), requestId: requestId.current }); done(task.id); }
     catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { setBusy(false); }
   }
@@ -203,6 +222,9 @@ function CreateTask({ done, cancel }: { done: (id: string) => void; cancel: () =
     <Input id="task-title" autoFocus required maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="For example, prepare a moving plan" />
     <label className="mb-1.5 mt-4 block text-sm" htmlFor="task-context">What should we know? <span className="text-muted-foreground">· optional</span></label>
     <textarea id="task-context" className={textareaClass} rows={3} maxLength={12000} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Why this matters, what you already know, and any constraints…" />
+    <label className="mb-1.5 mt-4 block text-sm" htmlFor="task-source">Primary source <span className="text-muted-foreground">· optional</span></label>
+    <Input id="task-source" type="url" maxLength={4096} value={primarySourceUrl} onChange={e => setPrimarySourceUrl(e.target.value)} placeholder="https://…" aria-describedby="task-source-help" />
+    <p id="task-source-help" className="mt-1.5 text-xs text-muted-foreground">Link to the original message, issue or document. Available directly from linked threads.</p>
     <div className="mt-4"><ErrorNotice error={error} /></div>
     <div className="mt-4 flex justify-end gap-2"><Button type="button" variant="ghost" onClick={cancel} disabled={busy}>Cancel</Button><Button type="submit" disabled={busy || !title.trim()}>{busy ? "Saving…" : "Create task"}</Button></div>
   </form>;
@@ -554,7 +576,8 @@ function TaskPage({ taskId, returnTo, threadId }: { taskId: string; returnTo?: s
   return <div className="relative h-full min-h-0 overflow-y-auto"><TaskViewMarker id={dossier.task.id} revision={dossier.task.revision} /><div className="mx-auto max-w-6xl space-y-5 p-5 md:p-8">
     <Button variant="ghost" size="sm" className="-ml-3" onClick={() => navigate.toPluginPanel("desk", { subPath: withThread(returnTo ?? "", threadId) })}><Icon name="ChevronLeft" /> {backLabel}</Button>
     <div className="flex flex-wrap items-start justify-between gap-4"><div className="min-w-0 flex-1"><div className="mb-2 flex items-center gap-2"><Pill>{dossier.task.status === "open" ? "Open" : dossier.task.status === "done" ? "Done" : "Archived"}</Pill><span className="text-xs text-muted-foreground">Revision {dossier.task.revision}</span></div><h1 className="break-words text-2xl font-medium leading-snug tracking-tight">{dossier.task.title}</h1></div><div className="flex gap-2">{dossier.task.status === "open" ? <><Button variant="outline" size="sm" disabled={busy || active} onClick={() => void action(() => rpc.call("status", { taskId, status: "done", revision: dossier.task.revision }))}><Icon name="Check" /> Complete</Button><Button variant="ghost" size="icon" aria-label="Archive task" disabled={busy || active} onClick={() => void action(() => rpc.call("status", { taskId, status: "archived", revision: dossier.task.revision }))}><Icon name="Archive" /></Button></> : <Button variant="outline" size="sm" disabled={busy} onClick={() => void action(() => rpc.call("status", { taskId, status: "open", revision: dossier.task.revision }))}>Reopen task</Button>}</div></div>
-    <TaskSources key={taskId} links={dossier.sourceLinks} />
+    <TaskSources key={taskId} links={dossier.sourceLinks} primaryUrl={dossier.primarySource?.url} busy={busy}
+      onPrimary={url => void action(() => rpc.call("setPrimarySource", { taskId, url, revision: dossier.sourceRevision, requestId: crypto.randomUUID() }))} />
     <TaskTimeSummary taskId={taskId} threadId={threadId} initialDate={returnTo?.match(/\d{4}-\d{2}-\d{2}/)?.[0]} />
     <div role="tablist" aria-label="Task sections" className="flex gap-1 overflow-x-auto border-b border-border">{([{ id: "overview", name: "Dossier" }, { id: "work", name: "Work" }, { id: "proposals", name: `Proposals${pendingCount ? ` · ${pendingCount}` : ""}` }, { id: "history", name: "History" }] as const).map((item) => <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} onClick={() => { setDiscussionId(null); setTab(item.id); }} className={cn("whitespace-nowrap border-b-2 px-4 py-3 text-sm transition-colors", tab === item.id ? "border-foreground font-medium" : "border-transparent text-muted-foreground hover:text-foreground")}>{item.name}</button>)}</div>
     <ErrorNotice error={mutationError ?? error} retry={() => void refresh()} />
@@ -738,6 +761,7 @@ function SidebarCount() {
 export default definePluginApp((app) => {
   app.slots.navPanel({ id: "desk", title: "247C", icon: "Target", path: "desk", component: Page, experimental_sidebarAccessory: SidebarCount });
   app.slots.experimental_threadHeaderAction({ id: "task", title: "247C task", component: ThreadTaskAction });
+  app.slots.experimental_threadHeaderAction({ id: "source", title: "247C primary source", component: ThreadSourceAction });
   app.slots.experimental_threadHeaderAction({ id: "reported", title: "247C reported today", component: ThreadReportedAction });
   app.slots.experimental_threadHeaderAction({ id: "session", title: "247C session", component: ThreadSessionAction });
 });

@@ -17,7 +17,7 @@ const hosts: Awaited<ReturnType<typeof fixture>>[] = [];
 beforeAll(async () => { app = await loadPluginApp(() => import("./app.js")); }, 60000);
 afterEach(async () => { for (const m of mounts.splice(0)) m.lifecycle.unmount(); for (const f of hosts.splice(0)) await f.harness.lifecycle.dispose(); vi.restoreAllMocks(); vi.useRealTimers(); });
 async function setup(taskId?: string, supplied?: Awaited<ReturnType<typeof fixture>>) {
-  const f = supplied ?? await fixture(); hosts.push(f);
+  const f = supplied ?? await fixture(); if (!hosts.includes(f)) hosts.push(f);
   const rpc = Object.fromEntries(Object.keys(rpcContract).map((name) => [name, (input: unknown) => f.harness.behavior.callRpc(name, input)]));
   const slot = renderSlot(app.navPanels[0], { subPath: taskId ?? "" }, { rpc });
   mounts.push(slot);
@@ -240,13 +240,75 @@ it("disables stale source proposals and shows source failures without a successf
   expect(slot.getByText(/The dossier changed after this check/)).toBeTruthy();
 });
 
-function setupThread(f: Awaited<ReturnType<typeof fixture>>, threadId: string, isCompactViewport = false, action: "task" | "session" | "reported" = "session") {
+function setupThread(f: Awaited<ReturnType<typeof fixture>>, threadId: string, isCompactViewport = false, action: "task" | "session" | "reported" | "source" = "session") {
   if (!hosts.includes(f)) hosts.push(f);
   const rpc = Object.fromEntries(Object.keys(rpcContract).map((name) => [name, (input: unknown) => f.harness.behavior.callRpc(name, input)]));
   const slot = renderSlot(app.threadHeaderActions.find(slot => slot.id === action)!, { threadId, projectId: "proj_personal", isCompactViewport }, { rpc });
   mounts.push(slot);
   return slot;
 }
+
+it("opens the primary source directly from full and compact headers and follows a new selection", async () => {
+  const f = await fixture();
+  const url = "https://example.slack.com/archives/C123/p1234567890000000";
+  const task = f.repo.create({ title: "Source navigation", description: "", primarySourceUrl: url, requestId: randomUUID() });
+  const session = await f.start(task.id, task.revision);
+  const worker = setupThread(f, session.workerThreadId!, false, "source");
+  f.repo.saveSession({ ...session, reviewerThreadId: "review-source-thread" });
+  const reviewer = setupThread(f, "review-source-thread", true, "source");
+  for (const header of [worker, reviewer]) {
+    const link = await within(header.container).findByRole("link", { name: "Open primary source: Slack message" });
+    expect(link.getAttribute("href")).toBe(url);
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+  }
+  expect(within(worker.container).getByText("Source")).toBeTruthy();
+  expect(within(reviewer.container).queryByText("Source")).toBeNull();
+  const next = "https://example.atlassian.net/browse/APP-42";
+  f.repo.kernel.appendFact({ taskId: task.id, kind: "description", text: "Related issue", source: "imported", sourceRef: next });
+  const { slot } = await setup(task.id, f);
+  const button = await within(slot.container).findByRole("button", { name: `Make primary source: Jira · APP-42 (${next})` });
+  const revision = f.repo.kernel.getTask(task.id).revision;
+  fireEvent.click(button);
+  await waitFor(() => expect(f.repo.detail(task.id).primarySource?.url).toBe(next));
+  expect(f.repo.kernel.getTask(task.id).revision).toBe(revision);
+  await worker.behavior.emitRealtime("desk-changed", {});
+  expect((await within(worker.container).findByRole("link", { name: "Open primary source: Jira · APP-42" })).getAttribute("href")).toBe(next);
+  expect(worker.inspection.navigateCalls).toHaveLength(0);
+});
+
+it("omits the source shortcut for unlinked threads, missing sources, unsafe URLs and failed refreshes", async () => {
+  const f = await fixture(), task = await f.create(), session = await f.start(task.id, task.revision);
+  const header = setupThread(f, session.workerThreadId!, false, "source");
+  await waitFor(() => expect(header.inspection.rpcCalls.some(call => call.method === "threadSource")).toBe(true));
+  expect(within(header.container).queryByRole("link")).toBeNull();
+  f.repo.kernel.appendFact({ taskId: task.id, kind: "description", text: "Unsafe", source: "imported", sourceRef: "javascript:alert(1)" });
+  await header.behavior.emitRealtime("desk-changed", {});
+  expect(within(header.container).queryByRole("link")).toBeNull();
+  f.repo.kernel.appendFact({ taskId: task.id, kind: "description", text: "Safe", source: "imported", sourceRef: "https://example.com/source" });
+  await header.behavior.emitRealtime("desk-changed", {});
+  await within(header.container).findByRole("link");
+  const rpc = vi.spyOn(f.harness.behavior, "callRpc").mockRejectedValue(new Error("Temporarily unavailable"));
+  await header.behavior.emitRealtime("desk-changed", {});
+  await waitFor(() => expect(within(header.container).queryByRole("link")).toBeNull());
+  rpc.mockRestore();
+  await header.behavior.setRealtimeConnectionState("connected");
+  await header.behavior.emitRealtime("desk-changed", {});
+  await within(header.container).findByRole("link");
+  const unrelated = setupThread(f, "unrelated-thread", false, "source");
+  await waitFor(() => expect(unrelated.inspection.rpcCalls.some(call => call.method === "threadSource")).toBe(true));
+  expect(within(unrelated.container).queryByRole("link")).toBeNull();
+});
+
+it("accepts a primary source in the new task form", async () => {
+  const { f, slot } = await setup();
+  fireEvent.click(await slot.findByRole("button", { name: "New task" }));
+  fireEvent.change(slot.getByLabelText("What result do you need?"), { target: { value: "Review the request" } });
+  fireEvent.change(slot.getByLabelText(/Primary source/), { target: { value: "https://example.com/request" } });
+  fireEvent.click(slot.getByRole("button", { name: "Create task" }));
+  await waitFor(() => expect(f.repo.list().total).toBe(1));
+  expect(f.repo.detail(f.repo.list().tasks[0].id).primarySource?.url).toBe("https://example.com/request");
+});
 
 it("shows today's task report in all linked headers, refreshes manual changes and excludes other tasks and dates", async () => {
   vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-09-15T09:00:00Z"));

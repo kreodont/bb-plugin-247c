@@ -484,6 +484,7 @@ ${errors.join("\n").slice(0, 16000)}`);
         this.repo.db.prepare("INSERT INTO task_facts VALUES (?,?,?,?,?,?,?,?)").run(`sync:${candidate.id}:${index}`, taskId, fact.kind, fact.text, `approved-external-sync:${proposal.id}`, citation.url, citation.occurredAt, timestamp);
       }
       this.saveCandidate({ ...candidate, status: "applied", resolvedAt: timestamp, proposalId: proposal.id, resultTaskId: taskId });
+      if (!candidate.taskId) this.repo.initializePrimarySource(taskId);
       return this.repo.detail(taskId);
     });
     this.repo.changed(); return result;
