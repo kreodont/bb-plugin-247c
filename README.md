@@ -14,6 +14,8 @@ bb plugin install git:https://github.com/kreodont/bb-plugin-247c.git@main
 
 The package includes source code and a ready build. It contains no author tasks, history, accounts or personal settings. **247C** appears in the sidebar with an empty database. Configure Gmail, Slack, Jira and calendar access separately; tasks, dossiers and conversations work without those integrations. The interface and public documentation are in English. Existing task content and conversations retain their original language.
 
+Click the proposal count beside **247C** in the sidebar to open **Proposals** directly. The count also works with Enter or Space when focused; the panel options menu remains available to its right.
+
 - [Local configuration and update patches](docs/local-configuration.md)
 - [Source configuration](docs/sources.md)
 - [Setup-agent guide and local read permissions](docs/setup-agent.md)

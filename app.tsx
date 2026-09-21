@@ -4,6 +4,7 @@ import { usePartSelection, PartReviewNote, partOutcome } from "./review-parts-ui
 import { TaskViewMarker } from "./task-view-marker.js";
 import { TaskSources } from "./task-sources-ui.js";
 import { sourceUrl } from "./task-sources.js";
+import { mountSidebarShortcut } from "./sidebar-shortcut.js";
 import { NavigationFrame } from "./navigation.js";
 import { deskRoute, taskDayPath, withThread } from "./desk-routes.js";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -764,18 +765,20 @@ function SidebarReported() {
 
 function SidebarCount() {
   const rpc = useRpc<typeof rpcContract>();
+  const navigate = useBbNavigate();
   const load = useCallback(() => rpc.call("list", { history: false }), [rpc]);
   const { data } = useSnapshot(load);
   const pendingLabel = `Proposals awaiting a decision: ${data?.pendingTotal ?? 0}`;
   // BB clips this accessory to 4rem × 1.25rem. Keep the proposal signal
   // first and non-shrinking; longer task counts yield space to reported time.
   return <span className="inline-flex w-16 min-w-0 max-w-full items-center justify-end gap-0.5 whitespace-nowrap leading-4">
-    {data && data.pendingTotal > 0 && <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-orange-500/20 font-mono text-[9px] font-semibold leading-none tabular-nums text-orange-700 dark:text-orange-300" title={pendingLabel} aria-label={pendingLabel}>{data.pendingTotal > 9 ? "9+" : data.pendingTotal}</span>}
+    {data && data.pendingTotal > 0 && <button type="button" data-c247-proposals-shortcut="" className="inline-flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-full bg-orange-500/20 font-mono text-[9px] font-semibold leading-none tabular-nums text-orange-700 hover:bg-orange-500/35 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-orange-500 dark:text-orange-300" title={`${pendingLabel}. Open Proposals`} aria-label={pendingLabel} onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); navigate.toPluginPanel("desk", { subPath: "proposals" }); }}>{data.pendingTotal > 9 ? "9+" : data.pendingTotal}</button>}
     {data && data.total > 0 && <span className="min-w-0 truncate font-mono text-[10px] tabular-nums text-muted-foreground" title={`Open tasks: ${data.total}`}>{data.total}</span>}
     <SidebarReported />
   </span>;
 }
 export default definePluginApp((app) => {
+  app.contentScripts.register({ id: "sidebar-proposals-shortcut", mount: mountSidebarShortcut });
   app.slots.navPanel({ id: "desk", title: "247C", icon: "Target", path: "desk", component: Page, experimental_sidebarAccessory: SidebarCount });
   app.slots.experimental_threadHeaderAction({ id: "task", title: "247C task", component: ThreadTaskAction });
   app.slots.experimental_threadHeaderAction({ id: "source", title: "247C primary source", component: ThreadSourceAction });
