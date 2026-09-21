@@ -450,8 +450,25 @@ function ProposalRecovery({ proposalId, revision, parts, all, busy, action }: { 
 
 const axisName = (value: boolean | null) => value === null ? "Not selected" : value ? "Yes" : "No";
 
-function Axis({ label, value, disabled, change }: { label: string; value: boolean | null; disabled: boolean; change: (v: boolean | null) => void }) {
-  return <label className="flex min-w-40 flex-1 items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-sm"><span className="text-muted-foreground">{label}</span><select aria-label={label} disabled={disabled} className="max-w-36 bg-transparent text-sm focus-visible:outline-none" value={value === null ? "unknown" : value ? "yes" : "no"} onChange={(e) => change(e.target.value === "unknown" ? null : e.target.value === "yes")}><option value="unknown">Not selected</option><option value="yes">Yes</option><option value="no">No</option></select></label>;
+const priorityOptions = [
+  { color: "Green", label: "Neither urgent nor important", urgent: false, important: false, style: "border-green-500/50 bg-green-500/25 text-green-800 hover:bg-green-500/40 dark:text-green-200" },
+  { color: "Yellow", label: "Important, not urgent", urgent: false, important: true, style: "border-yellow-500/50 bg-yellow-500/25 text-yellow-800 hover:bg-yellow-500/40 dark:text-yellow-200" },
+  { color: "Orange", label: "Urgent, not important", urgent: true, important: false, style: "border-orange-500/50 bg-orange-500/25 text-orange-800 hover:bg-orange-500/40 dark:text-orange-200" },
+  { color: "Red", label: "Urgent and important", urgent: true, important: true, style: "border-red-500/50 bg-red-500/25 text-red-800 hover:bg-red-500/40 dark:text-red-200" },
+] as const;
+
+function PriorityButtons({ planning, disabled, change }: { planning: Dossier["planning"]; disabled: boolean; change: (urgent: boolean, important: boolean) => void }) {
+  const selected = priorityOptions.find(option => option.urgent === planning.urgent && option.important === planning.important);
+  return <div role="group" aria-label="Priority" aria-busy={disabled} className="space-y-2">
+    <div className="grid grid-cols-4 gap-2">{priorityOptions.map(option => <span key={option.color} title={`${option.color}: ${option.label}`}>
+      <Button type="button" variant="outline" className={cn("h-10 w-full min-w-0 px-0", option.style, selected === option && "ring-2 ring-foreground ring-offset-2 ring-offset-background")}
+        aria-label={`${option.color}: ${option.label}`} aria-pressed={selected === option} disabled={disabled}
+        onClick={() => { if (selected !== option) change(option.urgent, option.important); }}>
+        {selected === option && <Icon name="Check" aria-hidden="true" />}
+      </Button>
+    </span>)}</div>
+    <p className="text-xs text-muted-foreground" aria-live="polite">{selected?.label ?? "Not classified"}</p>
+  </div>;
 }
 
 function TaskOverview({ dossier, action, busy, showWork }: { dossier: Dossier; action: (fn: () => Promise<unknown>) => Promise<boolean>; busy: boolean; showWork: () => void }) {
@@ -472,7 +489,7 @@ function TaskOverview({ dossier, action, busy, showWork }: { dossier: Dossier; a
       {!closed && <form className="rounded-xl border border-border bg-card p-4" onSubmit={addNote}><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><label className="text-sm font-medium" htmlFor="new-note">Add context</label><select aria-label="Record type" className="rounded-md border border-input bg-transparent px-2 py-1 text-xs" value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>{Object.entries(factNames).filter(([key]) => key !== "artifact").map(([key, title]) => <option key={key} value={key}>{title}</option>)}</select></div><textarea id="new-note" rows={3} maxLength={12000} className={textareaClass} value={note} onChange={(e) => setNote(e.target.value)} placeholder="A fact, decision or important detail to keep…" /><div className="mt-3 flex justify-end"><Button size="sm" disabled={busy || !note.trim()} type="submit">Save record</Button></div>{active && <p className="mt-2 text-xs text-muted-foreground">A new record changes the dossier and stops a session using the old context.</p>}</form>}
       <section><div className="mb-3 flex items-center justify-between"><h2 className="text-sm font-medium">Context and decisions</h2><span className="text-xs text-muted-foreground">{dossier.facts.length} records</span></div>{dossier.facts.length === 0 ? <p className="text-sm text-muted-foreground">Important task details will be saved here.</p> : <ol className="space-y-3">{[...dossier.facts].reverse().map((fact) => <li key={fact.id} className="rounded-xl border border-border bg-card p-4"><div className="mb-2 flex justify-between gap-2 text-xs text-muted-foreground"><span>{factNames[fact.kind]}</span><time>{date(fact.createdAt)}</time></div><p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{fact.text}</p>{!closed && <div className="mt-2 flex flex-wrap justify-end gap-1"><Button variant="ghost" size="sm" disabled={busy} onClick={() => void proposeFact(fact, "summary")}>Propose as summary</Button>{["explicit_next_step", "user_instruction"].includes(fact.kind) && <Button variant="ghost" size="sm" disabled={busy} onClick={() => void proposeFact(fact, "nextStep")}>Propose as next step</Button>}</div>}</li>)}</ol>}</section>
     </div>
-    <aside className="space-y-5"><section className="space-y-2"><h2 className="mb-3 text-sm font-medium">Priority</h2><Axis label="Urgent" value={dossier.planning.urgent} disabled={busy} change={(urgent) => void action(() => rpc.call("classify", { taskId: dossier.task.id, ...dossier.planning, urgent }))} /><Axis label="Important" value={dossier.planning.important} disabled={busy} change={(important) => void action(() => rpc.call("classify", { taskId: dossier.task.id, ...dossier.planning, important }))} /></section>
+    <aside className="space-y-5"><section className="space-y-2"><h2 className="mb-3 text-sm font-medium">Priority</h2><PriorityButtons planning={dossier.planning} disabled={busy} change={(urgent, important) => void action(() => rpc.call("classify", { taskId: dossier.task.id, revision: dossier.planning.revision, urgent, important }))} /></section>
       <section className="rounded-xl border border-border p-4"><h2 className="mb-3 text-sm font-medium">Open questions</h2><div className="text-sm leading-relaxed"><DisplayValue value={dossier.projection.openQuestions} /></div></section>
       <section className="rounded-xl border border-border p-4"><h2 className="mb-3 text-sm font-medium">Blockers</h2><div className="text-sm leading-relaxed"><DisplayValue value={dossier.projection.blockers} /></div></section>
       <section className="rounded-xl border border-border p-4"><h2 className="mb-3 text-sm font-medium">Artifacts</h2>{!dossier.projection.artifacts.length ? <p className="text-sm text-muted-foreground">Available after accepting a result.</p> : <ul className="space-y-3">{dossier.projection.artifacts.map((artifact) => {
