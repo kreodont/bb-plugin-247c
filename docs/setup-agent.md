@@ -179,3 +179,12 @@ This separation applies even while the repository is private. Never copy an
 existing user's profile into a release or an example. Git ignore rules do not
 remove files that are already tracked: inspect the staged diff and tracked file
 list before committing or publishing.
+
+Script planners can use [planning_eligibility.py](../automation-prompts/planning_eligibility.py)
+to exclude explicit approval and response waits in the current accepted projection.
+Apply the check before model selection, when validating its result, and immediately
+before adding each task. A missing match does not establish authorization: the
+planning prompt must still require an actionable assignment for the relevant stage.
+Ignore historical waiting facts once current accepted context supersedes them, and
+invalidate cached plans when introducing this policy. Keep installation-specific
+scripts and task data in the local configuration area.
