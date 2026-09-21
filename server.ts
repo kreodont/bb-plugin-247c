@@ -9,6 +9,7 @@ import { connectCalendar } from "./source-connectors.js";
 import { randomUUID } from "node:crypto";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
+import { compatibleMigrations } from "./migration-compatibility.js";
 import { CORE_SCHEMA } from "./core/schema.js";
 import { PolicyError } from "./core/errors.js";
 import { rpcContract, draftSchema, idSchema, resultSchema, syncSubmitToolSchema, type SettingsView } from "./contracts.js";
@@ -50,7 +51,7 @@ export default async function plugin(bb: BbPluginApi) {
   let configuration = await settings.get();
   settings.onChange(next => { configuration = next; });
   db.pragma("foreign_keys = ON");
-  bb.storage.migrate(db, [CORE_SCHEMA, ...EXTRA_SCHEMA]);
+  bb.storage.migrate(db, compatibleMigrations(db, [CORE_SCHEMA, ...EXTRA_SCHEMA]));
   const changed = () => bb.realtime.publish("desk-changed", { at: Date.now() });
   const repo = new Repository(db, changed, () => configuration.timeZone);
   const getSettings = async (): Promise<SettingsView> => settings.get();

@@ -41,6 +41,8 @@ export const EXTRA_SCHEMA = [
   `CREATE TABLE part_reviews (kind TEXT NOT NULL, id TEXT NOT NULL, value_json TEXT NOT NULL, PRIMARY KEY(kind,id))`,
   ...AGENT_TIME_SCHEMA,
   `CREATE TABLE task_source_preferences (task_id TEXT PRIMARY KEY REFERENCES tasks(id), url TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1)`,
+  // Reserve index 34 for installations retaining the retired time migration at 33.
+  `SELECT 1`,
 ];
 export const ACTIVE = new Set<Session["status"]>(["starting", "working", "collecting", "review_starting", "reviewing", "repair_starting"]);
 export const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
