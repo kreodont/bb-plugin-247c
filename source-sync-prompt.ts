@@ -29,7 +29,8 @@ ${JSON.stringify(bundle.reports.map(({ callRefs: _refs, ...report }) => report))
 
 Compare findings with ALL tasks in the snapshot, including current nextStep, waiting states and links. Combine all sources for one issue into one proposal.
 ${PR_MATCHING_RULES}
-Update ONLY tasks with status=open; copy exact taskIds from the snapshot. Closed tasks are supplied only for matching and deduplication. Do not invent UUIDs or turn completed requests into new tasks.
+Copy exact taskIds from the snapshot. Normally update open tasks; apply the completed-task follow-up rule below when a new request concerns a done task. Do not invent UUIDs or turn completed requests into new tasks.
+${DONE_TASK_FOLLOW_UP_RULES}
 Reconcile new findings with the full pending proposals below, including proposals from missed earlier checks. A pending proposal may contain only the remainder of a human partial review. Its changes are the remaining fields; when recordFactIndexes is present, only those fact indexes remain proposed records and other facts are retained solely as evidence. Do not restore reviewed records merely because their quotes are still available. See the merge rules below. A revised result receives a new approval ID.
 If no matching task exists and there is a substantive open request to the user or clearly evidenced unfinished work owned by the user, propose a new task. Do not duplicate already proposed or closed issues.
 Do not propose changes without a relevant update. With a partial export, an absent reply or mention does not prove it never existed.
@@ -52,7 +53,7 @@ ${JSON.stringify(page)}
 
 export function syncInstructions(run: SyncRun, dossiers: TaskDossier[], previous: SyncCandidate[], config: SourceConfig = defaultSourceConfig, timeZone = DAY_TIME_ZONE): string {
   const tasks = dossiers.map((d) => ({
-    id: d.task.id, title: d.task.title, status: d.task.status, revision: d.task.revision,
+    id: d.task.id, title: d.task.title, status: d.task.status, revision: d.task.revision, updatedAt: d.task.updatedAt,
     urgent: d.planning.urgent, important: d.planning.important,
     summary: d.projection.summary, nextStep: d.projection.nextStep,
     blockers: d.projection.blockers, openQuestions: d.projection.openQuestions, artifacts: d.projection.artifacts,
@@ -123,6 +124,7 @@ Use links/keys to check its Gmail threads, Slack threads and Jira issues during 
 c247_read provides detailed context. If no link is available, search by Jira/SO/estimate number, subject and participant.
 If someone replied, a question was resolved or a specific next step emerged, propose nextStep/blockers changes while preserving other relevant context.
 Do not revive closed tasks based on old messages, acknowledgments or automatic notifications with no new substance.
+${DONE_TASK_FOLLOW_UP_RULES}
 Match stable Jira/SO/estimate keys, source links and participants first, then topics.
 Compare against ALL existing tasks and proposals before creating a new one. Do not duplicate one issue across tasks.
 ${PR_MATCHING_RULES}
@@ -152,7 +154,7 @@ Merge missed updates before submitting:
 - Accepted, rejected and superseded proposals cannot be merge parents. If review changes during this run, the server preserves that decision and rejects the stale replacement. Never recreate a rejected finding without a substantive new event.
 - Old proposals enter history only after a valid combined proposal is saved atomically. It still awaits human approval. Never claim that consolidation changed the tasks.
 
-{taskId: "exact id of an existing open task" or null, title: "title", rationale: "why this change is needed", confidence: 0..1, mergeCandidateIds:["pending proposal IDs being combined; omit for an unrelated new finding"],
+{taskId: "exact id of the matching task" or null, title: "title", rationale: "why this change is needed", confidence: 0..1, mergeCandidateIds:["pending proposal IDs being combined; omit for an unrelated new finding"],
  facts:[{kind:"progress|description|decision|explicit_next_step|open_question|blocker|constraint|artifact", text:"fact or proposed step in the user's preferred language",
  citations:[{callRef:"call:...",source:"gmail|slack|jira",url:"direct HTTPS link",messageId:"actual id from the call/response",
  occurredAt:"source message ISO timestamp with timezone",quote:"VERBATIM quote from the full thread or issue response"}]}],
@@ -185,6 +187,12 @@ REVIEWED UPDATE PROPOSALS (remember decisions; never merge these):
 ${JSON.stringify(remembered)}
 `;
 }
+
+const DONE_TASK_FOLLOW_UP_RULES = `COMPLETED-TASK FOLLOW-UPS
+A done task may receive a new substantive request after completion. Read the complete current source conversation, check for a later reply or resolution, and compare the new work with the accepted result. A direct mention with a new question, correction or requested check must not disappear solely because the related task is done.
+For new unresolved work belonging to that same task, propose status=open and a specific nextStep on its existing taskId. Both fields need fresh verified source facts from this check's interval (including the five-minute overlap), strictly after the task's saved updatedAt. Use progress/decision evidence for status and a matching explicit_next_step fact for the new action. Explain the new request in the rationale, preserve the completed work in the summary, and leave priority unchanged without new evidence. The user decides whether to reopen by accepting the proposal; never reopen directly or create a duplicate task for the same work.
+An existing still-pending follow-up can retain its unchanged, previously verified reopening evidence when merged under the normal merge rules; that request must still postdate the task's updatedAt. Do not lose its proposed reopening just because the user missed an earlier check.
+Old requests, reminders with no new substance, thanks, approval-only notifications and missing telemetry do not justify reopening. Archived tasks remain excluded. If a related request cannot be proposed safely, identify it and the reason in the final response instead of silently dropping it.`;
 
 const PR_MATCHING_RULES = `PULL REQUEST OWNERSHIP
 A pull request is usually an artifact or implementation step of a durable task, not a separate task for each review comment. Match its full repository and number, title, linked Jira issue and parent story, and the described work against ALL task summaries, next steps and artifacts. A PR may carry a parent-story key while the user's task has a different child-issue key; reconcile the actual scope rather than requiring identical titles or keys.

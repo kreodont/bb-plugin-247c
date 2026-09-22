@@ -8,6 +8,7 @@ import type { TaskDossier } from "./core/types.js";
 // Bump the version when analysis policy changes enough to require a fresh pass.
 export const sourceAnalysisSchema = z.object({
   version: z.literal(1), contextKey: z.string(),
+  doneFollowUpPolicy: z.literal(1).optional(),
   documents: z.record(z.string(), z.string()), selectedRefs: z.array(z.string()),
   tasks: z.record(z.string(), z.object({ key: z.string(), anchors: z.array(z.string()) })),
   dayWork: z.record(z.string(), z.string()), dayComplete: z.boolean(),
@@ -47,6 +48,11 @@ export function planSourceAnalysis(bundle: SourceExport, contextKey: string, wor
     return [dossier.task.id, { key: digest(dossier), anchors }];
   }));
   const changedAnchors: string[] = [];
+  // Revisit only completed-task sources once when adopting the follow-up rule.
+  // Unrelated unchanged documents keep their existing incremental baseline.
+  if (reason === "changes" && baseline?.doneFollowUpPolicy !== 1) {
+    changedAnchors.push(...dossiers.filter(d => d.task.status === "done").flatMap(d => tasks[d.task.id].anchors).map(anchor => anchor.toLocaleLowerCase()));
+  }
   if (reason === "changes") for (const id of new Set([...Object.keys(tasks), ...Object.keys(baseline!.tasks)])) {
     if (tasks[id]?.key === baseline!.tasks[id]?.key) continue;
     const anchors = [...(tasks[id]?.anchors ?? []), ...(baseline!.tasks[id]?.anchors ?? [])];
@@ -62,7 +68,7 @@ export function planSourceAnalysis(bundle: SourceExport, contextKey: string, wor
     if (reason !== "changes" || baseline?.documents[key] !== value || changedAnchors.some(anchor => text.includes(anchor))) selectedRefs.push(doc.ref);
   }
   const reviewItemIds = Object.keys(work.dayWork).filter(id => reason === "manual" || !baseline || contextKey !== baseline.contextKey || !work.dayComplete || !baseline.dayComplete || baseline.dayWork[id] !== work.dayWork[id]);
-  return { version: 1, contextKey, tasks, documents, selectedRefs, dayWork: work.dayWork, dayComplete: work.dayComplete, reviewItemIds, reason };
+  return { version: 1, doneFollowUpPolicy: 1, contextKey, tasks, documents, selectedRefs, dayWork: work.dayWork, dayComplete: work.dayComplete, reviewItemIds, reason };
 }
 
 export function needsDayAnalysis(plan: SourceAnalysis, baseline?: SourceAnalysis) {

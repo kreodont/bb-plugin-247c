@@ -62,6 +62,23 @@ it("collects fresh receipts but skips the model for unchanged documents after a 
   expect(f.runtime.store.export(next.id)?.documents).toHaveLength(2);
 });
 
+it("revisits only completed-task sources once when adopting the follow-up policy", async () => {
+  const f = await setup();
+  const task = await f.f.create("CASE-42: completed report");
+  f.f.repo.kernel.setTaskStatus(task.id, "done", task.revision);
+  f.setBodies(["CASE-42: a new reviewer question", "Unrelated unchanged thread"]);
+  const first = await f.start(); await f.finish(first);
+  const legacy = f.runtime.store.request(first.id).analysis!;
+  delete legacy.doneFollowUpPolicy;
+  f.runtime.store.saveAnalysis(first.id, legacy);
+  await f.reload();
+  const next = await f.start();
+  expect(next.analysis).toMatchObject({ documents: 1, reusedDocuments: 1, modelSkipped: false });
+  expect(f.runtime.data(next.threadId!, 0).documents.map(d => d.content)).toEqual(["CASE-42: a new reviewer question"]);
+  await f.finish(next);
+  expect((await f.start()).analysis?.modelSkipped).toBe(true);
+});
+
 it("pages only changed documents while retaining unchanged context and full receipts on demand", async () => {
   const f = await setup(), first = await f.start(); await f.finish(first);
   f.setBodies(["First thread", "Changed content ".repeat(8000)]);

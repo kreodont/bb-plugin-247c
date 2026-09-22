@@ -51,6 +51,10 @@ The collector follows newly discovered links until the queue is exhausted, subje
 
 ## Missed update checks
 
+A new substantive request on a completed task can produce a proposal to reopen that same task with a new next step. The analyst checks the full conversation for later replies and preserves the accepted completed work. Status and next-step evidence must be newer than the task's last saved change and within the current source interval. Reopening happens only after human acceptance. Old reminders, acknowledgments and missing telemetry do not reopen tasks; archived tasks remain excluded.
+
+When adopting this rule, incremental analysis revisits available sources linked to completed tasks once. Unrelated unchanged documents retain their baseline; the update does not require a full analysis of every source.
+
 Each check takes a complete snapshot of unreviewed source proposals, including pending new tasks, and rechecks their linked sources alongside open tasks. The analyst combines relevant new findings with all matching pending proposals from earlier checks. Unrelated requests remain separate; one unchanged proposal is kept without creating another approval.
 
 A combined proposal preserves earlier facts, quotations and untouched proposed fields. Changed summaries and arrays describe the complete current result. Conflicting or stale field changes must be reconciled explicitly. Previous proposals become superseded history only after the combined result validates and is saved atomically with a new approval ID. Tasks still change only through human acceptance.

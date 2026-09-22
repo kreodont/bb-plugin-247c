@@ -135,8 +135,11 @@ export function syncEvidence(draft: SyncDraft, runId: string, dossier: TaskDossi
 
 export function validateSyncDraft(draft: SyncDraft, run: SyncRun, snapshots: TaskDossier[], calls: SourceCall[], carriedFacts: SyncDraft["facts"] = []): TaskDossier {
   const dossier = draft.taskId ? snapshots.find((d) => d.task.id === draft.taskId) : emptyDossier(draft.title);
-  if (!dossier) throw new PolicyError(`taskId ${draft.taskId} is absent from the snapshot. Copy the exact id of the matching open task from the snapshot; do not create a duplicate.`);
-  if (draft.taskId && dossier.task.status !== "open") throw new PolicyError(`Task "${dossier.task.title}» (${draft.taskId}) has status=${dossier.task.status}. Only open tasks can be updated. A separate new request may become a new task proposal; skip completed requests.`);
+  if (!dossier) throw new PolicyError(`taskId ${draft.taskId} is absent from the snapshot. Copy the exact id of the matching task from the snapshot; do not create a duplicate.`);
+  const reopening = Boolean(draft.taskId && dossier.task.status === "done");
+  if (draft.taskId && dossier.task.status !== "open" && (!reopening || draft.changes.status?.value !== "open" || !draft.changes.nextStep?.value)) {
+    throw new PolicyError(`Task "${dossier.task.title}" (${draft.taskId}) has status=${dossier.task.status}. A done task requires a proposal to reopen it with a specific new next step; archived tasks are not updated automatically.`);
+  }
   if (!draft.taskId && (!draft.changes.summary?.value || !draft.changes.nextStep?.value)) throw new PolicyError("A new task must have a summary and a specific next step.");
   if (!draft.taskId && draft.changes.status && draft.changes.status.value !== "open") throw new PolicyError("A new task must remain open.");
   if (!draft.taskId) {
@@ -172,6 +175,18 @@ export function validateSyncDraft(draft: SyncDraft, run: SyncRun, snapshots: Tas
     if (!change?.evidenceRefs.some((ref) => /^fact:\d+$/.test(ref))) throw new PolicyError("Every change must reference a verified source finding (fact:N).");
   }
   validateEvidence(draft, dossier, syncEvidence(draft, run.id, dossier));
+  if (reopening) {
+    const fresh = (ref: string, kinds: string[], text?: string) => {
+      const index = /^fact:(\d+)$/.exec(ref)?.[1], fact = index === undefined ? undefined : draft.facts[Number(index)];
+      return fact && kinds.includes(fact.kind) && (text === undefined || normalize(fact.text) === normalize(text))
+        && fact.citations.some(citation => Date.parse(citation.occurredAt) > Date.parse(dossier.task.updatedAt)
+          && (carried.has(digest(fact)) || Date.parse(citation.occurredAt) >= Date.parse(run.ranges[citation.source]?.since ?? "") - 300000));
+    };
+    if (!draft.changes.status!.evidenceRefs.some(ref => fresh(ref, ["progress", "decision"]))
+      || !draft.changes.nextStep!.evidenceRefs.some(ref => fresh(ref, ["explicit_next_step"], draft.changes.nextStep!.value!))) {
+      throw new PolicyError("Reopening a done task requires a fresh source request for both status and nextStep, after the task's last saved change and within this check's interval, or unchanged evidence from its still-pending follow-up proposal. Old completed results cannot reopen it.");
+    }
+  }
   return dossier;
 }
 
@@ -346,7 +361,7 @@ export class SourceSyncStore {
       for (const draft of imported.input.suggestions) if (draft.taskId) {
         const revision = imported.taskRevisions[draft.taskId];
         if (revision === undefined) throw new PolicyError("The collector must supply the task revision used for analysis.");
-        this.repo.assertCurrent(draft.taskId, revision);
+        this.repo.assertCurrent(draft.taskId, revision, false);
       }
       const checkpoints = this.checkpoints();
       const run: SyncRun = { id: imported.id, status: "working", threadId: null, provider: imported.provider, model: imported.model,
@@ -395,10 +410,10 @@ export class SourceSyncStore {
             if (!related.some(c => c.id === parent.id)) related.push(parent);
           }
           const snapshot = raw.taskId ? request.snapshots.find(d => d.task.id === raw.taskId) : emptyDossier(raw.title);
-          if (!snapshot) throw new PolicyError("taskId " + raw.taskId + " is absent from the snapshot. Copy the exact open task ID.");
+          if (!snapshot) throw new PolicyError("taskId " + raw.taskId + " is absent from the snapshot. Copy the exact matching task ID.");
           const draft = mergeSyncDraft(raw, parents, snapshot);
           const dossier = validateSyncDraft(draft, run, request.snapshots, calls, parents.flatMap(p => p.facts));
-          if (draft.taskId && (supplement || parents.length || request.pendingCandidates)) this.repo.assertCurrent(draft.taskId, dossier.task.revision);
+          if (draft.taskId && (supplement || parents.length || request.pendingCandidates)) this.repo.assertCurrent(draft.taskId, dossier.task.revision, false);
           prepared.push({ draft, dossier, parents, related, previousBatch });
         } catch (error) {
           if (!(error instanceof PolicyError) && !(error instanceof ConflictError)) throw error;
