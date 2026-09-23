@@ -62,6 +62,7 @@ export const knowledgeDraftSchema = z.object({
 export const sessionTimeContextSchema = z.object({
   sourceSessionId: idSchema, date: dayDateSchema, beforeMinutes: dayMinutesSchema,
   fingerprint: z.string().min(1), alreadyReported: z.boolean(),
+  reportedEventSequence: z.number().int().nonnegative().optional(),
 }).strict();
 export const sessionTimeEstimateSchema = z.object({
   minutes: z.number().int().positive().max(525600), reason: z.string().trim().min(1).max(2000), evidenceRefs: refs,
@@ -176,7 +177,9 @@ export const syncCandidateSchema = syncDraftSchema.extend({
     summary: z.string().nullable(), nextStep: z.string().nullable(), openQuestions: z.array(z.string()), blockers: z.array(z.string()), artifacts: z.array(artifactSchema) }).nullable(),
   proposalId: idSchema.nullable(), resultTaskId: idSchema.nullable(),
 });
-export const sessionUpdateSchema = z.object({ proposalId: idSchema, sessionId: idSchema, threadId: idSchema, extraction: extractionSchema, reportedTimeContext: sessionTimeContextSchema.optional(), warnings: z.array(z.string()), speakers: z.record(z.string(), z.enum(["user", "assistant", "context"])).default({}), sources: z.record(z.string(), z.object({ threadId: idSchema, messageRef: idSchema })).default({}) });
+export const sessionUpdateSchema = z.object({ proposalId: idSchema, sessionId: idSchema, threadId: idSchema, extraction: extractionSchema, reportedTimeContext: sessionTimeContextSchema.optional(),
+  omittedReportedTime: z.object({ estimate: sessionTimeEstimateSchema, reason: z.enum(["reported_changed", "already_reported"]), omittedAt: z.string() }).optional(),
+  warnings: z.array(z.string()), speakers: z.record(z.string(), z.enum(["user", "assistant", "context"])).default({}), sources: z.record(z.string(), z.object({ threadId: idSchema, messageRef: idSchema })).default({}) });
 export const taskSourceLinkSchema = z.object({ url: z.url().max(4096), label: z.string(), occurredAt: z.string().nullable(), origin: z.boolean() });
 const sourceUrlSchema = z.string().trim().max(4096).refine(value => !!sourceUrl(value), "Use an HTTP or HTTPS source URL without embedded credentials.");
 export const sourceSelectionSchema = z.object({ primarySource: taskSourceLinkSchema.nullable(), sourceRevision: revisionSchema });

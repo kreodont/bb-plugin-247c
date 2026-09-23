@@ -38,6 +38,7 @@ export class DayPlanning {
       ON CONFLICT(id) DO UPDATE SET date=excluded.date,reported_date=excluded.reported_date,value_json=excluded.value_json`).run(next.id, next.date, next.reportedDate, next.taskId, next.calendar?.key ?? null, JSON.stringify(next));
     this.repo.db.prepare("INSERT INTO day_item_events(item_id,at,actor,action,before_json,after_json) VALUES (?,?,?,?,?,?)")
       .run(next.id, this.now(), actor, action, before ? JSON.stringify(before) : null, JSON.stringify(next));
+    if (next.taskId && action !== "agent_time_updated" && action !== "session_reported") this.repo.sessionTime.reconcile(next.taskId);
     return next;
   }
   private current(id: string, revision: number) {

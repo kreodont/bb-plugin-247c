@@ -1,7 +1,7 @@
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { fixture } from "./test-support.js";
-import { sessionSchema, type Extraction } from "./contracts.js";
+import { sessionSchema, rpcContract, type Extraction } from "./contracts.js";
 import { DayPlanning } from "./day-planning.js";
 import { proposalParts } from "./proposal-parts.js";
 import { validateExtraction } from "./conversation.js";
@@ -54,7 +54,7 @@ it("allows time to remain pending after task completion and applies it exactly o
   const remaining = f.repo.detail(task.id).sessionUpdates.find(u => u.proposalId === result.remainingId)!;
   expect(proposalParts({}, remaining.extraction)).toEqual(["reportedTime"]);
   expect(remaining.extraction.reportedTime?.evidenceRefs).toEqual([`review:${session.proposalId}:fact:0`]);
-  f.repo.accept(result.remainingId!, f.repo.kernel.getTask(task.id).revision);
+  f.repo.reviewParts(partInput(result.remainingId!, f.repo.kernel.getTask(task.id).revision, ["reportedTime"]));
   expect(days.taskItem(task.id, date)?.reportedMinutes).toBe(35);
   expect(f.repo.pendingTotal()).toBe(0);
 });
@@ -76,16 +76,106 @@ it("rejects the time part while allowing the normal task proposal", async () => 
   expect(days.taskItem(task.id, date)?.reportedMinutes).toBe(50);
 });
 
-it("rolls back every part if reported time changed, but permits excluding time", async () => {
+it.each([70, 0, null])("automatically omits stale time after a manual correction to %s", async reportedMinutes => {
+  const { f, task, session, days, date, extraction } = await finished(50);
+  const item = days.taskItem(task.id, date)!;
+  days.edit({ id: item.id, revision: item.revision, reportedMinutes, requestId: randomUUID() });
+  expect(f.repo.kernel.getTask(task.id)).toEqual(task);
+  const update = f.repo.detail(task.id).sessionUpdates[0];
+  expect(update.extraction.reportedTime).toBeNull();
+  expect(update.omittedReportedTime).toMatchObject({ estimate: extraction.reportedTime, reason: "reported_changed" });
+  expect(f.repo.kernel.getProposal(session.proposalId!).status).toBe("pending");
+  await f.harness.behavior.callRpc("accept", { proposalId: session.proposalId!, revision: task.revision });
+  expect(f.repo.kernel.getTask(task.id).status).toBe("done");
+  expect(days.taskItem(task.id, date)).toMatchObject({ reportedMinutes, reportedLocked: true, plannedMinutes: 120 });
+  expect(f.repo.detail(task.id).facts.some(fact => fact.text === extraction.facts[0].text)).toBe(true);
+  await f.reload();
+  expect(f.repo.detail(task.id).sessionUpdates[0].omittedReportedTime).toBeTruthy();
+  expect(f.repo.pendingTotal()).toBe(0);
+});
+
+it("accepts an old inbox selection without stale time or an unwanted pending remainder", async () => {
+  const { f, task, session, days, date } = await finished(50);
+  const selection = { kind: "proposal" as const, id: session.proposalId!, revision: task.revision, parts: ["field:status", "fact:0", "reportedTime"] };
+  const item = days.taskItem(task.id, date)!;
+  days.edit({ id: item.id, revision: item.revision, reportedMinutes: 70, requestId: randomUUID() });
+  const result = rpcContract.acceptInbox.output.parse(await f.harness.behavior.callRpc("acceptInbox", { items: [selection] }));
+  expect(result.failed).toEqual([]);
+  expect(result.applied).toHaveLength(1);
+  expect(f.repo.kernel.getTask(task.id).status).toBe("done");
+  expect(days.taskItem(task.id, date)?.reportedMinutes).toBe(70);
+  expect(f.repo.pendingTotal()).toBe(0);
+});
+
+it("does not accept unselected task fields when only stale time was selected", async () => {
   const { f, task, session, days, date } = await finished(50);
   const item = days.taskItem(task.id, date)!;
   days.edit({ id: item.id, revision: item.revision, reportedMinutes: 70, requestId: randomUUID() });
-  expect(() => f.repo.accept(session.proposalId!, task.revision)).toThrow(/Reported time changed/);
+  const input = partInput(session.proposalId!, task.revision, ["reportedTime"]);
+  expect(f.repo.reviewParts(input)).toEqual({ taskId: task.id, remainingId: session.proposalId });
+  expect(f.repo.reviewParts(input)).toEqual({ taskId: task.id, remainingId: session.proposalId });
+  expect(f.repo.kernel.getTask(task.id)).toEqual(task);
+  expect(f.repo.pendingTotal()).toBe(1);
+  expect(() => f.repo.reviewParts(partInput(session.proposalId!, task.revision, ["reportedTime", "unknown"]))).toThrow(/distinct parts/);
+  expect(() => f.repo.reviewParts(partInput(session.proposalId!, task.revision, ["reportedTime", "reportedTime"]))).toThrow(/distinct parts/);
+});
+
+it("dismisses a stale time-only remainder without another task revision or approval", async () => {
+  const { f, task, session, days, date } = await finished(50);
+  const result = f.repo.reviewParts(partInput(session.proposalId!, task.revision, ["field:status", "fact:0"]));
+  const completed = f.repo.kernel.getTask(task.id);
+  const item = days.taskItem(task.id, date)!;
+  days.edit({ id: item.id, revision: item.revision, reportedMinutes: 70, requestId: randomUUID() });
+  const inbox = rpcContract.proposalInbox.output.parse(await f.harness.behavior.callRpc("proposalInbox", { offset: 0 }));
+  expect(inbox.items).toEqual([]); expect(inbox.total).toBe(0);
+  expect(f.repo.kernel.getTask(task.id)).toEqual(completed);
+  expect(f.repo.session(session.id).status).toBe("applied");
+  expect(f.repo.kernel.getProposal(result.remainingId!).status).toBe("rejected");
+  await f.harness.behavior.callRpc("accept", { proposalId: result.remainingId!, revision: completed.revision });
+  expect(f.repo.kernel.getTask(task.id)).toEqual(completed);
+  expect(days.taskItem(task.id, date)?.reportedMinutes).toBe(70);
+});
+
+it("cleans existing proposals on reload without requiring a new manual edit", async () => {
+  const { f, task, session, days, date } = await finished(50);
+  // Simulate a manual correction written by the previous plugin version.
+  const stop = vi.spyOn(f.repo.sessionTime, "reconcile").mockReturnValue(0);
+  const item = days.taskItem(task.id, date)!;
+  days.edit({ id: item.id, revision: item.revision, reportedMinutes: 70, requestId: randomUUID() });
+  const row = f.repo.db.prepare("SELECT value_json FROM session_updates WHERE proposal_id=?").get(session.proposalId) as { value_json: string };
+  const old = JSON.parse(row.value_json); delete old.reportedTimeContext.reportedEventSequence;
+  f.repo.db.prepare("UPDATE session_updates SET value_json=? WHERE proposal_id=?").run(JSON.stringify(old), session.proposalId);
+  stop.mockRestore(); await f.reload();
+  const inbox = rpcContract.proposalInbox.output.parse(await f.harness.behavior.callRpc("proposalInbox", { offset: 0 }));
+  const entry = inbox.items[0]; expect(entry.kind).toBe("proposal");
+  if (entry.kind !== "proposal") throw new Error("Expected session proposal");
+  expect(entry.dossier.sessionUpdates[0].extraction.reportedTime).toBeNull();
+  expect(entry.blockedReason).toBeNull();
+  expect(f.repo.kernel.getTask(task.id)).toEqual(task);
+});
+
+it("detects reported edits even if the total returns to its captured value", async () => {
+  const { f, task, session, days, date } = await finished(50);
+  const stop = vi.spyOn(f.repo.sessionTime, "reconcile").mockReturnValue(0);
+  let item = days.taskItem(task.id, date)!;
+  item = days.edit({ id: item.id, revision: item.revision, reportedMinutes: 70, requestId: randomUUID() });
+  days.edit({ id: item.id, revision: item.revision, reportedMinutes: 50, requestId: randomUUID() });
+  stop.mockRestore();
+  f.repo.accept(session.proposalId!, task.revision);
+  expect(days.taskItem(task.id, date)?.reportedMinutes).toBe(50);
+  expect(f.repo.detail(task.id).sessionUpdates[0].omittedReportedTime).toBeTruthy();
+});
+
+it("preserves missing-context and task-revision checks", async () => {
+  const { f, task, session } = await finished(50);
+  const row = f.repo.db.prepare("SELECT value_json FROM session_updates WHERE proposal_id=?").get(session.proposalId) as { value_json: string };
+  const broken = JSON.parse(row.value_json); delete broken.reportedTimeContext;
+  f.repo.db.prepare("UPDATE session_updates SET value_json=? WHERE proposal_id=?").run(JSON.stringify(broken), session.proposalId);
+  expect(() => f.repo.accept(session.proposalId!, task.revision)).toThrow(/no saved day context/);
   expect(f.repo.kernel.getTask(task.id)).toEqual(task);
   expect(f.repo.kernel.getProposal(session.proposalId!).status).toBe("pending");
-  expect(days.taskItem(task.id, date)?.reportedMinutes).toBe(70);
-  f.repo.reviewParts(partInput(session.proposalId!, task.revision, ["field:status", "fact:0"]));
-  expect(f.repo.kernel.getTask(task.id).status).toBe("done");
+  f.repo.note({ taskId: task.id, revision: task.revision, kind: "progress", text: "Later task correction", requestId: randomUUID() });
+  expect(() => f.repo.accept(session.proposalId!, task.revision)).toThrow(/dossier changed/i);
 });
 
 it("ignores planned and measured runtime changes when checking the reported baseline", async () => {

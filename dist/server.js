@@ -26509,7 +26509,8 @@ var sessionTimeContextSchema = external_exports.object({
   date: dayDateSchema,
   beforeMinutes: dayMinutesSchema,
   fingerprint: external_exports.string().min(1),
-  alreadyReported: external_exports.boolean()
+  alreadyReported: external_exports.boolean(),
+  reportedEventSequence: external_exports.number().int().nonnegative().optional()
 }).strict();
 var sessionTimeEstimateSchema = external_exports.object({
   minutes: external_exports.number().int().positive().max(525600),
@@ -26695,7 +26696,17 @@ var syncCandidateSchema = syncDraftSchema.extend({
   proposalId: idSchema.nullable(),
   resultTaskId: idSchema.nullable()
 });
-var sessionUpdateSchema = external_exports.object({ proposalId: idSchema, sessionId: idSchema, threadId: idSchema, extraction: extractionSchema, reportedTimeContext: sessionTimeContextSchema.optional(), warnings: external_exports.array(external_exports.string()), speakers: external_exports.record(external_exports.string(), external_exports.enum(["user", "assistant", "context"])).default({}), sources: external_exports.record(external_exports.string(), external_exports.object({ threadId: idSchema, messageRef: idSchema })).default({}) });
+var sessionUpdateSchema = external_exports.object({
+  proposalId: idSchema,
+  sessionId: idSchema,
+  threadId: idSchema,
+  extraction: extractionSchema,
+  reportedTimeContext: sessionTimeContextSchema.optional(),
+  omittedReportedTime: external_exports.object({ estimate: sessionTimeEstimateSchema, reason: external_exports.enum(["reported_changed", "already_reported"]), omittedAt: external_exports.string() }).optional(),
+  warnings: external_exports.array(external_exports.string()),
+  speakers: external_exports.record(external_exports.string(), external_exports.enum(["user", "assistant", "context"])).default({}),
+  sources: external_exports.record(external_exports.string(), external_exports.object({ threadId: idSchema, messageRef: idSchema })).default({})
+});
 var taskSourceLinkSchema = external_exports.object({ url: external_exports.url().max(4096), label: external_exports.string(), occurredAt: external_exports.string().nullable(), origin: external_exports.boolean() });
 var sourceUrlSchema = external_exports.string().trim().max(4096).refine((value) => !!sourceUrl(value), "Use an HTTP or HTTPS source URL without embedded credentials.");
 var sourceSelectionSchema = external_exports.object({ primarySource: taskSourceLinkSchema.nullable(), sourceRevision: revisionSchema });
@@ -27391,7 +27402,12 @@ var SessionTime = class {
   }
   baseline(taskId, date5) {
     const item = this.days.taskItem(taskId, date5);
-    return { item, fingerprint: digest([item?.reportedDate ?? date5, item?.reportedMinutes ?? null, item?.reportedLocked ?? false, item?.removed ?? false]) };
+    const event = item ? this.repo.db.prepare(`SELECT COALESCE(MAX(sequence),0) AS sequence FROM day_item_events WHERE item_id=? AND (
+      json_extract(before_json,'$.reportedMinutes') IS NOT json_extract(after_json,'$.reportedMinutes') OR
+      COALESCE(json_extract(before_json,'$.reportedLocked'),0) != COALESCE(json_extract(after_json,'$.reportedLocked'),0) OR
+      COALESCE(json_extract(before_json,'$.reportedDate'),?) != json_extract(after_json,'$.reportedDate') OR
+      COALESCE(json_extract(before_json,'$.removed'),0) != COALESCE(json_extract(after_json,'$.removed'),0))`).get(item.id, date5) : void 0;
+    return { item, sequence: event?.sequence ?? 0, fingerprint: digest([item?.reportedDate ?? date5, item?.reportedMinutes ?? null, item?.reportedLocked ?? false, item?.removed ?? false]) };
   }
   capture(session) {
     let root = session;
@@ -27403,21 +27419,70 @@ var SessionTime = class {
     }
     const sourceSessionId = root.reportedTimeContext?.sourceSessionId ?? root.id;
     const date5 = root.reportedTimeContext?.date ?? localDay(new Date(root.finishedAt ?? session.finishedAt ?? this.days.now()), this.days.timeZone);
-    const { item, fingerprint } = this.baseline(session.taskId, date5);
+    const { item, fingerprint, sequence } = this.baseline(session.taskId, date5);
     return {
       sourceSessionId,
       date: date5,
       beforeMinutes: item?.reportedMinutes ?? null,
       fingerprint,
+      reportedEventSequence: sequence,
       alreadyReported: this.applied(sourceSessionId)
     };
+  }
+  omissionReason(context, taskId) {
+    if (context.alreadyReported || this.applied(context.sourceSessionId)) return "already_reported";
+    const { item, fingerprint, sequence } = this.baseline(taskId, context.date);
+    return fingerprint !== context.fingerprint || item?.removed || item && item.reportedDate !== context.date || context.reportedEventSequence !== void 0 && context.reportedEventSequence !== sequence ? "reported_changed" : null;
+  }
+  // Retire only stale time additions. Task changes still need human acceptance;
+  // the original estimate and context remain available in review history.
+  reconcile(taskId) {
+    const count = this.repo.store.transaction(() => {
+      const rows2 = this.repo.db.prepare(`SELECT u.value_json,p.task_id FROM session_updates u JOIN proposals p ON p.id=u.proposal_id
+        WHERE p.status IN ('pending','approved') AND json_extract(u.value_json,'$.extraction.reportedTime') IS NOT NULL
+        ${taskId ? "AND p.task_id=?" : ""}`).all(...taskId ? [taskId] : []);
+      let changed = 0;
+      for (const row of rows2) {
+        const update = sessionUpdateSchema.parse(JSON.parse(row.value_json));
+        if (!update.extraction.reportedTime || !update.reportedTimeContext) continue;
+        const reason = this.omissionReason(update.reportedTimeContext, row.task_id);
+        if (!reason) continue;
+        update.omittedReportedTime = { estimate: update.extraction.reportedTime, reason, omittedAt: this.days.now() };
+        update.extraction = { ...update.extraction, reportedTime: null };
+        this.repo.db.prepare("UPDATE session_updates SET value_json=? WHERE proposal_id=?").run(JSON.stringify(update), update.proposalId);
+        this.repo.sessionEvent(
+          update.sessionId,
+          "reported-time-omitted",
+          "Outdated reported-time estimate automatically excluded; the current day total is preserved.",
+          { proposalId: update.proposalId, reason, date: update.reportedTimeContext.date, estimate: update.omittedReportedTime.estimate }
+        );
+        if (!proposalParts({}, update.extraction).length) {
+          this.repo.kernel.rejectProposal(update.proposalId);
+          const session = this.repo.session(update.sessionId);
+          if (session.proposalId === update.proposalId && session.status === "awaiting_approval") this.repo.saveSession({
+            ...session,
+            status: session.acceptedPartProposalIds?.length ? "applied" : "completed"
+          });
+        }
+        changed++;
+      }
+      return changed;
+    });
+    if (count) this.repo.changed();
+    return count;
+  }
+  isOmittedOnly(proposalId) {
+    const row = this.repo.db.prepare("SELECT value_json FROM session_updates WHERE proposal_id=?").get(proposalId);
+    if (!row) return false;
+    const update = sessionUpdateSchema.parse(JSON.parse(row.value_json));
+    return !!update.omittedReportedTime && !proposalParts({}, update.extraction).length;
   }
   check(extraction, context, taskId) {
     if (!extraction.reportedTime) return;
     if (!context) throw new PolicyError("This time estimate has no saved day context. Discuss the review to refresh it.");
-    if (context.alreadyReported || this.applied(context.sourceSessionId)) throw new ConflictError("Time for this session was already accepted. Leave reported time unchecked.");
-    const { item, fingerprint } = this.baseline(taskId, context.date);
-    if (fingerprint !== context.fingerprint || item?.removed || item && item.reportedDate !== context.date) {
+    const reason = this.omissionReason(context, taskId);
+    if (reason === "already_reported") throw new ConflictError("Time for this session was already accepted. Leave reported time unchecked.");
+    if (reason) {
       throw new ConflictError("Reported time changed after this estimate. Leave reported time unchecked or discuss the review to prepare a fresh estimate.");
     }
   }
@@ -27481,6 +27546,7 @@ var DayPlanning = class {
     this.repo.db.prepare(`INSERT INTO day_items(id,date,reported_date,task_id,calendar_key,value_json) VALUES (?,?,?,?,?,?)
       ON CONFLICT(id) DO UPDATE SET date=excluded.date,reported_date=excluded.reported_date,value_json=excluded.value_json`).run(next.id, next.date, next.reportedDate, next.taskId, next.calendar?.key ?? null, JSON.stringify(next));
     this.repo.db.prepare("INSERT INTO day_item_events(item_id,at,actor,action,before_json,after_json) VALUES (?,?,?,?,?,?)").run(next.id, this.now(), actor, action, before ? JSON.stringify(before) : null, JSON.stringify(next));
+    if (next.taskId && action !== "agent_time_updated" && action !== "session_reported") this.repo.sessionTime.reconcile(next.taskId);
     return next;
   }
   current(id2, revision) {
@@ -28390,9 +28456,11 @@ var Repository2 = class {
     return task;
   }
   pendingTotal() {
+    if (!this.db.inTransaction) this.sessionTime.reconcile();
     return Number(this.db.prepare("SELECT (SELECT count(*) FROM proposals WHERE status IN ('pending','approved')) + (SELECT count(*) FROM source_sync_candidates WHERE status='pending') AS n").get().n);
   }
   list(history = false) {
+    if (!this.db.inTransaction) this.sessionTime.reconcile();
     const where = history ? "" : "WHERE t.status='open'";
     const total = Number(this.db.prepare(`SELECT count(*) AS n FROM tasks t ${where}`).get().n);
     const tasks = this.db.prepare(`SELECT t.*,p.summary,p.next_step,v.seen_revision,
@@ -28411,6 +28479,7 @@ var Repository2 = class {
     return { tasks, total, pendingTotal: this.pendingTotal() };
   }
   detail(taskId) {
+    if (!this.db.inTransaction) this.sessionTime.reconcile(taskId);
     const dossier = this.kernel.getDossier(taskId);
     const proposals = this.kernel.listProposals(taskId).map((proposal) => {
       const receipt = proposal.status === "applied" ? this.kernel.getApplicationReceipt(proposal.id) : null;
@@ -28471,19 +28540,25 @@ var Repository2 = class {
   }
   reviewParts(input2) {
     const result = this.request(input2.requestId, { kind: "review-parts", input: input2 }, () => {
+      this.sessionTime.reconcile(this.kernel.getProposal(input2.id).taskId);
       const proposal = this.kernel.getProposal(input2.id);
+      if (proposal.status === "rejected" && this.sessionTime.isOmittedOnly(input2.id)) return { taskId: proposal.taskId, remainingId: null };
       if (proposal.status !== "pending") throw new PolicyError("This proposal was already reviewed. Refresh the list.");
       const task = this.assertCurrent(proposal.taskId, input2.revision, false);
       if (task.revision !== proposal.baseRevision) throw new ConflictError("The proposal is stale. Request a new review.");
       if (this.active().some((s) => s.discussionProposalId === proposal.id)) throw new PolicyError("Finish discussing this review first.");
       const row = this.db.prepare("SELECT value_json FROM session_updates WHERE proposal_id=?").get(proposal.id);
       const update = row ? sessionUpdateSchema.parse(JSON.parse(row.value_json)) : void 0;
-      const split = partitionParts(proposalParts(proposal.changes, update?.extraction), input2);
+      const all = proposalParts(proposal.changes, update?.extraction);
+      if (update?.omittedReportedTime && input2.parts.includes("reportedTime")) partitionParts([...all, "reportedTime"], input2);
+      const parts = update?.omittedReportedTime ? input2.parts.filter((part) => part !== "reportedTime") : input2.parts;
+      if (!parts.length && input2.parts.length && update?.omittedReportedTime) return { taskId: task.id, remainingId: proposal.id };
+      const split = partitionParts(all, { ...input2, parts });
       const evidence2 = this.kernel.proposalEvidence(proposal.id);
-      const make = (parts, suffix) => {
-        const extraction = update ? pickExtraction(update.extraction, parts, proposal.id) : void 0;
-        const picked = extraction ? extraction.changes ?? {} : pickChanges(proposal.changes, parts);
-        const refs2 = update ? extractionRefMap(update.extraction, parts, proposal.id) : /* @__PURE__ */ new Map();
+      const make = (parts2, suffix) => {
+        const extraction = update ? pickExtraction(update.extraction, parts2, proposal.id) : void 0;
+        const picked = extraction ? extraction.changes ?? {} : pickChanges(proposal.changes, parts2);
+        const refs2 = update ? extractionRefMap(update.extraction, parts2, proposal.id) : /* @__PURE__ */ new Map();
         const draft = receiptDraft(picked, this.kernel.getDossier(task.id), evidence2.map((e) => ({ ...e, ref: refs2.get(e.ref) ?? e.ref })));
         const child = this.kernel.createProposal({
           taskId: task.id,
@@ -28525,8 +28600,10 @@ var Repository2 = class {
     return proposal;
   }
   accept(proposalId, revision) {
+    this.sessionTime.reconcile(this.kernel.getProposal(proposalId).taskId);
     const proposal = this.kernel.getProposal(proposalId);
     if (proposal.status === "applied") return this.detail(proposal.taskId);
+    if (proposal.status === "rejected" && this.sessionTime.isOmittedOnly(proposalId)) return this.detail(proposal.taskId);
     this.store.transaction(() => {
       this.assertCurrent(proposal.taskId, revision, false);
       if (proposal.baseRevision !== revision) throw new ConflictError("The proposal targets an old dossier revision. A new result is required.");
@@ -36928,6 +37005,7 @@ var ProposalInbox = class {
       const blockedReason2 = task && task.revision !== candidate.baseRevision ? "The dossier changed after the check. An updated proposal is required." : active && candidate.changes.status ? "Finish the work session before changing the task status." : duplicate ? "A task with this title already exists. Check for a duplicate." : null;
       return { kind, candidate, currentTask, blockedReason: blockedReason2 };
     }
+    this.repo.sessionTime.reconcile(this.repo.kernel.getProposal(id2).taskId);
     const raw = this.repo.kernel.getProposal(id2), dossier = this.repo.kernel.getDossier(raw.taskId);
     const proposal = { ...raw, ...this.repo.partReviewFields("proposal", raw.id), evidence: this.repo.kernel.proposalEvidence(id2), receipt: null };
     const sessions = this.repo.sessions(raw.taskId).filter((s) => ACTIVE.has(s.status)).map(({ id: id3, status, discussionProposalId }) => ({ id: id3, status, discussionProposalId }));
@@ -36938,6 +37016,7 @@ var ProposalInbox = class {
     return { kind, proposal, dossier: context, blockedReason };
   }
   list(offset = 0) {
+    this.repo.sessionTime.reconcile();
     const rows2 = this.repo.db.prepare(`SELECT kind,id FROM (
       SELECT 'source' AS kind,id,created_at FROM (SELECT id,json_extract(value_json,'$.createdAt') AS created_at FROM source_sync_candidates WHERE status='pending')
       UNION ALL SELECT 'proposal' AS kind,id,created_at FROM proposals WHERE status IN ('pending','approved')

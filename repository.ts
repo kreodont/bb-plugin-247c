@@ -133,9 +133,11 @@ export class Repository {
   }
 
   pendingTotal(): number {
+    if (!this.db.inTransaction) this.sessionTime.reconcile();
     return Number((this.db.prepare("SELECT (SELECT count(*) FROM proposals WHERE status IN ('pending','approved')) + (SELECT count(*) FROM source_sync_candidates WHERE status='pending') AS n").get() as Row).n);
   }
   list(history = false): { tasks: TaskCard[]; total: number; pendingTotal: number } {
+    if (!this.db.inTransaction) this.sessionTime.reconcile();
     const where = history ? "" : "WHERE t.status='open'";
     const total = Number((this.db.prepare(`SELECT count(*) AS n FROM tasks t ${where}`).get() as Row).n);
     const tasks = (this.db.prepare(`SELECT t.*,p.summary,p.next_step,v.seen_revision,
@@ -149,6 +151,9 @@ export class Repository {
   }
 
   detail(taskId: string): Dossier {
+    // A partial acceptance reads its dossier before retiring the original draft.
+    // Do not reconcile that draft midway through the enclosing transaction.
+    if (!this.db.inTransaction) this.sessionTime.reconcile(taskId);
     const dossier = this.kernel.getDossier(taskId);
     const proposals = this.kernel.listProposals(taskId).map((proposal) => {
       const receipt = proposal.status === "applied" ? this.kernel.getApplicationReceipt(proposal.id) : null;
@@ -215,14 +220,22 @@ export class Repository {
 
   reviewParts(input: PartDecision) {
     const result = this.request(input.requestId, { kind: "review-parts", input }, () => {
+      this.sessionTime.reconcile(this.kernel.getProposal(input.id).taskId);
       const proposal = this.kernel.getProposal(input.id);
+      if (proposal.status === "rejected" && this.sessionTime.isOmittedOnly(input.id)) return { taskId: proposal.taskId, remainingId: null };
       if (proposal.status !== "pending") throw new PolicyError("This proposal was already reviewed. Refresh the list.");
       const task = this.assertCurrent(proposal.taskId, input.revision!, false);
       if (task.revision !== proposal.baseRevision) throw new ConflictError("The proposal is stale. Request a new review.");
       if (this.active().some(s => s.discussionProposalId === proposal.id)) throw new PolicyError("Finish discussing this review first.");
       const row = this.db.prepare("SELECT value_json FROM session_updates WHERE proposal_id=?").get(proposal.id) as { value_json: string } | undefined;
       const update = row ? sessionUpdateSchema.parse(JSON.parse(row.value_json)) : undefined;
-      const split = partitionParts(proposalParts(proposal.changes, update?.extraction), input);
+      const all = proposalParts(proposal.changes, update?.extraction);
+      // A stale browser may still submit the automatically omitted time part.
+      // Validate its original selection, then remove only that obsolete part.
+      if (update?.omittedReportedTime && input.parts.includes("reportedTime")) partitionParts([...all, "reportedTime"], input);
+      const parts = update?.omittedReportedTime ? input.parts.filter(part => part !== "reportedTime") : input.parts;
+      if (!parts.length && input.parts.length && update?.omittedReportedTime) return { taskId: task.id, remainingId: proposal.id };
+      const split = partitionParts(all, { ...input, parts });
       const evidence = this.kernel.proposalEvidence(proposal.id);
       const make = (parts: string[], suffix: string) => {
         const extraction = update ? pickExtraction(update.extraction, parts, proposal.id) : undefined;
@@ -264,8 +277,10 @@ export class Repository {
   }
 
   accept(proposalId: string, revision: number) {
+    this.sessionTime.reconcile(this.kernel.getProposal(proposalId).taskId);
     const proposal = this.kernel.getProposal(proposalId);
     if (proposal.status === "applied") return this.detail(proposal.taskId);
+    if (proposal.status === "rejected" && this.sessionTime.isOmittedOnly(proposalId)) return this.detail(proposal.taskId);
     this.store.transaction(() => {
       this.assertCurrent(proposal.taskId, revision, false);
       if (proposal.baseRevision !== revision) throw new ConflictError("The proposal targets an old dossier revision. A new result is required.");

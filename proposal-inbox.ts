@@ -20,6 +20,7 @@ export class ProposalInbox {
         : duplicate ? "A task with this title already exists. Check for a duplicate." : null;
       return { kind, candidate, currentTask, blockedReason };
     }
+    this.repo.sessionTime.reconcile(this.repo.kernel.getProposal(id).taskId);
     const raw = this.repo.kernel.getProposal(id), dossier = this.repo.kernel.getDossier(raw.taskId);
     const proposal = { ...raw, ...this.repo.partReviewFields("proposal", raw.id), evidence: this.repo.kernel.proposalEvidence(id), receipt: null };
     const sessions = this.repo.sessions(raw.taskId).filter(s => ACTIVE.has(s.status)).map(({ id, status, discussionProposalId }) => ({ id, status, discussionProposalId }));
@@ -32,6 +33,7 @@ export class ProposalInbox {
     return { kind, proposal, dossier: context, blockedReason };
   }
   list(offset = 0) {
+    this.repo.sessionTime.reconcile();
     const rows = this.repo.db.prepare(`SELECT kind,id FROM (
       SELECT 'source' AS kind,id,created_at FROM (SELECT id,json_extract(value_json,'$.createdAt') AS created_at FROM source_sync_candidates WHERE status='pending')
       UNION ALL SELECT 'proposal' AS kind,id,created_at FROM proposals WHERE status IN ('pending','approved')

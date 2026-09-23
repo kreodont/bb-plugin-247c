@@ -937,7 +937,7 @@ it("uses the installation's work model defaults instead of assuming a corporate 
   expect(composer.getAttribute("data-default-model")).toBe("gpt-5.6-sol");
 });
 
-it("includes selectable reported time in the ordinary proposal inbox without counting another proposal", async () => {
+it.each([false, true])("handles reported time in the inbox after a manual correction: %s", async corrected => {
   const f = await fixture(); const task = await f.create();
   const days = new DayPlanning(f.repo);
   days.add({ taskId: task.id, date: days.today(), reportedMinutes: 40, requestId: randomUUID() });
@@ -951,9 +951,23 @@ it("includes selectable reported time in the ordinary proposal inbox without cou
     rationale: "Save the outcome and estimated session work.", facts: [{ kind: "progress", text: quote, citations: [{ messageRef: ref, quote }] }],
     changes: null, knowledge: [], reportedTime: { minutes: 25, reason: "Review and checking, including human reading.", evidenceRefs: ["fact:0"] },
   });
+  if (corrected) {
+    const item = days.taskItem(task.id, days.today())!;
+    days.edit({ id: item.id, revision: item.revision, reportedMinutes: 55, requestId: randomUUID() });
+  }
   const { slot } = await setup("proposals", f);
   await slot.findByRole("heading", { name: "Proposals · 1" });
   fireEvent.click(slot.getByRole("button", { name: "Expand all" }));
+  if (corrected) {
+    await slot.findByText(/Reported time was automatically excluded/);
+    expect(slot.queryByRole("checkbox", { name: "Select part: Reported time" })).toBeNull();
+    expect(slot.queryByRole("region", { name: "Reported time proposal" })).toBeNull();
+    fireEvent.click(slot.getByRole("button", { name: "Accept changes" }));
+    await waitFor(() => expect(f.repo.pendingTotal()).toBe(0));
+    expect(days.taskItem(task.id, days.today())?.reportedMinutes).toBe(55);
+    expect(f.repo.detail(task.id).facts.some(fact => fact.text === quote)).toBe(true);
+    return;
+  }
   const section = await slot.findByRole("region", { name: "Reported time proposal" });
   expect(within(section).getByText(/40m.*1h 5m/)).toBeTruthy();
   const time = within(section).getByRole("checkbox", { name: "Select part: Reported time" });
