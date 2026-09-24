@@ -16,6 +16,7 @@ The package includes source code and a ready build. It contains no author tasks,
 
 Click the proposal count beside **247C** in the sidebar to open **Proposals** directly. The count also works with Enter or Space when focused; the panel options menu remains available to its right.
 
+- [Local OpenKnowledge export and search](skills/knowledge-search.md)
 - [Local configuration and update patches](docs/local-configuration.md)
 - [Source configuration](docs/sources.md)
 - [Setup-agent guide and local read permissions](docs/setup-agent.md)

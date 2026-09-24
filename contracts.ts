@@ -269,7 +269,9 @@ export const rpcContract = defineRpcContract({
   retry: { input: z.object({ sessionId: idSchema, recorder: z.enum(["auto", "same", "personal-claude"]).default("auto") }).strict(), output: sessionSchema },
   resume: { input: z.object({ sessionId: idSchema }).strict(), output: sessionSchema },
   cancel: { input: z.object({ sessionId: idSchema }).strict(), output: sessionSchema },
-  knowledge: { input: z.object({ query: z.string().max(300).default(""), offset: z.number().int().min(0).default(0) }).strict(), output: z.object({ entries: z.array(knowledgeEntrySchema), total: z.number(), nextOffset: z.number().int().nonnegative().nullable() }) },
+  knowledgeExportStatus: { input: z.object({}).strict(), output: z.object({ enabled: z.boolean(), directory: z.string().nullable(), revision: z.string().nullable(), documents: z.number(), error: z.string().nullable() }) },
+  knowledgeExport: { input: z.object({}).strict(), output: z.object({ enabled: z.boolean(), directory: z.string().nullable(), revision: z.string().nullable(), documents: z.number(), error: z.string().nullable() }) },
+  knowledge: { input: z.object({ id: idSchema.optional(), query: z.string().max(300).default(""), offset: z.number().int().min(0).default(0) }).strict(), output: z.object({ entries: z.array(knowledgeEntrySchema), total: z.number(), nextOffset: z.number().int().nonnegative().nullable() }) },
   importKnowledge: { input: knowledgeImportSchema, output: z.object({ imported: z.number(), updated: z.number(), unchanged: z.number(), documents: z.number() }) },
 });
 export type TaskCard = z.infer<typeof taskCardSchema>;

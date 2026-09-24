@@ -1,3 +1,4 @@
+import { knowledgePathSchema } from "./knowledge-search.js";
 import { composerDefaultsSchema } from "./local-settings.js";
 import { calendarCommandSchema } from "./calendar-script.js";
 import { DAY_TIME_ZONE } from "./day-contracts.js";
@@ -11,6 +12,8 @@ export const timeZoneSchema = z.string().min(1).max(100).refine(value => {
 export const excludedReviewModelsSchema = z.array(z.object({ providerId: z.string().min(1).max(200), model: z.string().min(1).max(200) }).strict()).max(100);
 export function parseExcludedReviewModels(value = "[]") { return excludedReviewModelsSchema.parse(JSON.parse(value)); }
 export const settingDescriptors = {
+    knowledgeDirectory: { type: "string", label: "Knowledge export folder", description: "Empty dedicated local folder for generated OpenKnowledge snapshots of accepted notes and imported documents. Leave blank to disable. Keep outside the plugin checkout.", default: "", experimental_schema: knowledgePathSchema },
+    openKnowledgeExecutable: { type: "string", label: "OpenKnowledge executable", description: "Absolute path to the local okn binary. Enables ranked excerpts in c247_knowledge when an export folder is configured. Search uses no model and suppresses telemetry; failures fall back to SQLite.", default: "", experimental_schema: knowledgePathSchema },
     localSettingsPatch: { type: "string", label: "Local settings patch", description: "Absolute path to a private JSON settings patch, applied whenever 247C loads, including after updates. Keep it outside the plugin checkout. Leave blank to use the automatically maintained patch next to the database.", default: "", experimental_schema: z.string().trim().max(4096) },
     composerDefaults: { type: "string", label: "Conversation account and model", description: "Optional JSON with providerId and model for new work, review discussions and source checks. Leave {} to use the native composer defaults and previous conversation selection.", default: "{}", experimental_schema: z.string().max(1000).refine(value => { try { composerDefaultsSchema.parse(JSON.parse(value)); return true; } catch { return false; } }, "Use a JSON object with both providerId and model, or {}.") },
     calendarReaderCommand: { type: "string", label: "Calendar reader command", description: "Optional JSON argument array for a local calendar reader. It receives dates and known meetings on stdin and returns normalized calendar events. Leave [] to use the connected Google Calendar.", default: "[]", experimental_schema: z.string().max(32000).refine(value => { try { calendarCommandSchema.parse(JSON.parse(value)); return true; } catch { return false; } }, "Use a JSON argument array with an absolute executable path.") },

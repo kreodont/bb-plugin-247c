@@ -381,6 +381,16 @@ export class Repository {
     return result;
   }
 
+  allKnowledge(): KnowledgeEntry[] {
+    return (this.db.prepare("SELECT value_json FROM (SELECT value_json FROM knowledge_entries UNION ALL SELECT value_json FROM knowledge_files) ORDER BY json_extract(value_json, '$.id')").all() as Row[])
+      .map(row => knowledgeEntrySchema.parse(JSON.parse(String(row.value_json))));
+  }
+
+  knowledgeEntry(id: string): KnowledgeEntry | null {
+    const row = this.db.prepare("SELECT value_json FROM knowledge_entries WHERE id=? UNION ALL SELECT value_json FROM knowledge_files WHERE id=?").get(id, id) as Row | undefined;
+    return row ? knowledgeEntrySchema.parse(JSON.parse(String(row.value_json))) : null;
+  }
+
   knowledge(query = "", offset = 0) {
     const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean).slice(0, 20);
     const where = terms.length ? `WHERE ${terms.map(() => "search_text LIKE ? ESCAPE '\\'").join(" AND ")}` : "";

@@ -1,3 +1,4 @@
+import { KnowledgeSearch } from "./knowledge-search.js";
 import { importSourceBundle } from "./source-import.js";
 import { applyLocalSettingsPatch, composerDefaultsSchema } from "./local-settings.js";
 import { defineSettings, settingDescriptors } from "./settings.js";
@@ -52,8 +53,10 @@ export default async function plugin(bb: BbPluginApi) {
   settings.onChange(next => { configuration = next; });
   db.pragma("foreign_keys = ON");
   bb.storage.migrate(db, compatibleMigrations(db, [CORE_SCHEMA, ...EXTRA_SCHEMA]));
-  const changed = () => bb.realtime.publish("desk-changed", { at: Date.now() });
+  let knowledge: KnowledgeSearch | undefined;
+  const changed = () => { bb.realtime.publish("desk-changed", { at: Date.now() }); knowledge?.schedule(); };
   const repo = new Repository(db, changed, () => configuration.timeZone);
+  knowledge = new KnowledgeSearch(repo, () => configuration, message => bb.log.warn(message));
   const getSettings = async (): Promise<SettingsView> => settings.get();
   const threadRouting = new ThreadRouting(bb, async () => (await settings.get()).threadProjectId);
   const runtime = new SessionRuntime(bb, repo, getSettings, threadRouting);
@@ -138,7 +141,13 @@ export default async function plugin(bb: BbPluginApi) {
     retry: ({ sessionId, recorder }) => runtime.retry(sessionId, recorder),
     resume: ({ sessionId }) => runtime.resume(sessionId),
     cancel: ({ sessionId }) => runtime.cancel(sessionId),
-    knowledge: ({ query, offset }) => repo.knowledge(query, offset),
+    knowledge: ({ query, offset, id }) => {
+      if (!id) return repo.knowledge(query, offset);
+      const entry = repo.knowledgeEntry(id);
+      return { entries: entry ? [entry] : [], total: entry ? 1 : 0, nextOffset: null };
+    },
+    knowledgeExportStatus: () => knowledge!.status(),
+    knowledgeExport: async () => { await knowledge!.refresh(); return knowledge!.status(); },
     importKnowledge: (input) => repo.importKnowledge(input),
   });
 
@@ -238,9 +247,9 @@ export default async function plugin(bb: BbPluginApi) {
     execute(input, ctx) { return sync.submit(ctx.threadId, input).then(boundedJson); },
   });
   bb.agents.registerTool({
-    name: "c247_knowledge", description: "Search 247C knowledge: accepted conversation notes and Markdown documents explicitly imported by the user. Conversation notes include source task and thread IDs; imported documents include original host path and content hash. Pending proposals are never included. Use keywords; pass nextOffset as offset for the next page (up to 50 entries, bounded by response size).",
+    name: "c247_knowledge", description: "Search 247C knowledge: accepted conversation notes and Markdown documents explicitly imported by the user. Conversation notes include source task and thread IDs; imported documents include original host path and content hash. Pending proposals are never included. Historical notes do not imply current work; check the dossier before proposing actions. Configured OpenKnowledge returns ranked excerpts with provenance and a context budget. Pass id for the original full document. Use keywords; pass nextOffset as offset for another page. Search metadata identifies bounded results and SQLite fallback.",
     parameters: rpcContract.knowledge.input,
-    execute({ query, offset }) { return boundedJson(repo.knowledge(query, offset)); },
+    async execute({ query, offset, id }) { return boundedJson(await knowledge!.search(query, offset, id)); },
   });
   bb.agents.registerTool({
     name: "c247_tasks", description: "List personal 247C task dossiers. Returns up to 500 records with total count. Tasks are separate from BB projects and threads.",
@@ -316,6 +325,14 @@ export default async function plugin(bb: BbPluginApi) {
       if (run) await sync.tick(run.id);
     });
   }
+  bb.background.service("knowledge-export", {
+    async start(signal) {
+      while (!signal.aborted) {
+        try { await knowledge!.refresh(); } catch { /* Status and logs retain the error; retry next tick. */ }
+        await sleep(30_000, signal);
+      }
+    },
+  });
   bb.background.service("session-monitor", {
     async start(signal) {
       if ((await settings.get()).hourlyUpdates) {
@@ -349,14 +366,14 @@ export default async function plugin(bb: BbPluginApi) {
     if (runId) bb.log.info(`Scheduled 247C source check: ${runId}`);
   });
   settings.onChange(changed);
-  bb.onDispose(async () => { calendar.dispose(); sync.dispose(); await agentTime.dispose(); await runtime.dispose(); });
+  bb.onDispose(async () => { calendar.dispose(); sync.dispose(); await agentTime.dispose(); await runtime.dispose(); await knowledge!.dispose(); });
 
   const usage = `247C — durable tasks, conversations and knowledge
 
   bb 247c local-patch [--json]
   bb 247c list [--history] [--json]
   bb 247c show <task-id> [--json]
-  bb 247c knowledge [query] [--offset N] [--json]
+  bb 247c knowledge [query] [--offset N] [--id entry-id] [--json]
   bb 247c new <title> [--json]
   bb 247c propose <task-id> <revision> '<draft-json>' [--json]
   bb 247c sync [--json]
@@ -372,7 +389,7 @@ Use the 247C panel to approve, archive, start or finish sessions.
       { name: "local-patch", summary: "Show local settings patch location and consistency without account values", usage: "bb 247c local-patch [--json]" },
       { name: "list", summary: "List task dossiers", usage: "bb 247c list [--history] [--json]" },
       { name: "show", summary: "Read a dossier and its evidence", usage: "bb 247c show <task-id> [--json]" },
-      { name: "knowledge", summary: "Search conversation notes and imported documents", usage: "bb 247c knowledge [query] [--offset N] [--json]" },
+      { name: "knowledge", summary: "Search conversation notes and imported documents", usage: "bb 247c knowledge [query] [--offset N] [--id entry-id] [--json]" },
       { name: "new", summary: "Record an explicitly requested task", usage: "bb 247c new <title> [--json]" },
       { name: "propose", summary: "Submit a pending evidence-backed patch", usage: "bb 247c propose <task-id> <revision> '<draft-json>' [--json]" },
       { name: "sync", summary: "Read source-update history and checkpoints", usage: "bb 247c sync [--json]" },
@@ -422,8 +439,11 @@ Use the 247C panel to approve, archive, start or finish sessions.
           let offset = 0;
           const position = args.indexOf("--offset");
           if (position !== -1) { const option = args.splice(position, 2); offset = option.length === 2 ? Number(option[1]) : NaN; }
-          const input = rpcContract.knowledge.input.parse({ query: args.join(" "), offset });
-          value = repo.knowledge(input.query, input.offset);
+          let id: string | undefined;
+          const idPosition = args.indexOf("--id");
+          if (idPosition !== -1) { const option = args.splice(idPosition, 2); id = option[1] ?? ""; }
+          const input = rpcContract.knowledge.input.parse({ query: args.join(" "), offset, ...(id !== undefined ? { id } : {}) });
+          value = await knowledge!.search(input.query, input.offset, input.id);
         } else if (command === "new" && args.length) {
           independentCaller(ctx.threadId);
           value = repo.create(rpcContract.create.input.parse({ title: args.join(" "), description: "", requestId: randomUUID() }));
