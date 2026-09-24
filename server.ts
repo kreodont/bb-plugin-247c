@@ -1,3 +1,4 @@
+import { UpdaterHealth } from "./updater-health.js";
 import { KnowledgeSearch } from "./knowledge-search.js";
 import { importSourceBundle } from "./source-import.js";
 import { applyLocalSettingsPatch, composerDefaultsSchema } from "./local-settings.js";
@@ -61,6 +62,7 @@ export default async function plugin(bb: BbPluginApi) {
   const threadRouting = new ThreadRouting(bb, async () => (await settings.get()).threadProjectId);
   const runtime = new SessionRuntime(bb, repo, getSettings, threadRouting);
   const days = new DayPlanning(repo, () => new Date(), () => configuration.timeZone, () => configuration.reportMeetingsWhenPlanned);
+  const updaterHealth = new UpdaterHealth(bb, () => configuration);
   const dayPlanner = new DayPlanner(bb, () => settings.get(), () => days.today());
   const agentTime = new AgentTimeRuntime(bb, days);
   const sourceConfiguration = async () => parseSourceConfig((await settings.get()).sources);
@@ -98,6 +100,7 @@ export default async function plugin(bb: BbPluginApi) {
     calendarSync: ({ date }) => calendar.start(date),
     proposalInbox: ({ offset }) => inbox.list(offset),
     acceptInbox: async ({ items }) => { const result = await inbox.accept(items); if (result.applied.length) await runtime.archiveFinishedThreads(); return result; },
+    updaterHealth: ({ refresh }) => updaterHealth.state(refresh),
     syncState: () => sync.store.state(),
     syncStart: (input) => sync.start(input),
     syncImport: async (input) => importSourceBundle(sync.store, (await settings.get()).sourceImportRoot, input),
@@ -325,6 +328,14 @@ export default async function plugin(bb: BbPluginApi) {
       if (run) await sync.tick(run.id);
     });
   }
+  bb.background.service("updater-health", {
+    async start(signal) {
+      while (!signal.aborted) {
+        await updaterHealth.state(true);
+        await sleep(30_000, signal);
+      }
+    },
+  });
   bb.background.service("knowledge-export", {
     async start(signal) {
       while (!signal.aborted) {
@@ -366,7 +377,7 @@ export default async function plugin(bb: BbPluginApi) {
     if (runId) bb.log.info(`Scheduled 247C source check: ${runId}`);
   });
   settings.onChange(changed);
-  bb.onDispose(async () => { calendar.dispose(); sync.dispose(); await agentTime.dispose(); await runtime.dispose(); await knowledge!.dispose(); });
+  bb.onDispose(async () => { updaterHealth.dispose(); calendar.dispose(); sync.dispose(); await agentTime.dispose(); await runtime.dispose(); await knowledge!.dispose(); });
 
   const usage = `247C — durable tasks, conversations and knowledge
 

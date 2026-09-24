@@ -1,3 +1,4 @@
+import { useUpdaterHealth, UpdaterHealthBanner, UpdaterHealthBadge, UpdaterHealthNotification } from "./updater-health-ui.js";
 import { PlanningTimeZone, usePlanningTimeZone } from "./day-zone.js";
 import { proposalParts, sourceParts } from "./proposal-parts.js";
 import { usePartSelection, PartReviewNote, partOutcome } from "./review-parts-ui.js";
@@ -645,6 +646,8 @@ const reviewTitle = (item: ReviewItem) => item.kind === "source" ? item.candidat
 const reviewGroup = (item: ReviewItem) => item.kind === "proposal" ? "dossier" : item.candidate.taskId ? "updates" : "new";
 const reviewSelection = (item: ReviewItem): ReviewSelection => ({ kind: item.kind, id: item.kind === "source" ? item.candidate.id : item.proposal.id, revision: item.kind === "source" ? item.candidate.baseRevision : item.proposal.baseRevision });
 function ProposalInboxPage() {
+  const updater = useUpdaterHealth();
+  const incompleteSources = Boolean(updater.error || updater.data?.alert);
   const rpc = useRpc<typeof rpcContract>(), navigate = useBbNavigate();
   const [offset, setOffset] = useState(0);
   const [previousOffsets, setPreviousOffsets] = useState<number[]>([]);
@@ -721,7 +724,7 @@ function ProposalInboxPage() {
         {open && <div className="border-t border-border p-3 pt-0 md:p-4 md:pt-0">{item.kind === "source" ? <SyncCandidateCard candidate={item.candidate} currentTask={item.currentTask ?? undefined} action={action} busy={busy} partSelection={partSelections[key]} onPartSelection={parts => setPartSelections(previous => ({ ...previous, [key]: parts }))} /> : <><div className="flex justify-end py-2"><Button size="sm" variant="ghost" onClick={() => navigate.toPluginPanel("desk", { subPath: item.dossier.task.id })}>Open task</Button></div><ProposalCard proposal={item.proposal} dossier={item.dossier} action={action} busy={busy} partSelection={partSelections[key]} onPartSelection={parts => setPartSelections(previous => ({ ...previous, [key]: parts }))} /></>}</div>}
       </section>;
     })}
-    {data && !visible.length && <div className="rounded-xl border border-dashed border-border p-10 text-center"><Icon name="CircleCheck" className="mx-auto mb-3 size-7 text-muted-foreground" /><h2 className="font-medium">{data.total ? "No proposals in this section" : "Everything reviewed"}</h2><p className="mt-2 text-sm text-muted-foreground">{data.total ? "Choose another proposal type or the next page." : "New proposals will appear after checking sources or finishing sessions."}</p></div>}
+    {data && !visible.length && <div className="rounded-xl border border-dashed border-border p-10 text-center"><Icon name={incompleteSources ? "AlertCircle" : "CircleCheck"} className="mx-auto mb-3 size-7 text-muted-foreground" /><h2 className="font-medium">{data.total ? "No proposals in this section" : incompleteSources ? "No proposals are ready" : "Everything reviewed"}</h2><p className="mt-2 text-sm text-muted-foreground">{data.total ? "Choose another proposal type or the next page." : incompleteSources ? "Source checks need attention. New work may not have reached this list." : "New proposals will appear after checking sources or finishing sessions."}</p></div>}
     {data && (offset > 0 || data.nextOffset !== null) && <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="outline" disabled={busy || !previousOffsets.length} onClick={() => { setOffset(previousOffsets.at(-1) ?? 0); setPreviousOffsets(previousOffsets.slice(0, -1)); setSelected(new Set()); }}>Previous page</Button><span className="text-xs text-muted-foreground">On this page {items.length} of {data.total}. The rest are on the next page.</span><Button variant="outline" disabled={busy || data.nextOffset === null} onClick={() => { if (data.nextOffset !== null) { setPreviousOffsets([...previousOffsets, offset]); setOffset(data.nextOffset); setSelected(new Set()); } }}>Next page</Button></div>}
   </div></div>;
 }
@@ -733,7 +736,7 @@ function Page({ subPath }: PluginNavPanelProps) {
   const navigate = useBbNavigate(), { threadId } = deskRoute(subPath);
   if (!data && error) return <ErrorNotice error={error} retry={() => void refresh()} />;
   if (!data) return <p role="status">Loading 247C settings…</p>;
-  return <PlanningTimeZone.Provider value={data.timeZone ?? DAY_TIME_ZONE}><ErrorNotice error={error} retry={() => void refresh()} /><NavigationFrame subPath={subPath} returnToThread={threadId ? () => navigate.toThread(threadId) : undefined}><PageContent subPath={subPath} /></NavigationFrame></PlanningTimeZone.Provider>;
+  return <PlanningTimeZone.Provider value={data.timeZone ?? DAY_TIME_ZONE}><ErrorNotice error={error} retry={() => void refresh()} /><NavigationFrame subPath={subPath} returnToThread={threadId ? () => navigate.toThread(threadId) : undefined}><div className="flex h-full min-h-0 flex-col"><UpdaterHealthBanner showHealthy={deskRoute(subPath).path === "updates"} /><div className="min-h-0 flex-1"><PageContent subPath={subPath} /></div></div></NavigationFrame></PlanningTimeZone.Provider>;
 }
 
 function PageContent({ subPath }: PluginNavPanelProps) {
@@ -773,12 +776,14 @@ function SidebarCount() {
   // BB clips this accessory to 4rem × 1.25rem. Keep the proposal signal
   // first and non-shrinking; longer task counts yield space to reported time.
   return <span className="inline-flex w-16 min-w-0 max-w-full items-center justify-end gap-0.5 whitespace-nowrap leading-4">
+    <UpdaterHealthBadge />
     {data && data.pendingTotal > 0 && <button type="button" data-c247-proposals-shortcut="" className="inline-flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-full bg-orange-500/20 font-mono text-[9px] font-semibold leading-none tabular-nums text-orange-700 hover:bg-orange-500/35 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-orange-500 dark:text-orange-300" title={`${pendingLabel}. Open Proposals`} aria-label={pendingLabel} onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); navigate.toPluginPanel("desk", { subPath: "proposals" }); }}>{data.pendingTotal > 9 ? "9+" : data.pendingTotal}</button>}
     {data && data.total > 0 && <span className="min-w-0 truncate font-mono text-[10px] tabular-nums text-muted-foreground" title={`Open tasks: ${data.total}`}>{data.total}</span>}
     <SidebarReported />
   </span>;
 }
 export default definePluginApp((app) => {
+  app.slots.experimental_appOverlay({ id: "updater-health-notification", component: UpdaterHealthNotification });
   app.contentScripts.register({ id: "sidebar-proposals-shortcut", mount: mountSidebarShortcut });
   app.slots.navPanel({ id: "desk", title: "247C", icon: "Target", path: "desk", component: Page, experimental_sidebarAccessory: SidebarCount });
   app.slots.experimental_threadHeaderAction({ id: "task", title: "247C task", component: ThreadTaskAction });

@@ -223,7 +223,7 @@ describe("Bounded work and independent review", () => {
 });
 
 it("uses only public BB APIs", async () => {
-  const result = await experimental_scanPublicSdkOnly(import.meta.dirname, { allow: [/^@modelcontextprotocol\/sdk\//, /^@get-bb\/plugin-sdk\/testing$/, /^@hugeicons\//, /^@radix-ui\//, /^@testing-library\//, /^vitest$/, /^react(?:-dom)?(?:\/|$)/, /^sonner$/, /^better-sqlite3$/, /^class-variance-authority$/, /^clsx$/, /^tailwind-merge$/] });
+  const result = await experimental_scanPublicSdkOnly(import.meta.dirname, { allow: [/^@modelcontextprotocol\/sdk\//, /^@get-bb\/plugin-sdk\/testing$/, /^@hugeicons\//, /^@radix-ui\//, /^@testing-library\//, /^vitest$/, /^react(?:-dom)?(?:\/|$)/, /^sonner$/, /^better-sqlite3$/, /^class-variance-authority$/, /^clsx$/, /^tailwind-merge$/, /^cron-parser$/] });
   expect(result.violations).toEqual([]);
   expect(result.privateDependencies).toEqual([]);
 });
