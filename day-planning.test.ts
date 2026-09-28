@@ -185,3 +185,20 @@ it("confines worker time edits to its task and denies recording agents", async (
   const reviewerId = f.repo.session(session.id).reviewerThreadId!;
   await expect(f.harness.behavior.callAgentTool("c247_day", { date: mine.date }, { threadId: reviewerId })).rejects.toThrow(/only for its own task/);
 });
+
+it("tells manual, conversation and calendar reported time apart", async () => {
+  const { task, days, setNow } = await setup();
+  let item = days.add({ taskId: task.id, date: "2026-09-10", plannedMinutes: 30, requestId: randomUUID() });
+  expect(days.day("2026-09-10").items[0].reportedChanges).toEqual([]);
+  item = days.edit({ id: item.id, revision: item.revision, reportedMinutes: 20, requestId: randomUUID() });
+  item = days.edit({ id: item.id, revision: item.revision, reportedMinutes: 10, operation: "add", requestId: randomUUID() }, "bb-thread:thr_example");
+  const task_ = days.day("2026-09-10").items.find(i => i.id === item.id)!;
+  expect(task_.reportedChanges.map(c => [c.source, c.from, c.to, c.threadId])).toEqual([["panel", null, 20, null], ["conversation", 20, 30, "thr_example"]]);
+  // A replacement hides older sources from the report: only the latest change makes up the value.
+  expect(days.report({ date: "2026-09-10", period: "day" }).rows[0].days[0].reportedFrom).toEqual(["conversation"]);
+
+  days.mergeCalendar([meeting()]); setNow("2026-09-10T11:00:00Z"); days.tick();
+  const call = days.day("2026-09-10").items.find(i => i.calendar)!;
+  expect(call.reportedMinutes).toBe(30);
+  expect(call.reportedChanges.at(-1)).toMatchObject({ source: "calendar", to: 30 });
+});

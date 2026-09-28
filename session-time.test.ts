@@ -213,3 +213,24 @@ it("uses configured local date and refuses invented evidence", async () => {
   expect(context.date).toBe("2026-09-19");
   expect(() => validateExtraction({ ...extraction, reportedTime: { ...extraction.reportedTime!, evidenceRefs: ["fact:99"] } }, f.repo.transcript(session.id)!)).toThrow(/missing conversation fact/);
 });
+
+it("names an accepted session estimate as its source, with the reason and conversation", async () => {
+  const { f, task, session, days, date, extraction } = await finished(50);
+  await f.harness.behavior.callRpc("accept", { proposalId: session.proposalId!, revision: task.revision });
+  const item = days.day(date).items.find(i => i.taskId === task.id)!;
+  expect(item.reportedMinutes).toBe(85);
+  expect(item.reportedChanges.map(c => [c.source, c.from, c.to])).toEqual([["panel", null, 50], ["session_review", 50, 85]]);
+  expect(item.reportedChanges.at(-1)).toMatchObject({ sessionId: session.id, proposalId: session.proposalId, threadId: session.workerThreadId,
+    reason: extraction.reportedTime!.reason, label: "Session time estimate accepted in review" });
+  expect(days.report({ date, period: "day" }).rows[0].days[0].reportedFrom).toEqual(["panel", "session_review"]);
+});
+
+it("names a session estimate that created the entry by itself", async () => {
+  const { f, task, session, days, date } = await finished();
+  await f.harness.behavior.callRpc("accept", { proposalId: session.proposalId!, revision: task.revision });
+  const item = days.day(date).items.find(i => i.taskId === task.id)!;
+  expect(item.plannedMinutes).toBeNull();
+  expect(item.reportedChanges).toHaveLength(1);
+  expect(item.reportedChanges[0]).toMatchObject({ source: "session_review", from: null, to: 35, threadId: session.workerThreadId });
+  expect(days.report({ date, period: "day" }).rows[0].days[0].reportedFrom).toEqual(["session_review"]);
+});

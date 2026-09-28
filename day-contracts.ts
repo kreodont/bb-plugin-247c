@@ -26,7 +26,16 @@ export const dayItemSchema = z.object({
   calendar: calendarEventSchema.nullable(), createdAt: z.iso.datetime(), updatedAt: z.iso.datetime(),
 });
 export type DayItem = z.infer<typeof dayItemSchema>;
-export const dayViewItemSchema = dayItemSchema.extend({ taskStatus: z.enum(["open", "done", "archived"]).nullable(), reportOnly: z.boolean() });
+// Where each reported value came from, newest last. Derived from the event journal, never stored.
+export const reportedChangeSchema = z.object({
+  at: z.string(), from: dayMinutesSchema, to: dayMinutesSchema,
+  source: z.enum(["panel", "conversation", "session_review", "calendar", "ai_estimate", "other"]), label: z.string().max(400),
+  threadId: z.string().max(300).nullable(), sessionId: z.string().max(300).nullable(), proposalId: z.string().max(300).nullable(),
+  reason: z.string().max(2000).nullable(),
+});
+export type ReportedChange = z.infer<typeof reportedChangeSchema>;
+export const dayViewItemSchema = dayItemSchema.extend({ taskStatus: z.enum(["open", "done", "archived"]).nullable(), reportOnly: z.boolean(),
+  reportedChanges: z.array(reportedChangeSchema).default([]) });
 export const dayConfigSchema = z.object({ date: dayDateSchema, capacityMinutes: dayMinutesSchema, note: z.string().max(4000), revision: z.number().int().min(0) });
 export const dayTotalsSchema = z.object({ plannedMinutes: z.number(), actualMinutes: z.number().default(0), reportedMinutes: z.number(), missingReported: z.number().int(), estimatedReported: z.number().int().default(0) });
 export const agentTimeStateSchema = z.object({ from: dayDateSchema.nullable(), checkedAt: z.string().nullable(), errors: z.array(z.string()), running: z.boolean() });
@@ -75,7 +84,9 @@ export const timeReportSchema = z.object({
   from: dayDateSchema, through: dayDateSchema, timeZone: z.string(), totals: dayTotalsSchema,
   rows: z.array(z.object({ key: id, taskId: id.nullable(), title: z.string(), kind: z.enum(["task", "meeting"]),
     plannedMinutes: dayMinutesSchema, actualMinutes: dayMinutesSchema.default(null), reportedMinutes: dayMinutesSchema, estimatedReported: z.boolean().default(false),
-    days: z.array(z.object({ date: dayDateSchema, itemId: id, plannedMinutes: dayMinutesSchema, actualMinutes: dayMinutesSchema.default(null), reportedMinutes: dayMinutesSchema, estimatedReported: z.boolean().default(false) })),
+    days: z.array(z.object({ date: dayDateSchema, itemId: id, plannedMinutes: dayMinutesSchema, actualMinutes: dayMinutesSchema.default(null), reportedMinutes: dayMinutesSchema, estimatedReported: z.boolean().default(false),
+      // Sources that make up the current reported value, see reportedComposition.
+      reportedFrom: z.array(reportedChangeSchema.shape.source).default([]) })),
   })),
 });
 export type TimeReport = z.infer<typeof timeReportSchema>;

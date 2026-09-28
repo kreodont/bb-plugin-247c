@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { digest, Repository } from "./repository.js";
+import { reportedChanges, reportedComposition } from "./day-provenance.js";
 import { ConflictError, PolicyError } from "./core/errors.js";
 import { calendarEventSchema, calendarStateSchema, dayAddSchema, dayConfigSchema, dayDateSchema, dayEditSchema, dayEstimateSchema, dayItemSchema, dayRpcContract,
   DAY_TIME_ZONE, localDay, shiftDay, weekStart, type CalendarEvent, type CalendarState, type DayItem, type DayView, type TimeReport } from "./day-contracts.js";
@@ -270,7 +271,7 @@ export class DayPlanning {
   }
   private present(item: DayItem, date: string) {
     const task = item.taskId ? this.repo.kernel.getTask(item.taskId) : null;
-    return { ...item, title: task?.title ?? item.title, taskStatus: task?.status ?? null, reportOnly: item.date !== date };
+    return { ...item, title: task?.title ?? item.title, taskStatus: task?.status ?? null, reportOnly: item.date !== date, reportedChanges: reportedChanges(this.repo, item.id) };
   }
   private totals(items: DayItem[], from?: string, through?: string) {
     const inPeriod = (date: string) => !from || date >= from && date <= through!;
@@ -304,10 +305,11 @@ export class DayPlanning {
       if (actual !== null) group.actualMinutes = (group.actualMinutes ?? 0) + actual;
       if (reported !== null) group.reportedMinutes = (group.reportedMinutes ?? 0) + reported;
       group.estimatedReported ||= estimatedReported;
-      if (item.date === item.reportedDate) group.days.push({ date: item.date, itemId: item.id, plannedMinutes: planned, actualMinutes: actual, reportedMinutes: reported, estimatedReported });
+      const reportedFrom = reported === null ? [] : [...new Set(reportedComposition(reportedChanges(this.repo, item.id)).map(c => c.source))];
+      if (item.date === item.reportedDate) group.days.push({ date: item.date, itemId: item.id, plannedMinutes: planned, actualMinutes: actual, reportedMinutes: reported, estimatedReported, reportedFrom });
       else {
-        if (planned !== null) group.days.push({ date: item.date, itemId: item.id, plannedMinutes: planned, actualMinutes: null, reportedMinutes: null, estimatedReported: false });
-        if (reported !== null || actual !== null) group.days.push({ date: item.reportedDate, itemId: item.id, plannedMinutes: null, actualMinutes: actual, reportedMinutes: reported, estimatedReported });
+        if (planned !== null) group.days.push({ date: item.date, itemId: item.id, plannedMinutes: planned, actualMinutes: null, reportedMinutes: null, estimatedReported: false, reportedFrom: [] });
+        if (reported !== null || actual !== null) group.days.push({ date: item.reportedDate, itemId: item.id, plannedMinutes: null, actualMinutes: actual, reportedMinutes: reported, estimatedReported, reportedFrom });
       }
       groups.set(key, group);
     }
