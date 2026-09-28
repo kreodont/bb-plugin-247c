@@ -59,3 +59,33 @@ it("keeps the panel warning visible after the popup was dismissed", async () => 
     expect(slot.queryByText("Everything reviewed")).toBeNull();
   } finally { await f.harness.lifecycle.dispose(); }
 });
+
+it("shows collector coverage instead of stale analysis batch dates and counters", async () => {
+  const f = await import("./test-support.js").then(module => module.fixture());
+  try {
+    const { rpcContract } = await import("./contracts.js");
+    const rpc = Object.fromEntries(Object.keys(rpcContract).map(name => [name, (input: unknown) => f.harness.behavior.callRpc(name, input)]));
+    const collectedAt = "2026-09-28T10:00:00Z", since = "2026-09-13T09:15:00Z";
+    rpc.updaterHealth = async () => ({ ...warning, sourceCoverage: [
+      { source: "outlook", collectedAt, since, fullyCheckedThrough: collectedAt, status: "complete", savedRecords: 29, gaps: [] },
+      { source: "teams", collectedAt, since, fullyCheckedThrough: null, status: "partial", savedRecords: 217, gaps: ["Source response truncated"], scannedChats: 17, discoveredChats: 135 },
+    ] });
+    rpc.syncState = async () => ({ pending: 0, candidates: [], checkpoints: { outlook: "2026-09-14T09:30:00Z" }, nextSince: { outlook: since, teams: since }, runs: [{
+      id: "old-batch", status: "partial", startedAt: "2026-09-28T09:00:00Z", until: "2026-09-28T09:00:00Z", suggestions: 0,
+      ranges: { outlook: { since }, teams: { since } }, reports: [{ source: "outlook", status: "partial", detail: "Old batch report", scanned: 0, threadsRead: 0 }],
+    }] });
+    const slot = renderSlot(app.navPanels[0], { subPath: "updates" }, { rpc }); mounts.push(slot);
+    const outlook = await slot.findByRole("region", { name: "Outlook collection coverage" });
+    expect(outlook.textContent).toContain("Collection complete");
+    expect(outlook.textContent).toContain("Saved records: 29");
+    expect(outlook.textContent).not.toContain("14 Sept");
+    const teams = await slot.findByRole("region", { name: "Teams collection coverage" });
+    expect(teams.textContent).toContain("Full coverage not confirmed");
+    expect(teams.textContent).toContain("13 Sept");
+    expect(teams.textContent).toContain("28 Sept");
+    expect(teams.textContent).toContain("Chats checked: 17 of 135");
+    expect(teams.textContent).toContain("Source response truncated");
+    expect(slot.queryByText("Old batch report")).toBeNull();
+    expect(slot.queryByText(/Unchecked since/)).toBeNull();
+  } finally { await f.harness.lifecycle.dispose(); }
+});

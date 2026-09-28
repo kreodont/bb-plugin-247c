@@ -188,3 +188,20 @@ planning prompt must still require an actionable assignment for the relevant sta
 Ignore historical waiting facts once current accepted context supersedes them, and
 invalidate cached plans when introducing this policy. Keep installation-specific
 scripts and task data in the local configuration area.
+
+## Script collection coverage
+
+An external updater can include an optional `sourceCoverage` array in its local
+version 1 health snapshot (`sourceUpdaterStatusFile`). Each entry supplies
+`source`, ISO UTC `collectedAt` and `since`, nullable `fullyCheckedThrough`,
+`status` (`complete`, `partial`, or `unavailable`), `savedRecords`, and `gaps`.
+Optional `scannedChats` and `discoveredChats` explain chat coverage. Include at
+most six sources and ten gap messages per source, each at most 1,000 characters.
+The entire snapshot remains limited to 64 KB. Do not include source bodies.
+
+The Updates page displays these collection dates and gaps separately from
+proposal analysis. The last complete collection checkpoint must only advance
+when source collection confirms full coverage; a successful analysis of a
+subset does not establish that coverage. These metadata do not change native
+sync checkpoints or receipt validation. Without them, the page retains native
+source reports. Analysis errors remain visible even when collection succeeds.

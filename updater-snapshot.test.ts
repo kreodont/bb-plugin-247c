@@ -31,3 +31,15 @@ it("uses the configured local snapshot through the real health RPC and reports u
   await rm(path);
   expect(await f.harness.behavior.callRpc("updaterHealth", { refresh: true })).toMatchObject({ alert: true, status: "unavailable" });
 });
+
+it("preserves coverage independently of analysis and rejects invalid coverage dates", async () => {
+  const { updaterSnapshotSchema, evaluateUpdater } = await import("./updater-health.js");
+  const collectedAt = new Date(snapshot.collectedAt).toISOString();
+  const sourceCoverage = [{ source: "outlook" as const, collectedAt, since: "2026-09-01T00:00:00Z", fullyCheckedThrough: collectedAt,
+    status: "complete" as const, savedRecords: 29, gaps: [] }];
+  const parsed = updaterSnapshotSchema.parse({ ...snapshot, status: "analysis_failed", sourceCoverage, analysisError: { error: "Invalid citation" } });
+  const state = evaluateUpdater({ id: "auto", projectId: "project", enabled: true, createdAt: snapshot.finishedAt, nextRunAt: null, lastError: null,
+    trigger: { triggerType: "schedule", cron: "0 * * * *", timezone: "UTC" } }, [], snapshot.finishedAt, parsed);
+  expect(state).toMatchObject({ status: "failed", sourceCoverage, detail: "Invalid citation" });
+  expect(updaterSnapshotSchema.safeParse({ ...snapshot, sourceCoverage: [{ ...sourceCoverage[0], fullyCheckedThrough: "2099-01-01T00:00:00Z" }] }).success).toBe(false);
+});

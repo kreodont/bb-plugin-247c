@@ -3,7 +3,7 @@ import { isAbsolute } from "node:path";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { CronExpressionParser } from "cron-parser";
 import { z } from "zod";
-import type { UpdaterHealthState } from "./updater-health-contracts.js";
+import { sourceCoverageSchema, type UpdaterHealthState } from "./updater-health-contracts.js";
 
 export type UpdaterSettings = { sourceUpdaterProjectId: string; sourceUpdaterAutomationId: string; sourceUpdaterStatusFile?: string };
 const automationSchema = z.object({
@@ -22,10 +22,12 @@ const reportSchema = z.object({
   analysisError: z.object({ error: z.string() }).nullable().optional(),
 });
 export const updaterSnapshotSchema = reportSchema.extend({
+  sourceCoverage: z.array(sourceCoverageSchema).max(6).optional(),
   version: z.literal(1), status: z.enum(["complete", "analysis_failed", "attention_required", "analysis_deferred"]),
   finishedAt: z.number().int().nonnegative(), collectedAt: z.number().int().nonnegative().nullable(),
   operation: z.enum(["check", "analysis", "collection"]), pendingBatches: z.number().int().nonnegative(),
-}).refine(value => value.collectedAt === null || value.collectedAt <= value.finishedAt, "Collection timestamp is later than completion.");
+}).refine(value => value.collectedAt === null || value.collectedAt <= value.finishedAt, "Collection timestamp is later than completion.")
+  .refine(value => (value.sourceCoverage ?? []).every(row => Date.parse(row.collectedAt) <= value.finishedAt), "Coverage timestamp is later than completion.");
 type Snapshot = z.infer<typeof updaterSnapshotSchema>;
 export async function readUpdaterSnapshot(path: string): Promise<Snapshot | undefined> {
   if (!path) return undefined;
@@ -77,7 +79,7 @@ export function evaluateUpdater(automation: Automation, input: Run[], now: numbe
     detail: "Source coverage is reported separately below. No proposals does not guarantee that every source was checked.",
     lastSuccessAt: recovered ? Math.max(snapshot!.finishedAt, successful?.finishedAt ?? 0) : successful?.finishedAt ?? null, lastStartedAt: runs[0]?.startedAt ?? null, nextRunAt: automation.nextRunAt,
     running: Boolean(active), pendingRecords: latestReport?.pendingRecords ?? 0, attentionBatches: latestReport?.attentionBatches.length ?? 0,
-    timeZone: automation.trigger.timezone };
+    timeZone: automation.trigger.timezone, sourceCoverage: snapshot?.sourceCoverage ?? [] };
   const problem = (status: UpdaterHealthState["status"], title: string, detail: string): UpdaterHealthState => ({ ...base, status, alert: true, title, detail,
     incidentId: `${automation.projectId}/${automation.id}/${base.lastSuccessAt ?? automation.createdAt}` });
   if (!automation.enabled) return problem("paused", "Source updater is paused", errorText(automation.lastError) || "Scheduled checks are disabled. New work may be missing from 247C.");
