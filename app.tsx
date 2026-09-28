@@ -232,16 +232,21 @@ function CreateTask({ done, cancel }: { done: (id: string) => void; cancel: () =
   </form>;
 }
 
-function SyncCandidateCard({ candidate, currentTask, action, busy, partSelection, onPartSelection }: { partSelection?: string[]; onPartSelection?: (parts: string[] | undefined) => void; candidate: SyncCandidate; currentTask?: Pick<TaskCard, "revision" | "status" | "activeSession">; action: (fn: () => Promise<unknown>) => Promise<boolean>; busy: boolean }) {
+type InitialPriority = { urgent: boolean; important: boolean };
+
+function SyncCandidateCard({ candidate, currentTask, action, busy, partSelection, onPartSelection, initialPriority, priorityInHeader = false }: { initialPriority?: InitialPriority; priorityInHeader?: boolean; partSelection?: string[]; onPartSelection?: (parts: string[] | undefined) => void; candidate: SyncCandidate; currentTask?: Pick<TaskCard, "revision" | "status" | "activeSession">; action: (fn: () => Promise<unknown>) => Promise<boolean>; busy: boolean }) {
   const rpc = useRpc<typeof rpcContract>();
   const navigate = useBbNavigate();
+  const [localPriority, setLocalPriority] = useState<InitialPriority>();
+  const priority = priorityInHeader ? initialPriority : localPriority;
+  const priorityInput = priority && !candidate.taskId ? { initialPriority: priority } : {};
   const pending = candidate.status === "pending";
   const stale = Boolean(candidate.taskId && (!currentTask || currentTask.revision !== candidate.baseRevision));
   const selection = usePartSelection(candidate.id, sourceParts(candidate), busy, onPartSelection, partSelection);
   const active = Boolean(currentTask?.activeSession && candidate.changes.status && selection.picked.includes("field:status"));
   const decide = (decision: "accept" | "reject") => action(() => selection.all
-    ? decision === "accept" ? rpc.call("syncAccept", { candidateId: candidate.id }) : rpc.call("syncReject", { candidateId: candidate.id })
-    : rpc.call("reviewParts", { kind: "source", id: candidate.id, revision: candidate.baseRevision, decision, parts: selection.picked, requestId: crypto.randomUUID() }));
+    ? decision === "accept" ? rpc.call("syncAccept", { candidateId: candidate.id, ...priorityInput }) : rpc.call("syncReject", { candidateId: candidate.id })
+    : rpc.call("reviewParts", { kind: "source", id: candidate.id, revision: candidate.baseRevision, decision, parts: selection.picked, requestId: crypto.randomUUID(), ...(decision === "accept" ? priorityInput : {}) }));
   const quotes = [...new Map(candidate.facts.flatMap((f) => f.citations).map((c) => [JSON.stringify([c.source, c.messageId, c.quote]), c])).values()];
   function value(field: string, raw: unknown) {
     if (field === "status" && typeof raw === "string") return taskStatusNames[raw as keyof typeof taskStatusNames];
@@ -250,6 +255,7 @@ function SyncCandidateCard({ candidate, currentTask, action, busy, partSelection
   }
   return <article className="overflow-hidden rounded-xl border border-border bg-card">
     <div className="space-y-2 p-4"><div className="flex flex-wrap items-center gap-2"><Pill attention={pending}>{candidate.taskId ? "Task update" : "New task"}</Pill><span className="text-xs text-muted-foreground">{[...new Set(quotes.map((q) => sourceNames[q.source]))].join(" · ")}</span>{!pending && <span className="text-xs text-muted-foreground">{candidate.partReview ? "Reviewed in parts" : candidate.status === "applied" ? "Accepted" : candidate.status === "superseded" ? "Superseded by a new check" : "Rejected"}</span>}</div><h3 className="break-words font-medium">{candidate.title}</h3>{Boolean(candidate.mergeCandidateIds?.length) && <p className="text-xs text-muted-foreground">Includes {candidate.mergeCandidateIds!.length} earlier pending {candidate.mergeCandidateIds!.length === 1 ? "proposal" : "proposals"}. Previous versions are kept in history.</p>}<p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{candidate.rationale}</p></div>
+    {pending && !candidate.taskId && !priorityInHeader && <div className="px-4 pb-4"><NewTaskPriority priority={priority} disabled={busy} change={setLocalPriority} /></div>}
     <PartReviewNote review={candidate.partReview} />{pending && selection.bar}
     <div className="divide-y divide-border border-y border-border">{Object.entries(candidate.changes).map(([field, change]) => <div key={field} className="p-4"><div className="mb-2 text-xs font-medium">{pending ? selection.checkbox(`field:${field}`, fieldNames[field as keyof typeof fieldNames]) : fieldNames[field as keyof typeof fieldNames] + partOutcome(candidate.partReview, `field:${field}`)}</div><div className={cn("grid gap-3 text-sm leading-relaxed", candidate.before && "md:grid-cols-2")}>{candidate.before && <div className="rounded-lg bg-muted/40 p-3"><p className="mb-1 text-xs text-muted-foreground">Before</p>{value(field, candidate.before[field as keyof typeof candidate.before])}</div>}<div className="rounded-lg bg-primary/5 p-3"><p className="mb-1 text-xs text-muted-foreground">After</p>{value(field, change?.value)}</div></div></div>)}</div>
     <details className="p-4"><summary className="cursor-pointer text-sm">Facts and quotes · {quotes.length}</summary><ul className="mt-3 space-y-2 text-sm">{candidate.facts.map((fact, i) => (!candidate.recordFactIndexes || candidate.recordFactIndexes.includes(i)) && <li key={i} className="whitespace-pre-wrap">{pending ? selection.checkbox(`fact:${i}`, `Record ${i + 1}: ${fact.text}`) : fact.text + partOutcome(candidate.partReview, `fact:${i}`)}</li>)}</ul><div className="mt-4 space-y-4">{quotes.map((quote, index) => <div key={index} className="border-l-2 border-border pl-3"><a href={quote.url} target="_blank" rel="noopener noreferrer" className="text-xs underline underline-offset-4">{sourceNames[quote.source]} · {date(quote.occurredAt)}</a><blockquote className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-muted-foreground">{quote.quote}</blockquote></div>)}</div></details>
@@ -460,10 +466,10 @@ const priorityOptions = [
   { color: "Red", label: "Urgent and important", urgent: true, important: true, style: "border-red-500/50 bg-red-500/25 text-red-800 hover:bg-red-500/40 dark:text-red-200" },
 ] as const;
 
-function PriorityButtons({ planning, disabled, change }: { planning: Dossier["planning"]; disabled: boolean; change: (urgent: boolean, important: boolean) => void }) {
+function PriorityButtons({ planning, disabled, change, redFirst = false }: { planning: Pick<Dossier["planning"], "urgent" | "important">; redFirst?: boolean; disabled: boolean; change: (urgent: boolean, important: boolean) => void }) {
   const selected = priorityOptions.find(option => option.urgent === planning.urgent && option.important === planning.important);
   return <div role="group" aria-label="Priority" aria-busy={disabled} className="space-y-2">
-    <div className="grid grid-cols-4 gap-2">{priorityOptions.map(option => <span key={option.color} title={`${option.color}: ${option.label}`}>
+    <div className="grid grid-cols-4 gap-2">{(redFirst ? [...priorityOptions].reverse() : priorityOptions).map(option => <span key={option.color} title={`${option.color}: ${option.label}`}>
       <Button type="button" variant="outline" className={cn("h-10 w-full min-w-0 px-0", option.style, selected === option && "ring-2 ring-foreground ring-offset-2 ring-offset-background")}
         aria-label={`${option.color}: ${option.label}`} aria-pressed={selected === option} disabled={disabled}
         onClick={() => { if (selected !== option) change(option.urgent, option.important); }}>
@@ -471,6 +477,15 @@ function PriorityButtons({ planning, disabled, change }: { planning: Dossier["pl
       </Button>
     </span>)}</div>
     <p className="text-xs text-muted-foreground" aria-live="polite">{selected?.label ?? "Not classified"}</p>
+  </div>;
+}
+
+function NewTaskPriority({ priority, disabled, change }: { priority?: InitialPriority; disabled: boolean; change: (value: InitialPriority) => void }) {
+  return <div className="max-w-sm space-y-2">
+    <p className="text-xs font-medium">Priority when created</p>
+    <PriorityButtons redFirst planning={priority ?? { urgent: null, important: null }} disabled={disabled}
+      change={(urgent, important) => change({ urgent, important })} />
+    {priority && <p className="text-xs text-muted-foreground">Your choice overrides any suggested priority when you accept this proposal.</p>}
   </div>;
 }
 
@@ -655,6 +670,7 @@ function ProposalInboxPage() {
   const [selected, setSelected] = useState(new Set<string>());
   const [expanded, setExpanded] = useState(new Set<string>());
   const [partSelections, setPartSelections] = useState<Record<string, string[] | undefined>>({});
+  const [priorities, setPriorities] = useState<Record<string, InitialPriority | undefined>>({});
   const [busy, setBusy] = useState(false), locked = useRef(false);
   const [mutationError, setMutationError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -686,7 +702,7 @@ function ProposalInboxPage() {
     if (!picked.length) return;
     const snapshot = picked;
     void action(async () => {
-      const result = await rpc.call("acceptInbox", { items: snapshot.map(item => ({ ...reviewSelection(item), ...(partSelections[reviewKey(item)] ? { parts: partSelections[reviewKey(item)] } : {}) })) });
+      const result = await rpc.call("acceptInbox", { items: snapshot.map(item => ({ ...reviewSelection(item), ...(priorities[reviewKey(item)] && reviewGroup(item) === "new" ? { initialPriority: priorities[reviewKey(item)] } : {}), ...(partSelections[reviewKey(item)] ? { parts: partSelections[reviewKey(item)] } : {}) })) });
       setSelected(new Set(result.failed.map(item => `${item.kind}:${item.id}`)));
       setNotice(`Accepted: ${result.applied.length}.${result.failed.length ? ` Need attention: ${result.failed.length}.` : ""}`);
       if (result.failed.length) setMutationError(result.failed.map(failure => `${reviewTitle(snapshot.find(item => reviewKey(item) === `${failure.kind}:${failure.id}`)!)}: ${failure.message}`).join("\n"));
@@ -718,10 +734,11 @@ function ProposalInboxPage() {
             <button type="button" className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-expanded={open} aria-label={`${open ? "Collapse" : "View"}: ${title}`} onClick={() => setExpanded(previous => { const next = new Set(previous); next.has(key) ? next.delete(key) : next.add(key); return next; })}><h2 className="break-words font-medium leading-snug">{title}</h2><p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">{draft.rationale}</p></button>
             {!open && changes.nextStep?.value && <p className="mt-3 line-clamp-3 text-sm leading-relaxed"><span className="text-muted-foreground">Next: </span>{changes.nextStep.value}</p>}
             {!open && changes.status && <p className="mt-2 text-sm">Status: {taskStatusNames[changes.status.value]}</p>}
+            {group === "new" && <div className="mt-3"><NewTaskPriority priority={priorities[key]} disabled={busy || Boolean(item.blockedReason)} change={value => setPriorities(previous => ({ ...previous, [key]: value }))} /></div>}
             {partSelections[key] && <p className="mt-2 text-xs text-muted-foreground">{partSelections[key]!.length} parts selected. Unchecked parts stay pending.</p>}{item.blockedReason && <p className="mt-3 text-sm text-destructive">{item.blockedReason}</p>}{conflict && <p className="mt-3 text-xs text-muted-foreground">Another proposal is already selected for this task.</p>}
           </div><Button size="sm" variant="ghost" aria-label={`${open ? "Collapse changes" : "Show changes"}: ${title}`} onClick={() => setExpanded(previous => { const next = new Set(previous); next.has(key) ? next.delete(key) : next.add(key); return next; })}><Icon name={open ? "ChevronDown" : "ChevronRight"} /></Button>
         </div>
-        {open && <div className="border-t border-border p-3 pt-0 md:p-4 md:pt-0">{item.kind === "source" ? <SyncCandidateCard candidate={item.candidate} currentTask={item.currentTask ?? undefined} action={action} busy={busy} partSelection={partSelections[key]} onPartSelection={parts => setPartSelections(previous => ({ ...previous, [key]: parts }))} /> : <><div className="flex justify-end py-2"><Button size="sm" variant="ghost" onClick={() => navigate.toPluginPanel("desk", { subPath: item.dossier.task.id })}>Open task</Button></div><ProposalCard proposal={item.proposal} dossier={item.dossier} action={action} busy={busy} partSelection={partSelections[key]} onPartSelection={parts => setPartSelections(previous => ({ ...previous, [key]: parts }))} /></>}</div>}
+        {open && <div className="border-t border-border p-3 pt-0 md:p-4 md:pt-0">{item.kind === "source" ? <SyncCandidateCard priorityInHeader initialPriority={priorities[key]} candidate={item.candidate} currentTask={item.currentTask ?? undefined} action={action} busy={busy} partSelection={partSelections[key]} onPartSelection={parts => setPartSelections(previous => ({ ...previous, [key]: parts }))} /> : <><div className="flex justify-end py-2"><Button size="sm" variant="ghost" onClick={() => navigate.toPluginPanel("desk", { subPath: item.dossier.task.id })}>Open task</Button></div><ProposalCard proposal={item.proposal} dossier={item.dossier} action={action} busy={busy} partSelection={partSelections[key]} onPartSelection={parts => setPartSelections(previous => ({ ...previous, [key]: parts }))} /></>}</div>}
       </section>;
     })}
     {data && !visible.length && <div className="rounded-xl border border-dashed border-border p-10 text-center"><Icon name={incompleteSources ? "AlertCircle" : "CircleCheck"} className="mx-auto mb-3 size-7 text-muted-foreground" /><h2 className="font-medium">{data.total ? "No proposals in this section" : incompleteSources ? "No proposals are ready" : "Everything reviewed"}</h2><p className="mt-2 text-sm text-muted-foreground">{data.total ? "Choose another proposal type or the next page." : incompleteSources ? "Source checks need attention. New work may not have reached this list." : "New proposals will appear after checking sources or finishing sessions."}</p></div>}

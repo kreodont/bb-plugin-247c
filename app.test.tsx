@@ -978,3 +978,27 @@ it.each([false, true])("handles reported time in the inbox after a manual correc
   expect(days.taskItem(task.id, days.today())?.reportedMinutes).toBe(40);
   expect(f.repo.pendingTotal()).toBe(1);
 });
+
+it.each(["bulk", "single", "partial"])("sets priority on a collapsed new-task proposal and applies it through %s acceptance", async mode => {
+  const f = await fixture(); const { run } = await startSourceSync(f); const { input } = await sourceData(f, run);
+  await submitSourceData(f, run, input);
+  const { slot } = await setup("proposals", f);
+  const red = await slot.findByRole("button", { name: "Red: Urgent and important" });
+  const group = slot.getByRole("group", { name: "Priority" });
+  expect(within(group).getAllByRole("button").map(b => b.getAttribute("aria-label")?.split(":")[0])).toEqual(["Red", "Orange", "Yellow", "Green"]);
+  expect(red.getAttribute("aria-pressed")).toBe("false");
+  fireEvent.click(slot.getByRole("button", { name: "Orange: Urgent, not important" }));
+  expect(f.repo.list().total).toBe(0);
+  if (mode === "bulk") {
+    fireEvent.click(slot.getByRole("checkbox", { name: "Select all" }));
+    fireEvent.click(slot.getByRole("button", { name: "Accept selected · 1" }));
+  } else {
+    fireEvent.click(slot.getByRole("button", { name: `View: ${input.suggestions[0].title}` }));
+    expect(slot.getAllByRole("group", { name: "Priority" })).toHaveLength(1);
+    if (mode === "partial") fireEvent.click(slot.getByRole("checkbox", { name: "Select part: Next step" }));
+    fireEvent.click(slot.getByRole("button", { name: mode === "partial" ? "Create task with selected parts" : "Create task from proposal" }));
+  }
+  await waitFor(() => expect(f.repo.list().total).toBe(1));
+  expect(f.repo.list().tasks[0].planning).toMatchObject({ urgent: true, important: false });
+  if (mode === "partial") expect(f.repo.detail(f.repo.list().tasks[0].id).projection.nextStep).toBeNull();
+});

@@ -67,3 +67,10 @@ Pull requests belong to the underlying work item. For a newly discovered PR URL 
 Before proposing a separate PR task, compare its title, issue and parent-story keys, and implementation scope with every task and pending proposal. A reviewer comment normally updates the existing task. If the export contains only a number/link and a short reply, report the unresolved association instead of treating it as unrelated work. The server rejects a new-task proposal that reuses a PR URL already present in an accepted dossier, including closed tasks. Repository names or shared participants alone are insufficient evidence of ownership.
 
 All declared plugin settings are captured in the installation's local settings patch and reapplied on updates. Use `bb 247c local-patch --json` to check its location and consistency. See [Local configuration](../docs/local-configuration.md).
+
+New task proposals offer four priority buttons before acceptance: red for urgent
+and important, orange for urgent only, yellow for important only, and green for
+neither. Selecting a color stages a human priority choice; it does not create a
+task. Acceptance saves the task and priority together, including partial and
+bulk acceptance. The explicit choice overrides any suggested priority. Leaving
+the buttons untouched preserves the proposed priority or leaves it unclassified.

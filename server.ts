@@ -105,7 +105,7 @@ export default async function plugin(bb: BbPluginApi) {
     syncStart: (input) => sync.start(input),
     syncImport: async (input) => importSourceBundle(sync.store, (await settings.get()).sourceImportRoot, input),
     syncCancel: ({ runId }) => sync.cancel(runId),
-    syncAccept: async ({ candidateId }) => { const result = sync.store.accept(candidateId); await runtime.archiveFinishedThreads(); return result; },
+    syncAccept: async ({ candidateId, initialPriority }) => { const result = sync.store.accept(candidateId, initialPriority); await runtime.archiveFinishedThreads(); return result; },
     syncReject: ({ candidateId }) => sync.store.reject(candidateId),
     list: async ({ history }) => ({ ...repo.list(history), settings: await getSettings() }),
     detail: ({ id }) => repo.detail(id),

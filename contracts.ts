@@ -27,6 +27,7 @@ const changesObjectSchema = z.object({
 export const changesSchema = changesObjectSchema.refine((v) => Object.keys(v).length > 0, "The proposal contains no changes.");
 export const draftSchema = z.object({ rationale: text, confidence: z.number().min(0).max(1), changes: changesSchema }).strict();
 export const taskSchema = z.object({ id: idSchema, title: z.string(), status: statusSchema, revision: revisionSchema, createdAt: z.string(), updatedAt: z.string() });
+export const initialPrioritySchema = z.object({ urgent: z.boolean(), important: z.boolean() }).strict();
 export const planningSchema = z.object({ urgent: axisSchema, important: axisSchema, revision: revisionSchema });
 export const taskCardSchema = taskSchema.extend({ planning: planningSchema, summary: z.string().nullable(), nextStep: z.string().nullable(), pendingCount: z.number(), activeSession: z.string().nullable(), unseen: z.enum(["new", "updated"]).nullable().default(null) });
 export const factSchema = z.object({ id: idSchema, taskId: idSchema, kind: factKindSchema, text: z.string(), source: z.string(), sourceRef: z.string().nullable(), occurredAt: z.string(), createdAt: z.string() });
@@ -37,7 +38,7 @@ export const proposalSchema = z.object({
   createdAt: z.string(), resolvedAt: z.string().nullable(), idempotencyKey: z.string().nullable(), rationale: z.string(), confidence: z.number(), changes: changesSchema,
 });
 export const partReviewSchema = z.object({ accepted: z.array(z.string()), rejected: z.array(z.string()), remaining: z.array(z.string()), acceptedId: idSchema.nullable(), remainingId: idSchema.nullable(), createdAt: z.string() });
-export const partDecisionSchema = z.object({ kind: z.enum(["source", "proposal"]), id: idSchema, revision: revisionSchema.nullable(), decision: z.enum(["accept", "reject"]), parts: z.array(z.string().min(1).max(120)).min(1).max(400), requestId: z.uuid() }).strict();
+export const partDecisionSchema = z.object({ kind: z.enum(["source", "proposal"]), id: idSchema, revision: revisionSchema.nullable(), decision: z.enum(["accept", "reject"]), parts: z.array(z.string().min(1).max(120)).min(1).max(400), requestId: z.uuid(), initialPriority: initialPrioritySchema.optional() }).strict().refine(v => !v.initialPriority || (v.kind === "source" && v.decision === "accept"), "Initial priority is only available when accepting a new source task.");
 export const partDecisionResultSchema = z.object({ taskId: idSchema.nullable(), remainingId: idSchema.nullable() });
 export const proposalViewSchema = proposalSchema.extend({ partReview: partReviewSchema.optional(), evidence: z.array(evidenceSchema), receipt: z.object({ id: z.string(), beforeRevision: z.number(), afterRevision: z.number(), createdAt: z.string() }).nullable() });
 
@@ -198,7 +199,7 @@ export const reviewItemSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("source"), candidate: syncCandidateSchema, currentTask: taskCardSchema.pick({ revision: true, status: true, activeSession: true }).nullable(), blockedReason: z.string().nullable() }),
   z.object({ kind: z.literal("proposal"), proposal: proposalViewSchema, dossier: reviewDossierSchema, blockedReason: z.string().nullable() }),
 ]);
-export const reviewSelectionSchema = z.object({ kind: z.enum(["source", "proposal"]), id: idSchema, revision: revisionSchema.nullable(), parts: z.array(z.string().min(1).max(120)).min(1).max(400).optional() }).strict();
+export const reviewSelectionSchema = z.object({ kind: z.enum(["source", "proposal"]), id: idSchema, revision: revisionSchema.nullable(), parts: z.array(z.string().min(1).max(120)).min(1).max(400).optional(), initialPriority: initialPrioritySchema.optional() }).strict().refine(v => !v.initialPriority || v.kind === "source", "Initial priority is only available for new source tasks.");
 
 // BB validates the complete forwarded native-composer request again in spawn.
 // Here we bound its size, discriminate its routing, and reject extra top-level authority.
@@ -246,7 +247,7 @@ export const rpcContract = defineRpcContract({
   syncStart: { input: syncStartSchema, output: syncRunSchema },
   syncImport: { input: syncImportSchema, output: syncRunSchema },
   syncCancel: { input: z.object({ runId: idSchema }).strict(), output: syncRunSchema },
-  syncAccept: { input: z.object({ candidateId: idSchema }).strict(), output: dossierSchema },
+  syncAccept: { input: z.object({ candidateId: idSchema, initialPriority: initialPrioritySchema.optional() }).strict(), output: dossierSchema },
   syncReject: { input: z.object({ candidateId: idSchema }).strict(), output: syncCandidateSchema },
   list: { input: z.object({ history: z.boolean().default(false) }).strict(), output: z.object({ tasks: z.array(taskCardSchema), total: z.number(), pendingTotal: z.number(), settings: settingsViewSchema }) },
   taskSeen: { input: z.object({ id: idSchema, revision: revisionSchema }).strict(), output: z.object({ seenRevision: revisionSchema }) },

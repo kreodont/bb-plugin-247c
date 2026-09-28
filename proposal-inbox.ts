@@ -74,7 +74,7 @@ export class ProposalInbox {
           const result = item.kind === "source" ? this.sync.reviewParts(input) : await this.runtime.reviewParts(input);
           taskId = result.taskId!;
         } else {
-          const dossier = item.kind === "source" ? this.sync.accept(item.id) : await this.runtime.accept(item.id, item.revision!);
+          const dossier = item.kind === "source" ? this.sync.accept(item.id, item.initialPriority) : await this.runtime.accept(item.id, item.revision!);
           taskId = dossier.task.id;
         }
         applied.push({ kind: item.kind, id: item.id, taskId });

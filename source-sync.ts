@@ -470,9 +470,10 @@ ${errors.join("\n").slice(0, 16000)}`);
     this.repo.db.prepare("UPDATE source_sync_candidates SET status=?,task_id=?,value_json=? WHERE id=?").run(candidate.status, candidate.taskId ?? candidate.resultTaskId, JSON.stringify(candidate), candidate.id);
     return candidate;
   }
-  accept(id: string) {
+  accept(id: string, initialPriority?: { urgent: boolean; important: boolean }) {
     const result = this.repo.store.transaction(() => {
       const candidate = this.candidate(id);
+      if (initialPriority && candidate.taskId) throw new PolicyError("Initial priority is only available for new tasks.");
       if (candidate.status === "applied") return this.repo.detail(candidate.resultTaskId!);
       if (candidate.status !== "pending") throw new PolicyError("This proposal was already rejected or superseded by a new check.");
       let taskId = candidate.taskId;
@@ -498,6 +499,7 @@ ${errors.join("\n").slice(0, 16000)}`);
         const citation = fact.citations[0];
         this.repo.db.prepare("INSERT INTO task_facts VALUES (?,?,?,?,?,?,?,?)").run(`sync:${candidate.id}:${index}`, taskId, fact.kind, fact.text, `approved-external-sync:${proposal.id}`, citation.url, citation.occurredAt, timestamp);
       }
+      if (initialPriority) this.repo.classify({ taskId, revision: this.repo.planning(taskId).revision, ...initialPriority });
       this.saveCandidate({ ...candidate, status: "applied", resolvedAt: timestamp, proposalId: proposal.id, resultTaskId: taskId });
       if (!candidate.taskId) this.repo.initializePrimarySource(taskId);
       return this.repo.detail(taskId);
@@ -507,6 +509,7 @@ ${errors.join("\n").slice(0, 16000)}`);
   reviewParts(input: PartDecision) {
     const result = this.repo.request(input.requestId, { kind: "review-source-parts", input }, () => {
       const candidate = this.candidate(input.id);
+      if (input.initialPriority && (candidate.taskId || input.decision !== "accept")) throw new PolicyError("Initial priority is only available when accepting a new task.");
       if (candidate.status !== "pending") throw new PolicyError("This proposal was already reviewed. Refresh the list.");
       if (candidate.baseRevision !== input.revision) throw new ConflictError("The proposal changed. Refresh the list.");
       if (candidate.taskId) this.repo.assertCurrent(candidate.taskId, candidate.baseRevision!, false);
@@ -523,7 +526,7 @@ ${errors.join("\n").slice(0, 16000)}`);
         return child;
       };
       const accepted = split.accepted.length ? make(split.accepted, "accepted") : null;
-      const taskId = accepted ? this.accept(accepted.id).task.id : candidate.taskId;
+      const taskId = accepted ? this.accept(accepted.id, input.initialPriority).task.id : candidate.taskId;
       const remaining = split.remaining.length ? make(split.remaining, "remaining", taskId) : null;
       this.saveCandidate({ ...candidate, status: "superseded", resolvedAt: now(), resultTaskId: taskId });
       this.repo.savePartReview("source", candidate.id, { ...split, acceptedId: accepted?.id ?? null, remainingId: remaining?.id ?? null, createdAt: now() });
