@@ -13,3 +13,16 @@ Script integrations should print one JSON status line with `pendingRecords`, `at
 The last successful timestamp is taken from up to 100 recent runs that succeeded without waiting records or attention batches. Missing history is shown explicitly. Successful execution is separate from complete coverage of every source; individual source coverage and permission gaps remain in the source check details.
 
 The read-only `updaterHealth` RPC returns the current status and timestamps. `{ "refresh": true }` forces a new status read; ordinary reads share a 30-second cache. Clearing both settings disables monitoring. Keep actual project and automation IDs out of Git.
+
+An optional local `sourceUpdaterStatusFile` points to a script-written JSON snapshot.
+The file must be absolute, at most 64 KB, and contain version 1, operation
+(`check`, `analysis`, or `collection`), epoch-millisecond `finishedAt`, nullable
+epoch-millisecond `collectedAt`, `pendingBatches`, and the usual status fields.
+Write it atomically after completing the operation. Keep the path in the private
+settings patch. The monitor reads it without running a script or model.
+
+A newer completed manual analysis clears recovered analysis errors and queue
+counts. It does not advance the last collection boundary, hide newer automation
+failures, clear unrelated collection failures, resume a paused automation, or
+make a missed schedule slot successful. Invalid or unreadable configured status
+files report unavailable health. Blank configuration retains history-only monitoring.

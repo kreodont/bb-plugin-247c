@@ -74,3 +74,26 @@ it("queries only the configured automation, caches reads and returns strict JSON
   expect(f.harness.inspection.sdk.callsTo("plugins.callRpc")).toHaveLength(4);
   expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
 });
+
+it("clears stale analysis errors after a newer manual recovery without changing source coverage time", () => {
+  const broken = { ...failed, output: JSON.stringify({ status: "analysis_failed", pendingRecords: 0, attentionBatches: ["batch"], analysisError: { error: "Analysis timed out" } }) };
+  const finishedAt = failed.finishedAt + 1000;
+  const snapshot = { version: 1 as const, operation: "analysis" as const, status: "complete" as const,
+    finishedAt, collectedAt: failed.startedAt, pendingRecords: 0, pendingBatches: 0, attentionBatches: [], analysisError: null };
+  expect(evaluateUpdater(automation, [broken, success], finishedAt, snapshot)).toMatchObject({ alert: false, attentionBatches: 0, lastSuccessAt: finishedAt });
+  // A fresh manual recovery of old data does not count as a new source check.
+  expect(evaluateUpdater(automation, [broken, success], finishedAt + 2 * 3600000,
+    { ...snapshot, finishedAt: finishedAt + 2 * 3600000 })).toMatchObject({ alert: true, status: "overdue", attentionBatches: 0 });
+  expect(evaluateUpdater({ ...automation, enabled: false }, [broken, success], finishedAt, snapshot)).toMatchObject({ alert: true, status: "paused" });
+});
+
+it("does not let a manual analysis hide newer errors, collection errors or unfinished work", () => {
+  const snapshot = { version: 1 as const, operation: "analysis" as const, status: "complete" as const,
+    finishedAt: failed.finishedAt + 1000, collectedAt: failed.startedAt, pendingRecords: 0, pendingBatches: 0, attentionBatches: [], analysisError: null };
+  const collectionError = { ...failed, error: "Collector authentication failed", output: null };
+  expect(evaluateUpdater(automation, [collectionError, success], snapshot.finishedAt, snapshot)).toMatchObject({ alert: true, status: "failed", detail: "Collector authentication failed", lastSuccessAt: success.finishedAt });
+  const newerFailure = { ...failed, startedAt: snapshot.finishedAt + 1000, finishedAt: snapshot.finishedAt + 2000 };
+  expect(evaluateUpdater(automation, [newerFailure, success], newerFailure.finishedAt, snapshot)).toMatchObject({ alert: true, status: "failed" });
+  expect(evaluateUpdater(automation, [failed, success], snapshot.finishedAt,
+    { ...snapshot, status: "attention_required", pendingBatches: 1, attentionBatches: ["still-stuck"] })).toMatchObject({ alert: true, attentionBatches: 1, lastSuccessAt: success.finishedAt });
+});
