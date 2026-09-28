@@ -205,3 +205,9 @@ when source collection confirms full coverage; a successful analysis of a
 subset does not establish that coverage. These metadata do not change native
 sync checkpoints or receipt validation. Without them, the page retains native
 source reports. Analysis errors remain visible even when collection succeeds.
+
+A newer successful analysis snapshot clears an earlier analysis failure when no
+unfinished batches, attention batches or analysis errors remain. Unassigned
+records may still be queued: the panel reports that queue and the next scheduled
+run instead of retaining the resolved error. Collection failures, newer failures
+and paused automations remain visible.

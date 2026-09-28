@@ -47,7 +47,7 @@ export function UpdaterHealthBanner({ showHealthy = false }: { showHealthy?: boo
   return <section role={data.alert ? "alert" : "status"} aria-label="Source updater status" className={`m-4 max-h-48 shrink-0 overflow-auto rounded-lg border p-4 ${data.alert ? "border-destructive/40 bg-destructive/5" : "border-border"}`}>
     <p className={`font-medium ${data.alert ? "text-destructive" : ""}`}>{data.title}</p>
     <HealthDetails data={data} />
-    {showHealthy && data.nextRunAt && <p className="mt-2 text-xs text-muted-foreground">Next scheduled run: {timestamp(data.nextRunAt, data.timeZone)}</p>}
+    {(showHealthy || data.pendingRecords > 0) && data.nextRunAt && <p className="mt-2 text-xs text-muted-foreground">Next scheduled run: {timestamp(data.nextRunAt, data.timeZone)}</p>}
   </section>;
 }
 

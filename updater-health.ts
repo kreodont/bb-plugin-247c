@@ -68,11 +68,12 @@ export function evaluateUpdater(automation: Automation, input: Run[], now: numbe
   const historicalReport = runs.map(run => ({ run, report: report(run) })).find(row => row.report)?.report;
   const successful = runs.find(run => run.status === "succeeded" && (!report(run) || report(run)?.status === "complete") && !(report(run)?.attentionBatches.length) && !(report(run)?.pendingRecords));
   // A manual analysis can recover an old batch without creating an automation run.
+  // New unassigned records do not invalidate recovery of a failed batch.
   // It cannot clear a newer failure, a collection failure, or a missed schedule slot.
   const newer = snapshot && snapshot.finishedAt <= now + 60_000 && snapshot.finishedAt > (terminal?.finishedAt ?? terminal?.startedAt ?? 0);
   const latestReport = newer ? snapshot : historicalReport;
   const recovered = Boolean(newer && snapshot.operation !== "collection" && snapshot.status === "complete"
-    && !snapshot.pendingRecords && !snapshot.pendingBatches && !snapshot.attentionBatches.length && !snapshot.analysisError
+    && !snapshot.pendingBatches && !snapshot.attentionBatches.length && !snapshot.analysisError
     && (terminal?.status !== "failed" || report(terminal)?.analysisError || report(terminal)?.status === "analysis_failed" || snapshot.operation === "check"));
   const base: UpdaterHealthState = { ...emptyUpdaterHealth(now), configured: true, status: active ? "running" : "healthy",
     title: active ? "Source check in progress" : "Source updater is running on schedule",
@@ -88,7 +89,11 @@ export function evaluateUpdater(automation: Automation, input: Run[], now: numbe
   if ((terminal?.status === "failed" && !recovered) || latestReport?.status === "analysis_failed") return problem("failed", "Source check failed",
     errorText(latestReport?.analysisError?.error) || errorText(terminal?.error) || "The latest check did not finish. New work may be missing from 247C.");
   if (latestReport?.status === "analysis_deferred") return problem("attention", "Source analysis is waiting", "Source collection is saved, but analysis has been deferred. New work may be waiting in the queue.");
-  if (base.pendingRecords) return problem("attention", "Source updates are waiting for analysis", "The collector has saved records that have not reached Proposals yet.");
+  if (base.pendingRecords) return problem("attention", "Source updates are waiting for analysis",
+    `${recovered ? "The previous analysis error has been resolved. " : ""}${active
+      ? "A check is running. Saved records will be analyzed in batches."
+      : automation.nextRunAt ? "Saved records are queued for the next scheduled analysis. No manual action is required."
+      : "Saved records still need analysis. No next run is scheduled; check the automation schedule."}`);
   if (active) {
     if (now - active.startedAt > (automation.execution?.timeoutMs ?? 15 * 60_000) + 60_000) return problem("overdue", "Source check is taking too long", "The active run exceeded its expected duration. Check the automation before relying on the task list.");
     return base;

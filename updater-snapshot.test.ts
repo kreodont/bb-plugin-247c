@@ -28,6 +28,8 @@ it("uses the configured local snapshot through the real health RPC and reports u
     ? { id: "auto_example", projectId: "proj_example", enabled: true, createdAt: snapshot.finishedAt - 10000, nextRunAt: snapshot.finishedAt + 3600000, lastError: null, trigger: { triggerType: "schedule", cron: "0 * * * *", timezone: "UTC" } }
     : { runs: [{ id: "old-error", status: "failed", startedAt: snapshot.finishedAt - 5000, finishedAt: snapshot.finishedAt - 2000, error: "Analysis timed out", output: JSON.stringify({ status: "analysis_failed", pendingRecords: 0, attentionBatches: ["old-batch"], analysisError: { error: "Analysis timed out" } }) }] }));
   expect(await f.harness.behavior.callRpc("updaterHealth", { refresh: true })).toMatchObject({ alert: false, attentionBatches: 0, lastSuccessAt: snapshot.finishedAt });
+  await writeFile(path, JSON.stringify({ ...snapshot, pendingRecords: 47 }));
+  expect(await f.harness.behavior.callRpc("updaterHealth", { refresh: true })).toMatchObject({ alert: true, status: "attention", pendingRecords: 47, lastSuccessAt: snapshot.finishedAt });
   await rm(path);
   expect(await f.harness.behavior.callRpc("updaterHealth", { refresh: true })).toMatchObject({ alert: true, status: "unavailable" });
 });

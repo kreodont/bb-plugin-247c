@@ -97,3 +97,19 @@ it("does not let a manual analysis hide newer errors, collection errors or unfin
   expect(evaluateUpdater(automation, [failed, success], snapshot.finishedAt,
     { ...snapshot, status: "attention_required", pendingBatches: 1, attentionBatches: ["still-stuck"] })).toMatchObject({ alert: true, attentionBatches: 1, lastSuccessAt: success.finishedAt });
 });
+
+
+it("clears a recovered batch error while keeping unrelated queued records visible", () => {
+  const broken = { ...failed, output: JSON.stringify({ status: "analysis_failed", pendingRecords: 47, attentionBatches: [], analysisError: { error: "Invalid citation" } }) };
+  const snapshot = { version: 1 as const, operation: "analysis" as const, status: "complete" as const,
+    finishedAt: failed.finishedAt + 1000, collectedAt: failed.startedAt, pendingRecords: 47, pendingBatches: 0, attentionBatches: [], analysisError: null };
+  const state = evaluateUpdater(automation, [broken, success], snapshot.finishedAt, snapshot);
+  expect(state).toMatchObject({ status: "attention", alert: true, pendingRecords: 47, attentionBatches: 0, lastSuccessAt: snapshot.finishedAt });
+  expect(state.detail).toContain("previous analysis error has been resolved");
+  expect(state.detail).toContain("No manual action is required");
+  expect(state.detail).not.toContain("Invalid citation");
+  expect(evaluateUpdater(automation, [broken, success], snapshot.finishedAt, { ...snapshot, pendingBatches: 1 })).toMatchObject({ status: "failed" });
+  expect(evaluateUpdater(automation, [broken, success], snapshot.finishedAt, { ...snapshot, operation: "collection" })).toMatchObject({ status: "failed" });
+  expect(evaluateUpdater(automation, [{ ...broken, finishedAt: snapshot.finishedAt + 1000 }, success], snapshot.finishedAt + 1000, snapshot)).toMatchObject({ status: "failed" });
+  expect(evaluateUpdater({ ...automation, nextRunAt: null }, [broken, success], snapshot.finishedAt, snapshot).detail).toContain("No next run is scheduled");
+});
