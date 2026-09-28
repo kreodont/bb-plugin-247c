@@ -20,3 +20,7 @@ export const updaterHealthSchema = z.object({
   timeZone: z.string(), sourceCoverage: z.array(sourceCoverageSchema).max(6).optional(),
 });
 export type UpdaterHealthState = z.infer<typeof updaterHealthSchema>;
+
+export const updaterStartResultSchema = z.object({
+  runId: z.string(), status: z.string(), alreadyRunning: z.boolean(),
+});

@@ -616,7 +616,7 @@ export class SourceSyncRuntime {
       let run = this.store.run(id);
       if (!SYNC_ACTIVE.has(run.status) || controller.signal.aborted) return;
       run = this.store.save({ ...run, reports: validateSyncReports(bundle.reports, bundle.calls, context.snapshots, context.pendingCandidates), collection: { phase: "analyzing", calls: bundle.calls.length, reads: bundle.documents.length, elapsedMs: bundle.elapsedMs } });
-      if (bundle.reports.every(r => r.status === "unavailable")) throw new PolicyError("Could not load sources. See the Gmail, Slack and Jira cards for details; analysis was not started.");
+      if (bundle.reports.every(r => r.status === "unavailable")) throw new PolicyError("The built-in source check could not load any configured sources. See this run’s source reports in Check history; analysis was not started.");
       const work = await this.analysisWork();
       if (this.disposed || controller.signal.aborted || !SYNC_ACTIVE.has(this.store.run(id).status)) return;
       const baseline = this.store.analysisBaseline();

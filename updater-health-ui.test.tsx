@@ -89,3 +89,22 @@ it("shows collector coverage instead of stale analysis batch dates and counters"
     expect(slot.queryByText(/Unchecked since/)).toBeNull();
   } finally { await f.harness.lifecycle.dispose(); }
 });
+
+it("runs the configured updater from Updates without opening the built-in source composer", async () => {
+  const f = await import("./test-support.js").then(module => module.fixture());
+  try {
+    const { rpcContract } = await import("./contracts.js");
+    const rpc = Object.fromEntries(Object.keys(rpcContract).map(name => [name, (input: unknown) => f.harness.behavior.callRpc(name, input)]));
+    rpc.updaterHealth = async () => ({ ...warning, status: "attention", running: false });
+    let started = 0;
+    rpc.updaterStart = async () => { started++; return { runId: "manual-source-check", status: "running", alreadyRunning: false }; };
+    rpc.syncStart = async () => { throw new Error("Built-in sources must not run"); };
+    const slot = renderSlot(app.navPanels[0], { subPath: "updates" }, { rpc }); mounts.push(slot);
+    const button = await slot.findByRole("button", { name: "Check for updates" });
+    await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(button);
+    await slot.findByText("The configured source check has been started. Collection and analysis progress appear in updater status.");
+    expect(started).toBe(1);
+    expect(slot.queryByRole("heading", { name: "Start check" })).toBeNull();
+  } finally { await f.harness.lifecycle.dispose(); }
+});

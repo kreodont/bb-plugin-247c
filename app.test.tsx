@@ -65,7 +65,9 @@ it.each(["work", "updates"])("opens the %s composer in the configured thread pro
   const f = await fixture(); const task = await f.create();
   await f.harness.behavior.setSettings({ threadProjectId: "proj_tasks", composerDefaults: JSON.stringify({ providerId: "claude-work", model: "claude-opus-5[1m]" }) });
   const { slot } = await setup(page === "work" ? task.id : "updates", f);
-  fireEvent.click(await slot.findByRole(page === "work" ? "tab" : "button", { name: page === "work" ? "Work" : "Check for updates" }));
+  const startControl = await slot.findByRole(page === "work" ? "tab" : "button", { name: page === "work" ? "Work" : "Check for updates" });
+  await waitFor(() => expect((startControl as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(startControl);
   const composer = await slot.findByTestId("bb-new-thread-composer");
   expect(composer.getAttribute("data-default-project-id")).toBe("proj_tasks");
   expect(JSON.parse(composer.getAttribute("data-default-environment")!)).toEqual({ type: "project-default" });
@@ -195,7 +197,9 @@ it("opens source updates without a model run, and forwards an optional date thro
   const f = await fixture();
   await f.harness.behavior.setSettings({ syncProvider: "codex", syncModel: "gpt-5.6-sol" });
   const { slot } = await setup("updates", f);
-  fireEvent.click(await slot.findByRole("button", { name: "Check for updates" }));
+  const checkButton = await slot.findByRole("button", { name: "Check for updates" });
+  await waitFor(() => expect((checkButton as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(checkButton);
   const composer = await slot.findByTestId("bb-new-thread-composer");
   expect(composer.getAttribute("data-default-provider-id")).toBe("codex");
   expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);

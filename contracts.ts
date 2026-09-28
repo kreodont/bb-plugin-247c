@@ -1,4 +1,4 @@
-import { updaterHealthSchema } from "./updater-health-contracts.js";
+import { updaterHealthSchema, updaterStartResultSchema } from "./updater-health-contracts.js";
 import { z } from "zod";
 import { defineRpcContract, type NewThreadRequest } from "@get-bb/plugin-sdk";
 import { dayDateSchema, dayMinutesSchema, dayRpcContract } from "./day-contracts.js";
@@ -271,6 +271,7 @@ export const rpcContract = defineRpcContract({
   retry: { input: z.object({ sessionId: idSchema, recorder: z.enum(["auto", "same", "personal-claude"]).default("auto") }).strict(), output: sessionSchema },
   resume: { input: z.object({ sessionId: idSchema }).strict(), output: sessionSchema },
   cancel: { input: z.object({ sessionId: idSchema }).strict(), output: sessionSchema },
+  updaterStart: { input: z.object({ requestId: z.uuid() }).strict(), output: updaterStartResultSchema },
   updaterHealth: { input: z.object({ refresh: z.boolean().default(false) }).strict(), output: updaterHealthSchema },
   knowledgeExportStatus: { input: z.object({}).strict(), output: z.object({ enabled: z.boolean(), directory: z.string().nullable(), revision: z.string().nullable(), documents: z.number(), error: z.string().nullable() }) },
   knowledgeExport: { input: z.object({}).strict(), output: z.object({ enabled: z.boolean(), directory: z.string().nullable(), revision: z.string().nullable(), documents: z.number(), error: z.string().nullable() }) },

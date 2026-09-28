@@ -24,7 +24,7 @@ export function useUpdaterHealth() {
     });
     return () => { mounted = false; };
   }, [rpc, revision]);
-  return { data, error };
+  return { data, error, refresh };
 }
 function timestamp(value: number | null, zone: string) {
   return value === null ? "None recorded in recent history" : new Intl.DateTimeFormat("en-GB", {

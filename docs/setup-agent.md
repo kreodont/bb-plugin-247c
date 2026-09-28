@@ -211,3 +211,11 @@ unfinished batches, attention batches or analysis errors remain. Unassigned
 records may still be queued: the panel reports that queue and the next scheduled
 run instead of retaining the resolved error. Collection failures, newer failures
 and paused automations remain visible.
+
+When `sourceUpdaterProjectId` and `sourceUpdaterAutomationId` are configured,
+**Check for updates** runs that existing automation with its saved source and
+model settings. It reuses an active run and passes an idempotency key on launch.
+It does not open the built-in source composer or change the schedule. Native
+`syncStart` requests are refused in this configuration, including from stale
+browser tabs. Without an external updater configured, the built-in composer
+remains available. Previous built-in runs remain in Check history.

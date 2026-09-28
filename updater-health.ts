@@ -113,6 +113,23 @@ export class UpdaterHealth {
   private disposed = false;
   constructor(private bb: BbPluginApi, private settings: () => UpdaterSettings, private now = () => Date.now()) {}
   dispose() { this.disposed = true; }
+  async start({ requestId }: { requestId: string }) {
+    const settings = this.settings();
+    const input = { projectId: settings.sourceUpdaterProjectId.trim(), automationId: settings.sourceUpdaterAutomationId.trim() };
+    if (!input.projectId || !input.automationId) throw new Error("Configure the source updater project and automation in 247C settings.");
+    const [automation, history] = await Promise.all([
+      this.bb.sdk.plugins.callRpc({ pluginId: "automations", method: "automations_get", input, outputSchema: automationSchema }),
+      this.bb.sdk.plugins.callRpc({ pluginId: "automations", method: "automations_runs", input: { ...input, limit: 100 }, outputSchema: historySchema }),
+    ]);
+    if (automation.id !== input.automationId || automation.projectId !== input.projectId) throw new Error("The configured source updater could not be found.");
+    const active = history.runs.find(run => run.status === "running");
+    if (active) return { runId: active.id, status: active.status, alreadyRunning: true };
+    const { run } = await this.bb.sdk.plugins.callRpc({ pluginId: "automations", method: "automations_run",
+      input: { ...input, idempotencyKey: `247c-updater:${requestId}` }, outputSchema: z.object({ run: runSchema }) });
+    this.cached = null;
+    this.bb.realtime.publish("updater-health-changed", {});
+    return { runId: run.id, status: run.status, alreadyRunning: false };
+  }
   async state(force = false): Promise<UpdaterHealthState> {
     const settings = this.settings();
     const input = { projectId: settings.sourceUpdaterProjectId.trim(), automationId: settings.sourceUpdaterAutomationId.trim() };

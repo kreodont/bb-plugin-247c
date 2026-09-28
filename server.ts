@@ -100,9 +100,14 @@ export default async function plugin(bb: BbPluginApi) {
     calendarSync: ({ date }) => calendar.start(date),
     proposalInbox: ({ offset }) => inbox.list(offset),
     acceptInbox: async ({ items }) => { const result = await inbox.accept(items); if (result.applied.length) await runtime.archiveFinishedThreads(); return result; },
+    updaterStart: (input) => updaterHealth.start(input),
     updaterHealth: ({ refresh }) => updaterHealth.state(refresh),
     syncState: () => sync.store.state(),
-    syncStart: (input) => sync.start(input),
+    syncStart: (input) => {
+      if (configuration.sourceUpdaterProjectId.trim() || configuration.sourceUpdaterAutomationId.trim())
+        throw new PolicyError("A source updater automation is configured. Refresh the Updates page and use Check for updates to run it.");
+      return sync.start(input);
+    },
     syncImport: async (input) => importSourceBundle(sync.store, (await settings.get()).sourceImportRoot, input),
     syncCancel: ({ runId }) => sync.cancel(runId),
     syncAccept: async ({ candidateId, initialPriority }) => { const result = sync.store.accept(candidateId, initialPriority); await runtime.archiveFinishedThreads(); return result; },
