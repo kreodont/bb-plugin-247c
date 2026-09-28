@@ -212,6 +212,11 @@ records may still be queued: the panel reports that queue and the next scheduled
 run instead of retaining the resolved error. Collection failures, newer failures
 and paused automations remain visible.
 
+An unavailable source keeps an attention warning visible after successful
+analysis and during subsequent checks. The warning includes the first reported
+gap for each unavailable source; checks can continue for available sources.
+Paused, failed and overdue checks still take precedence over this warning.
+
 When `sourceUpdaterProjectId` and `sourceUpdaterAutomationId` are configured,
 **Check for updates** runs that existing automation with its saved source and
 model settings. It reuses an active run and passes an idempotency key on launch.

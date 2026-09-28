@@ -94,16 +94,20 @@ export function evaluateUpdater(automation: Automation, input: Run[], now: numbe
       ? "A check is running. Saved records will be analyzed in batches."
       : automation.nextRunAt ? "Saved records are queued for the next scheduled analysis. No manual action is required."
       : "Saved records still need analysis. No next run is scheduled; check the automation schedule."}`);
+  const unavailable = base.sourceCoverage?.filter(source => source.status === "unavailable") ?? [];
+  const sourceOutage = unavailable.length ? problem("attention", "Some work sources are unavailable",
+    unavailable.map(source => `${({ clickup: "ClickUp", teams: "Teams", outlook: "Outlook", gmail: "Gmail", slack: "Slack", jira: "Jira" })[source.source]}: ${source.gaps[0] || "The last collection could not read this source."}`).join("\n")
+      + "\nScheduled checks continue for available sources. Missing source data may contain new work.") : null;
   if (active) {
     if (now - active.startedAt > (automation.execution?.timeoutMs ?? 15 * 60_000) + 60_000) return problem("overdue", "Source check is taking too long", "The active run exceeded its expected duration. Check the automation before relying on the task list.");
-    return base;
+    return sourceOutage ?? base;
   }
   // Allow the scheduled run 20 minutes to start/finish. Using the real cron and
   // its zone avoids false overnight, weekend and daylight-saving alarms.
   const due = CronExpressionParser.parse(automation.trigger.cron, { currentDate: new Date(now - 20 * 60_000), tz: automation.trigger.timezone }).prev().getTime();
   const lastFinished = Math.max(successful?.finishedAt ?? 0, recovered ? snapshot!.collectedAt ?? 0 : 0);
   if (due >= automation.createdAt && lastFinished < due) return problem("overdue", "Scheduled source check is overdue", "No successful check was recorded for the latest expected schedule slot. New work may be missing from 247C.");
-  return base;
+  return sourceOutage ?? base;
 }
 
 export class UpdaterHealth {

@@ -113,3 +113,16 @@ it("clears a recovered batch error while keeping unrelated queued records visibl
   expect(evaluateUpdater(automation, [{ ...broken, finishedAt: snapshot.finishedAt + 1000 }, success], snapshot.finishedAt + 1000, snapshot)).toMatchObject({ status: "failed" });
   expect(evaluateUpdater({ ...automation, nextRunAt: null }, [broken, success], snapshot.finishedAt, snapshot).detail).toContain("No next run is scheduled");
 });
+
+
+it("keeps a source outage visible after successful analysis and through a running check", () => {
+  const snapshot = { version: 1 as const, operation: "analysis" as const, status: "complete" as const,
+    finishedAt: now, collectedAt: success.startedAt, pendingRecords: 0, pendingBatches: 0, attentionBatches: [], analysisError: null,
+    sourceCoverage: [{ source: "clickup" as const, status: "unavailable" as const, collectedAt: new Date(success.startedAt).toISOString(),
+      since: "2026-09-23T00:00:00Z", fullyCheckedThrough: null, savedRecords: 0, gaps: ["Daily quota exhausted; reads paused until reset."] }] };
+  for (const runs of [[success], [{ ...success, id: "active", status: "running", startedAt: now, finishedAt: null }, success]]) {
+    expect(evaluateUpdater(automation, runs, now, snapshot)).toMatchObject({ status: "attention", alert: true, title: "Some work sources are unavailable", pendingRecords: 0 });
+    expect(evaluateUpdater(automation, runs, now, snapshot).detail).toContain("Daily quota exhausted");
+  }
+  expect(evaluateUpdater(automation, [success], now, { ...snapshot, sourceCoverage: [{ ...snapshot.sourceCoverage[0], status: "complete", gaps: [] }] })).toMatchObject({ alert: false });
+});
