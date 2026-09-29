@@ -1006,3 +1006,17 @@ it.each(["bulk", "single", "partial"])("sets priority on a collapsed new-task pr
   expect(f.repo.list().tasks[0].planning).toMatchObject({ urgent: true, important: false });
   if (mode === "partial") expect(f.repo.detail(f.repo.list().tasks[0].id).projection.nextStep).toBeNull();
 });
+
+it("finds an accepted ticket number and source URL independently of its title", async () => {
+  const f = await fixture();
+  const task = await f.create("APP-17 - Unable to create an invoice");
+  f.repo.kernel.appendFact({ taskId: task.id, kind: "description", text: 'ClickUp ticket DEMO_1-42 is named "APP-17 - Unable to create an invoice".', source: "approved-source", sourceRef: "https://app.clickup.com/t/abc123" });
+  const { slot } = await setup(undefined, f);
+  await slot.findByText(task.title);
+  for (const query of ["demo_1-42", "abc123", "app.clickup.com/t/abc123"]) {
+    fireEvent.change(slot.getByRole("textbox", { name: "Find a task" }), { target: { value: query } });
+    expect(slot.getByText(task.title)).toBeTruthy();
+  }
+  fireEvent.change(slot.getByRole("textbox", { name: "Find a task" }), { target: { value: "DEMO_1-999" } });
+  expect(slot.queryByText(task.title)).toBeNull();
+});

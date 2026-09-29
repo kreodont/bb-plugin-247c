@@ -224,3 +224,9 @@ It does not open the built-in source composer or change the schedule. Native
 `syncStart` requests are refused in this configuration, including from stale
 browser tabs. Without an external updater configured, the built-in composer
 remains available. Previous built-in runs remain in Check history.
+
+The task list's search includes accepted ticket references, source URLs and
+artifact labels, independently of the task title. References from pending or
+rejected proposals do not affect search. This lets a task retain the original
+source title even when the source's custom ticket ID differs from a number in
+that title.

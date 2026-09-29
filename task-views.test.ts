@@ -53,3 +53,16 @@ it("baselines existing tasks at migration without changing their durable records
     expect(repo.list().tasks.find(t => t.id === fresh.id)?.unseen).toBe("new");
   } finally { db.close(); }
 });
+
+it("indexes ticket numbers from accepted rename reviews, never pending reviews", async () => {
+  const f = await setup(), task = await f.create("Investigate the invoice error");
+  const fact = f.repo.note({ taskId: task.id, revision: task.revision, kind: "user_instruction", text: "Use the ticket's exact title.", requestId: randomUUID() });
+  const revision = f.repo.kernel.getTask(task.id).revision;
+  const proposal = f.repo.propose({ taskId: task.id, revision, requestId: randomUUID(), draft: {
+    rationale: "Source ticket DEMO_1-42: https://app.clickup.com/t/abc123", confidence: 1,
+    changes: { title: { value: "APP-17 - Unable to create an invoice", evidenceRefs: [fact.id] } },
+  } }, "test");
+  expect(f.repo.list().tasks[0].sourceReferences).not.toContain("DEMO_1-42");
+  f.repo.accept(proposal.id, revision);
+  expect(f.repo.list().tasks[0].sourceReferences).toContain("DEMO_1-42");
+});

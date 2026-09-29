@@ -357,7 +357,7 @@ function Desk() {
   const tasks = data?.tasks ?? [];
   const open = tasks.filter((t) => t.status === "open");
   const pending = data?.pendingTotal ?? 0;
-  const visible = tasks.filter((t) => (!group || groupFor(t) === group) && `${t.title} ${t.summary ?? ""} ${t.nextStep ?? ""}`.toLocaleLowerCase("ru").includes(query.toLocaleLowerCase("ru")))
+  const visible = tasks.filter((t) => (!group || groupFor(t) === group) && `${t.title} ${t.summary ?? ""} ${t.nextStep ?? ""} ${(t.sourceReferences ?? []).join(" ")}`.toLocaleLowerCase("ru").includes(query.toLocaleLowerCase("ru")))
     .sort((a, b) => {
       const priority = sort === "priority" ? groups.findIndex((g) => g.key === groupFor(a)) - groups.findIndex((g) => g.key === groupFor(b)) : 0;
       const updated = Date.parse(b.updatedAt) - Date.parse(a.updatedAt);

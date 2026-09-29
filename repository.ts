@@ -11,7 +11,7 @@ import type { FactKind, StewardProposalDraft, TaskRecord } from "./core/types.js
 import { extractionRefMap, partitionParts, pickChanges, pickExtraction, proposalParts, receiptDraft } from "./proposal-parts.js";
 import { DAY_SCHEMA } from "./day-schema.js";
 import { AGENT_TIME_SCHEMA } from "./agent-time-schema.js";
-import { sourceUrl, taskSourceLinks } from "./task-sources.js";
+import { sourceUrl, taskSourceLinks, taskReferenceTerms } from "./task-sources.js";
 import type { TaskSourceLink } from "./contracts.js";
 import { sessionSchema, sessionUpdateSchema, transcriptSchema, knowledgeEntrySchema, fileKnowledgeEntrySchema, knowledgeImportSchema, syncCandidateSchema, type Dossier, type Session, type TaskCard, type Transcript, type Extraction, type KnowledgeEntry, type KnowledgeImport, type PartDecision, type PartReview } from "./contracts.js";
 
@@ -145,7 +145,7 @@ export class Repository {
        (SELECT count(*) FROM source_sync_candidates c WHERE c.task_id=t.id AND c.status='pending')) AS pending_count,
       (SELECT id FROM sessions s WHERE s.task_id=t.id AND s.status IN ('starting','working','collecting','review_starting','reviewing','repair_starting') LIMIT 1) AS active_session
       FROM tasks t JOIN task_projections p ON p.task_id=t.id LEFT JOIN task_views v ON v.task_id=t.id ${where} ORDER BY t.updated_at DESC,t.id LIMIT 500`).all() as Row[]).map((row) => ({
-        ...this.kernel.getTask(String(row.id)), unseen: row.seen_revision == null ? "new" as const : Number(row.seen_revision) < Number(row.revision) ? "updated" as const : null, planning: this.planning(String(row.id)), summary: row.summary === null ? null : String(row.summary), nextStep: row.next_step === null ? null : String(row.next_step), pendingCount: Number(row.pending_count), activeSession: row.active_session === null ? null : String(row.active_session),
+        ...this.kernel.getTask(String(row.id)), sourceReferences: taskReferenceTerms(this.kernel.getDossier(String(row.id)), this.kernel.listProposals(String(row.id)).filter(p => p.status === "applied").map(p => p.rationale)), unseen: row.seen_revision == null ? "new" as const : Number(row.seen_revision) < Number(row.revision) ? "updated" as const : null, planning: this.planning(String(row.id)), summary: row.summary === null ? null : String(row.summary), nextStep: row.next_step === null ? null : String(row.next_step), pendingCount: Number(row.pending_count), activeSession: row.active_session === null ? null : String(row.active_session),
       }));
     return { tasks, total, pendingTotal: this.pendingTotal() };
   }
