@@ -60,7 +60,7 @@ export async function readConversation(bb: BbPluginApi, session: Session): Promi
 
 export function acceptedEvidence(dossier: Pick<Dossier, "projection" | "task">): ProposalEvidence[] {
   const evidence: ProposalEvidence[] = [];
-  for (const [field, kind] of [["summary", "description"], ["nextStep", "explicit_next_step"], ["openQuestions", "open_question"], ["blockers", "blocker"], ["artifacts", "artifact"]] as const) {
+  for (const [field, kind] of [["customer", "description"], ["summary", "description"], ["nextStep", "explicit_next_step"], ["openQuestions", "open_question"], ["blockers", "blocker"], ["artifacts", "artifact"]] as const) {
     const current = dossier.projection[field];
     const values = Array.isArray(current) ? current : [current];
     for (const [i, value] of (values.length ? values : [null]).entries()) {

@@ -136,6 +136,8 @@ export default async function plugin(bb: BbPluginApi) {
     setPrimarySource: (input) => repo.setPrimarySource(input),
     create: (input) => repo.create(input),
     note: (input) => repo.note(input),
+    customers: () => repo.customers(),
+    setCustomer: (input) => repo.setCustomer(input),
     classify: (input) => repo.classify(input),
     status: ({ taskId, status, revision }) => runtime.status(taskId, status, revision),
     propose: (input) => repo.propose(input, "human:bb-panel"),
@@ -283,7 +285,7 @@ export default async function plugin(bb: BbPluginApi) {
     execute(input, ctx) { independentCaller(ctx.threadId); return boundedJson(repo.create(input)); },
   });
   bb.agents.registerTool({
-    name: "c247_propose", description: "Submit a pending 247C task patch using evidence IDs from c247_read. Supports title, status (open/done/archived), urgent and important (true/false/null), summary, nextStep, openQuestions, blockers and artifacts. Does not apply it. Title/priority need decision or user_instruction evidence. nextStep must exactly match an explicit_next_step/user_instruction fact; questions and blockers must also match evidence. Never manufacture evidence or claim human approval.",
+    name: "c247_propose", description: "Submit a pending 247C task patch using evidence IDs from c247_read. Supports title, status (open/done/archived), urgent and important (true/false/null), customer (company name or null), summary, nextStep, openQuestions, blockers and artifacts. Does not apply it. Title/priority need decision or user_instruction evidence. nextStep must exactly match an explicit_next_step/user_instruction fact; questions and blockers must also match evidence. Never manufacture evidence or claim human approval.",
     instructions: managementGuide,
     parameters: rpcContract.propose.input,
     execute(input, ctx) { independentCaller(ctx.threadId); return boundedJson(repo.propose(input, `bb-thread:${ctx.threadId}`)); },

@@ -123,7 +123,7 @@ function emptyDossier(title: string): TaskDossier {
   const timestamp = now();
   return { task: { id: "new", title, status: "open", revision: 0, createdAt: timestamp, updatedAt: timestamp },
     planning: { urgent: null, important: null, revision: 0 }, facts: [],
-    projection: { taskId: "new", summary: null, nextStep: null, openQuestions: [], blockers: [], artifacts: [], updatedAt: timestamp } };
+    projection: { taskId: "new", customer: null, summary: null, nextStep: null, openQuestions: [], blockers: [], artifacts: [], updatedAt: timestamp } };
 }
 
 export function syncEvidence(draft: SyncDraft, runId: string, dossier: TaskDossier): ProposalEvidence[] {
@@ -444,7 +444,7 @@ ${errors.join("\n").slice(0, 16000)}`);
         if (!draft.taskId && this.repo.list(true).tasks.some(d => normalize(d.title) === normalize(draft.title))) throw new ConflictError("A task with this title already exists. Start a new check and link the finding to that task.");
         const candidate = syncCandidateSchema.parse({ ...draft, id: randomUUID(), runId: run.id, baseRevision: draft.taskId ? dossier.task.revision : null,
           before: draft.taskId ? { title: dossier.task.title, status: dossier.task.status, urgent: dossier.planning.urgent, important: dossier.planning.important,
-            summary: dossier.projection.summary, nextStep: dossier.projection.nextStep, openQuestions: dossier.projection.openQuestions, blockers: dossier.projection.blockers, artifacts: dossier.projection.artifacts } : null,
+            customer: dossier.projection.customer ?? null, summary: dossier.projection.summary, nextStep: dossier.projection.nextStep, openQuestions: dossier.projection.openQuestions, blockers: dossier.projection.blockers, artifacts: dossier.projection.artifacts } : null,
           status: "pending", createdAt: now(), resolvedAt: null, proposalId: null, resultTaskId: null });
         this.repo.db.prepare("INSERT INTO source_sync_candidates VALUES (?,?,?,?,?,?)").run(candidate.id, run.id, candidate.taskId, candidate.status, key, JSON.stringify(candidate));
         for (const parent of parents) this.saveCandidate({ ...parent, status: "superseded", resolvedAt: now() });

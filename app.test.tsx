@@ -6,6 +6,7 @@ import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { CapturedPluginApp, RenderedSlot } from "@get-bb/plugin-sdk/testing/app";
 import { randomUUID } from "node:crypto";
 import { fixture } from "./test-support.js";
+import { Repository } from "./repository.js";
 import { rpcContract } from "./contracts.js";
 import { SourceSyncStore } from "./source-sync.js";
 import { DayPlanning } from "./day-planning.js";
@@ -1019,4 +1020,51 @@ it("finds an accepted ticket number and source URL independently of its title", 
   }
   fireEvent.change(slot.getByRole("textbox", { name: "Find a task" }), { target: { value: "DEMO_1-999" } });
   expect(slot.queryByText(task.title)).toBeNull();
+});
+
+it("filters cards by customer together with search, including uncategorized tasks", async () => {
+  const f = await fixture();
+  for (const [title, customer] of [["Invoice issue", "Acme"], ["Import issue", "ACME"], ["Access issue", "Beta"], ["Internal work", null]])
+    f.repo.create({ title: title!, customer, description: "", requestId: randomUUID() });
+  const { slot } = await setup(undefined, f);
+  const filter = await slot.findByRole("combobox", { name: "Filter by customer" });
+  await slot.findByText("Invoice issue");
+  expect(within(filter).getAllByRole("option")).toHaveLength(4);
+  fireEvent.change(filter, { target: { value: "name:acme" } });
+  expect(slot.getByText("Invoice issue")).toBeTruthy();
+  expect(slot.getByText("Import issue")).toBeTruthy();
+  expect(slot.queryByText("Access issue")).toBeNull();
+  fireEvent.change(slot.getByRole("textbox", { name: "Find a task" }), { target: { value: "invoice" } });
+  expect(slot.queryByText("Import issue")).toBeNull();
+  fireEvent.change(slot.getByRole("textbox", { name: "Find a task" }), { target: { value: "" } });
+  fireEvent.change(filter, { target: { value: "none" } });
+  expect(slot.getByText("Internal work")).toBeTruthy();
+  expect(slot.queryByText("Invoice issue")).toBeNull();
+});
+
+it("autosaves customer edits and clears without a Save button", async () => {
+  const f = await fixture(), task = await f.create();
+  const { slot } = await setup(task.id, f);
+  const field = await slot.findByRole("combobox", { name: "Customer" });
+  fireEvent.change(field, { target: { value: "Acme" } });
+  await waitFor(() => expect(f.repo.detail(task.id).projection.customer).toBe("Acme"), { timeout: 3000 });
+  await slot.findByText("Saved");
+  fireEvent.change(field, { target: { value: "" } });
+  fireEvent.blur(field);
+  await waitFor(() => expect(f.repo.detail(task.id).projection.customer).toBeNull());
+});
+
+it("preserves the customer draft after a failed save and retries", async () => {
+  const f = await fixture(), task = await f.create();
+  const { slot } = await setup(task.id, f);
+  const field = await slot.findByRole("combobox", { name: "Customer" });
+  const save = vi.spyOn(Repository.prototype, "setCustomer").mockImplementationOnce(() => { throw new Error("Save unavailable"); });
+  fireEvent.change(field, { target: { value: "Acme" } });
+  fireEvent.blur(field);
+  const retry = await slot.findByRole("button", { name: "Retry customer save" });
+  expect((field as HTMLInputElement).value).toBe("Acme");
+  expect(f.repo.detail(task.id).projection.customer).toBeNull();
+  fireEvent.click(retry);
+  await waitFor(() => expect(f.repo.detail(task.id).projection.customer).toBe("Acme"));
+  expect(save).toHaveBeenCalledTimes(2);
 });

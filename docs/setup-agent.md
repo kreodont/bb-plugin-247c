@@ -230,3 +230,12 @@ artifact labels, independently of the task title. References from pending or
 rejected proposals do not affect search. This lets a task retain the original
 source title even when the source's custom ticket ID differs from a number in
 that title.
+
+Tasks have an optional Customer field, independent of their title. Set it when
+creating a task or edit it in the task overview; edits save automatically after a
+short pause or when leaving the field. The task list shows the accepted customer
+and supports filtering by customer or No customer, together with search and
+priority. Source updates and conversation reviews propose customer changes in
+the ordinary review inbox. Use explicit source fields or user instructions,
+preserve manual choices, and leave unknown customers unspecified. Existing tasks
+retain their data with an empty customer until edited or a proposal is accepted.

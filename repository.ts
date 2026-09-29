@@ -43,6 +43,7 @@ export const EXTRA_SCHEMA = [
   `CREATE TABLE task_source_preferences (task_id TEXT PRIMARY KEY REFERENCES tasks(id), url TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1)`,
   // Reserve index 34 for installations retaining the retired time migration at 33.
   `SELECT 1`,
+  `ALTER TABLE task_projections ADD COLUMN customer TEXT`,
 ];
 export const ACTIVE = new Set<Session["status"]>(["starting", "working", "collecting", "review_starting", "reviewing", "repair_starting"]);
 export const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -73,7 +74,7 @@ export class Repository {
     });
   }
 
-  create(input: { title: string; description: string; primarySourceUrl?: string | null; requestId: string }): TaskRecord {
+  create(input: { title: string; description: string; primarySourceUrl?: string | null; customer?: string | null; requestId: string }): TaskRecord {
     const result = this.request(input.requestId, { kind: "create", ...input }, () => {
       const url = input.primarySourceUrl ? sourceUrl(input.primarySourceUrl)?.href : null;
       if (input.primarySourceUrl && !url) throw new PolicyError("Invalid primary source URL.");
@@ -81,6 +82,11 @@ export class Repository {
       this.db.prepare("INSERT INTO planning(task_id) VALUES (?)").run(task.id);
       if (input.description || url) this.kernel.appendFact({ taskId: task.id, kind: "description", text: input.description || `Task source: ${url}`, source: "human:bb", sourceRef: url ?? undefined });
       if (url) this.db.prepare("INSERT INTO task_source_preferences(task_id,url) VALUES (?,?)").run(task.id, url);
+      if (input.customer != null) {
+        if (!input.customer.trim() || input.customer.trim().length > 200) throw new PolicyError("Customer must contain 1 to 200 characters.");
+        this.db.prepare("UPDATE task_projections SET customer=? WHERE task_id=?").run(input.customer.trim(), task.id);
+        this.kernel.appendFact({ taskId: task.id, kind: "user_instruction", text: `Customer: ${input.customer.trim()}`, source: "human:bb-customer" });
+      }
       return this.kernel.getTask(task.id);
     });
     this.changed();
@@ -101,6 +107,23 @@ export class Repository {
     });
     this.changed();
     return fact;
+  }
+
+  customers(): string[] {
+    return (this.db.prepare("SELECT customer FROM task_projections WHERE customer IS NOT NULL GROUP BY lower(customer) ORDER BY customer COLLATE NOCASE").all() as { customer: string }[]).map(row => row.customer);
+  }
+
+  setCustomer(input: { taskId: string; revision: number; customer: string | null; requestId: string }) {
+    const result = this.request(input.requestId, { kind: "customer", ...input }, () => {
+      this.assertCurrent(input.taskId, input.revision, false);
+      const customer = input.customer?.trim() || null;
+      if (customer && customer.length > 200) throw new PolicyError("Customer must be at most 200 characters.");
+      if ((this.kernel.getDossier(input.taskId).projection.customer ?? null) === customer) return this.kernel.getTask(input.taskId);
+      this.db.prepare("UPDATE task_projections SET customer=?,updated_at=? WHERE task_id=?").run(customer, now(), input.taskId);
+      this.kernel.appendFact({ taskId: input.taskId, kind: "user_instruction", text: customer === null ? "Customer: not specified (manually cleared)." : `Customer: ${customer}`, source: "human:bb-customer" });
+      return this.kernel.getTask(input.taskId);
+    });
+    this.changed(); return result;
   }
 
   planning(taskId: string) {
@@ -140,12 +163,12 @@ export class Repository {
     if (!this.db.inTransaction) this.sessionTime.reconcile();
     const where = history ? "" : "WHERE t.status='open'";
     const total = Number((this.db.prepare(`SELECT count(*) AS n FROM tasks t ${where}`).get() as Row).n);
-    const tasks = (this.db.prepare(`SELECT t.*,p.summary,p.next_step,v.seen_revision,
+    const tasks = (this.db.prepare(`SELECT t.*,p.summary,p.next_step,p.customer,v.seen_revision,
       ((SELECT count(*) FROM proposals x WHERE x.task_id=t.id AND x.status IN ('pending','approved')) +
        (SELECT count(*) FROM source_sync_candidates c WHERE c.task_id=t.id AND c.status='pending')) AS pending_count,
       (SELECT id FROM sessions s WHERE s.task_id=t.id AND s.status IN ('starting','working','collecting','review_starting','reviewing','repair_starting') LIMIT 1) AS active_session
       FROM tasks t JOIN task_projections p ON p.task_id=t.id LEFT JOIN task_views v ON v.task_id=t.id ${where} ORDER BY t.updated_at DESC,t.id LIMIT 500`).all() as Row[]).map((row) => ({
-        ...this.kernel.getTask(String(row.id)), sourceReferences: taskReferenceTerms(this.kernel.getDossier(String(row.id)), this.kernel.listProposals(String(row.id)).filter(p => p.status === "applied").map(p => p.rationale)), unseen: row.seen_revision == null ? "new" as const : Number(row.seen_revision) < Number(row.revision) ? "updated" as const : null, planning: this.planning(String(row.id)), summary: row.summary === null ? null : String(row.summary), nextStep: row.next_step === null ? null : String(row.next_step), pendingCount: Number(row.pending_count), activeSession: row.active_session === null ? null : String(row.active_session),
+        ...this.kernel.getTask(String(row.id)), sourceReferences: taskReferenceTerms(this.kernel.getDossier(String(row.id)), this.kernel.listProposals(String(row.id)).filter(p => p.status === "applied").map(p => p.rationale)), unseen: row.seen_revision == null ? "new" as const : Number(row.seen_revision) < Number(row.revision) ? "updated" as const : null, planning: this.planning(String(row.id)), customer: row.customer == null ? null : String(row.customer), summary: row.summary === null ? null : String(row.summary), nextStep: row.next_step === null ? null : String(row.next_step), pendingCount: Number(row.pending_count), activeSession: row.active_session === null ? null : String(row.active_session),
       }));
     return { tasks, total, pendingTotal: this.pendingTotal() };
   }
