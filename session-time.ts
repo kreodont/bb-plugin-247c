@@ -23,6 +23,31 @@ export class SessionTime {
     // Measured runtime and unrelated planned-time edits do not invalidate review.
     return { item, sequence: event?.sequence ?? 0, fingerprint: digest([item?.reportedDate ?? date, item?.reportedMinutes ?? null, item?.reportedLocked ?? false, item?.removed ?? false]) };
   }
+  // The source session and every discussion that continues it share one time context.
+  private chain(sourceSessionId: string): string[] {
+    const ids = [sourceSessionId];
+    for (let i = 0; i < ids.length && ids.length < 100; i++) {
+      for (const row of this.repo.db.prepare("SELECT id FROM sessions WHERE json_extract(value_json,'$.continuedFrom')=?").all(ids[i]) as { id: string }[]) {
+        if (!ids.includes(row.id)) ids.push(row.id);
+      }
+    }
+    return ids;
+  }
+  // Reported time entered on the user's instruction from the session's own conversation
+  // already covers that session. Estimating the same work again would count it twice:
+  // the user asked for 3 hours in the chat, and the review then proposed those 3 hours again.
+  private recordedInConversation(sourceSessionId: string, taskId: string, date: string) {
+    const item = this.days.taskItem(taskId, date);
+    if (!item) return false;
+    const ids = this.chain(sourceSessionId);
+    const threads = this.repo.db.prepare(`SELECT thread_id FROM session_threads WHERE session_id IN (${ids.map(() => "?").join(",")})`).all(...ids) as { thread_id: string }[];
+    if (!threads.length) return false;
+    const actors = threads.map(t => `bb-thread:${t.thread_id}`);
+    return Boolean(this.repo.db.prepare(`SELECT 1 FROM day_item_events WHERE item_id=? AND actor IN (${actors.map(() => "?").join(",")})
+      AND json_extract(after_json,'$.reportedMinutes') IS NOT NULL
+      AND (before_json IS NULL OR json_extract(before_json,'$.reportedMinutes') IS NOT json_extract(after_json,'$.reportedMinutes')) LIMIT 1`)
+      .get(item.id, ...actors));
+  }
   capture(session: Session): NonNullable<Session["reportedTimeContext"]> {
     let root = session;
     const seen = new Set<string>();
@@ -38,6 +63,7 @@ export class SessionTime {
   }
   private omissionReason(context: NonNullable<Session["reportedTimeContext"]>, taskId: string): NonNullable<SessionUpdate["omittedReportedTime"]>["reason"] | null {
     if (context.alreadyReported || this.applied(context.sourceSessionId)) return "already_reported";
+    if (this.recordedInConversation(context.sourceSessionId, taskId, context.date)) return "recorded_in_conversation";
     const { item, fingerprint, sequence } = this.baseline(taskId, context.date);
     return fingerprint !== context.fingerprint || item?.removed || (item && item.reportedDate !== context.date) ||
       (context.reportedEventSequence !== undefined && context.reportedEventSequence !== sequence) ? "reported_changed" : null;
@@ -84,6 +110,7 @@ export class SessionTime {
     if (!context) throw new PolicyError("This time estimate has no saved day context. Discuss the review to refresh it.");
     const reason = this.omissionReason(context, taskId);
     if (reason === "already_reported") throw new ConflictError("Time for this session was already accepted. Leave reported time unchecked.");
+    if (reason === "recorded_in_conversation") throw new ConflictError("Reported time for this work was already entered from the session's conversation. Leave reported time unchecked.");
     if (reason) {
       throw new ConflictError("Reported time changed after this estimate. Leave reported time unchecked or discuss the review to prepare a fresh estimate.");
     }

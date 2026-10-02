@@ -234,3 +234,43 @@ it("names a session estimate that created the entry by itself", async () => {
   expect(item.reportedChanges[0]).toMatchObject({ source: "session_review", from: null, to: 35, threadId: session.workerThreadId });
   expect(days.report({ date, period: "day" }).rows[0].days[0].reportedFrom).toEqual(["session_review"]);
 });
+
+it("does not add a session estimate on top of time entered from that session's conversation", async () => {
+  // Real case, 02.10: the user asked the agent to record 3 hours, then accepted a
+  // review estimate of the same 3 hours, and the day showed 6.
+  const f = await fixture(); hosts.push(f);
+  const task = await f.create("Inventory legacy scripts and estimate the migration.");
+  const days = new DayPlanning(f.repo);
+  const session = sessionSchema.parse(await f.harness.behavior.callRpc("start", { ...f.startInput(task.id, task.revision), criteria: [] }));
+  const quote = "Record three hours for the script inventory.";
+  await f.idle(session.workerThreadId!, quote);
+  days.add({ taskId: task.id, date: days.today(), reportedMinutes: 180, requestId: randomUUID() }, `bb-thread:${session.workerThreadId}`);
+  await f.harness.behavior.callRpc("finish", { sessionId: session.id });
+  const current = f.repo.session(session.id), transcript = f.repo.transcript(session.id)!;
+  const ref = transcript.messages.find(m => m.text === quote)!.ref;
+  await f.idle(current.reviewerThreadId!, { rationale: "Record the inventory.", facts: [{ kind: "progress", text: quote, citations: [{ messageRef: ref, quote }] }],
+    changes: { status: { value: "done", evidenceRefs: ["fact:0"] } }, knowledge: [], reportedTime: { minutes: 180, reason: "The user asked to record 3 hours.", evidenceRefs: ["fact:0"] } } satisfies Extraction);
+  const reviewed = f.repo.session(session.id);
+  const detail = f.repo.detail(task.id);
+  const update = detail.sessionUpdates.find(u => u.proposalId === reviewed.proposalId)!;
+  expect(update.extraction.reportedTime).toBeNull();
+  expect(update.omittedReportedTime?.reason).toBe("recorded_in_conversation");
+  if (f.repo.kernel.getProposal(reviewed.proposalId!).status === "pending")
+    await f.harness.behavior.callRpc("accept", { proposalId: reviewed.proposalId!, revision: f.repo.kernel.getTask(task.id).revision });
+  expect(days.taskItem(task.id, days.today())?.reportedMinutes).toBe(180);
+});
+
+it("retires a pending estimate once time is entered from the session's conversation", async () => {
+  const { f, task, session, days, date } = await finished(50);
+  days.edit({ id: days.taskItem(task.id, date)!.id, revision: days.taskItem(task.id, date)!.revision, reportedMinutes: 90, requestId: randomUUID() }, `bb-thread:${session.workerThreadId}`);
+  const update = f.repo.detail(task.id).sessionUpdates.find(u => u.sessionId === session.id)!;
+  expect(update.omittedReportedTime?.reason).toBe("recorded_in_conversation");
+  expect(days.taskItem(task.id, date)?.reportedMinutes).toBe(90);
+});
+
+it("still adds a session estimate when time was entered from an unrelated conversation", async () => {
+  const { f, task, session, days, date } = await finished(50);
+  days.edit({ id: days.taskItem(task.id, date)!.id, revision: days.taskItem(task.id, date)!.revision, reportedMinutes: 60, requestId: randomUUID() }, "bb-thread:thr_unrelated");
+  // The unrelated edit changed the day total, so the estimate is stale for that reason instead.
+  expect(f.repo.detail(task.id).sessionUpdates.find(u => u.sessionId === session.id)!.omittedReportedTime?.reason).toBe("reported_changed");
+});

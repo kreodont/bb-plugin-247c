@@ -182,7 +182,7 @@ export const syncCandidateSchema = syncDraftSchema.extend({
   proposalId: idSchema.nullable(), resultTaskId: idSchema.nullable(),
 });
 export const sessionUpdateSchema = z.object({ proposalId: idSchema, sessionId: idSchema, threadId: idSchema, extraction: extractionSchema, reportedTimeContext: sessionTimeContextSchema.optional(),
-  omittedReportedTime: z.object({ estimate: sessionTimeEstimateSchema, reason: z.enum(["reported_changed", "already_reported"]), omittedAt: z.string() }).optional(),
+  omittedReportedTime: z.object({ estimate: sessionTimeEstimateSchema, reason: z.enum(["reported_changed", "already_reported", "recorded_in_conversation"]), omittedAt: z.string() }).optional(),
   warnings: z.array(z.string()), speakers: z.record(z.string(), z.enum(["user", "assistant", "context"])).default({}), sources: z.record(z.string(), z.object({ threadId: idSchema, messageRef: idSchema })).default({}) });
 export const taskSourceLinkSchema = z.object({ url: z.url().max(4096), label: z.string(), occurredAt: z.string().nullable(), origin: z.boolean() });
 const sourceUrlSchema = z.string().trim().max(4096).refine(value => !!sourceUrl(value), "Use an HTTP or HTTPS source URL without embedded credentials.");
