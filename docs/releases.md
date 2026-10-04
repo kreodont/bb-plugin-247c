@@ -86,3 +86,13 @@ from the command palette as **247C: Switch task** (default Cmd+Shift+K).
 Open chats come first, then other open tasks; filtering, arrow keys and Enter
 jump straight to a chat, and a task without one gets a new empty chat. Task
 cards expose the active chat's thread for this. No database migration.
+
+## Pinned files in 0.5.53
+
+Every thread and the 247C page header offer a shared **Pinned files** list.
+Opening an entry sends only its explicit machine/path target to BB's existing
+file panel; File Editor handles editing. The plugin does not read pinned
+contents or add them to conversations, logs, UX recordings or exports.
+Shortcuts are stored in a private installation-only settings file, survive
+plugin updates and are omitted from recovery archives. Task schemas and saved
+settings are unchanged.

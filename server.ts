@@ -5,7 +5,7 @@ import { UxRecording } from "./ux-recording.js";
 import { UpdaterHealth } from "./updater-health.js";
 import { KnowledgeSearch } from "./knowledge-search.js";
 import { importSourceBundle } from "./source-import.js";
-import { applyLocalSettingsPatch, composerDefaultsSchema } from "./local-settings.js";
+import { applyLocalSettingsPatch, composerDefaultsSchema, PinnedFilesSettings } from "./local-settings.js";
 import { defineSettings, settingDescriptors } from "./settings.js";
 import { applyLocalPatch, patchPath, readPatch, PATCH_FORMAT } from "./local-patch.js";
 import { parseSourceConfig } from "./source-config.js";
@@ -53,6 +53,7 @@ function boundedJson(value: unknown): string {
 export default async function plugin(bb: BbPluginApi) {
   const settings = defineSettings(bb);
   const db = bb.storage.database();
+  const pinnedFiles = new PinnedFilesSettings(db.name);
   const ux = new UxRecording(join(dirname(db.name), "ux-recording"));
   await applyLocalPatch(settings, db.name, message => bb.log.error(message));
   let configuration = await settings.get();
@@ -87,6 +88,15 @@ export default async function plugin(bb: BbPluginApi) {
   days.tick();
 
   bb.rpc.register(rpcContract, {
+    pinnedFiles: () => pinnedFiles.list(),
+    pinFile: async input => {
+      const { primaryHostId } = await bb.sdk.system.config();
+      if (!primaryHostId) throw new Error("The local machine is unavailable. Reconnect it before pinning a file.");
+      const result = pinnedFiles.add(input, primaryHostId);
+      bb.realtime.publish("pinned-files-changed", {});
+      return result;
+    },
+    unpinFile: ({ id }) => { const result = pinnedFiles.remove(id); bb.realtime.publish("pinned-files-changed", {}); return result; },
     reviewFailures: () => reviewFailures(repo),
     uxState: () => ux.state(),
     uxControl: ({ action }) => { const state = ux.control(action); bb.realtime.publish("ux-changed", {}); return state; },

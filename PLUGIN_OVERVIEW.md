@@ -30,3 +30,5 @@ calendar reader can supply native meetings. **Create day plan** runs an existing
 configured automation. Each integration is optional and uses the installation's
 own accounts, scripts and schedule. A private settings patch reapplies project,
 model and integration preferences after plugin updates.
+
+**Pinned files** opens local shortcuts from any thread in BB’s file panel. Enable File Editor for editing. The local list survives updates; 247C does not read target contents or include them in its backups.

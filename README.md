@@ -165,6 +165,16 @@ When explicitly requested, documents can be copied through the `importKnowledge`
 
 ## Navigation and local UX recording
 
+**Pinned files** is available in every thread header and the 247C page header.
+Pin an existing file by absolute path (or `~/...`) and give it an optional name.
+Click a shortcut to open BB's side-panel preview; enable the installed **File
+Editor** plugin to edit supported files there. Unpinning removes only the
+shortcut. 247C never opens, reads, copies, indexes or attaches the target file.
+Names, paths and the owning machine ID are stored only in the installation's
+`pinned-files.local.json`, outside task data and exported settings. The list
+survives updates but is excluded from 247C backups, source exports and UX
+recording. Configure shortcuts separately on each computer.
+
 The persistent **Today · Tasks · Proposals** navigation keeps daily work within reach. **More** contains Updates, Knowledge base and UX recording. Navigation waits for pending day edits and stays on the page if saving fails. Tasks default to a compact list; **Cards** restores the wider view. The display choice stays in browser-local storage. Both layouts offer **New chat** for open tasks without an active session. One click creates an empty native BB thread in the configured project and opens it immediately, using the saved work account and model (or BB project defaults). Write the first message in that thread; no starter message or task action is sent on your behalf. The task binding and instructions survive restarts, and the assistant reads the accepted dossier before task work. **Open chat** continues an existing active task conversation without starting a session. Day Plan has the same chat shortcuts beside each open task; they save pending time edits before navigating and keep the draft visible if saving fails. Chats created from the task’s **Work** tab also open their thread automatically after submission. Day Plan places entries first, with planning, calendar and measurement controls in a collapsed section below.
 
 **More → UX recording** (also available in the plugin's settings) provides a local, optional usability recorder. It is off by default. **Record for 7 days** starts a time-limited study; the visible recording bar offers **Pause**, **Review**, and **Something feels awkward** to mark a moment with an optional comment. Pausing immediately rejects further batches for that recording. **Delete recording** stops recording and clears its event files.

@@ -141,6 +141,8 @@ class RecoveryTests(unittest.TestCase):
         (root / "server.ts").write_text("export default {}")
         (root / ".env").write_text("DO_NOT_COPY=secret")
         (root / "settings.private.json").write_text("private")
+        (root / "pinned-files.local.json").write_text("PRIVATE_PIN_REGISTRY")
+        (root / "pinned-files.local.json.pending.tmp").write_text("PRIVATE_PIN_REGISTRY")
         (root / "outside.ts").symlink_to(self.source)
         self.assertEqual([p.name for p in backup.source_files(root)], ["server.ts"])
 

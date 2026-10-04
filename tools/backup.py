@@ -91,7 +91,7 @@ def source_files(root):
         dirs[:] = sorted(d for d in dirs if d not in EXCLUDE and not (Path(parent) / d).is_symlink())
         for name in sorted(files):
             p = Path(parent) / name
-            if name in EXCLUDE or name.startswith(".env") or ".private." in name or name.endswith((".db", ".sqlite", ".zip", ".pyc")) or ".db-" in name:
+            if name in EXCLUDE or name.startswith((".env", "pinned-files.local.json")) or ".private." in name or name.endswith((".db", ".sqlite", ".zip", ".pyc")) or ".db-" in name:
                 continue
             if p.is_symlink() or not p.is_file():
                 continue

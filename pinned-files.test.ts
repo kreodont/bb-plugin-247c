@@ -1,0 +1,69 @@
+import { afterEach, expect, it, vi } from "vitest";
+import { mkdtemp, readFile, rm, writeFile, symlink, stat } from "node:fs/promises";
+import * as fs from "node:fs";
+import { join } from "node:path";
+import { tmpdir, homedir } from "node:os";
+import { PinnedFilesSettings, PINNED_FILES_NAME } from "./local-settings.js";
+import { fixture } from "./test-support.js";
+
+vi.mock("node:fs", async importOriginal => {
+  const original = await importOriginal<typeof import("node:fs")>();
+  return { ...original, openSync: vi.fn(original.openSync), readFileSync: vi.fn(original.readFileSync) };
+});
+const folders: string[] = [], hosts: Awaited<ReturnType<typeof fixture>>[] = [];
+afterEach(async () => { for (const f of hosts.splice(0)) await f.harness.lifecycle.dispose(); await Promise.all(folders.splice(0).map(folder => rm(folder, { recursive: true, force: true }))); vi.clearAllMocks(); });
+async function setup() {
+  const dir = await mkdtemp(join(tmpdir(), "pinned-files-")); folders.push(dir);
+  return { dir, store: new PinnedFilesSettings(join(dir, "data.db")), settings: join(dir, PINNED_FILES_NAME) };
+}
+
+it("persists only local shortcuts, survives reload and never opens their targets", async () => {
+  const { dir, store, settings } = await setup();
+  const target = join(dir, "private-config.json"), token = "SENTINEL_FILE_CONTENT_NOT_FOR_247C";
+  await writeFile(target, JSON.stringify({ token }));
+  expect(store.list()).toEqual({ files: [] });
+  const first = store.add({ name: "Config", path: target }, "host_local");
+  const renamed = store.add({ name: "Private config", path: target }, "host_local");
+  expect(renamed.files).toHaveLength(1);
+  expect(renamed.files[0].id).toBe(first.files[0].id);
+  const reloaded = new PinnedFilesSettings(join(dir, "data.db"));
+  expect(reloaded.list()).toEqual(renamed);
+  expect(await readFile(settings, "utf8")).not.toContain(token);
+  if (process.platform !== "win32") expect((await stat(settings)).mode & 0o777).toBe(0o600);
+  expect(fs.openSync).not.toHaveBeenCalledWith(target, expect.anything());
+  expect(vi.mocked(fs.readFileSync).mock.calls.every(([file]) => typeof file === "number")).toBe(true);
+  expect(store.remove(first.files[0].id)).toEqual({ files: [] });
+  expect(await readFile(target, "utf8")).toContain(token);
+});
+
+it("normalizes home paths without inspecting targets and rejects non-file destinations", async () => {
+  const { store } = await setup();
+  expect(store.add({ name: "Notes", path: "~/notes.md" }, "host_local").files[0].path).toBe(join(homedir(), "notes.md"));
+  for (const path of ["relative.md", "https://example.com/file", "file:///private/file", "bad\npath"]) expect(() => store.add({ name: "Notes", path }, "host_local")).toThrow();
+  expect(store.list().files).toHaveLength(1);
+});
+
+it("does not overwrite malformed or symlinked local settings and sanitizes errors", async () => {
+  const { dir, store, settings } = await setup();
+  const body = "UNEXPECTED_PRIVATE_CONTENT";
+  await writeFile(settings, body);
+  expect(() => store.add({ name: "Notes", path: "/notes.md" }, "host_local")).toThrow("Invalid pinned-file settings");
+  expect(await readFile(settings, "utf8")).toBe(body);
+  await rm(settings);
+  const target = join(dir, "outside.json"); await writeFile(target, body); await symlink(target, settings);
+  expect(() => store.list()).toThrow("Could not read pinned-file settings");
+  expect(await readFile(target, "utf8")).toBe(body);
+});
+
+it("RPCs are task-independent, use an explicit machine and do not expose a file-reading tool", async () => {
+  const f = await fixture(); hosts.push(f);
+  f.harness.inspection.sdk.stub("system.config", () => ({ primaryHostId: "host_local" }));
+  const before = f.repo.db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all();
+  const value = await f.harness.behavior.callRpc("pinFile", { name: "Notes", path: "/private/notes.md" }) as { files: { id: string }[] };
+  expect(await f.harness.behavior.callRpc("pinnedFiles", {})).toMatchObject({ files: [{ hostId: "host_local", path: "/private/notes.md" }] });
+  expect(f.harness.inspection.sdk.callsTo("files.read")).toHaveLength(0);
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
+  expect(f.repo.list().tasks).toHaveLength(0);
+  expect(f.repo.db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all()).toEqual(before);
+  expect(await f.harness.behavior.callRpc("unpinFile", { id: value.files[0].id })).toEqual({ files: [] });
+});

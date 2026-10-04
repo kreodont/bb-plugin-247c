@@ -1,6 +1,7 @@
 import { reviewFailuresSchema } from "./review-failures-contracts.js";
 import { taskStatuses } from "./task-status.js";
 import { uxRpcContract } from "./ux-contracts.js";
+import { pinnedFilesRpcContract } from "./pinned-files-contracts.js";
 import { updaterHealthSchema, updaterStartResultSchema } from "./updater-health-contracts.js";
 import { z } from "zod";
 import { defineRpcContract, type NewThreadRequest } from "@get-bb/plugin-sdk";
@@ -244,6 +245,7 @@ export const syncStartSchema = z.object({ requestId: z.uuid(), since: z.iso.date
 export const syncImportSchema = z.object({ requestId: z.uuid(), path: z.string().min(1).max(4096), sha256: z.string().regex(/^[a-f0-9]{64}$/) }).strict();
 export const syncStateSchema = z.object({ runs: z.array(syncRunSchema), candidates: z.array(syncCandidateSchema), pending: z.number(), checkpoints: z.record(sourceKeySchema, z.string().nullable()), nextSince: z.record(sourceKeySchema, z.string()) });
 export const rpcContract = defineRpcContract({
+  ...pinnedFilesRpcContract,
   reviewFailures: { input: z.object({}).strict(), output: reviewFailuresSchema },
   ...uxRpcContract,
   threadProject: { input: z.object({}).strict(), output: z.object({ projectId: idSchema.nullable(), providerId: z.string().nullable().default(null), model: z.string().nullable().default(null), timeZone: z.string().optional(), pendingTotal: z.number().optional(), workProvider: z.string().optional(), workModel: z.string().optional(), syncProvider: z.string().optional(), syncModel: z.string().optional() }) },

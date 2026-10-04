@@ -61,3 +61,8 @@ If the original computer is lost, download the ZIP from Drive. It includes `rest
 `RESTORE-REPORT.json` lists prepared files and next actions. The recovery utility never changes a running BB or executes code from the archive.
 
 Snapshots include the local settings patch separately from code and effective BB settings. Recovery prepares a disabled, unrouted copy; keep the original patch for reference and configure local paths and IDs before enabling it. See [Local configuration](local-configuration.md).
+
+**Pinned files** shortcuts and their target files are excluded from 247C
+snapshots. The list is specific to one computer; recreate it after restoring
+on another machine. Pinning a file does not back it up or copy its contents
+into the plugin.

@@ -66,6 +66,16 @@ preferences, and the published default is empty.
 
 ## Settings owned by BB and providers
 
+**Pinned files** uses a separate local-settings store managed by
+`local-settings.ts`: `<BB data directory>/plugins/247c/pinned-files.local.json`.
+It contains only shortcut IDs, names, absolute paths and machine IDs. It is
+atomically saved with owner-only permissions where supported. Updates preserve
+it because installed code lives elsewhere. This store is deliberately separate
+from `local.patch.json` and BB settings: neither the registry nor the files it
+references are added to 247C backup/export payloads. Do not put file contents or
+credentials in shortcut names. Adding and opening a shortcut never grants an
+agent access to the file. BB's file preview and File Editor own file access.
+
 The referenced project's folder and environment, morning-planner automation, provider logins and read-permission allowlists remain in their native **local** BB/provider configuration. Plugin updates do not replace them. Browser preferences also remain local. Do not turn these into source-code edits or copy one computer's IDs to another. The setup agent must inspect the target installation and configure them there; see [the setup guide](setup-agent.md).
 
 ## Backups and another computer

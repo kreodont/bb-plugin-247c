@@ -28,3 +28,5 @@ local.patch.json.*
 # Installation-owned overrides (publish only the generic docs example).
 *.settings.patch.json
 settings.patch.json
+pinned-files.local.json
+pinned-files.local.json.*
