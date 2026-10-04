@@ -55,3 +55,16 @@ No source history is expired or deleted. Future exports are compressed on write.
 Keep a pre-update backup. Compressed source storage requires 0.5.49 or newer;
 rolling back to an older plugin requires its matching pre-update database.
 Normal backups include the blobs and the installed reader code unchanged.
+
+## Source checks and session status in 0.5.50
+
+Slack reports rate limits as a bare `ratelimited` payload, sometimes inside a
+transport error. Earlier versions treated it as a permanent failure, so a
+throttled thread read left every run partial and the Slack checkpoint did not
+advance. Rate limits now wait 5, 15 and 30 seconds before retrying; other
+transient errors keep the short retry. The wait ends early if the check is
+stopped or reaches its time limit.
+
+Task cards pulse only while an agent is running a review, collection or
+worker session. An open conversation waiting for the user shows a static
+"Chat open since" label. No database migration is involved.
