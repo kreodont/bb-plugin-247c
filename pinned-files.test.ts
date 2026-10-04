@@ -65,5 +65,11 @@ it("RPCs are task-independent, use an explicit machine and do not expose a file-
   expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
   expect(f.repo.list().tasks).toHaveLength(0);
   expect(f.repo.db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all()).toEqual(before);
+  f.harness.inspection.sdk.stub("threads.get", () => ({ environmentId: "env_pinned" }));
+  f.harness.inspection.sdk.stub("environments.get", () => ({ hostId: "host_other" }));
+  await expect(f.harness.behavior.callRpc("pinnedFileTarget", { id: value.files[0].id, threadId: "thr_other" })).rejects.toThrow("file's machine");
+  f.harness.inspection.sdk.stub("environments.get", () => ({ hostId: "host_local" }));
+  expect(await f.harness.behavior.callRpc("pinnedFileTarget", { id: value.files[0].id, threadId: "thr_local" })).toMatchObject({ path: "/private/notes.md", hostId: "host_local" });
+  expect(f.harness.inspection.sdk.callsTo("files.read")).toHaveLength(0);
   expect(await f.harness.behavior.callRpc("unpinFile", { id: value.files[0].id })).toEqual({ files: [] });
 });

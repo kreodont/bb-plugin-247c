@@ -96,3 +96,10 @@ contents or add them to conversations, logs, UX recordings or exports.
 Shortcuts are stored in a private installation-only settings file, survive
 plugin updates and are omitted from recovery archives. Task schemas and saved
 settings are unchanged.
+
+## File Editor routing in 0.5.54
+
+Opening a pinned file requires a thread on the file’s machine. Before opening,
+247C checks only the shortcut and thread/environment metadata. This prevents
+File Editor from resolving a path on a different machine or without an
+environment. The 247C page still supports managing the shared shortcut list.

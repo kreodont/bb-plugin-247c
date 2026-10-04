@@ -16,6 +16,7 @@ function mount(compact = false, accepted: () => boolean = () => true) {
   const slot = renderSlot(app.threadHeaderActions.find(s => s.id === "pinned-files")!, { threadId: "thr_unrelated", projectId: "proj_other", isCompactViewport: compact }, {
     rpc: {
       pinnedFiles: () => ({ files }),
+      pinnedFileTarget: () => file,
       unpinFile: () => { files = []; return { files }; },
       pinFile: (input) => { files = [{ ...file, ...(input as { name: string; path: string }) }]; return { files }; },
     },
@@ -24,7 +25,7 @@ function mount(compact = false, accepted: () => boolean = () => true) {
   mounts.push(slot); return slot;
 }
 
-it.each([false, true])("opens from an unrelated thread through the host preview with no content RPC (compact=%s)", async compact => {
+it.each([false, true])("opens from an unrelated thread through the host preview with only a metadata RPC (compact=%s)", async compact => {
   const slot = mount(compact);
   const trigger = within(slot.container).getByRole("button", { name: "Pinned files" });
   expect(trigger.textContent).toBe(compact ? "" : "Pinned files");
@@ -38,7 +39,8 @@ it.each([false, true])("opens from an unrelated thread through the host preview 
   fireEvent.click(open);
   await waitFor(() => expect(within(document.body).queryByRole("dialog")).toBeNull());
   expect(slot.inspection.navigateCalls).toEqual([{ method: "experimental_openFilePreview", options: { target: { kind: "host", hostId: "host_local", path: file.path }, location: null } }]);
-  expect(slot.inspection.rpcCalls).toHaveLength(calls);
+  expect(slot.inspection.rpcCalls).toHaveLength(calls + 1);
+  expect(slot.inspection.rpcCalls.at(-1)?.method).toBe("pinnedFileTarget");
   await collector.flush(); expect(send).not.toHaveBeenCalled();
   expect(slot.inspection.composer.text).toBe("");
 });
@@ -60,7 +62,7 @@ it("keeps the list open and suppresses private host error payloads when opening 
   const slot = mount(false, () => { throw new Error("PRIVATE_HOST_ERROR_CONTENT"); });
   fireEvent.click(within(slot.container).getByRole("button", { name: "Pinned files" }));
   fireEvent.click(await within(document.body).findByRole("button", { name: "Open Private notes" }));
-  expect(within(document.body).getByRole("alert").textContent).toContain("Could not open the file panel");
+  expect((await within(document.body).findByRole("alert")).textContent).toContain("Could not open the file panel");
   expect(document.body.textContent).not.toContain("PRIVATE_HOST_ERROR_CONTENT");
   expect(within(document.body).getByRole("dialog")).toBeTruthy();
 });

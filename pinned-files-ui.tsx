@@ -7,13 +7,15 @@ import { Input } from "./components/ui/input.js";
 import { Icon } from "./components/ui/icon.js";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "./components/ui/dialog.js";
 
-export function PinnedFilesButton({ compact = false }: { compact?: boolean }) {
+export function PinnedFilesButton({ compact = false, threadId = null }: { compact?: boolean; threadId?: string | null }) {
   const rpc = useRpc<typeof rpcContract>(), navigate = useBbNavigate();
   const connection = useRealtimeConnectionState();
   const [open, setOpen] = useState(false), [files, setFiles] = useState<PinnedFile[] | null>(null);
   const [error, setError] = useState<string | null>(null), [busy, setBusy] = useState(false), [adding, setAdding] = useState(false);
   const [name, setName] = useState(""), [path, setPath] = useState("");
   const generation = useRef(0), mutating = useRef(false);
+  const currentThread = useRef(threadId); currentThread.current = threadId;
+  useEffect(() => () => { currentThread.current = null; }, []);
   const load = useCallback(async () => {
     const request = ++generation.current;
     try { const value = await rpc.call("pinnedFiles", {}); if (request === generation.current) { setFiles(value.files); setError(null); } }
@@ -34,13 +36,19 @@ export function PinnedFilesButton({ compact = false }: { compact?: boolean }) {
     const label = name.trim() || path.trim().split(/[\\/]/u).at(-1) || "File";
     void mutate(() => rpc.call("pinFile", { name: label, path: path.trim() }));
   }
-  function openFile(file: PinnedFile) {
+  async function openFile(shortcut: PinnedFile) {
+    if (!threadId || mutating.current) return;
+    const origin = threadId;
+    mutating.current = true; setBusy(true); setError(null);
     try {
+      const file = await rpc.call("pinnedFileTarget", { id: shortcut.id, threadId: origin });
+      if (currentThread.current !== origin) return;
       // A navigation intent only. File Editor owns reading and editing; do not
       // attach contents to a message or send file paths to UX instrumentation.
-      if (navigate.experimental_openFilePreview({ target: { kind: "host", hostId: file.hostId, path: file.path }, location: null })) { changeOpen(false); return; }
+      if (navigate.experimental_openFilePreview({ target: { kind: "host", hostId: file.hostId, path: file.path }, location: null })) { setOpen(false); setAdding(false); setPath(""); setName(""); return; }
     } catch { /* Do not surface host error payloads from a private file. */ }
-    setError("Could not open the file panel. Try again from an open thread.");
+    finally { mutating.current = false; setBusy(false); }
+    if (currentThread.current === origin) setError("Could not open the file panel. Use a thread with a workspace on the file's machine, or refresh the shortcut list.");
   }
   return <span data-c247-ux-private="" className="inline-flex" title="Pinned files">
     <Button type="button" size="sm" variant="outline" className="h-7 gap-1.5 px-2 text-xs" aria-label="Pinned files" onClick={() => changeOpen(true)}>
@@ -49,12 +57,13 @@ export function PinnedFilesButton({ compact = false }: { compact?: boolean }) {
     <Dialog open={open} onOpenChange={changeOpen}><DialogContent data-c247-ux-private="" className="gap-3 p-4 sm:max-w-lg">
       <DialogTitle className="text-base">Pinned files</DialogTitle>
       <DialogDescription>Local shortcuts shared across your threads. Files open in the side panel.</DialogDescription>
+      {!threadId && <p className="text-sm text-muted-foreground">Open a thread to view or edit these files. You can manage shortcuts here.</p>}
       {error && <p role="alert" className="text-sm text-destructive">{error} <Button size="sm" variant="ghost" disabled={busy} onClick={() => void load()}>Retry</Button></p>}
       {!files && !error && <p role="status" className="py-4 text-sm text-muted-foreground">Loading pinned files…</p>}
       {files?.length === 0 && <p className="py-4 text-sm text-muted-foreground">No pinned files yet.</p>}
       {!!files?.length && <ul aria-label="Pinned files" className="max-h-[50vh] space-y-1 overflow-y-auto">
         {files.map(file => <li key={file.id} className="flex items-center gap-1 rounded-md hover:bg-muted/60">
-          <button type="button" disabled={busy} onClick={() => openFile(file)} className="min-w-0 flex-1 rounded-md p-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Open ${file.name}`}>
+          <button type="button" disabled={busy || !threadId} onClick={() => void openFile(file)} className="min-w-0 flex-1 rounded-md p-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default" aria-label={`Open ${file.name}`}>
             <span className="block truncate text-sm font-medium">{file.name}</span><span className="block truncate text-xs text-muted-foreground" title={file.path}>{file.path}</span>
           </button>
           <span title="Remove shortcut; keep the file"><Button type="button" variant="ghost" size="sm" disabled={busy} aria-label={`Unpin ${file.name}`} onClick={() => void mutate(() => rpc.call("unpinFile", { id: file.id }))}><Icon name="X" aria-hidden="true" /></Button></span>
@@ -69,5 +78,5 @@ export function PinnedFilesButton({ compact = false }: { compact?: boolean }) {
   </span>;
 }
 
-export function ThreadPinnedFiles({ isCompactViewport }: PluginThreadHeaderActionProps) { return <PinnedFilesButton compact={isCompactViewport} />; }
+export function ThreadPinnedFiles({ isCompactViewport, threadId }: PluginThreadHeaderActionProps) { return <PinnedFilesButton compact={isCompactViewport} threadId={threadId} />; }
 export function PagePinnedFiles() { return <PinnedFilesButton />; }

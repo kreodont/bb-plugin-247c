@@ -89,6 +89,17 @@ export default async function plugin(bb: BbPluginApi) {
 
   bb.rpc.register(rpcContract, {
     pinnedFiles: () => pinnedFiles.list(),
+    pinnedFileTarget: async ({ id, threadId }) => {
+      const file = pinnedFiles.list().files.find(file => file.id === id);
+      if (!file) throw new Error("This shortcut was removed. Refresh pinned files.");
+      const thread = await bb.sdk.threads.get({ threadId });
+      if (!thread.environmentId) throw new Error("Open a thread with a local workspace to use this shortcut.");
+      const environment = await bb.sdk.environments.get({ environmentId: thread.environmentId });
+      // File Editor currently resolves host files through the thread's
+      // environment. Refuse a different machine instead of opening its path.
+      if (environment.hostId !== file.hostId) throw new Error("Open this shortcut in a thread on the file's machine.");
+      return file;
+    },
     pinFile: async input => {
       const { primaryHostId } = await bb.sdk.system.config();
       if (!primaryHostId) throw new Error("The local machine is unavailable. Reconnect it before pinning a file.");

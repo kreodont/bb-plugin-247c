@@ -7,6 +7,7 @@ export const pinnedFilesSchema = z.object({ files: z.array(pinnedFileSchema).max
 export type PinnedFile = z.infer<typeof pinnedFileSchema>;
 export const pinnedFilesRpcContract = {
   pinnedFiles: { input: z.object({}).strict(), output: pinnedFilesSchema },
+  pinnedFileTarget: { input: z.object({ id: z.uuid(), threadId: singleLine(120) }).strict(), output: pinnedFileSchema },
   pinFile: { input: pinnedFileInputSchema, output: pinnedFilesSchema },
   unpinFile: { input: z.object({ id: z.uuid() }).strict(), output: pinnedFilesSchema },
 };
