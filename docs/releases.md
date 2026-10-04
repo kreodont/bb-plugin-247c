@@ -68,3 +68,12 @@ stopped or reaches its time limit.
 Task cards pulse only while an agent is running a review, collection or
 worker session. An open conversation waiting for the user shows a static
 "Chat open since" label. No database migration is involved.
+
+## Slack reply links in 0.5.51
+
+A dossier can cite a Slack reply by its permalink, which names the reply and
+its parent thread. The collector reads the whole parent thread, but coverage
+validation required the reply's own timestamp in that read. A reply deleted
+after it was cited could never satisfy that rule, so every check stayed
+partial and the Slack checkpoint did not advance. Validation now requires the
+complete parent thread, the same unit the collector reads.

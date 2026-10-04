@@ -199,7 +199,9 @@ export function requiredSourceReads(dossiers: TaskDossier[], source: SyncSource,
   if (source === "teams" || source === "outlook") return [];
   const found = source === "gmail"
     ? [...text.matchAll(/mail\.google\.com[^\s"\\]*\/(?:#|%23)(?:all|inbox|sent|label\/[^/]+)\/([a-f0-9]{10,32})\b/g)].map((m) => m[1])
-    : [...text.matchAll(/slack\.com\/archives\/[A-Z0-9]+\/p(\d{10})(\d{6})/g)].map((m) => `${m[1]}.${m[2]}`);
+    // A reply permalink is covered by reading its whole parent thread, as the
+    // collector does. The reply itself may since have been deleted.
+    : [...text.matchAll(/slack\.com\/archives\/[A-Z0-9]+\/p(\d{10})(\d{6})(\?[^\s<>"\\)\]|]*)?/g)].map((m) => /thread_ts=(\d{10}\.\d{6})/.exec(m[3] ?? "")?.[1] ?? `${m[1]}.${m[2]}`);
   return [...new Set(found)];
 }
 

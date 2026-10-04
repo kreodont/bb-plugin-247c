@@ -33,6 +33,18 @@ it("uses Jira's response body rather than the unrelated UI graph", () => {
   expect(responseData({ content: [{ type: "text", text: '{"key":"APP-123","fields":{}}' }], structuredContent: { issues: { nodes: [] } } }).key).toBe("APP-123");
 });
 
+it("requires the parent thread for a Slack reply link, even after the reply is deleted", () => {
+  const text = "https://acme.slack.com/archives/C0123456789/p1789561088151039?thread_ts=1789019275.984449&cid=C0123456789 https://acme.slack.com/archives/C0123456789/p1789000000000100";
+  const dossiers = [{ task: { status: "open" }, text }] as unknown as Parameters<typeof collectSources>[1];
+  expect(requiredSourceReads(dossiers, "slack")).toEqual(["1789019275.984449", "1789000000.000100"]);
+  expect(requiredSourceReads(dossiers, "slack")).toEqual(sourceLinks(text).slack.map(s => s.ts));
+  const read = (ts: string, ref: string) => ({ ref, source: "slack" as const, tool: "slack.slack_read_thread", args: { channel_id: "C0123456789", message_ts: ts }, output: `{"messages":"Message TS: ${ts}\\nThere are no more messages in this thread."}`, completed: true, truncated: false, read: true });
+  const search = { ref: "s", source: "slack" as const, tool: "slack.slack_search_public_and_private", args: { query: "is:dm" }, output: '{"results":"","has_more":false}', completed: true, truncated: false, read: false };
+  const calls = [search, read("1789019275.984449", "a"), read("1789000000.000100", "b")];
+  const [report] = validateSyncReports([{ source: "slack", status: "complete", detail: "ok", callRefs: calls.map(c => c.ref), paginationComplete: true, linkedTasksChecked: true, scanned: 2, threadsRead: 2 }], calls, dossiers);
+  expect(report.status).toBe("complete");
+});
+
 it("excludes quote numbers and UUID fragments consistently from collection and coverage", () => {
   const text = "Q-12345 12345678-ABC4-4321-89AB-123456789ABC APP-815 https://example.atlassian.net/browse/Q-42";
   const dossiers = [{ task: { status: "open" }, text }] as unknown as Parameters<typeof collectSources>[1];
