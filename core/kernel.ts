@@ -42,6 +42,7 @@ function factFrom(row: Row): TaskFact {
 function projectionFrom(row: Row): TaskProjection {
   return {
     taskId: String(row.task_id),
+    customer: row.customer == null ? null : String(row.customer),
     summary: row.summary === null ? null : String(row.summary),
     nextStep: row.next_step === null ? null : String(row.next_step),
     openQuestions: JSON.parse(String(row.open_questions_json)) as string[],
@@ -248,6 +249,7 @@ export class Kernel {
         throw new PolicyError("approval does not match the exact proposal");
       }
       const next: TaskProjection = { ...dossier.projection };
+      if (proposal.changes.customer) next.customer = proposal.changes.customer.value;
       if (proposal.changes.summary) next.summary = proposal.changes.summary.value;
       if (proposal.changes.nextStep) next.nextStep = proposal.changes.nextStep.value;
       if (proposal.changes.openQuestions) next.openQuestions = proposal.changes.openQuestions.value;
@@ -261,9 +263,9 @@ export class Kernel {
       const timestamp = now();
       this.store.db.prepare(`
         UPDATE task_projections
-        SET summary = ?, next_step = ?, open_questions_json = ?, blockers_json = ?, artifacts_json = ?, updated_at = ?
+        SET customer = ?, summary = ?, next_step = ?, open_questions_json = ?, blockers_json = ?, artifacts_json = ?, updated_at = ?
         WHERE task_id = ?
-      `).run(next.summary, next.nextStep, JSON.stringify(next.openQuestions), JSON.stringify(next.blockers), JSON.stringify(next.artifacts), timestamp, proposal.taskId);
+      `).run(next.customer ?? null, next.summary, next.nextStep, JSON.stringify(next.openQuestions), JSON.stringify(next.blockers), JSON.stringify(next.artifacts), timestamp, proposal.taskId);
       this.store.db.prepare("UPDATE proposals SET status = 'applied', resolved_at = ? WHERE id = ?").run(timestamp, proposalId);
       if (nextStatus !== dossier.task.status) {
         this.store.db.prepare("UPDATE tasks SET status=? WHERE id=?").run(nextStatus, proposal.taskId);
@@ -348,6 +350,7 @@ export class Kernel {
     const { task, projection, facts, planning } = this.getDossier(taskId);
     const lines = [`# ${task.title}`, "", `Task: ${task.id} · revision ${task.revision} · ${task.status}`];
     lines.push(`Priority: urgent=${planning.urgent}, important=${planning.important} (null = unclassified).`);
+    if (projection.customer) lines.push("", `Customer: ${projection.customer}`);
     if (projection.summary) lines.push("", "## Current summary", projection.summary);
     if (projection.nextStep) lines.push("", "## Explicit next step", projection.nextStep);
     if (projection.openQuestions.length) lines.push("", "## Open questions", ...projection.openQuestions.map((item) => `- ${item}`));

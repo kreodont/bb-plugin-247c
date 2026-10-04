@@ -69,7 +69,7 @@ export function parseProposalDraft(input: unknown): StewardProposalDraft {
     throw new PolicyError("proposal.confidence must be between 0 and 1");
   }
   const rawChanges = object(record.changes, "proposal.changes");
-  onlyKeys(rawChanges, ["title", "status", "urgent", "important", "summary", "nextStep", "openQuestions", "blockers", "artifacts"], "proposal.changes");
+  onlyKeys(rawChanges, ["title", "status", "urgent", "important", "customer", "summary", "nextStep", "openQuestions", "blockers", "artifacts"], "proposal.changes");
   const changes: StewardChanges = {};
   if ("title" in rawChanges) changes.title = proposed(rawChanges.title, "title", (value) => {
     if (typeof value !== "string" || !value.trim() || value.trim().length > 200) throw new PolicyError("The title must contain 1 to 200 characters.");
@@ -84,6 +84,11 @@ export function parseProposalDraft(input: unknown): StewardProposalDraft {
   if ("status" in rawChanges) changes.status = proposed(rawChanges.status, "status", (value) => {
     if (value !== "open" && value !== "waiting" && value !== "done" && value !== "archived") throw new PolicyError("proposed status must be open, waiting, done or archived");
     return value;
+  });
+  if ("customer" in rawChanges) changes.customer = proposed(rawChanges.customer, "customer", (value) => {
+    const result = nullableString(value);
+    if (result !== null && (!result.trim() || result.trim().length > 200)) throw new PolicyError("Customer must be a nonempty name of at most 200 characters, or null.");
+    return result?.trim() ?? null;
   });
   if ("summary" in rawChanges) changes.summary = proposed(rawChanges.summary, "summary", nullableString);
   if ("nextStep" in rawChanges) changes.nextStep = proposed(rawChanges.nextStep, "nextStep", nullableString);

@@ -1,5 +1,24 @@
 import type { Dossier, SyncCandidate, SyncSource, TaskSourceLink } from "./contracts.js";
 
+// Search accepted ticket identifiers independently of the human-readable title.
+// Pending proposals must not make an unaccepted association searchable.
+export function taskReferenceTerms(dossier: Pick<Dossier, "facts" | "projection">, acceptedContext: string[] = []): string[] {
+  const terms = new Set<string>();
+  const extract = (text: string) => {
+    for (const match of text.matchAll(/\b[A-Z][A-Z0-9_]{0,30}-[0-9]+\b/g)) terms.add(match[0]);
+    for (const match of text.matchAll(/https?:\/\/[^\s<>"'`]+/g)) terms.add(match[0]);
+  };
+  for (const fact of dossier.facts) {
+    if (fact.sourceRef) terms.add(fact.sourceRef);
+    extract(fact.text);
+  }
+  acceptedContext.forEach(extract);
+  for (const artifact of dossier.projection.artifacts) {
+    terms.add(artifact.uri); terms.add(artifact.label);
+  }
+  return [...terms].filter(term => term.length <= 4096);
+}
+
 export function sourceUrl(value: string | null): URL | null {
   if (!value || value.length > 4096 || /[\u0000-\u001f\u007f]/.test(value)) return null;
   try {

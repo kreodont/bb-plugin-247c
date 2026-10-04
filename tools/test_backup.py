@@ -4,6 +4,7 @@ from pathlib import Path
 import sqlite3
 import tempfile
 import unittest
+from unittest.mock import patch
 import zipfile
 import backup
 
@@ -64,6 +65,24 @@ class RecoveryTests(unittest.TestCase):
         with backup.readonly(target) as db:
             self.assertEqual(db.execute("SELECT title FROM tasks").fetchone()[0], "Data written into WAL")
         self.assertFalse(Path(str(target) + "-wal").exists())
+
+    def test_verification_streams_database_instead_of_loading_it_into_memory(self):
+        archive = self.archive()
+        original = zipfile.ZipFile.read
+        def metadata_only(instance, name, *args, **kwargs):
+            self.assertEqual(name, "manifest.json")
+            return original(instance, name, *args, **kwargs)
+        with patch.object(zipfile.ZipFile, "read", metadata_only):
+            self.assertEqual(backup.verify_archive(archive)["pluginVersion"], "test")
+            backup.restore_to_new(archive, self.root / "streamed")
+
+    def test_archive_size_limit_is_checked_before_extraction(self):
+        archive = self.archive()
+        self.assertGreater(backup.MAX_ARCHIVE_BYTES, 2 * 1024**3)
+        with patch.object(backup, "MAX_ARCHIVE_BYTES", 1):
+            with self.assertRaisesRegex(ValueError, "excessive archive size"):
+                backup.restore_to_new(archive, self.root / "too-large")
+        self.assertFalse((self.root / "too-large").exists())
 
     def test_restore_preserves_tasks_and_original_and_pauses_execution(self):
         archive = self.archive()

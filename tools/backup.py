@@ -24,6 +24,8 @@ from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 
 FORMAT = "247c-snapshot-1"
+MAX_ARCHIVE_BYTES = 16 * 1024**3
+STREAM_BYTES = 1024**2
 EXCLUDE = {"node_modules", ".git", ".verification", "__pycache__", "backups", "snapshots", "local", ".DS_Store"}
 ACTIVE_SESSIONS = {"starting", "working", "collecting", "review_starting", "reviewing", "repair_starting"}
 
@@ -236,7 +238,7 @@ def verify_archive(path, extract_to=None):
     with zipfile.ZipFile(path) as archive:
         info = archive.infolist()
         names = [i.filename for i in info]
-        if len(names) != len(set(names)) or len(names) > 100000 or sum(i.file_size for i in info) > 2 * 1024**3:
+        if len(names) != len(set(names)) or len(names) > 100000 or sum(i.file_size for i in info) > MAX_ARCHIVE_BYTES:
             raise ValueError("Duplicate archive members or excessive archive size")
         for item in info:
             p = PurePosixPath(item.filename)
@@ -247,17 +249,23 @@ def verify_archive(path, extract_to=None):
         manifest = json.loads(archive.read("manifest.json"))
         if manifest.get("format") != FORMAT or set(names) != set(manifest["members"]) | {"manifest.json"}:
             raise ValueError("Snapshot format or file inventory does not match")
-        for name, expected in manifest["members"].items():
-            data = archive.read(name)
-            if len(data) != expected["bytes"] or hashlib.sha256(data).hexdigest() != expected["sha256"]:
-                raise ValueError("Checksum failed: " + name)
-            if extract_to:
-                target = Path(extract_to) / name
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_bytes(data)
         with tempfile.TemporaryDirectory(prefix="247c-verify-") as temp:
-            db = Path(temp) / "data.db"
-            db.write_bytes(archive.read("database/data.db"))
+            db = Path(extract_to) / "database/data.db" if extract_to else Path(temp) / "data.db"
+            for name, expected in manifest["members"].items():
+                if archive.getinfo(name).file_size != expected["bytes"]:
+                    raise ValueError("Checksum failed: " + name)
+                target = Path(extract_to) / name if extract_to else db if name == "database/data.db" else None
+                if target:
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                checksum, size = hashlib.sha256(), 0
+                with archive.open(name) as src, target.open("wb") if target else contextlib.nullcontext() as dst:
+                    while chunk := src.read(STREAM_BYTES):
+                        checksum.update(chunk)
+                        size += len(chunk)
+                        if dst:
+                            dst.write(chunk)
+                if size != expected["bytes"] or checksum.hexdigest() != expected["sha256"]:
+                    raise ValueError("Checksum failed: " + name)
             if check_db(db) != manifest["tables"]:
                 raise ValueError("Restored database row counts differ from manifest")
         if extract_to:

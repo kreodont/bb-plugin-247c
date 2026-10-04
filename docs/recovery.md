@@ -21,11 +21,17 @@ python3 tools/backup.py create --data-dir "$HOME/.bb" \
   --destination "/path/to/Google Drive/247C/backups/my-mac" --machine my-mac
 ```
 
-The archive is assembled and verified locally, then copied to the destination as one ZIP file with SHA-256 verification. The temporary destination file has a `.partial` suffix; its final name appears only after copying completes. The result is saved to `latest-<machine>.json`.
+The archive is assembled and verified locally, then copied to the destination as one ZIP file with SHA-256 verification. Verification streams files in bounded chunks and supports up to 16 GiB of uncompressed contents. The temporary destination file has a `.partial` suffix; its final name appears only after copying completes. The result is saved to `latest-<machine>.json`.
 
 `--daily` avoids another successful backup on the same day, using Europe/Athens by default or the timezone supplied with `--timezone`. `--retention` keeps snapshots for 90 days: all snapshots, including manual extras, for the latest seven days, then the latest snapshot per day. Only archives matching this utility's filename format for the same machine are removed, after a successful new snapshot with all available history.
 
 An OS scheduler can run the command daily. On macOS, use `python3 tools/schedule_macos.py --help` to prepare or install a LaunchAgent. The schedule uses the Mac's local time. Actual execution while the computer is asleep or powered off depends on the OS scheduler and Drive availability. Errors go to a separate log; a stale `latest` file means the latest backup needs checking.
+
+The scheduler installs a small launcher under the BB data directory. On each run,
+it finds the currently installed plugin through `bb plugin list` and runs that
+release's backup utility. Git updates can change the installation directory
+without leaving the schedule pointed at an old checkout. Reinstall an older
+schedule once to adopt this launcher; the time and destination remain local.
 
 Use the intended personal Google Drive account and a folder that is not shared. Archives contain personal and work text. Publish source code to GitHub separately; do not publish backups there. On macOS, the utility also checks Google Drive's File Provider upload status and records `cloudUploadVerified`. If status is unavailable or upload is pending, check Drive synchronization and the file's presence in the web interface. A local checksum alone does not prove cloud upload. You can also copy completed ZIP files to another medium for independence from Google.
 

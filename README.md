@@ -4,7 +4,7 @@ Local tasks, durable dossiers, shared knowledge, work conversations and day plan
 
 ## Install on another computer
 
-Requires BB ≥ 0.42 with Plugin SDK ≥ 0.4.47 and a login for your chosen model provider. Compatible with the stable BB 0.42.1 npm release. Installation and startup are verified on macOS and confirmed by user testing on Windows with Ubuntu/WSL. Configure and verify source integrations and backups on each computer.
+Requires BB ≥ 0.43.4 with Plugin SDK ≥ 0.5.9 and a login for your chosen model provider. Installation and startup are verified on macOS; Windows uses Ubuntu/WSL. Configure and verify source integrations and backups on each computer.
 
 This repository is currently private. Authenticate Git with a GitHub account that has access before installing; with GitHub CLI, run `gh auth login` and `gh auth setup-git` once on the new computer.
 
@@ -26,6 +26,11 @@ Click the proposal count beside **247C** in the sidebar to open **Proposals** di
 - [Third-party notices](THIRD_PARTY_NOTICES.md)
 
 To update an installation tracking `main`, run `bb plugin update 247c`. The local settings patch is automatically reapplied when the updated plugin loads. Make a backup before changing versions. Each release tag identifies one immutable code version.
+
+Use `bb plugin source 247c --json` to confirm the installed commit. A `path:`
+installation loads that folder directly and does not track GitHub updates.
+Keep development in a separate Git checkout and install published builds from
+the managed Git source. See [release and recovery checks](docs/releases.md).
 
 If an accepted next step has been completed or canceled, a review can propose clearing it based on a result or decision in the conversation, even while the overall task remains open. Assigning a new next step requires an explicit user instruction. All proposed changes require acceptance.
 

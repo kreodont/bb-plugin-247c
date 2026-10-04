@@ -16,11 +16,13 @@ const text = z.string().trim().min(1).max(12000);
 export const artifactSchema = z.object({ label: z.string().min(1).max(300), uri: z.string().min(1).max(4096) }).strict();
 const refs = z.array(z.string().min(1).max(256)).min(1).max(80);
 const proposed = <T extends z.ZodType>(value: T) => z.object({ value, evidenceRefs: refs }).strict();
+export const customerSchema = z.string().trim().min(1).max(200).nullable();
 const changesObjectSchema = z.object({
   title: proposed(z.string().trim().min(1).max(200)).optional(),
   status: proposed(statusSchema).optional(),
   urgent: proposed(axisSchema).optional(),
   important: proposed(axisSchema).optional(),
+  customer: proposed(customerSchema).optional(),
   summary: proposed(text.nullable()).optional(),
   nextStep: proposed(text.nullable()).optional(),
   openQuestions: proposed(z.array(text).max(30)).optional(),
@@ -32,9 +34,9 @@ export const draftSchema = z.object({ rationale: text, confidence: z.number().mi
 export const taskSchema = z.object({ id: idSchema, title: z.string(), status: statusSchema, revision: revisionSchema, createdAt: z.string(), updatedAt: z.string() });
 export const initialPrioritySchema = z.object({ urgent: z.boolean(), important: z.boolean() }).strict();
 export const planningSchema = z.object({ urgent: axisSchema, important: axisSchema, revision: revisionSchema });
-export const taskCardSchema = taskSchema.extend({ planning: planningSchema, summary: z.string().nullable(), nextStep: z.string().nullable(), pendingCount: z.number(), activeSession: z.string().nullable(), failedReviewId: z.string().nullable().default(null), unseen: z.enum(["new", "updated"]).nullable().default(null) });
+export const taskCardSchema = taskSchema.extend({ planning: planningSchema, customer: customerSchema.optional(), summary: z.string().nullable(), nextStep: z.string().nullable(), sourceReferences: z.array(z.string()).optional(), pendingCount: z.number(), activeSession: z.string().nullable(), failedReviewId: z.string().nullable().default(null), unseen: z.enum(["new", "updated"]).nullable().default(null) });
 export const factSchema = z.object({ id: idSchema, taskId: idSchema, kind: factKindSchema, text: z.string(), source: z.string(), sourceRef: z.string().nullable(), occurredAt: z.string(), createdAt: z.string() });
-export const projectionSchema = z.object({ taskId: idSchema, summary: z.string().nullable(), nextStep: z.string().nullable(), openQuestions: z.array(z.string()), blockers: z.array(z.string()), artifacts: z.array(artifactSchema), updatedAt: z.string() });
+export const projectionSchema = z.object({ taskId: idSchema, customer: customerSchema.optional(), summary: z.string().nullable(), nextStep: z.string().nullable(), openQuestions: z.array(z.string()), blockers: z.array(z.string()), artifacts: z.array(artifactSchema), updatedAt: z.string() });
 export const evidenceSchema = z.object({ ref: z.string(), kind: factKindSchema, text: z.string(), source: z.string(), sourceRef: z.string().nullable() });
 export const proposalSchema = z.object({
   id: idSchema, taskId: idSchema, baseRevision: revisionSchema, model: z.string(), status: z.enum(["pending", "approved", "applied", "rejected", "conflicted"]),
@@ -179,11 +181,11 @@ export const syncCandidateSchema = syncDraftSchema.extend({
   id: idSchema, runId: idSchema, baseRevision: revisionSchema.nullable(),
   status: z.enum(["pending", "applied", "rejected", "superseded"]), createdAt: z.string(), resolvedAt: z.string().nullable(),
   before: z.object({ title: z.string(), status: statusSchema, urgent: axisSchema, important: axisSchema,
-    summary: z.string().nullable(), nextStep: z.string().nullable(), openQuestions: z.array(z.string()), blockers: z.array(z.string()), artifacts: z.array(artifactSchema) }).nullable(),
+    customer: customerSchema.optional(), summary: z.string().nullable(), nextStep: z.string().nullable(), openQuestions: z.array(z.string()), blockers: z.array(z.string()), artifacts: z.array(artifactSchema) }).nullable(),
   proposalId: idSchema.nullable(), resultTaskId: idSchema.nullable(),
 });
 export const sessionUpdateSchema = z.object({ proposalId: idSchema, sessionId: idSchema, threadId: idSchema, extraction: extractionSchema, reportedTimeContext: sessionTimeContextSchema.optional(),
-  omittedReportedTime: z.object({ estimate: sessionTimeEstimateSchema, reason: z.enum(["reported_changed", "already_reported"]), omittedAt: z.string() }).optional(),
+  omittedReportedTime: z.object({ estimate: sessionTimeEstimateSchema, reason: z.enum(["reported_changed", "already_reported", "recorded_in_conversation"]), omittedAt: z.string() }).optional(),
   warnings: z.array(z.string()), speakers: z.record(z.string(), z.enum(["user", "assistant", "context"])).default({}), sources: z.record(z.string(), z.object({ threadId: idSchema, messageRef: idSchema })).default({}) });
 export const taskSourceLinkSchema = z.object({ url: z.url().max(4096), label: z.string(), occurredAt: z.string().nullable(), origin: z.boolean() });
 const sourceUrlSchema = z.string().trim().max(4096).refine(value => !!sourceUrl(value), "Use an HTTP or HTTPS source URL without embedded credentials.");
@@ -262,8 +264,10 @@ export const rpcContract = defineRpcContract({
   threadSession: { input: z.object({ threadId: idSchema }).strict(), output: z.object({ session: sessionSchema.pick({ id: true, taskId: true, workerThreadId: true, reviewerThreadId: true, mode: true, status: true, finishedAt: true, proposalId: true }).nullable(), reportedToday: z.object({ date: dayDateSchema, timeZone: z.string().optional(), minutes: dayMinutesSchema, estimated: z.boolean() }).optional() }) },
   threadSource: { input: z.object({ threadId: idSchema }).strict(), output: z.object({ source: taskSourceLinkSchema.nullable() }) },
   setPrimarySource: { input: z.object({ taskId: idSchema, url: sourceUrlSchema, revision: revisionSchema, requestId: z.uuid() }).strict(), output: sourceSelectionSchema },
-  create: { input: z.object({ title: z.string().trim().min(1).max(200), description: z.string().trim().max(12000).default(""), primarySourceUrl: sourceUrlSchema.nullable().optional(), requestId: z.uuid() }).strict(), output: taskSchema },
+  create: { input: z.object({ title: z.string().trim().min(1).max(200), description: z.string().trim().max(12000).default(""), primarySourceUrl: sourceUrlSchema.nullable().optional(), customer: customerSchema.optional(), requestId: z.uuid() }).strict(), output: taskSchema },
   note: { input: z.object({ taskId: idSchema, revision: revisionSchema, kind: factKindSchema, text, requestId: z.uuid() }).strict(), output: factSchema },
+  customers: { input: z.object({}).strict(), output: z.array(z.string()) },
+  setCustomer: { input: z.object({ taskId: idSchema, revision: revisionSchema, customer: customerSchema, requestId: z.uuid() }).strict(), output: taskSchema },
   classify: { input: z.object({ taskId: idSchema, revision: revisionSchema, urgent: axisSchema, important: axisSchema }).strict(), output: planningSchema },
   status: { input: z.object({ taskId: idSchema, revision: revisionSchema, status: statusSchema }).strict(), output: taskSchema },
   propose: { input: z.object({ taskId: idSchema, revision: revisionSchema, draft: draftSchema, requestId: z.uuid() }).strict(), output: proposalSchema },

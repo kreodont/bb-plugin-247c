@@ -46,12 +46,20 @@ def save(path, value):
     path.chmod(0o600)
 
 
-def fingerprints(path):
+def canonical_columns(path):
     with readonly(path) as db:
         tables = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-        return {name: hashlib.sha256(json.dumps(db.execute(f'SELECT * FROM "{name}" ORDER BY rowid').fetchall(),
+        return {name: [r[1] for r in db.execute(f'PRAGMA table_info("{name}")')] for name in CANONICAL if name in tables}
+
+
+def fingerprints(path, columns=None):
+    columns = canonical_columns(path) if columns is None else columns
+    with readonly(path) as db:
+        # Verify every pre-existing column, even when an append-only migration
+        # introduces an optional field such as customer. Missing columns fail.
+        return {name: hashlib.sha256(json.dumps(db.execute('SELECT ' + ','.join('"' + c.replace('"', '""') + '"' for c in fields) + f' FROM "{name}" ORDER BY rowid').fetchall(),
                     ensure_ascii=False, separators=(",", ":")).encode()).hexdigest()
-                for name in CANONICAL if name in tables}
+                for name, fields in columns.items()}
 
 
 def assert_quiet(path):
@@ -122,6 +130,7 @@ def upgrade(binary):
         assert_quiet(database)
         bb(binary, "plugin", "disable", "247c", "--json")
         copy_database(database, backup / "data.db")
+        columns_before = canonical_columns(backup / "data.db")
         before = fingerprints(backup / "data.db")
         plan_before = manual_plan(backup / "data.db")
         save(backup / "canonical-fingerprints.json", before)
@@ -141,7 +150,7 @@ def upgrade(binary):
             if key != "hourlyUpdates":
                 setting(binary, key, value)
         check_db(database)
-        after = fingerprints(database)
+        after = fingerprints(database, columns_before)
         if any(after.get(name) != digest for name, digest in before.items()) or manual_plan(database) != plan_before:
             raise RuntimeError("Canonical task data differs from the backup. Automatic source checks remain paused; inspect the backup before continuing.")
         setting(binary, "hourlyUpdates", values["hourlyUpdates"])

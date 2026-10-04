@@ -23,7 +23,8 @@ if sys.platform != "darwin" or not 0 <= args.hour <= 23 or not 0 <= args.minute 
 os.umask(0o077)
 label = "com.247c.backup"
 logs = Path(args.data_dir).resolve() / "backup-247c-logs"
-command = [sys.executable, str(Path(__file__).resolve().with_name("backup.py")), "create", "--bb", args.bb,
+launcher = Path(args.data_dir).resolve() / "247c-tools/backup_installed.py"
+command = [sys.executable, str(launcher), "create", "--bb", args.bb,
            "--data-dir", str(Path(args.data_dir).resolve()), "--destination", str(Path(args.destination).resolve()),
            "--machine", args.machine, "--daily", "--timezone", args.timezone, "--retention"]
 job = {"Label": label, "ProgramArguments": command, "StartCalendarInterval": {"Hour": args.hour, "Minute": args.minute},
@@ -33,6 +34,10 @@ data = plistlib.dumps(job)
 if not args.install:
     sys.stdout.buffer.write(data)
 else:
+    launcher.parent.mkdir(parents=True, exist_ok=True)
+    launcher_pending = launcher.with_suffix(".py.new")
+    shutil.copyfile(Path(__file__).resolve().with_name("backup_installed.py"), launcher_pending)
+    os.replace(launcher_pending, launcher)
     destination = Path.home() / "Library/LaunchAgents" / f"{label}.plist"
     destination.parent.mkdir(parents=True, exist_ok=True)
     logs.mkdir(parents=True, exist_ok=True)

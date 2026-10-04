@@ -42,6 +42,7 @@ class UpgradeTests(unittest.TestCase):
         self.calls = []
         self.install_failure = False
         self.change_data = False
+        self.add_column = False
 
     def bb(self, _binary, *args):
         self.calls.append(args)
@@ -72,6 +73,9 @@ class UpgradeTests(unittest.TestCase):
             if self.change_data:
                 with contextlib.closing(sqlite3.connect(self.database)) as db, db:
                     db.execute("UPDATE tasks SET title='Unexpected migration change'")
+            if self.add_column:
+                with contextlib.closing(sqlite3.connect(self.database)) as db, db:
+                    db.execute("ALTER TABLE tasks ADD COLUMN customer TEXT")
             return self.plugin
         raise AssertionError(args)
 
@@ -103,6 +107,14 @@ class UpgradeTests(unittest.TestCase):
             self.run_upgrade()
         self.assertEqual(self.values, self.original)
         self.assertFalse(any(call[:2] == ("plugin", "remove") for call in self.calls))
+
+    def test_verifies_existing_data_across_an_additive_migration(self):
+        self.add_column = True
+        columns = upgrade.canonical_columns(self.database)
+        before = upgrade.fingerprints(self.database, columns)
+        self.run_upgrade()
+        self.assertEqual(upgrade.fingerprints(self.database, columns), before)
+        self.assertEqual(self.values, self.original)
 
     def test_backup_failure_keeps_original_installation_enabled(self):
         with patch.object(upgrade, "copy_database", side_effect=OSError("Backup storage unavailable")):

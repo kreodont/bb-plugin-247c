@@ -39,6 +39,7 @@ export interface Artifact {
 
 export interface TaskProjection {
   taskId: string;
+  customer?: string | null;
   summary: string | null;
   nextStep: string | null;
   openQuestions: string[];
@@ -64,6 +65,7 @@ export interface StewardChanges {
   status?: ProposedValue<TaskRecord["status"]>;
   urgent?: ProposedValue<boolean | null>;
   important?: ProposedValue<boolean | null>;
+  customer?: ProposedValue<string | null>;
   summary?: ProposedValue<string | null>;
   nextStep?: ProposedValue<string | null>;
   openQuestions?: ProposedValue<string[]>;
