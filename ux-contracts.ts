@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-export const UX_BUILD = "2026-10-02.1";
+export const UX_BUILD = "2026-10-04.1";
 export const UX_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 export const uxPageSchema = z.enum(["tasks", "task", "day", "report", "proposals", "updates", "knowledge", "thread", "ux"]);
-export const uxActionSchema = z.enum(["surface", "button", "link", "field", "checkbox", "select", "task-open", "task-layout", "search", "priority", "nav-today", "nav-tasks", "nav-proposals", "nav-updates", "nav-knowledge", "back", "forward", "return-thread", "thread-task", "thread-proposal", "thread-source", "thread-review", "thread-finish", "reported-open", "reported-save", "reported-day", "proposal-accept", "proposal-reject", "proposal-expand", "day-add", "day-edit", "day-carry", "day-reorder", "day-config", "task-create", "task-status", "session-start", "source-check", "feedback", "other"]);
+export const uxActionSchema = z.enum(["surface", "button", "link", "field", "checkbox", "select", "task-open", "task-layout", "search", "priority", "nav-today", "nav-tasks", "nav-proposals", "nav-updates", "nav-knowledge", "back", "forward", "return-thread", "thread-task", "thread-proposal", "thread-source", "thread-review", "thread-finish", "reported-open", "reported-save", "reported-day", "proposal-accept", "proposal-reject", "proposal-expand", "day-add", "day-edit", "day-carry", "day-reorder", "day-config", "task-create", "task-status", "session-start", "task-switch", "source-check", "feedback", "other"]);
 export const uxEventSchema = z.object({
   at: z.number().int().nonnegative(), page: uxPageSchema,
   kind: z.enum(["view", "click", "pointer", "scroll", "active", "inactive", "result", "feedback"]),

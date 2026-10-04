@@ -13,6 +13,7 @@ import { TaskViewMarker } from "./task-view-marker.js";
 import { TaskSources } from "./task-sources-ui.js";
 import { sourceUrl } from "./task-sources.js";
 import { mountSidebarShortcut } from "./sidebar-shortcut.js";
+import { TaskSwitcher, openTaskSwitcher } from "./task-switcher.js";
 import { NavigationFrame } from "./navigation.js";
 import { deskRoute, taskDayPath, taskProposalPath, taskReviewPath, withThread } from "./desk-routes.js";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -155,6 +156,17 @@ function ThreadSessionAction(props: PluginThreadHeaderActionProps) {
 
 function ThreadTaskAction(props: PluginThreadHeaderActionProps) {
   return <ThreadSessionControl key={props.threadId} {...props} action="task" />;
+}
+
+function ThreadSwitchAction({ threadId, isCompactViewport }: PluginThreadHeaderActionProps) {
+  return <UxScope page="thread" view={threadId}><span title="Switch task (Cmd+Shift+K)" className="inline-flex"><Button type="button" size="sm" variant="outline"
+    data-c247-ux-action="task-switch" aria-label="Switch task" aria-description="Open the work chat of another 247C task"
+    className={cn("h-7 shrink-0", isCompactViewport ? "w-7 px-0" : "px-2")} onClick={openTaskSwitcher}>
+    <Icon name="Layers" aria-hidden="true" />{!isCompactViewport && "Tasks"}
+  </Button></span></UxScope>;
+}
+function TaskSwitcherOverlay() {
+  return <TaskSwitcher dotFor={task => groups.find(g => g.key === groupFor(task))!.dot} updated={date} />;
 }
 
 function ThreadProposal({ threadId, isCompactViewport }: PluginThreadHeaderActionProps) {
@@ -935,7 +947,10 @@ export default definePluginApp((app) => {
   app.slots.experimental_appOverlay({ id: "updater-health-notification", component: UpdaterHealthNotification });
   app.contentScripts.register({ id: "sidebar-proposals-shortcut", mount: mountSidebarShortcut });
   app.slots.navPanel({ id: "desk", title: "247C", icon: "Target", path: "desk", component: Page, experimental_sidebarAccessory: SidebarCount });
+  app.slots.experimental_appOverlay({ id: "task-switcher", component: TaskSwitcherOverlay });
+  app.commands.register({ id: "switch-task", title: "247C: Switch task", defaultShortcut: { key: "k", mod: true, shift: true }, run: openTaskSwitcher });
   app.slots.experimental_threadHeaderAction({ id: "task", title: "247C task", component: ThreadTaskAction });
+  app.slots.experimental_threadHeaderAction({ id: "switch", title: "247C switch task", component: ThreadSwitchAction });
   app.slots.experimental_threadHeaderAction({ id: "proposal", title: "247C proposal", component: ThreadProposalAction });
   app.slots.experimental_threadHeaderAction({ id: "source", title: "247C primary source", component: ThreadSourceAction });
   app.slots.experimental_threadHeaderAction({ id: "reported", title: "247C reported today", component: ThreadReportedAction });

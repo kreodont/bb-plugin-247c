@@ -77,3 +77,12 @@ validation required the reply's own timestamp in that read. A reply deleted
 after it was cited could never satisfy that rule, so every check stayed
 partial and the Slack checkpoint did not advance. Validation now requires the
 complete parent thread, the same unit the collector reads.
+
+## Task switcher in 0.5.52
+
+Recorded navigation showed most moves between work chats going back through
+the task list. A switcher now opens from **Tasks** in a work chat's header and
+from the command palette as **247C: Switch task** (default Cmd+Shift+K).
+Open chats come first, then other open tasks; filtering, arrow keys and Enter
+jump straight to a chat, and a task without one gets a new empty chat. Task
+cards expose the active chat's thread for this. No database migration.
