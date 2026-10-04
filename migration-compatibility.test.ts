@@ -59,7 +59,7 @@ it.each(["customer", "waiting", "customer-retired", "waiting-retired"])("merges 
     db.prepare("INSERT INTO child_guard VALUES (?)").run(task.id);
     const tables = (db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name!='_bb_migrations'").all() as { name: string }[]).map(r => r.name);
     const snapshot = () => tables.map(name => (db.prepare(`SELECT * FROM "${name}" ORDER BY rowid`).all() as Record<string, unknown>[])
-      .map(row => { const copy = { ...row }; if (waiting && name === "task_projections") delete copy.customer; return copy; }));
+      .map(row => { const copy = { ...row }; if (waiting && name === "task_projections") delete copy.customer; if (name === "source_sync_runs") delete copy.context_gzip; if (name === "source_sync_exports") delete copy.value_gzip; return copy; }));
     const before = snapshot(), ledger = db.prepare("SELECT * FROM _bb_migrations ORDER BY id").all();
     const upgrade = () => migrateTaskStatuses(db, () => bb.storage.migrate(db, compatibleMigrations(db, current)));
     upgrade(); upgrade();

@@ -35,3 +35,23 @@ statement at 35 and adds the missing feature at 36. Both histories continue at
 Source exports and historical check snapshots remain intact. Large databases
 are supported by streaming backup verification, with a 16 GiB uncompressed
 archive limit. This release does not delete source history to reduce file size.
+
+## Source storage in 0.5.49
+
+New source exports and frozen task/proposal snapshots are stored as gzip blobs.
+Launch settings, analysis fingerprints and page receipts remain queryable JSON.
+Reading an old check reconstructs the same complete export and context; source
+citations, pending proposals, recovery and incremental checks retain their data.
+
+An interruptible background service converts existing rows one at a time. Each
+conversion verifies its round trip before atomically replacing the original,
+and refuses to overwrite a row changed during compression. Plain and compressed
+rows remain readable together. Reloading resumes the remaining work.
+
+After conversion, SQLite compaction reclaims the freed pages. It waits while a
+source check, review or calendar import is active, and when disk space is low.
+No source history is expired or deleted. Future exports are compressed on write.
+
+Keep a pre-update backup. Compressed source storage requires 0.5.49 or newer;
+rolling back to an older plugin requires its matching pre-update database.
+Normal backups include the blobs and the installed reader code unchanged.

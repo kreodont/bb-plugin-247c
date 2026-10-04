@@ -19,7 +19,7 @@ it("upgrades a populated database without changing tasks, receipts, day time or 
   const { bb, harness } = createFakePluginHost({ pluginId: "waiting-migration" });
   const db = bb.storage.database(); db.pragma("foreign_keys = ON");
   try {
-    bb.storage.migrate(db, [CORE_SCHEMA, ...EXTRA_SCHEMA.slice(0, -1)]);
+    bb.storage.migrate(db, [CORE_SCHEMA, ...EXTRA_SCHEMA.slice(0, 35)]);
     const repo = new Repository(db, () => {}), days = new DayPlanning(repo);
     const task = repo.create({ title: "Await approval", description: "Keep this context", requestId: randomUUID() });
     const fact = repo.kernel.appendFact({ taskId: task.id, kind: "decision", text: "The task is complete." });
@@ -44,7 +44,7 @@ it("rolls the rebuild and migration ledger back if foreign-key validation fails"
   const { bb, harness } = createFakePluginHost({ pluginId: "waiting-rollback" });
   const db = bb.storage.database();
   try {
-    bb.storage.migrate(db, [CORE_SCHEMA, ...EXTRA_SCHEMA.slice(0, -1)]);
+    bb.storage.migrate(db, [CORE_SCHEMA, ...EXTRA_SCHEMA.slice(0, 35)]);
     db.pragma("foreign_keys = OFF");
     db.exec("CREATE TABLE dangling (task_id TEXT REFERENCES tasks(id)); INSERT INTO dangling VALUES ('missing');");
     db.pragma("foreign_keys = ON");

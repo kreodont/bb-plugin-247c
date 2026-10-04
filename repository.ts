@@ -1,3 +1,4 @@
+import { SOURCE_STORAGE_MIGRATION } from "./source-storage.js";
 import { CUSTOMER_MIGRATION } from "./migration-compatibility.js";
 import { reviewFailures } from "./review-failures.js";
 import { TASK_STATUS_MIGRATION } from "./task-status-migration.js";
@@ -49,6 +50,7 @@ export const EXTRA_SCHEMA = [
   `SELECT 1`,
   CUSTOMER_MIGRATION,
   TASK_STATUS_MIGRATION,
+  SOURCE_STORAGE_MIGRATION,
 ];
 export const ACTIVE = new Set<Session["status"]>(["starting", "working", "collecting", "review_starting", "reviewing", "repair_starting"]);
 export const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");

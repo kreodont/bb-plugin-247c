@@ -12,6 +12,11 @@
 
 The archive excludes OAuth logins, Keychain, other applications' data and arbitrary workspace files. Attachments and files merely linked from a chat require separate backups. Imported Markdown documents are already stored in full in the database. SQLite and BB history are captured sequentially at separate times.
 
+Since 0.5.49, saved source exports and frozen check snapshots are compressed
+inside SQLite without dropping history. Backups preserve these blobs and the
+matching plugin source. Restore the included plugin version or a newer one;
+older versions cannot read the compressed source history.
+
 ## Create a backup
 
 Find the data directory with `bb status --json`. The example assumes the standard `~/.bb` directory and an already connected Google Drive folder. Use a separate subfolder and `--machine` name for each independent installation.

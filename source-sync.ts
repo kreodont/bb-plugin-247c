@@ -1,3 +1,4 @@
+import { SourceStorage, packSourceRequest } from "./source-storage.js";
 import { isLiveTask } from "./task-status.js";
 import { DAY_TIME_ZONE } from "./day-contracts.js";
 import { DAY_REVIEW_INSTRUCTIONS } from "./agent-time.js";
@@ -240,24 +241,17 @@ Incomplete check: ${problems.join("; ")}.`.slice(0, 4000) } : {}) };
 }
 
 export class SourceSyncStore {
-  constructor(readonly repo: Repository) {}
+  readonly storage: SourceStorage;
+  constructor(readonly repo: Repository) { this.storage = new SourceStorage(repo.db); }
   run(id: string): SyncRun {
     const row = this.repo.db.prepare("SELECT value_json FROM source_sync_runs WHERE id=?").get(id) as Row | undefined;
     if (!row) throw new PolicyError("Update check not found.");
     return syncRunSchema.parse(JSON.parse(String(row.value_json)));
   }
-  request(id: string): RunRequest {
-    const row = this.repo.db.prepare("SELECT request_json FROM source_sync_runs WHERE id=?").get(id) as Row | undefined;
-    if (!row) throw new PolicyError("Update check not found.");
-    return JSON.parse(String(row.request_json)) as RunRequest;
-  }
-  export(id: string): SourceExport | null {
-    const row = this.repo.db.prepare("SELECT value_json FROM source_sync_exports WHERE run_id=?").get(id) as Row | undefined;
-    return row ? JSON.parse(String(row.value_json)) as SourceExport : null;
-  }
-  saveExport(bundle: SourceExport) {
-    this.repo.db.prepare("INSERT INTO source_sync_exports VALUES (?,?)").run(bundle.runId, JSON.stringify(bundle));
-  }
+  request(id: string): RunRequest { return this.storage.request<RunRequest>(id); }
+  saveRequest(id: string, request: RunRequest) { this.storage.saveRequest(id, request); }
+  export(id: string): SourceExport | null { return this.storage.export<SourceExport>(id); }
+  saveExport(bundle: SourceExport) { this.storage.saveExport(bundle.runId, bundle); }
   analysisBaseline(): SourceAnalysis | undefined {
     const row = this.repo.db.prepare("SELECT id,request_json FROM source_sync_runs WHERE status IN ('completed','partial') AND json_extract(request_json,'$.incremental')=1 AND json_extract(request_json,'$.analysis') IS NOT NULL ORDER BY rowid DESC LIMIT 1").get() as { id: string; request_json: string } | undefined;
     const request: RunRequest | undefined = row ? JSON.parse(row.request_json) : undefined;
@@ -271,19 +265,18 @@ export class SourceSyncStore {
     return bundle ? rekeyAnalysisDocuments(plan, bundle) : plan;
   }
   recordDayReview(id: string, itemIds: string[]) {
-    const request = this.request(id);
-    this.repo.db.prepare("UPDATE source_sync_runs SET request_json=? WHERE id=?").run(JSON.stringify({ ...request, dayItemsRead: [...new Set([...(request.dayItemsRead ?? []), ...itemIds])] }), id);
+    this.storage.patchMetadata(id, metadata => ({ ...metadata, dayItemsRead: [...new Set([...((metadata as RunRequest).dayItemsRead ?? []), ...itemIds])] }));
   }
   saveAnalysis(id: string, analysis: SourceAnalysis) {
-    this.repo.db.prepare("UPDATE source_sync_runs SET request_json=? WHERE id=?").run(JSON.stringify({ ...this.request(id), analysis: sourceAnalysisSchema.parse(analysis) }), id);
+    const parsed = sourceAnalysisSchema.parse(analysis);
+    this.storage.patchMetadata(id, metadata => ({ ...metadata, analysis: parsed }));
   }
   analysisExport(id: string, bundle: SourceExport) {
     const plan = this.request(id).analysis;
     return analysisExport(bundle, plan ? sourceAnalysisSchema.parse(plan) : undefined);
   }
   recordDataPage(id: string, page: number) {
-    const request = this.request(id);
-    this.repo.db.prepare("UPDATE source_sync_runs SET request_json=? WHERE id=?").run(JSON.stringify({ ...request, dataPagesRead: [...new Set([...(request.dataPagesRead ?? []), page])] }), id);
+    this.storage.patchMetadata(id, metadata => ({ ...metadata, dataPagesRead: [...new Set([...((metadata as RunRequest).dataPagesRead ?? []), page])] }));
   }
   forThread(threadId: string): SyncRun | undefined {
     const row = this.repo.db.prepare("SELECT id FROM source_sync_runs WHERE thread_id=?").get(threadId) as Row | undefined;
@@ -347,7 +340,8 @@ export class SourceSyncStore {
       const run: SyncRun = { id: input.requestId, status: "starting", threadId: null, provider: input.request.providerId, model: input.request.model,
         startedAt: until, until, finishedAt: null, manualSince: input.since, ranges: syncRanges(this.checkpoints(), input.since, until, this.initialSince()),
         reports: [], error: null, suggestions: 0, duplicates: 0, fingerprint };
-      this.repo.db.prepare("INSERT INTO source_sync_runs VALUES (?,?,?,?,?)").run(run.id, run.status, null, JSON.stringify(run), JSON.stringify({ input, snapshots, pendingCandidates, incremental }));
+      const request = packSourceRequest({ input, snapshots, pendingCandidates, incremental });
+      this.repo.db.prepare("INSERT INTO source_sync_runs(id,status,thread_id,value_json,request_json,context_gzip) VALUES (?,?,?,?,?,?)").run(run.id, run.status, null, JSON.stringify(run), request.metadata, request.context);
       this.repo.changed(); return run;
     });
   }
@@ -369,8 +363,8 @@ export class SourceSyncStore {
         startedAt: imported.startedAt, until: imported.until, finishedAt: null, manualSince: null,
         ranges: Object.fromEntries(Object.entries(imported.windows).map(([source, range]) => [source, { since: range.since, previous: checkpoints[source] ?? null }])),
         reports: [], error: null, suggestions: 0, duplicates: 0, fingerprint: imported.provenance.sha256 };
-      this.repo.db.prepare("INSERT INTO source_sync_runs VALUES (?,?,?,?,?)").run(run.id, run.status, null, JSON.stringify(run),
-        JSON.stringify({ externalImport: imported.provenance, snapshots, pendingCandidates: this.pendingCandidates() }));
+      const request = packSourceRequest({ externalImport: imported.provenance, snapshots, pendingCandidates: this.pendingCandidates() });
+      this.repo.db.prepare("INSERT INTO source_sync_runs(id,status,thread_id,value_json,request_json,context_gzip) VALUES (?,?,?,?,?,?)").run(run.id, run.status, null, JSON.stringify(run), request.metadata, request.context);
       // Persist the verified connector data with the native run for provenance.
       this.saveExport({ version: 1, runId: run.id, startedAt: run.startedAt, finishedAt: now(), elapsedMs: 0, calls, documents: [], reports: imported.input.reports });
       return this.submit(run.id, imported.input, calls);
@@ -462,7 +456,7 @@ ${errors.join("\n").slice(0, 16000)}`);
         if (report.status !== "complete" || (contiguousFrom && range.since > contiguousFrom)) continue;
         this.repo.db.prepare("INSERT INTO source_sync_checkpoints VALUES (?,?) ON CONFLICT(source) DO UPDATE SET through=MAX(through,excluded.through)").run(report.source, run.until);
       }
-      this.repo.db.prepare("UPDATE source_sync_runs SET request_json=? WHERE id=?").run(JSON.stringify({ ...request, submittedFingerprints: [...(request.submittedFingerprints ?? []), fingerprint], submittedBatches: [...(request.submittedBatches ?? []), batchKey] }), run.id);
+      this.storage.patchMetadata(run.id, metadata => ({ ...metadata, submittedFingerprints: [...(request.submittedFingerprints ?? []), fingerprint], submittedBatches: [...(request.submittedBatches ?? []), batchKey] }));
       return this.save({ ...run, reports: supplement ? run.reports : reports, suggestions: retained.length, duplicates: run.duplicates + duplicates,
         ...(!supplement && finalize ? { finishedAt: now(), status: reports.every((r) => r.status === "complete") ? "completed" as const : "partial" as const } : {}) });
     });

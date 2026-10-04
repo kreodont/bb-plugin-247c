@@ -355,6 +355,15 @@ export default async function plugin(bb: BbPluginApi) {
       if (run) await sync.tick(run.id);
     });
   }
+  bb.background.service("source-storage", {
+    async start(signal) {
+      while (!signal.aborted) {
+        try { await sync.store.storage.maintain(signal); }
+        catch (error) { if (!signal.aborted) bb.log.warn(`Source storage maintenance: ${String(error)}`); }
+        await sleep(60000, signal);
+      }
+    },
+  });
   bb.background.service("ux-retention", {
     async start(signal) { while (!signal.aborted) { ux.sweep(true); await sleep(60000, signal); } },
   });

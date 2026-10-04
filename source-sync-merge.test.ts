@@ -28,7 +28,7 @@ async function finding(f: Awaited<ReturnType<typeof fixture>>, run: SyncRun, tas
 
 function legacySnapshot(store: SourceSyncStore, runId: string) {
   const { pendingCandidates: _pending, ...request } = store.request(runId);
-  store.repo.db.prepare("UPDATE source_sync_runs SET request_json=? WHERE id=?").run(JSON.stringify(request), runId);
+  store.saveRequest(runId, request);
 }
 
 it("merges a missed task update, preserving earlier facts and untouched fields until one human approval", async () => {
