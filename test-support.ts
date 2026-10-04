@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { createFakePluginHost, makeThreadResponse } from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost, makeThreadResponse, makeMessageDispatchHookContext } from "@get-bb/plugin-sdk/testing";
 import plugin from "./server.js";
 import { Repository } from "./repository.js";
 import { dossierSchema, sessionSchema, taskSchema, type Session } from "./contracts.js";
@@ -12,6 +12,8 @@ export async function fixture(options: { deferEnvironment?: boolean; settings?: 
   const models = new Map<string, string>();
   const files = new Map<string, string>();
   const conversations = new Map<string, TimelineRow[]>();
+  type Queued = Awaited<ReturnType<BbPluginApi["sdk"]["threads"]["queuedMessages"]["list"]>>[number];
+  const queued = new Map<string, Queued[]>();
   function message(threadId: string, role: "user" | "assistant", text: string): TimelineRow {
     const rows = conversations.get(threadId) ?? [];
     const seq = rows.length + 1;
@@ -37,17 +39,25 @@ export async function fixture(options: { deferEnvironment?: boolean; settings?: 
     threads: {
       spawn: async (args) => {
         const thread = makeThreadResponse({ id: `thread_${++n}`, title: args.title ?? null, providerId: args.providerId ?? "codex", originPluginId: "247c", status: "active", environmentId: options.deferEnvironment && n === 1 ? null : "env_test", visibility: args.visibility ?? "visible" });
+        if (args.input && !args.input.length) throw new Error("input must contain at least one entry");
+        const input = args.input ?? [{ type: "text" as const, text: args.prompt ?? "", mentions: [] }];
+        const decision = await currentHost.harness.inspection.registrations.hooks["message.dispatch"]?.(makeMessageDispatchHookContext({ thread, input: { blocks: input, text: input.filter(i => i.type === "text").map(i => i.type === "text" ? i.text : "").join("\n") } }));
+        if (decision?.action === "wait") {
+          thread.status = "pending"; thread.environmentId = null;
+          queued.set(thread.id, [{ id: `queue_${n}`, threadId: thread.id, content: input } as Queued]);
+        }
         threads.set(thread.id, thread);
         models.set(thread.id, args.model ?? "gpt-5.6-sol");
         const visible = args.input?.filter((i) => i.type === "text" && i.visibility !== "agent-only").map((i) => i.type === "text" ? i.text : "").join("\n") ?? args.prompt;
-        if (visible) message(thread.id, "user", visible);
+        if (visible && decision?.action !== "wait") message(thread.id, "user", visible);
         await currentHost.harness.behavior.emitThreadEvent("thread.created", { thread });
         return thread;
       },
       list: () => [...threads.values()],
       get: ({ threadId }) => { const row = threads.get(threadId); if (!row) throw new Error("Missing thread"); return row; },
-      update: ({ threadId, title }) => {
+      update: ({ threadId, title, model }) => {
         const row = threads.get(threadId); if (!row) throw new Error("Missing thread");
+        if (model) models.set(threadId, model);
         const updated = { ...row, ...(title !== undefined ? { title } : {}) };
         threads.set(threadId, updated);
         return updated;
@@ -57,6 +67,7 @@ export async function fixture(options: { deferEnvironment?: boolean; settings?: 
       stop: ({ threadId }) => { const thread = threads.get(threadId); if (thread && thread.status !== "error") threads.set(threadId, { ...thread, status: "idle" }); return { ok: true }; },
       archive: ({ threadId }) => { const thread = threads.get(threadId); if (thread) threads.set(threadId, { ...thread, archivedAt: Date.now() }); return {}; },
       send: ({ threadId }) => { const thread = threads.get(threadId)!; threads.set(threadId, { ...thread, status: "active" }); return {}; },
+      queuedMessages: { list: ({ threadId }) => queued.get(threadId) ?? [], delete: ({ threadId, queuedMessageId }) => { queued.set(threadId, (queued.get(threadId) ?? []).filter(r => r.id !== queuedMessageId)); return { ok: true }; } },
       interactions: { list: () => [] },
       events: { list: ({ threadId, afterSeq, limit }) => (conversations.get(threadId) ?? [])
         .filter((r) => r.kind === "work" && r.workKind === "tool" && r.sourceSeqEnd > Number(afterSeq ?? 0))
@@ -102,5 +113,5 @@ export async function fixture(options: { deferEnvironment?: boolean; settings?: 
     return { verdict: "pass", findings: [], criteria: session.criteria.map((_, index) => ({ index, passed: true, reason: "В ответе есть все три этапа.", evidenceRefs: [session.artifacts.length ? "artifact:0" : "answer"] })) };
   }
   async function detail(taskId: string) { return dossierSchema.parse(await currentHost.harness.behavior.callRpc("detail", { id: taskId })); }
-  return { get bb() { return currentHost.bb; }, get harness() { return currentHost.harness; }, get repo() { return repo; }, reload, threads, models, outputs, files, conversations, message, create, startInput, start, idle, pass, detail };
+  return { get bb() { return currentHost.bb; }, get harness() { return currentHost.harness; }, get repo() { return repo; }, reload, threads, models, outputs, files, conversations, queued, message, create, startInput, start, idle, pass, detail };
 }

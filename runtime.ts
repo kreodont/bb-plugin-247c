@@ -1,9 +1,11 @@
+import { isLiveTask } from "./task-status.js";
 import { randomUUID } from "node:crypto";
 import { posix } from "node:path";
 import { pathToFileURL } from "node:url";
+import { setTimeout as delay } from "node:timers/promises";
 import { ZodError } from "zod";
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
-import { nativeRequest, resultSchema, reviewSchema, type Extraction, type ObservedArtifact, type Review, type Session, type SettingsView, type StartInput, type WorkerResult, type PartDecision } from "./contracts.js";
+import type { BbPluginApi, MessageDispatchHookContext } from "@get-bb/plugin-sdk";
+import { nativeRequest, requestSchema, resultSchema, reviewSchema, type Extraction, type ObservedArtifact, type Review, type Session, type SettingsView, type StartInput, type WorkerResult, type PartDecision } from "./contracts.js";
 import { ACTIVE, Repository, digest } from "./repository.js";
 import { PolicyError } from "./core/errors.js";
 import type { ProposalEvidence, StewardChanges, TaskRecord } from "./core/types.js";
@@ -16,6 +18,12 @@ import { ThreadRouting } from "./thread-routing.js";
 
 const FAILED = new Set(["error", "failed", "archived", "deleted"]);
 const forbiddenPath = new Set([".git", ".bb", ".codex", ".claude", ".agents", ".ssh", ".env", ".npmrc", "node_modules", ".247c"]);
+
+// BB requires a first input to create a pending thread. Hold this exact bootstrap
+// in message.dispatch and remove its queued row before exposing the empty chat.
+export function emptyChatBootstrap(id: string) {
+  return `247C empty-chat bootstrap ${id}. No work is requested. Wait for the user's first message.`;
+}
 
 export function parseJsonResult(text: string | null, maximumLength = 50000): unknown {
   if (!text || text.length > maximumLength) throw new PolicyError("The agent did not return a result in the required format.");
@@ -40,13 +48,14 @@ export class SessionRuntime {
   private readonly archiving = new Set<string>();
   private readonly unavailableMonitors = new Set<string>();
   private disposed = false;
+  private readonly openingChats = new Map<string, Promise<Session>>();
   constructor(readonly bb: BbPluginApi, readonly repo: Repository, readonly settings: () => Promise<SettingsView>, readonly threadRouting = new ThreadRouting(bb, async () => "")) {}
 
   private current(id: string): Session {
     const session = this.repo.session(id);
     if (this.disposed || !ACTIVE.has(session.status)) throw new PolicyError("The session has already stopped.");
     if (session.mode === "conversation" && ["starting", "working", "collecting"].includes(session.status) && !(session.status === "collecting" && session.extractionRepair)) {
-      if (!session.continuedFrom && this.repo.kernel.getTask(session.taskId).status !== "open") throw new PolicyError("The task is already closed.");
+      if (!session.continuedFrom && !isLiveTask(this.repo.kernel.getTask(session.taskId).status)) throw new PolicyError("The task is already closed.");
     } else this.repo.assertCurrent(session.taskId, session.baseRevision, !session.continuedFrom);
     return session;
   }
@@ -63,7 +72,83 @@ export class SessionRuntime {
     if (!ACTIVE.has(session.status)) await this.stopThread(thread.id, reviewer);
   }
 
-  async start(input: StartInput): Promise<Session> {
+  openChat(input: { taskId: string; requestId: string }, defaults: { projectId: string; providerId: string; model: string }): Promise<Session> {
+    const existing = this.repo.db.prepare("SELECT id FROM sessions WHERE id=?").get(input.requestId);
+    if (existing) {
+      const session = this.repo.session(input.requestId);
+      const saved = this.repo.sessionRequest(input.requestId) as { emptyChat?: boolean };
+      if (session.taskId !== input.taskId || !saved.emptyChat) return Promise.reject(new PolicyError("The chat request key belongs to a different session."));
+      return this.openingChats.get(input.taskId) ?? this.readyChat(session);
+    }
+    const pending = this.openingChats.get(input.taskId);
+    if (pending) return pending;
+    const active = this.repo.active().find(s => s.taskId === input.taskId);
+    if (active) return this.readyChat(active);
+    const create = async () => {
+      const task = this.repo.kernel.getTask(input.taskId);
+      this.repo.assertCurrent(task.id, task.revision);
+      const projectId = defaults.projectId || (await this.bb.sdk.projects.list({ includePersonal: true })).find(p => p.kind === "personal")?.id;
+      if (!projectId) throw new PolicyError("No BB project is available for the chat.");
+      const remembered = defaults.providerId && defaults.model ? null : await this.bb.sdk.projects.defaultExecutionOptions({ projectId });
+      const providerId = defaults.providerId || remembered?.providerId || "codex";
+      const route = await this.threadRouting.request({ projectId, environment: { type: "project-default" as const } });
+      const environment = route.environment as StartInput["request"]["environment"];
+      const routing = environment.type === "host" && environment.hostId ? { hostId: environment.hostId } : {};
+      let model = defaults.model || (remembered?.providerId === providerId ? remembered.model : "");
+      if (!model) {
+        const catalog = await this.bb.sdk.providers.models({ ...routing, providerId });
+        model = catalog.models.find(m => m.isDefault)?.model || "";
+        if (catalog.modelLoadError || !model) throw new PolicyError("Choose a default work account and model in 247C settings before opening a chat.");
+      }
+      // Validate all execution choices; only this explicit shortcut may omit the first message.
+      const request = requestSchema.parse({ ...route, providerId, model, reasoningLevel: "medium", permissionMode: "accept-edits",
+        executionInputSources: { providerId: "explicit", model: "explicit", reasoningLevel: "explicit", permissionMode: "explicit" }, input: [{ type: "text", text: "New chat" }] });
+      return this.readyChat(await this.start({ ...input, revision: task.revision, criteria: [], request: { ...request, input: [] } }, true));
+    };
+    const promise = create(); this.openingChats.set(input.taskId, promise);
+    void promise.finally(() => { if (this.openingChats.get(input.taskId) === promise) this.openingChats.delete(input.taskId); }).catch(() => {});
+    return promise;
+  }
+
+  private async readyChat(session: Session): Promise<Session> {
+    if (session.status === "starting" && !this.processing.has(session.id)) await this.tick(session.id);
+    session = this.repo.session(session.id);
+    if (session.status === "starting" || !ACTIVE.has(session.status) || !session.workerThreadId) throw new PolicyError(session.error || "The chat is still being prepared. Try opening it again in a moment.");
+    return session;
+  }
+
+  private async clearEmptyChatBootstrap(session: Session) {
+    if (!(this.repo.sessionRequest(session.id) as { emptyChat?: boolean }).emptyChat || !session.workerThreadId) return;
+    const queued = await this.bb.sdk.threads.queuedMessages.list({ threadId: session.workerThreadId });
+    for (const row of queued) {
+      if (row.content.length === 1 && row.content[0].type === "text" && row.content[0].visibility === "agent-only" && row.content[0].text === emptyChatBootstrap(session.id)) {
+        // The held launch options disappear with the queued row. Preserve them
+        // as native thread defaults before the user writes the first message.
+        await this.bb.sdk.threads.update({ threadId: session.workerThreadId, model: session.workerModel, reasoningLevel: session.reviewerReasoning });
+        await this.bb.sdk.threads.queuedMessages.delete({ threadId: session.workerThreadId, queuedMessageId: row.id });
+      }
+    }
+  }
+
+  bootstrapDispatch(context: MessageDispatchHookContext) {
+    if (context.thread.originPluginId !== this.bb.pluginId) return null;
+    // Inspect each block, so a queued bootstrap stays held even in a grouped drain.
+    for (const block of context.input.blocks) {
+      if (block.type !== "text" || block.visibility !== "agent-only") continue;
+      const match = /^247C empty-chat bootstrap ([a-f0-9-]{36})\./.exec(block.text);
+      if (!match || block.text !== emptyChatBootstrap(match[1])) continue;
+      try {
+        const session = this.repo.session(match[1]);
+        if (!(this.repo.sessionRequest(session.id) as { emptyChat?: boolean }).emptyChat) continue;
+        if (session.workerThreadId === context.thread.id || context.thread.title === `247C · worker · ${session.id}`) {
+          return { action: "wait" as const, reason: "Preparing an empty 247C chat." };
+        }
+      } catch { /* Unrelated input is not a bootstrap owned by this plugin. */ }
+    }
+    return null;
+  }
+
+  async start(input: StartInput, emptyChat = false): Promise<Session> {
     const existing = this.repo.db.prepare("SELECT id FROM sessions WHERE id=?").get(input.requestId);
     if (existing) {
       const original = this.repo.sessionRequest(input.requestId) as { startFingerprint?: string };
@@ -74,7 +159,8 @@ export class SessionRuntime {
     const discussion = this.discussionSource(input);
     if (this.repo.active().some((s) => s.taskId === input.taskId)) throw new PolicyError("This task already has a worker.");
     if (input.request.input.some((i) => i.type !== "text")) throw new PolicyError("This version requires text input. Reference any necessary files within the selected workspace in the task description.");
-    const objective = input.request.input.filter((i) => i.type === "text").map((i) => i.text).join("\n").trim();
+    if (emptyChat && (input.criteria.length || input.continueSessionId || input.request.input.length)) throw new PolicyError("An empty chat must be a new ordinary conversation.");
+    const objective = emptyChat ? "Conversation opened by the user; the first message will define the work." : input.request.input.filter((i) => i.type === "text").map((i) => i.text).join("\n").trim();
     if (!objective) throw new PolicyError("Describe what should be done in this session.");
     const options = await this.settings();
     const mode = input.criteria.length ? "result" : "conversation";
@@ -109,19 +195,20 @@ export class SessionRuntime {
       const latest = this.discussionSource(input);
       if (latest?.proposal?.id !== discussion?.proposal?.id || latest?.proposal?.status !== discussion?.proposal?.status) throw new PolicyError("The review changed. Refresh the dossier before discussing it.");
       if (this.repo.active().some((s) => s.taskId === input.taskId)) throw new PolicyError("This task already has a worker.");
-      this.repo.insertSession(session, { request, startFingerprint: digest(input) });
+      this.repo.insertSession(session, { request, startFingerprint: digest(input), ...(emptyChat ? { emptyChat: true } : {}) });
       this.repo.sessionEvent(session.id, "contract", mode === "conversation" ? "Task conversation started; the user ends it with the finish button." : "The assignment and acceptance criteria were saved.", input);
     });
     this.processing.add(session.id);
     try {
       const thread = await this.bb.sdk.threads.spawn({ ...request,
         title: `247C · worker · ${session.id}`, visibility: "visible",
-        input: [...request.input, { type: "text", text: workerInstructions(session, this.repo.detail(session.taskId), discussion), mentions: [], visibility: "agent-only" }],
+        input: emptyChat ? [{ type: "text", text: emptyChatBootstrap(session.id), mentions: [], visibility: "agent-only" }] : [...request.input, { type: "text", text: workerInstructions(session, this.repo.detail(session.taskId), discussion), mentions: [], visibility: "agent-only" }],
       });
       session = this.repo.saveSession({ ...this.repo.session(session.id), workerThreadId: thread.id, environmentId: thread.environmentId });
       if (!ACTIVE.has(session.status) || this.disposed) { await this.stopThread(thread.id, false); return session; }
+      if (emptyChat) await this.clearEmptyChatBootstrap(session);
       session = this.repo.saveSession({ ...session, status: "working" });
-      this.repo.sessionEvent(session.id, "worker-started", "Worker started in BB.", { threadId: thread.id });
+      this.repo.sessionEvent(session.id, "worker-started", emptyChat ? "Empty BB chat opened; awaiting the first user message." : "Worker started in BB.", { threadId: thread.id });
       await this.nameWorkerThread(session, thread);
       // BB may return the new environment while its directory is still being
       // provisioned. Resolve the path when the worker finishes, not at spawn.
@@ -133,6 +220,10 @@ export class SessionRuntime {
       if (found) {
         session = this.repo.saveSession({ ...this.repo.session(session.id), workerThreadId: found.id, environmentId: found.environmentId });
         await this.nameWorkerThread(session, found);
+        if (emptyChat && ACTIVE.has(session.status)) {
+          // Keep the held bootstrap recoverable; never respawn after an ambiguous response.
+          return this.repo.saveSession({ ...session, status: "starting", error: String(error).slice(0, 4000) });
+        }
       }
       return await this.block(session.id, error);
     } finally { this.processing.delete(session.id); }
@@ -265,7 +356,7 @@ export class SessionRuntime {
         const result = session.result ?? resultSchema.parse(parseJsonResult(output.output));
         session = this.repo.saveSession({ ...session, status: "collecting", result });
         this.repo.sessionEvent(id, "worker-finished", "Worker response received; the dossier is unchanged.", { output: output.output, result });
-        await this.bb.sdk.threads.stop({ threadId: session.workerThreadId! });
+        await this.stopRuntime(session.workerThreadId!, () => this.current(id));
         await this.beginReview(session);
       } else if (session.status === "reviewing" && session.reviewerThreadId) {
         const thread = await this.bb.sdk.threads.get({ threadId: session.reviewerThreadId });
@@ -340,10 +431,8 @@ export class SessionRuntime {
     this.unavailableMonitors.delete(id);
     this.repo.sessionEvent(id, "conversation-finished", "The user ended the conversation; a separate review is starting.");
     this.repo.sessionEvent(id, "recorder-selected", selectionReason, selection);
-    this.processing.add(id);
-    try { await this.bb.sdk.threads.stop({ threadId: session.workerThreadId! }); }
-    catch (error) { await this.block(id, error); }
-    finally { this.processing.delete(id); }
+    // Collection owns stopping and snapshotting under tick's processing lock.
+    // Releasing here as well would stop the same runtime twice before review.
     await this.tick(id);
     return this.repo.session(id);
   }
@@ -384,7 +473,7 @@ export class SessionRuntime {
           value.reviewerThreadId || value.proposalId || value.extraction || value.extractionRepair || value.result || value.review || this.repo.transcript(id)) {
         throw new PolicyError("Only a blocked, unfinished conversation with its original chat can be resumed. Finished conversations stay frozen; use Retry review or Discuss review.");
       }
-      if (!value.continuedFrom && this.repo.kernel.getTask(value.taskId).status !== "open") throw new PolicyError("The task is already closed.");
+      if (!value.continuedFrom && !isLiveTask(this.repo.kernel.getTask(value.taskId).status)) throw new PolicyError("The task is already closed.");
       if (this.repo.active().some((other) => other.taskId === value.taskId)) throw new PolicyError("Finish this task's other open session first.");
     };
     assertResumable(session);
@@ -423,7 +512,7 @@ export class SessionRuntime {
       let extraction: Extraction;
       let proposalInput: ReturnType<typeof extractionProposal>;
       try {
-        extraction = validateExtraction(parseJsonResult(saved.output, 512 * 1024), transcript, session.reportedTimeContext);
+        extraction = validateExtraction(parseJsonResult(saved.output, 512 * 1024), transcript, session.reportedTimeContext, this.repo.kernel.getTask(session.taskId).status);
         proposalInput = extractionProposal(extraction, session, dossier, transcript);
       } catch (error) {
         if (error instanceof PolicyError || error instanceof ZodError) continue;
@@ -456,7 +545,11 @@ export class SessionRuntime {
         if (Date.now() - Date.parse(session.updatedAt) > 60000) throw new PolicyError("The launch was not confirmed. An automatic retry could create a second agent.");
         return;
       }
-      session = this.repo.saveSession({ ...session, ...(worker ? { workerThreadId: found.id, environmentId: found.environmentId, status: "working" as const } : { reviewerThreadId: found.id, status: "reviewing" as const }) });
+      if (worker) {
+        try { await this.clearEmptyChatBootstrap({ ...session, workerThreadId: found.id }); }
+        catch (error) { this.bb.log.warn(`Could not prepare empty chat ${session.id}; will retry: ${String(error)}`); return; }
+      }
+      session = this.repo.saveSession({ ...session, error: null, ...(worker ? { workerThreadId: found.id, environmentId: found.environmentId, status: "working" as const } : { reviewerThreadId: found.id, status: "reviewing" as const }) });
     }
     if (session.status === "working") {
       let thread;
@@ -497,7 +590,7 @@ export class SessionRuntime {
       let extraction: Extraction;
       let proposalInput: ReturnType<typeof extractionProposal>;
       try {
-        extraction = validateExtraction(parseJsonResult(output.output, 512 * 1024), transcript, session.reportedTimeContext);
+        extraction = validateExtraction(parseJsonResult(output.output, 512 * 1024), transcript, session.reportedTimeContext, this.repo.kernel.getTask(session.taskId).status);
         proposalInput = extractionProposal(extraction, session, dossier, transcript);
       } catch (error) {
         // Only malformed model output is repairable. Operational failures and
@@ -528,9 +621,12 @@ export class SessionRuntime {
   }
 
   private async beginExtraction(session: Session) {
+    await this.stopRuntime(session.workerThreadId!, () => this.current(session.id));
+    this.current(session.id);
+    // A successful stop acknowledgement alone does not prove the final answer
+    // has settled. Wait for a quiescent status before freezing its transcript.
     const thread = await this.bb.sdk.threads.get({ threadId: session.workerThreadId! });
     if (["active", "starting", "stopping", "pending"].includes(thread.status)) return;
-    await this.bb.sdk.threads.stop({ threadId: thread.id });
     let transcript = this.repo.transcript(session.id);
     if (!transcript) {
       const current = await readConversation(this.bb, session);
@@ -656,7 +752,7 @@ export class SessionRuntime {
   }
   async status(taskId: string, status: TaskRecord["status"], revision: number) {
     const task = this.repo.status(taskId, status, revision);
-    if (task.status !== "open") await this.archiveFinishedThreads(task.id);
+    if (!isLiveTask(task.status)) await this.archiveFinishedThreads(task.id);
     return task;
   }
   async archiveFinishedThreads(taskId?: string) {
@@ -671,7 +767,7 @@ export class SessionRuntime {
         const task = this.repo.kernel.getTask(pending.taskId);
         const currentSession = this.repo.forThread(pending.threadId);
         const acceptedSession = currentSession && this.repo.sessionResultsAccepted(currentSession.id);
-        if (this.disposed || (currentSession && ACTIVE.has(currentSession.status)) || (task.status === "open" && !acceptedSession) || task.revision !== pending.revision) continue;
+        if (this.disposed || (currentSession && ACTIVE.has(currentSession.status)) || (isLiveTask(task.status) && !acceptedSession) || task.revision !== pending.revision) continue;
         if (!thread.archivedAt && !thread.deletedAt) await this.stopThread(thread.id, true);
         if (!this.disposed) this.repo.recordThreadArchive(pending.threadId, pending.revision, true);
       } catch (error) {
@@ -702,9 +798,25 @@ export class SessionRuntime {
     await this.stopSession(id);
     return this.repo.session(id);
   }
+  private async stopRuntime(threadId: string, assertCurrent?: () => unknown) {
+    // BB can evict an idle runtime while refreshing the host's shell environment.
+    // Its in-flight stop then loses the acknowledgement with this exact error.
+    // Retrying the idempotent stop releases the existing runtime only; it never
+    // resends a prompt or retries a recorder launch with an uncertain outcome.
+    const waits = [200, 500];
+    for (let attempt = 0; ; attempt++) {
+      assertCurrent?.();
+      try { await this.bb.sdk.threads.stop({ threadId }); return; }
+      catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (!/^(?:HTTP 502: )?Runtime shutting down$/.test(message) || attempt >= waits.length) throw error;
+        await delay(waits[attempt]);
+      }
+    }
+  }
   private async stopThread(threadId: string, archive: boolean) {
     try { if (archive) await this.bb.sdk.threads.archive({ threadId }); }
-    finally { await this.bb.sdk.threads.stop({ threadId }); }
+    finally { await this.stopRuntime(threadId); }
   }
   private async stopSession(id: string) {
     const results = await Promise.allSettled(this.repo.threadIds(id).map((t) => this.stopThread(t.threadId, t.role === "reviewer")));

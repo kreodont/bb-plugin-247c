@@ -105,7 +105,7 @@ it("opens the proposals inbox by mouse, Enter and Space without accepting change
   expect(rowClick).not.toHaveBeenCalled();
   expect(rowPointer).not.toHaveBeenCalled();
   expect(f.repo.pendingTotal()).toBe(1);
-  expect(slot.inspection.rpcCalls.every(call => ["day", "list", "updaterHealth"].includes(call.method))).toBe(true);
+  expect(slot.inspection.rpcCalls.every(call => ["day", "list", "updaterHealth", "reviewFailures"].includes(call.method))).toBe(true);
 });
 
 it("removes its host sidebar enhancement on disposal and installs one fresh copy after reload", async () => {

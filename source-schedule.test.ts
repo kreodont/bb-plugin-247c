@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { fixture } from "./test-support.js";
 import { SourceSyncRuntime, SourceSyncStore } from "./source-sync.js";
-import { hourlyUpdateId, hourlyUpdateSlot, scheduledSourceUpdate, UPDATE_SCHEDULE } from "./source-schedule.js";
+import { hourlyUpdateId, hourlyUpdateSlot, quickSourceUpdate, scheduledSourceUpdate, UPDATE_SCHEDULE } from "./source-schedule.js";
 import { syncStartSchema } from "./contracts.js";
 import * as collector from "./source-collector.js";
 
@@ -15,6 +15,49 @@ async function setup() {
   const first = sync.store.insert(source); sync.store.save({ ...first, status: "completed", finishedAt: first.startedAt });
   return { f, sync, source, first };
 }
+
+it("starts a manual incremental check with saved settings even outside the schedule", async () => {
+  const { sync, source, first } = await setup();
+  const start = vi.spyOn(sync, "start").mockImplementation(async (input, options) => sync.store.insert(input, undefined, options?.incremental));
+  vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-09-20T23:37:00Z"));
+  const checkpoint = "2026-09-18T17:00:00.000Z";
+  sync.repo.db.prepare("INSERT OR REPLACE INTO source_sync_checkpoints VALUES (?,?)").run("gmail", checkpoint);
+  const requestId = randomUUID();
+  const result = await quickSourceUpdate(sync, requestId, { syncProvider: "codex", syncModel: "gpt-5.6-sol", syncReasoningLevel: "medium" });
+  expect(result).toMatchObject({ alreadyRunning: false, run: { id: requestId, manualSince: null, ranges: { gmail: { since: checkpoint } } } });
+  expect(start).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ since: null, request: expect.objectContaining({ ...source.request, model: "gpt-5.6-sol", reasoningLevel: "medium", input: expect.any(Array) }) }), { incremental: true });
+  expect(start.mock.calls[0][0].request.input[0]).toMatchObject({ text: expect.stringContaining("Manual 247C update check") });
+  expect(sync.store.request(requestId).incremental).toBe(true);
+  expect(sync.store.request(first.id).input).toEqual(source);
+  expect(await quickSourceUpdate(sync, requestId, {})).toEqual(result);
+  expect(await quickSourceUpdate(sync, randomUUID(), {})).toEqual({ ...result, alreadyRunning: true });
+  sync.store.save({ ...result.run, status: "completed", finishedAt: result.run.startedAt });
+  expect((await quickSourceUpdate(sync, requestId, {})).run.status).toBe("completed");
+  expect(start).toHaveBeenCalledOnce();
+});
+
+it("asks for initial setup and ignores external imports when choosing a saved launch", async () => {
+  const { sync, first } = await setup();
+  sync.repo.db.prepare("UPDATE source_sync_runs SET request_json=? WHERE id=?").run(JSON.stringify({ externalImport: { path: "bundle.json", sha256: "test" } }), first.id);
+  const start = vi.spyOn(sync, "start");
+  await expect(quickSourceUpdate(sync, randomUUID(), {})).rejects.toThrow("Run a Custom check first");
+  expect(start).not.toHaveBeenCalled();
+});
+
+it("returns the running check after a start race and exposes genuine launch failures", async () => {
+  const { sync, source } = await setup();
+  const start = vi.spyOn(sync, "start").mockRejectedValue(new Error("Provider unavailable"));
+  await expect(quickSourceUpdate(sync, randomUUID(), {})).rejects.toThrow("Provider unavailable");
+  start.mockImplementation(async () => { sync.store.insert({ ...source, requestId: randomUUID() }); throw new Error("Already running"); });
+  expect(await quickSourceUpdate(sync, randomUUID(), {})).toEqual({ run: sync.store.active()[0], alreadyRunning: true });
+});
+
+it("keeps the configured external updater authoritative for quick checks", async () => {
+  const { f, sync } = await setup();
+  await f.harness.behavior.setSettings({ sourceUpdaterProjectId: "proj_updater", sourceUpdaterAutomationId: "source-check" });
+  await expect(f.harness.behavior.callRpc("syncQuickStart", { requestId: randomUUID() })).rejects.toThrow("A source updater automation is configured");
+  expect(sync.store.state().runs).toHaveLength(1);
+});
 
 it("selects exactly 08 through 20 every day in Athens, including winter and DST dates", () => {
   for (const day of ["2026-09-11", "2026-12-11", "2026-10-25", "2027-03-28"]) {

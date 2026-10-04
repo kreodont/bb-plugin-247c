@@ -14,3 +14,13 @@ export function withThread(path: string, threadId?: string) {
 export function taskDayPath(date: string, taskId?: string, threadId?: string) {
   return withThread(`day/${date}${taskId ? `/task/${taskId}` : ""}`, threadId);
 }
+
+export function taskReviewPath(taskId: string, sessionId: string, threadId?: string) {
+  return withThread(`${taskId}/session/${sessionId}`, threadId);
+}
+
+export function taskProposalPath(taskId: string, sessionId: string, threadId?: string) {
+  // Resolve through the session so partial reviews and refreshed proposals keep
+  // the same link while their proposal identity changes.
+  return withThread(`${taskId}/session/${sessionId}/proposal`, threadId);
+}

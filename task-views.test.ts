@@ -1,3 +1,4 @@
+import { migrateTaskStatuses } from "./task-status-migration.js";
 import { afterEach, expect, it } from "vitest";
 import Database from "better-sqlite3";
 import { randomUUID } from "node:crypto";
@@ -47,7 +48,7 @@ it("baselines existing tasks at migration without changing their durable records
     db.exec(CORE_SCHEMA); for (const migration of EXTRA_SCHEMA.slice(0, viewMigration)) db.exec(migration);
     const repo = new Repository(db, () => {}), task = repo.create({ title: "Existing task", description: "Original", requestId: randomUUID() });
     const before = repo.kernel.getDossier(task.id);
-    for (const migration of EXTRA_SCHEMA.slice(viewMigration)) db.exec(migration);
+    migrateTaskStatuses(db, () => db.transaction(() => { for (const migration of EXTRA_SCHEMA.slice(viewMigration)) db.exec(migration); })());
     expect(repo.list().tasks[0].unseen).toBeNull(); expect(repo.kernel.getDossier(task.id)).toEqual(before);
     const fresh = repo.create({ title: "New task", description: "", requestId: randomUUID() });
     expect(repo.list().tasks.find(t => t.id === fresh.id)?.unseen).toBe("new");

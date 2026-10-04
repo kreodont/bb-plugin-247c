@@ -28,8 +28,8 @@ it.each([false, true])("looks up an unlinked Slack PR in older full email thread
       }
       reads++;
       return { content: [{ type: "text", text: JSON.stringify({ id: args.threadId, messages: [
-        { id: "older", date: "2026-09-01T10:00:00Z", subject: "[APP-70] Publish installation event", plaintextBody: `Implementation for APP-71. ${url}` },
-        { id: "future", date: "2026-09-11T10:00:00Z", plaintextBody: "Future progress must not be exported" },
+        { id: "older", date: "2026-09-01T10:00:00Z", subject: "[APP-70] Publish installation event", plaintextBody: `Implementation for APP-71. Store ABC-197 is affected. ${url}` },
+        { id: "future", date: "2026-09-11T10:00:00Z", subject: "[FUTURE-900] New work", plaintextBody: "Future progress must not be exported" },
       ] }) }] };
     } },
     slack: { close: async () => {}, async call(tool, args) {

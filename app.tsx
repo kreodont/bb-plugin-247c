@@ -1,3 +1,8 @@
+import { useReviewFailures, ReviewFailureBadge, ReviewFailureNotification, ReviewFailuresPage } from "./review-failures-ui.js";
+import { isLiveTask, statusNeedsStoppedSession, taskStatusNames } from "./task-status.js";
+import { ReportedEditor } from "./reported-editor.js";
+import { UxScope, UxOverlay, UxPageView } from "./ux-app.js";
+import { useUxRpc } from "./ux-app.js";
 import { SourceCoverageCard } from "./source-coverage-ui.js";
 import { useUpdaterHealth, UpdaterHealthBanner, UpdaterHealthBadge, UpdaterHealthNotification } from "./updater-health-ui.js";
 import { PlanningTimeZone, usePlanningTimeZone } from "./day-zone.js";
@@ -8,10 +13,10 @@ import { TaskSources } from "./task-sources-ui.js";
 import { sourceUrl } from "./task-sources.js";
 import { mountSidebarShortcut } from "./sidebar-shortcut.js";
 import { NavigationFrame } from "./navigation.js";
-import { deskRoute, taskDayPath, withThread } from "./desk-routes.js";
+import { deskRoute, taskDayPath, taskProposalPath, taskReviewPath, withThread } from "./desk-routes.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ComponentProps, FormEvent, ReactNode } from "react";
-import { definePluginApp, useRpc, useRealtime, useRealtimeConnectionState, useBbNavigate, ThreadChat, Markdown, experimental_NewThreadComposer as NewThreadComposer, experimental_FileLink as FileLink } from "@get-bb/plugin-sdk/app";
+import { definePluginApp, useRealtime, useRealtimeConnectionState, useBbNavigate, ThreadChat, Markdown, experimental_NewThreadComposer as NewThreadComposer, experimental_FileLink as FileLink } from "@get-bb/plugin-sdk/app";
 import type { NewThreadRequest, PluginNavPanelProps, PluginThreadHeaderActionProps } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
 import type { rpcContract, TaskCard, Dossier, Session, StartInput, KnowledgeEntry, SyncCandidate, SyncSource, SyncRun, ReviewDossier, ReviewItem, ReviewSelection } from "./contracts.js";
@@ -31,16 +36,17 @@ function sessionLabel(session: Pick<Session, "mode" | "status"> & Partial<Pick<S
 }
 const factNames: Record<Dossier["facts"][number]["kind"], string> = { description: "Context", progress: "Progress", user_instruction: "Instruction", explicit_next_step: "Next step", decision: "Decision", open_question: "Question", artifact: "Artifact", constraint: "Constraint", blocker: "Blocker" };
 const fieldNames = { title: "Title", urgent: "Urgency", important: "Importance", status: "Task status", summary: "Summary", nextStep: "Next step", openQuestions: "Open questions", blockers: "Blockers", artifacts: "Artifacts" };
-const taskStatusNames = { open: "Open", done: "Done", archived: "Archived" };
 const groups = [
   { key: "focus", title: "Do now", subtitle: "Urgent and important", card: "border-red-500/25 border-l-red-500 bg-red-500/10 hover:bg-red-500/15", selected: "bg-red-500/15 ring-2 ring-inset ring-red-500/50", dot: "bg-red-500" },
   { key: "delegate", title: "Delegate", subtitle: "Urgent, less important", card: "border-orange-500/25 border-l-orange-500 bg-orange-500/10 hover:bg-orange-500/15", selected: "bg-orange-500/15 ring-2 ring-inset ring-orange-500/50", dot: "bg-orange-500" },
   { key: "plan", title: "Schedule", subtitle: "Important, not urgent", card: "border-yellow-500/25 border-l-yellow-500 bg-yellow-500/10 hover:bg-yellow-500/15", selected: "bg-yellow-500/15 ring-2 ring-inset ring-yellow-500/50", dot: "bg-yellow-500" },
   { key: "later", title: "For later", subtitle: "Neither urgent nor important", card: "border-green-500/25 border-l-green-500 bg-green-500/10 hover:bg-green-500/15", selected: "bg-green-500/15 ring-2 ring-inset ring-green-500/50", dot: "bg-green-500" },
+  { key: "waiting", title: "Waiting for response", subtitle: "Waiting on someone else", card: "border-sky-400/30 border-l-sky-400 bg-sky-400/10 hover:bg-sky-400/15", selected: "bg-sky-400/15 ring-2 ring-inset ring-sky-400/50", dot: "bg-sky-400" },
   { key: "inbox", title: "Classify", subtitle: "Priority not yet set", card: "border-border bg-card hover:bg-muted/50", selected: "bg-muted/50 ring-2 ring-inset ring-border", dot: "bg-muted-foreground" },
 ] as const;
 type GroupKey = typeof groups[number]["key"];
-const groupFor = (task: TaskCard): GroupKey => task.planning.urgent === null || task.planning.important === null ? "inbox" : task.planning.urgent ? task.planning.important ? "focus" : "delegate" : task.planning.important ? "plan" : "later";
+const priorityGroupFor = (task: TaskCard): GroupKey => task.planning.urgent === null || task.planning.important === null ? "inbox" : task.planning.urgent ? task.planning.important ? "focus" : "delegate" : task.planning.important ? "plan" : "later";
+const groupFor = (task: TaskCard): GroupKey => task.status === "waiting" ? "waiting" : priorityGroupFor(task);
 type TaskSort = "updated" | "oldest" | "priority";
 const TASK_SORT_KEY = "247c:task-sort";
 function savedTaskSort(): TaskSort {
@@ -89,7 +95,7 @@ function useSnapshot<T>(load: () => Promise<T>) {
 }
 
 function ProjectThreadComposer({ purpose = "work", ...props }: ComponentProps<typeof NewThreadComposer> & { purpose?: "work" | "sync" }) {
-  const rpc = useRpc<typeof rpcContract>();
+  const rpc = useUxRpc();
   const load = useCallback(() => rpc.call("threadProject", {}), [rpc]);
   const { data, error, refresh } = useSnapshot(load);
   if (error) return <ErrorNotice error={error} retry={() => void refresh()} />;
@@ -98,18 +104,23 @@ function ProjectThreadComposer({ purpose = "work", ...props }: ComponentProps<ty
 }
 
 function ThreadSessionControl({ threadId, isCompactViewport, action }: PluginThreadHeaderActionProps & { action: "task" | "finish" }) {
-  const rpc = useRpc<typeof rpcContract>();
+  const rpc = useUxRpc();
   const navigate = useBbNavigate();
   const load = useCallback(() => rpc.call("threadSession", { threadId }), [rpc, threadId]);
   const { data, error, refresh } = useSnapshot(load);
   const [busy, setBusy] = useState(false);
   const finishing = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const session = data?.session;
   if (!session) return null;
 
   const canFinish = session.mode === "conversation" && session.workerThreadId === threadId && session.status === "working";
-  if (action === "finish" && !canFinish) return null;
-  const label = action === "task" ? "Open task" : busy ? "Finishing…" : error ? "Refresh session" : "Finish session";
+  const failedReview = session.mode === "conversation" && session.status === "blocked" && Boolean(session.finishedAt);
+  const reviewing = session.workerThreadId === threadId && ["collecting", "review_starting", "reviewing"].includes(session.status);
+  const reviewThreadId = session.status === "reviewing" ? session.reviewerThreadId : null;
+  if (action === "finish" && !canFinish && !failedReview && !reviewing) return null;
+  const label = action === "task" ? "Open task" : failedReview ? "Review failed" : reviewing ? reviewThreadId ? "Open review" : "Starting review…" : busy ? "Finishing…" : error ? "Refresh session" : "Finish session";
   async function finish() {
     if (!session || finishing.current) return;
     finishing.current = true; setBusy(true);
@@ -117,12 +128,22 @@ function ThreadSessionControl({ threadId, isCompactViewport, action }: PluginThr
     catch (cause) { toast.error("Could not finish the session", { description: cause instanceof Error ? cause.message : String(cause) }); }
     finally { await refresh(); finishing.current = false; setBusy(false); }
   }
-  return <span title={label} className="inline-flex"><Button type="button" size="sm" variant="outline"
-    className={cn("h-7 shrink-0", isCompactViewport ? "w-7 px-0" : "px-2")}
-    aria-label={label} aria-description={action === "task" ? "Open the linked 247C task dossier" : "Stop the current response and review the conversation"}
-    disabled={action === "finish" && busy} onClick={() => { if (action === "task") navigate.toPluginPanel("desk", { subPath: withThread(session.taskId, threadId) }); else if (error) void refresh(); else void finish(); }}>
-    <Icon name={action === "task" ? "Target" : "Check"} aria-hidden="true" />{!isCompactViewport && label}
-  </Button></span>;
+  async function openReview() {
+    if (finishing.current) return;
+    finishing.current = true; setBusy(true);
+    try {
+      // A repair or retry may have replaced the recorder since the last event.
+      const current = (await rpc.call("threadSession", { threadId })).session;
+      if (mounted.current && current?.workerThreadId === threadId && current.status === "reviewing" && current.reviewerThreadId && current.reviewerThreadId !== threadId) navigate.toThread(current.reviewerThreadId);
+    } catch (cause) { if (mounted.current) toast.error("Could not open the review", { description: cause instanceof Error ? cause.message : String(cause) }); }
+    finally { await refresh(); finishing.current = false; setBusy(false); }
+  }
+  return <UxScope page="thread" view={threadId}><span title={label} className="inline-flex"><Button data-c247-ux-action={action === "task" ? "thread-task" : reviewing ? "thread-review" : "thread-finish"} type="button" size="sm" variant="outline"
+    className={cn("h-7 shrink-0", action === "finish" && failedReview && "border-destructive/40 text-destructive", isCompactViewport ? "w-7 px-0" : "px-2")}
+    aria-label={label} aria-description={action === "task" ? "Open the linked 247C task dossier" : failedReview ? "Open the failed conversation review" : reviewing ? "Open the chat reviewing this conversation" : "Stop the current response and review the conversation"}
+    disabled={action === "finish" && (busy || (reviewing && !reviewThreadId))} onClick={() => { if (action === "task") navigate.toPluginPanel("desk", { subPath: withThread(session.taskId, threadId) }); else if (failedReview) navigate.toPluginPanel("desk", { subPath: taskReviewPath(session.taskId, session.id, threadId) }); else if (reviewing) void openReview(); else if (error) void refresh(); else void finish(); }}>
+    <Icon name={action === "task" ? "Target" : failedReview ? "AlertCircle" : reviewing ? reviewThreadId ? "MessageSquare" : "Loading" : "Check"} aria-hidden="true" />{!isCompactViewport && label}
+  </Button></span></UxScope>;
 }
 
 function ThreadSessionAction(props: PluginThreadHeaderActionProps) {
@@ -133,17 +154,35 @@ function ThreadTaskAction(props: PluginThreadHeaderActionProps) {
   return <ThreadSessionControl key={props.threadId} {...props} action="task" />;
 }
 
+function ThreadProposal({ threadId, isCompactViewport }: PluginThreadHeaderActionProps) {
+  const rpc = useUxRpc(), navigate = useBbNavigate();
+  const load = useCallback(() => rpc.call("threadSession", { threadId }), [rpc, threadId]);
+  const { data } = useSnapshot(load);
+  const session = data?.session;
+  if (!session?.proposalId) return null;
+  return <UxScope page="thread" view={threadId}><span title="Open this session's proposal" className="inline-flex"><Button type="button" size="sm" variant="outline"
+    data-c247-ux-action="thread-proposal" aria-label="Proposal" aria-description="Open this session's proposal"
+    className={cn("h-7 shrink-0", session.status === "awaiting_approval" && "border-orange-500/40 text-orange-700 dark:text-orange-300", isCompactViewport ? "w-7 px-0" : "px-2")}
+    onClick={() => navigate.toPluginPanel("desk", { subPath: taskProposalPath(session.taskId, session.id, threadId) })}>
+    <Icon name="ListTodo" aria-hidden="true" />{!isCompactViewport && "Proposal"}
+  </Button></span></UxScope>;
+}
+
+function ThreadProposalAction(props: PluginThreadHeaderActionProps) {
+  return <ThreadProposal key={props.threadId} {...props} />;
+}
+
 function ThreadSource({ threadId, isCompactViewport }: PluginThreadHeaderActionProps) {
-  const rpc = useRpc<typeof rpcContract>();
+  const rpc = useUxRpc();
   const load = useCallback(() => rpc.call("threadSource", { threadId }), [rpc, threadId]);
   const { data, error } = useSnapshot(load);
   const source = data?.source;
   if (error || !source || !sourceUrl(source.url)) return null;
-  return <Button asChild size="sm" variant="outline" className={cn("h-7 shrink-0", isCompactViewport ? "w-7 px-0" : "px-2")}>
-    <a href={source.url} target="_blank" rel="noopener noreferrer" title={`Primary source · ${source.label}\n${source.url}`} aria-label={`Open primary source: ${source.label}`}>
+  return <UxScope page="thread" view={threadId}><Button asChild size="sm" variant="outline" className={cn("h-7 shrink-0", isCompactViewport ? "w-7 px-0" : "px-2")}>
+    <a data-c247-ux-action="thread-source" href={source.url} target="_blank" rel="noopener noreferrer" title={`Primary source · ${source.label}\n${source.url}`} aria-label={`Open primary source: ${source.label}`}>
       <Icon name="ExternalLink" aria-hidden="true" />{!isCompactViewport && "Source"}
     </a>
-  </Button>;
+  </Button></UxScope>;
 }
 
 function ThreadSourceAction(props: PluginThreadHeaderActionProps) {
@@ -151,10 +190,11 @@ function ThreadSourceAction(props: PluginThreadHeaderActionProps) {
 }
 
 function ThreadReportedTime({ threadId, isCompactViewport }: PluginThreadHeaderActionProps) {
-  const rpc = useRpc<typeof rpcContract>();
+  const rpc = useUxRpc();
   const navigate = useBbNavigate();
   const load = useCallback(() => rpc.call("threadSession", { threadId }), [rpc, threadId]);
-  const { data, error } = useSnapshot(load);
+  const { data, error, refresh } = useSnapshot(load);
+  const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const opening = useRef(false), mounted = useRef(true);
   const request = useRef<{ date: string; id: string } | null>(null);
@@ -189,14 +229,13 @@ function ThreadReportedTime({ threadId, isCompactViewport }: PluginThreadHeaderA
   const value = error ? "unavailable" : formatMinutes(minutes);
   const label = `Reported today: ${value}${!error && estimated ? " (estimate)" : ""}`;
   const title = error ? `Could not refresh reported time: ${error}` : `${label} · ${date} · ${timeZone}${minutes === null ? " · No reported time entered" : ""}`;
-  return <span title={`${title} · Open today's task in Day Plan`} className="inline-flex"><Button type="button" size="sm" variant="outline"
-    className="h-7 shrink-0 gap-1.5 px-2 text-xs text-muted-foreground" disabled={busy} aria-busy={busy}
-    aria-label={`${label}. Open Day Plan`} aria-description="Open today's task row and edit Reported time; add the task if missing"
-    onClick={() => void openDay()}>
-    {isCompactViewport ? <Icon name="Clock" aria-hidden="true" /> : <span>Reported today:</span>}
-    <output aria-label={label} className="font-medium tabular-nums text-foreground">{value}</output>
-    {!error && estimated && <span>estimate</span>}
-  </Button></span>;
+  return <UxScope page="thread" view={threadId}><span title={title} className="inline-flex items-center rounded-md border border-input">
+    <Button data-c247-ux-action="reported-open" type="button" size="sm" variant="ghost" className="h-7 shrink-0 gap-1.5 px-2 text-xs text-muted-foreground" aria-label={`${label}. Edit reported time`} onClick={() => setEditing(true)}>
+      {isCompactViewport ? <Icon name="Clock" aria-hidden="true" /> : <span>Reported today:</span>}
+      <output aria-label={label} className="font-medium tabular-nums text-foreground">{value}</output>{!error && estimated && <span>estimate</span>}
+    </Button>
+    <Button data-c247-ux-action="reported-day" type="button" size="sm" variant="ghost" className="h-7 border-l border-input px-1.5" disabled={busy} aria-busy={busy} aria-label={`${label}. Open Day Plan`} aria-description="Open today's task row and edit Reported time; add the task if missing" onClick={() => void openDay()}><Icon name="ChevronRight" aria-hidden="true" /></Button>
+  </span>{editing && <ReportedEditor taskId={data.session.taskId} threadId={threadId} close={() => setEditing(false)} saved={refresh} />}</UxScope>;
 }
 
 function ThreadReportedAction(props: PluginThreadHeaderActionProps) {
@@ -204,7 +243,7 @@ function ThreadReportedAction(props: PluginThreadHeaderActionProps) {
 }
 
 function CreateTask({ done, cancel }: { done: (id: string) => void; cancel: () => void }) {
-  const rpc = useRpc<typeof rpcContract>();
+  const rpc = useUxRpc();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [primarySourceUrl, setPrimarySourceUrl] = useState("");
@@ -236,7 +275,7 @@ function CreateTask({ done, cancel }: { done: (id: string) => void; cancel: () =
 type InitialPriority = { urgent: boolean; important: boolean };
 
 function SyncCandidateCard({ candidate, currentTask, action, busy, partSelection, onPartSelection, initialPriority, priorityInHeader = false }: { initialPriority?: InitialPriority; priorityInHeader?: boolean; partSelection?: string[]; onPartSelection?: (parts: string[] | undefined) => void; candidate: SyncCandidate; currentTask?: Pick<TaskCard, "revision" | "status" | "activeSession">; action: (fn: () => Promise<unknown>) => Promise<boolean>; busy: boolean }) {
-  const rpc = useRpc<typeof rpcContract>();
+  const rpc = useUxRpc();
   const navigate = useBbNavigate();
   const [localPriority, setLocalPriority] = useState<InitialPriority>();
   const priority = priorityInHeader ? initialPriority : localPriority;
@@ -244,7 +283,7 @@ function SyncCandidateCard({ candidate, currentTask, action, busy, partSelection
   const pending = candidate.status === "pending";
   const stale = Boolean(candidate.taskId && (!currentTask || currentTask.revision !== candidate.baseRevision));
   const selection = usePartSelection(candidate.id, sourceParts(candidate), busy, onPartSelection, partSelection);
-  const active = Boolean(currentTask?.activeSession && candidate.changes.status && selection.picked.includes("field:status"));
+  const active = Boolean(currentTask?.activeSession && candidate.changes.status && statusNeedsStoppedSession(currentTask.status, candidate.changes.status.value) && selection.picked.includes("field:status"));
   const decide = (decision: "accept" | "reject") => action(() => selection.all
     ? decision === "accept" ? rpc.call("syncAccept", { candidateId: candidate.id, ...priorityInput }) : rpc.call("syncReject", { candidateId: candidate.id })
     : rpc.call("reviewParts", { kind: "source", id: candidate.id, revision: candidate.baseRevision, decision, parts: selection.picked, requestId: crypto.randomUUID(), ...(decision === "accept" ? priorityInput : {}) }));
@@ -267,7 +306,7 @@ function SyncCandidateCard({ candidate, currentTask, action, busy, partSelection
 function SyncPage() {
   const { data: updater, error: updaterError, refresh: refreshUpdater } = useUpdaterHealth();
   const [launchNotice, setLaunchNotice] = useState<string | null>(null);
-  const rpc = useRpc<typeof rpcContract>();
+  const rpc = useUxRpc();
   const navigate = useBbNavigate();
   const [starting, setStarting] = useState(false);
   const [manual, setManual] = useState(false);
@@ -301,6 +340,17 @@ function SyncPage() {
         : "The configured source check has been started. Collection and analysis progress appear in updater status.");
     });
   }
+  async function startQuickCheck() {
+    setLaunchNotice(null);
+    await action(async () => {
+      const result = await rpc.call("syncQuickStart", { requestId: requestId.current });
+      requestId.current = crypto.randomUUID();
+      if (result.run.error) throw new Error(result.run.error);
+      setLaunchNotice(result.alreadyRunning ? "A check is already running. Progress is shown below."
+        : syncActive(result.run) ? "Check started. Progress is shown below."
+        : "Check finished. Results are shown below.");
+    });
+  }
   async function start(request: NewThreadRequest) {
     setMutationError(null);
     try {
@@ -312,7 +362,7 @@ function SyncPage() {
   }
   return <div className="h-full min-h-0 overflow-y-auto"><div className="mx-auto max-w-5xl space-y-5 p-5 md:p-8">
     <Button variant="ghost" size="sm" className="-ml-3" onClick={() => navigate.toPluginPanel("desk")}><Icon name="ChevronLeft" /> All tasks</Button>
-    <div className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-medium">Work source updates</h1><p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">Connected work sources reveal task updates and new requests. Review the proposals and accept the ones you need.</p></div>{!starting && (!active || updater?.configured) && <Button disabled={busy || !updater || Boolean(updaterError) || updater.running} onClick={() => updater?.configured ? void startUpdater() : setStarting(true)}>{updater?.running ? "Check running…" : busy ? "Starting…" : "Check for updates"}</Button>}</div>
+    <div className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-medium">Work source updates</h1><p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">Connected work sources reveal task updates and new requests. Review the proposals and accept the ones you need.</p></div>{!starting && <div className="flex flex-wrap gap-2"><Button disabled={busy || !data || !updater || Boolean(updaterError) || updater.running || (!updater.configured && Boolean(active))} onClick={() => updater?.configured ? void startUpdater() : void startQuickCheck()}>{updater?.running || (!updater?.configured && active) ? "Check running…" : busy ? "Starting…" : "Check for updates"}</Button>{updater && !updater.configured && <Button variant="outline" disabled={busy || !data || Boolean(active) || Boolean(updaterError)} onClick={() => { setLaunchNotice(null); setMutationError(null); setStarting(true); }}>Custom check…</Button>}</div>}</div>
     <ErrorNotice error={mutationError ?? updaterError ?? error} retry={() => { refreshUpdater(); void refresh(); }} />
     {launchNotice && <p role="status" className="text-sm text-muted-foreground">{launchNotice}</p>}
     <div className="grid gap-3 md:grid-cols-3">{(updater?.sourceCoverage?.length ? updater.sourceCoverage.map(item => item.source) : Object.keys(latest?.ranges ?? { gmail: {}, slack: {}, jira: {} }) as SyncSource[]).map((source) => {
@@ -322,7 +372,7 @@ function SyncPage() {
       const checkpoint = data?.sync.checkpoints[source];
       return <section key={source} className="rounded-xl border border-border bg-card p-4"><h2 className="font-medium">{sourceNames[source]}</h2><p className="mt-2 text-xs text-muted-foreground">{checkpoint ? `Fully checked through ${date(checkpoint)}` : latest && data ? `Full coverage not confirmed since ${date(data.sync.nextSince[source])}` : "First run: last 24 hours"}</p>{latest && <><p className={cn("mt-3 text-sm", report && report.status !== "complete" && "text-destructive")}>{active ? active.collection?.phase === "collecting" ? "Loading data…" : "The model is analyzing the export…" : report?.status === "complete" ? "Checked" : report?.status === "partial" ? "Partially checked" : report?.status === "unavailable" ? "Unavailable" : syncStatusNames[latest.status]}</p>{report && <p className="mt-1 whitespace-pre-wrap break-words text-xs leading-relaxed text-muted-foreground">{report.detail}<br />Candidates: {report.scanned} · threads/issues read: {report.threadsRead}</p>}</>}</section>;
     })}</div>
-    {starting && !active && !updater?.configured && <section className="space-y-4 rounded-xl border border-border p-4"><div className="flex items-center justify-between"><h2 className="font-medium">Start check</h2><Button size="sm" variant="ghost" onClick={() => setStarting(false)}>Cancel</Button></div><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={manual} onChange={(e) => setManual(e.target.checked)} />Set a start date</label>{manual ? <div><label htmlFor="sync-since" className="mb-1.5 block text-xs text-muted-foreground">From date and time · {Intl.DateTimeFormat().resolvedOptions().timeZone}</label><Input id="sync-since" type="datetime-local" value={since} onChange={(e) => setSince(e.target.value)} /></div> : <p className="text-sm text-muted-foreground">Continue from each source's last complete check. If a source was unavailable, its missed interval will be checked.</p>}<p className="text-xs leading-relaxed text-muted-foreground">Sources will be loaded through the configured login. Choose any available model to analyze the data; you can also specify what to focus on.</p><ProjectThreadComposer purpose="sync" defaultReasoningLevel="medium" defaultPermissionMode="accept-edits" initialPrompt="Analyze email, Slack and Jira updates and prepare proposals for 247C tasks." placeholder="Additional instructions for this check" layout="document" draftKey="247c-source-sync" onSubmit={start} /></section>}
+    {starting && !active && !updater?.configured && <section className="space-y-4 rounded-xl border border-border p-4"><div className="flex items-center justify-between"><h2 className="font-medium">Custom check</h2><Button size="sm" variant="ghost" onClick={() => setStarting(false)}>Cancel</Button></div><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={manual} onChange={(e) => setManual(e.target.checked)} />Set a start date</label>{manual ? <div><label htmlFor="sync-since" className="mb-1.5 block text-xs text-muted-foreground">From date and time · {Intl.DateTimeFormat().resolvedOptions().timeZone}</label><Input id="sync-since" type="datetime-local" value={since} onChange={(e) => setSince(e.target.value)} /></div> : <p className="text-sm text-muted-foreground">Continue from each source's last complete check. If a source was unavailable, its missed interval will be checked.</p>}<p className="text-xs leading-relaxed text-muted-foreground">Sources will be loaded through the configured login. Choose any available model to analyze the data; you can also specify what to focus on.</p><ProjectThreadComposer purpose="sync" defaultReasoningLevel="medium" defaultPermissionMode="accept-edits" initialPrompt="Analyze email, Slack and Jira updates and prepare proposals for 247C tasks." placeholder="Additional instructions for this check" layout="document" draftKey="247c-source-sync" onSubmit={start} /></section>}
     <CalendarStatus />
     {latest && !updater?.configured && <section className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-4"><Pill attention={syncActive(latest) || latest.status === "partial" || latest.status === "blocked"}>{syncStatusNames[latest.status]}</Pill><span className="mr-auto text-xs text-muted-foreground">{date(latest.startedAt)}{latest.collection && ` · ${latest.collection.phase === "collecting" && syncActive(latest) ? "loading" : "loaded"} ${latest.collection.reads} threads/issues in ${Math.round(latest.collection.elapsedMs / 1000)} s`}{latest.analysis && ` · ${latest.analysis.modelSkipped ? "no changes to analyze · model not used" : `${latest.analysis.documents} documents to analyze · ${latest.analysis.reusedDocuments} unchanged documents reused`}`} · proposals {latest.suggestions}{latest.duplicates ? ` · duplicates ${latest.duplicates}` : ""}</span>{latest.threadId && <Button size="sm" variant="outline" onClick={() => navigate.toThread(latest.threadId!)}>Check conversation</Button>}{active && <Button size="sm" variant="ghost" disabled={busy} onClick={() => void action(() => rpc.call("syncCancel", { runId: active.id }))}>Stop check</Button>}{latest.error && <p className="w-full text-sm text-destructive">{latest.error}</p>}{latest.manualSince && <p className="w-full text-xs text-muted-foreground">From {date(latest.manualSince)} to {date(latest.until)}. A manual date later than the previous checkpoint does not advance it, so the unchecked interval is preserved.</p>}</section>}
     <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-medium">Pending · {data?.sync.pending ?? 0}</h2><Button variant="outline" size="sm" onClick={() => navigate.toPluginPanel("desk", { subPath: "proposals" })}>All proposals</Button><label className="flex items-center gap-2 text-sm text-muted-foreground"><input type="checkbox" checked={history} onChange={(e) => setHistory(e.target.checked)} />Show reviewed proposals</label></div>
@@ -334,8 +384,7 @@ function SyncPage() {
 }
 
 function Desk() {
-  const timeZone = usePlanningTimeZone();
-  const rpc = useRpc<typeof rpcContract>();
+  const rpc = useUxRpc();
   const navigate = useBbNavigate();
   const [history, setHistory] = useState(false);
   const [query, setQuery] = useState("");
@@ -352,10 +401,25 @@ function Desk() {
     return () => window.removeEventListener("storage", changed);
   }, []);
   const [creating, setCreating] = useState(false);
+  const [layout, setLayout] = useState<"list" | "cards">(() => { try { return localStorage.getItem("247c-task-layout") === "cards" ? "cards" : "list"; } catch { return "list"; } });
+  const [openingTask, setOpeningTask] = useState<string | null>(null);
+  const opening = useRef(false), chatRequests = useRef(new Map<string, string>()), mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  async function openChat(taskId: string) {
+    if (opening.current) return;
+    opening.current = true; setOpeningTask(taskId);
+    const requestId = chatRequests.current.get(taskId) ?? crypto.randomUUID(); chatRequests.current.set(taskId, requestId);
+    try {
+      const session = await rpc.call("openChat", { taskId, requestId });
+      if (!session.workerThreadId) throw new Error(session.error || "The chat is still starting. Try again.");
+      if (mounted.current) navigate.toThread(session.workerThreadId);
+    } catch (cause) { toast.error("Could not open the work chat", { description: cause instanceof Error ? cause.message : String(cause) }); }
+    finally { opening.current = false; if (mounted.current) setOpeningTask(null); }
+  }
   const load = useCallback(() => rpc.call("list", { history }), [rpc, history]);
   const { data, error, refresh } = useSnapshot(load);
   const tasks = data?.tasks ?? [];
-  const open = tasks.filter((t) => t.status === "open");
+  const open = tasks.filter((t) => isLiveTask(t.status));
   const pending = data?.pendingTotal ?? 0;
   const visible = tasks.filter((t) => (!group || groupFor(t) === group) && `${t.title} ${t.summary ?? ""} ${t.nextStep ?? ""}`.toLocaleLowerCase("ru").includes(query.toLocaleLowerCase("ru")))
     .sort((a, b) => {
@@ -363,21 +427,30 @@ function Desk() {
       const updated = Date.parse(b.updatedAt) - Date.parse(a.updatedAt);
       return priority || (sort === "oldest" ? -updated : updated) || a.id.localeCompare(b.id);
     });
-  return <div className="h-full min-h-0 overflow-y-auto"><div className="mx-auto max-w-6xl space-y-6 p-5 md:p-8">
-    <div className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-2xl font-medium tracking-tight">What shall we work on next?</h1><p className="mt-1.5 text-sm text-muted-foreground">Tasks retain their context. Each session moves the work forward.</p></div><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => navigate.toPluginPanel("desk", { subPath: `day/${localDay(new Date(), timeZone)}` })}>Day</Button><Button variant={pending ? "default" : "outline"} onClick={() => navigate.toPluginPanel("desk", { subPath: "proposals" })}>Proposals{pending ? ` · ${pending}` : ""}</Button><Button variant="outline" onClick={() => navigate.toPluginPanel("desk", { subPath: "updates" })}>Check for updates</Button><Button variant="outline" onClick={() => navigate.toPluginPanel("desk", { subPath: "knowledge" })}>Knowledge base</Button><Button onClick={() => setCreating(true)}><span aria-hidden="true">＋</span> New task</Button></div></div>
+  return <div data-c247-task-layout={layout} className="h-full min-h-0 overflow-y-auto"><div className="mx-auto max-w-6xl space-y-4 p-4 md:p-5">
+    <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-baseline gap-3"><h1 className="text-xl font-medium">Tasks</h1><span className="text-sm text-muted-foreground">{open.length} open{pending ? ` · ${pending} awaiting review` : ""}</span></div><div className="flex gap-2"><div className="inline-flex rounded-lg border border-border p-0.5" aria-label="Task layout">{(["list", "cards"] as const).map(value => <Button data-c247-ux-action="task-layout" size="sm" variant={layout === value ? "secondary" : "ghost"} aria-pressed={layout === value} key={value} onClick={() => { setLayout(value); try { localStorage.setItem("247c-task-layout", value); } catch {} }}>{value === "list" ? "List" : "Cards"}</Button>)}</div><Button onClick={() => setCreating(true)}><span aria-hidden="true">＋</span> New task</Button></div></div>
     <ErrorNotice error={error} retry={() => void refresh()} />
     {creating && <CreateTask cancel={() => setCreating(false)} done={(id) => navigate.toPluginPanel("desk", { subPath: id })} />}
-    <div className="grid grid-cols-2 gap-2 lg:grid-cols-5" aria-label="Task quadrants">
-      {groups.map((g) => <button key={g.key} type="button" aria-pressed={group === g.key} onClick={() => setGroup(group === g.key ? null : g.key)} className={cn("rounded-xl border border-l-4 p-3.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", g.card, group === g.key && g.selected)}><div className="flex items-center justify-between gap-2"><span className="text-sm font-medium">{g.title}</span><span className="font-mono text-lg tabular-nums">{open.filter((t) => groupFor(t) === g.key).length}</span></div><p className="mt-1 text-xs text-muted-foreground">{g.subtitle}</p></button>)}
+    <div className="grid grid-cols-2 gap-2 lg:grid-cols-6" aria-label="Task groups">
+      {groups.map((g) => <button key={g.key} type="button" aria-pressed={group === g.key} onClick={() => setGroup(group === g.key ? null : g.key)} className={cn("rounded-xl border border-l-4 p-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", g.card, group === g.key && g.selected)}><div className="flex items-center justify-between gap-2"><span className="text-sm font-medium">{g.title}</span><span className="font-mono text-lg tabular-nums">{open.filter((t) => groupFor(t) === g.key).length}</span></div>{layout === "cards" && <p className="mt-1 text-xs text-muted-foreground">{g.subtitle}</p>}</button>)}
     </div>
-    <div className="flex flex-wrap items-center gap-3"><div className="relative min-w-48 flex-1"><Icon name="Search" className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" /><Input className="pl-9" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a task" aria-label="Find a task" /></div><label className="flex items-center gap-2 text-sm text-muted-foreground">Sort by<select aria-label="Sort tasks" className="h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground" value={sort} onChange={e => chooseSort(e.target.value)}><option value="updated">Recently updated</option><option value="oldest">Oldest update</option><option value="priority">Priority</option></select></label><label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground"><input type="checkbox" checked={history} onChange={(e) => setHistory(e.target.checked)} className="accent-current" /> Show completed tasks</label></div>
-    {!data && !error ? <div role="status" className="py-16 text-center text-sm text-muted-foreground">Opening your workspace…</div> : visible.length === 0 ? <div className="rounded-2xl border border-dashed border-border px-6 py-16 text-center"><div className="mx-auto mb-5 flex size-12 items-center justify-center rounded-xl bg-muted"><Icon name="Target" className="size-6 text-muted-foreground" /></div><h2 className="text-lg font-medium">{tasks.length ? "Nothing here yet" : "A place for what matters"}</h2><p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">{tasks.length ? "Try another search or priority." : "Start with one task. Save its context, delegate work to agents and return to the result without repeating the background."}</p>{!tasks.length && !creating && <Button className="mt-6" variant="outline" onClick={() => setCreating(true)}>Add your first task</Button>}</div> : <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-      {visible.map((task) => { const quadrant = groups.find((g) => g.key === groupFor(task))!; return <button key={task.id} type="button" onClick={() => navigate.toPluginPanel("desk", { subPath: task.id })} className={cn("group flex min-h-44 flex-col rounded-xl border border-l-4 p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", quadrant.card)}>
-        <div className="mb-3 flex min-h-5 items-center gap-2 text-xs text-muted-foreground"><span aria-hidden="true" className={cn("size-2 shrink-0 rounded-full", quadrant.dot)} />{task.activeSession ? <><span className="size-1.5 animate-pulse rounded-full bg-primary" /> Session open</> : task.pendingCount ? <span className="text-primary">Awaiting a decision · {task.pendingCount}</span> : task.status === "open" ? quadrant.subtitle : task.status === "done" ? "Done" : "Archived"}</div>
-        <h2 className={cn("break-words text-base font-medium leading-snug", task.status !== "open" && "text-muted-foreground")}>{task.title}{task.unseen && <span className="ml-2 inline-flex align-middle rounded-full bg-blue-500/15 px-2 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-300" title={task.unseen === "new" ? "You have not opened this task yet" : "Accepted changes since your last visit"}>{task.unseen === "new" ? "New" : "Updated"}</span>}</h2>
+    <div className="flex flex-wrap items-center gap-3"><div className="relative min-w-48 flex-1"><Icon name="Search" className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" /><Input className="pl-9" value={query} onChange={(e) => setQuery(e.target.value)} data-c247-ux-action="search" placeholder="Find a task" aria-label="Find a task" /></div><label className="flex items-center gap-2 text-sm text-muted-foreground">Sort by<select aria-label="Sort tasks" className="h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground" value={sort} onChange={e => chooseSort(e.target.value)}><option value="updated">Recently updated</option><option value="oldest">Oldest update</option><option value="priority">Priority</option></select></label><label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground"><input type="checkbox" checked={history} onChange={(e) => setHistory(e.target.checked)} className="accent-current" /> Show completed tasks</label></div>
+    {!data && !error ? <div role="status" className="py-16 text-center text-sm text-muted-foreground">Opening your workspace…</div> : visible.length === 0 ? <div className="rounded-2xl border border-dashed border-border px-6 py-16 text-center"><div className="mx-auto mb-5 flex size-12 items-center justify-center rounded-xl bg-muted"><Icon name="Target" className="size-6 text-muted-foreground" /></div><h2 className="text-lg font-medium">{tasks.length ? "Nothing here yet" : "A place for what matters"}</h2><p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">{tasks.length ? "Try another search or group." : "Start with one task. Save its context, delegate work to agents and return to the result without repeating the background."}</p>{!tasks.length && !creating && <Button className="mt-6" variant="outline" onClick={() => setCreating(true)}>Add your first task</Button>}</div> : <div className={layout === "cards" ? "grid gap-3 md:grid-cols-2 xl:grid-cols-3" : "space-y-2"}>
+      {visible.map((task) => { const quadrant = groups.find((g) => g.key === groupFor(task))!;
+        const chat = task.activeSession || isLiveTask(task.status) ? <Button data-c247-ux-action={task.activeSession ? "return-thread" : "session-start"} size="sm" variant="outline" disabled={!!openingTask} onClick={() => void openChat(task.id)}>{openingTask === task.id ? "Opening…" : task.activeSession ? "Open chat" : "New chat"}</Button> : null;
+        return layout === "list" ? <div key={task.id} className={cn("flex items-center gap-2 rounded-lg border border-l-4 pr-3", quadrant.card)}>
+        <button data-c247-ux-action="task-open" type="button" onClick={() => navigate.toPluginPanel("desk", { subPath: task.id })} className="min-w-0 flex-1 rounded-md px-3 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <div className="flex items-center gap-2"><span aria-hidden="true" className={cn("size-2 shrink-0 rounded-full", quadrant.dot)} /><h2 title={task.title} className="min-w-0 truncate text-sm font-medium">{task.title}</h2>{task.unseen && <span className="shrink-0 text-xs font-medium text-blue-700 dark:text-blue-300">{task.unseen === "new" ? "New" : "Updated"}</span>}</div>
+          {task.nextStep && <p className="mt-1 truncate text-xs text-muted-foreground">{task.nextStep}</p>}
+          <div className="mt-1 flex flex-wrap gap-3 text-xs text-muted-foreground">{task.status === "waiting" && <span className="text-sky-700 dark:text-sky-300">Waiting for response</span>}<span>{task.pendingCount ? `Awaiting a decision · ${task.pendingCount}` : task.activeSession ? "Session open" : isLiveTask(task.status) ? groups.find(g => g.key === priorityGroupFor(task))!.subtitle : taskStatusNames[task.status]}</span><time dateTime={task.updatedAt}>Updated {date(task.updatedAt)}</time></div>
+        </button>{task.failedReviewId && <Button size="sm" variant="outline" className="shrink-0 border-destructive/40 text-destructive" onClick={() => navigate.toPluginPanel("desk", { subPath: taskReviewPath(task.id, task.failedReviewId!) })}>Review failed</Button>}{chat}
+      </div> : <div key={task.id} className={cn("flex flex-col rounded-xl border border-l-4", quadrant.card)}><button data-c247-ux-action="task-open" type="button" onClick={() => navigate.toPluginPanel("desk", { subPath: task.id })} className="group flex min-h-44 flex-1 flex-col rounded-xl p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <div className="mb-3 flex min-h-5 items-center gap-2 text-xs text-muted-foreground"><span aria-hidden="true" className={cn("size-2 shrink-0 rounded-full", quadrant.dot)} />{task.activeSession ? <><span className="size-1.5 animate-pulse rounded-full bg-primary" /> Session open</> : task.pendingCount ? <span className="text-primary">Awaiting a decision · {task.pendingCount}</span> : isLiveTask(task.status) ? groups.find(g => g.key === priorityGroupFor(task))!.subtitle : taskStatusNames[task.status]}</div>
+        <h2 className={cn("break-words text-base font-medium leading-snug", !isLiveTask(task.status) && "text-muted-foreground")}>{task.title}{task.unseen && <span className="ml-2 inline-flex align-middle rounded-full bg-blue-500/15 px-2 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-300" title={task.unseen === "new" ? "You have not opened this task yet" : "Accepted changes since your last visit"}>{task.unseen === "new" ? "New" : "Updated"}</span>}</h2>
+        {task.status === "waiting" && <p className="mt-2 text-xs text-sky-700 dark:text-sky-300">Waiting for response</p>}
         {task.summary && <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-muted-foreground">{task.summary}</p>}
         <div className="mt-auto pt-4">{task.nextStep && <p className="line-clamp-2 text-xs"><span className="text-muted-foreground">Next: </span>{task.nextStep}</p>}<p className={cn("text-xs text-muted-foreground", task.nextStep && "mt-2")}><time dateTime={task.updatedAt}>Updated {date(task.updatedAt)}</time></p></div>
-      </button>; })}
+      </button>{(chat || task.failedReviewId) && <div className="flex flex-wrap justify-end gap-2 px-4 pb-3">{task.failedReviewId && <Button size="sm" variant="outline" className="border-destructive/40 text-destructive" onClick={() => navigate.toPluginPanel("desk", { subPath: taskReviewPath(task.id, task.failedReviewId!) })}>Review failed</Button>}{chat}</div>}</div>; })}
     </div>}
     {data && data.total > tasks.length && <p className="text-sm text-muted-foreground">Showing the latest {tasks.length} of {data.total} tasks.</p>}
   </div></div>;
@@ -390,7 +463,7 @@ function DisplayValue({ value }: { value: unknown }) {
 }
 
 function ProposalCard({ proposal, dossier, action, busy, discuss, partSelection, onPartSelection }: { partSelection?: string[]; onPartSelection?: (parts: string[] | undefined) => void; discuss?: (sessionId: string) => void; proposal: Dossier["proposals"][number]; dossier: ReviewDossier; action: (fn: () => Promise<unknown>) => Promise<boolean>; busy: boolean }) {
-  const rpc = useRpc<typeof rpcContract>();
+  const rpc = useUxRpc();
   const navigate = useBbNavigate();
   const update = dossier.sessionUpdates.find((u) => u.proposalId === proposal.id);
   const pending = proposal.status === "pending" || proposal.status === "approved";
@@ -402,7 +475,7 @@ function ProposalCard({ proposal, dossier, action, busy, discuss, partSelection,
     ? decision === "accept" ? rpc.call("accept", { proposalId: proposal.id, revision: dossier.task.revision }) : rpc.call("reject", { proposalId: proposal.id })
     : rpc.call("reviewParts", { kind: "proposal", id: proposal.id, revision: dossier.task.revision, decision, parts: selection.picked, requestId: crypto.randomUUID() }));
   const discussing = dossier.sessions.some((s) => ACTIVE.has(s.status) && s.discussionProposalId === proposal.id);
-  const changingStatusDuringWork = Boolean(proposal.changes.status) && selection.picked.includes("field:status") && dossier.sessions.some((s) => ACTIVE.has(s.status));
+  const changingStatusDuringWork = Boolean(proposal.changes.status && statusNeedsStoppedSession(dossier.task.status, proposal.changes.status.value)) && selection.picked.includes("field:status") && dossier.sessions.some((s) => ACTIVE.has(s.status));
   const allEvidence = [...dossier.facts.map((f) => ({ ref: f.id, text: f.text })), ...proposal.evidence];
   const used = new Set([...Object.values(proposal.changes).flatMap((change) => change?.evidenceRefs ?? []), ...(update?.extraction.reportedTime?.evidenceRefs ?? [])]);
   return <article className="overflow-hidden rounded-xl border border-border bg-card">
@@ -431,7 +504,7 @@ function ProposalCard({ proposal, dossier, action, busy, discuss, partSelection,
 }
 
 function ProposalRecovery({ proposalId, revision, parts, all, busy, action }: { proposalId: string; revision: number; parts: string[]; all: boolean; busy: boolean; action: (fn: () => Promise<unknown>) => Promise<boolean> }) {
-  const rpc = useRpc<typeof rpcContract>();
+  const rpc = useUxRpc();
   const [preview, setPreview] = useState<import("./contracts.js").ProposalRefreshPreview | null>(null);
   const [error, setError] = useState<string | null>(null), [attempt, setAttempt] = useState(0);
   const [reviewing, setReviewing] = useState(false), [confirmed, setConfirmed] = useState(false);
@@ -508,12 +581,12 @@ function NewTaskPriority({ priority, disabled, change }: { priority?: InitialPri
 }
 
 function TaskOverview({ dossier, action, busy, showWork }: { dossier: Dossier; action: (fn: () => Promise<unknown>) => Promise<boolean>; busy: boolean; showWork: () => void }) {
-  const rpc = useRpc<typeof rpcContract>();
+  const rpc = useUxRpc();
   const [note, setNote] = useState("");
   const [kind, setKind] = useState<Dossier["facts"][number]["kind"]>("description");
   const requestId = useRef(crypto.randomUUID());
   const active = dossier.sessions.some((s) => ACTIVE.has(s.status));
-  const closed = dossier.task.status !== "open";
+  const closed = !isLiveTask(dossier.task.status);
   async function addNote(event: FormEvent) {
     event.preventDefault();
     if (!note.trim()) return;
@@ -537,25 +610,29 @@ function TaskOverview({ dossier, action, busy, showWork }: { dossier: Dossier; a
   </div>;
 }
 
-function Work({ dossier, refresh, showProposals, discussionId }: { dossier: Dossier; refresh: () => Promise<void>; showProposals: () => void; discussionId: string | null }) {
-  const rpc = useRpc<typeof rpcContract>();
+function Work({ dossier, refresh, showProposals, discussionId, initialSessionId }: { initialSessionId?: string; dossier: Dossier; refresh: () => Promise<void>; showProposals: () => void; discussionId: string | null }) {
+  const rpc = useUxRpc();
   const navigate = useBbNavigate();
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(initialSessionId ?? null);
   const [starting, setStarting] = useState(Boolean(discussionId));
   const [continuing, setContinuing] = useState<string | null>(discussionId);
   const [reviewer, setReviewer] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const requestId = useRef(crypto.randomUUID());
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const active = dossier.sessions.find((s) => ACTIVE.has(s.status));
   const session = dossier.sessions.find((s) => s.id === selected) ?? active ?? dossier.sessions[0];
   const previous = dossier.sessions.find((s) => s.id === continuing);
-  const showComposer = !active && (starting || !session) && (dossier.task.status === "open" || Boolean(previous));
+  const showComposer = !active && (starting || !session) && (isLiveTask(dossier.task.status) || Boolean(previous));
   async function start(request: NewThreadRequest) {
     setError(null);
     try {
       const result = await rpc.call("start", { taskId: dossier.task.id, revision: dossier.task.revision, criteria: [], requestId: requestId.current, ...(continuing ? { continueSessionId: continuing } : {}), request: request as unknown as StartInput["request"] });
-      setSelected(result.id); setStarting(false); setContinuing(null); setReviewer(false); requestId.current = crypto.randomUUID(); await refresh();
+      setSelected(result.id); setStarting(false); setContinuing(null); setReviewer(false); requestId.current = crypto.randomUUID();
+      if (mounted.current && result.workerThreadId) navigate.toThread(result.workerThreadId);
+      await refresh();
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); throw cause; }
   }
   async function change(method: "finish" | "retry" | "resume" | "cancel") {
@@ -570,10 +647,10 @@ function Work({ dossier, refresh, showProposals, discussionId }: { dossier: Doss
   }
   const threadId = reviewer ? session?.reviewerThreadId : session?.workerThreadId;
   const conversation = session?.mode === "conversation";
-  const canResume = conversation && session.status === "blocked" && !session.finishedAt && session.workerThreadId && !session.reviewerThreadId && !session.proposalId && (dossier.task.status === "open" || session.continuedFrom);
+  const canResume = conversation && session.status === "blocked" && !session.finishedAt && session.workerThreadId && !session.reviewerThreadId && !session.proposalId && (isLiveTask(dossier.task.status) || session.continuedFrom);
   const canRetry = conversation && session.finishedAt && !dossier.sessions.some((s) => s.continuedFrom === session.id && s.proposalId) && (session.status === "blocked" || session.status === "rejected" || (session.status === "awaiting_approval" && session.baseRevision !== dossier.task.revision));
   return <div className="space-y-4"><ErrorNotice error={error} />
-    <div className="flex flex-wrap items-center gap-2">{dossier.sessions.map((s, i) => <button type="button" key={s.id} className={cn("rounded-lg border px-3 py-2 text-xs", !showComposer && session?.id === s.id ? "border-primary/30 bg-primary/5" : "border-border text-muted-foreground")} onClick={() => { setSelected(s.id); setStarting(false); setContinuing(null); setReviewer(false); }}>Session {dossier.sessions.length - i} · {sessionLabel(s)}</button>)}{!active && dossier.task.status === "open" && session && <Button size="sm" variant="outline" onClick={() => { setContinuing(null); setStarting(true); }}>New session</Button>}</div>
+    <div className="flex flex-wrap items-center gap-2">{dossier.sessions.map((s, i) => <button type="button" key={s.id} className={cn("rounded-lg border px-3 py-2 text-xs", !showComposer && session?.id === s.id ? "border-primary/30 bg-primary/5" : "border-border text-muted-foreground")} onClick={() => { setSelected(s.id); setStarting(false); setContinuing(null); setReviewer(false); }}>Session {dossier.sessions.length - i} · {sessionLabel(s)}</button>)}{!active && isLiveTask(dossier.task.status) && session && <Button size="sm" variant="outline" onClick={() => { setContinuing(null); setStarting(true); }}>New session</Button>}</div>
     {showComposer ? <div className="space-y-5">
       <div className="max-w-3xl"><h2 className="text-lg font-medium">{previous ? "Discuss the review" : "Just start a conversation"}</h2>{previous && <p className="mt-2 text-sm text-muted-foreground">The assistant will already have the previous conversation, review and quotes. Describe what you want to clarify or correct.</p>}<p className="mt-2 text-sm leading-relaxed text-muted-foreground">The assistant will already have the dossier. Discuss the task and keep working for as long as you need. When you are done, click Finish session; a separate session will read the dialogue and propose dossier and knowledge records.</p></div>
       <div className="min-h-80 overflow-hidden rounded-xl border border-border bg-card p-3 md:p-4"><ProjectThreadComposer key={`${dossier.task.id}-${continuing ?? "new"}`} defaultProviderId={previous?.workerProvider} defaultModel={previous?.workerModel} defaultReasoningLevel="medium" defaultPermissionMode="accept-edits" initialPrompt={previous ? "I would like to discuss the review of the previous session. " : ""} placeholder={previous ? "What should we clarify in the review?" : "Where shall we start?"} layout="document" draftKey={`247c-session-${dossier.task.id}-${continuing ?? "new"}`} onSubmit={start} /></div>
@@ -603,16 +680,31 @@ function Work({ dossier, refresh, showProposals, discussionId }: { dossier: Doss
   </div>;
 }
 
-function TaskPage({ taskId, returnTo, threadId }: { taskId: string; returnTo?: string; threadId?: string }) {
-  const rpc = useRpc<typeof rpcContract>();
+function SessionProposal({ dossier, sessionId, ...props }: { dossier: Dossier; sessionId: string } & Pick<ComponentProps<typeof ProposalCard>, "action" | "busy" | "discuss">) {
+  const session = dossier.sessions.find(s => s.id === sessionId);
+  const proposal = dossier.proposals.find(p => p.id === session?.proposalId);
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    heading.current?.focus({ preventScroll: true });
+    heading.current?.scrollIntoView?.({ block: "start" });
+  }, [proposal?.id]);
+  return <section aria-label="Session proposal" className="space-y-3">
+    <h2 ref={heading} tabIndex={-1} className="scroll-mt-4 text-sm font-medium outline-none">Proposal from this session</h2>
+    {proposal ? <ProposalCard key={proposal.id} proposal={proposal} dossier={dossier} {...props} />
+      : <p className="rounded-lg border border-border p-4 text-sm text-muted-foreground">This session has no proposal yet. Its review status is available in Work.</p>}
+  </section>;
+}
+
+function TaskPage({ taskId, returnTo, threadId, initialSessionId, showSessionProposal = false }: { taskId: string; returnTo?: string; threadId?: string; initialSessionId?: string; showSessionProposal?: boolean }) {
+  const rpc = useUxRpc();
   const navigate = useBbNavigate();
   const backLabel = returnTo?.startsWith("report/") ? "Back to report" : returnTo?.startsWith("day/") ? "Back to day plan" : "All tasks";
   const [discussionId, setDiscussionId] = useState<string | null>(null);
   const discuss = (sessionId: string) => { setDiscussionId(sessionId); setTab("work"); };
-  const [tab, setTab] = useState<"overview" | "work" | "proposals" | "history">("overview");
+  const [tab, setTab] = useState<"overview" | "work" | "proposals" | "history">(showSessionProposal ? "proposals" : initialSessionId ? "work" : "overview");
   const [busy, setBusy] = useState(false);
   const [mutationError, setMutationError] = useState<string | null>(null);
-  const load = useCallback(() => rpc.call("detail", { id: taskId }), [rpc, taskId]);
+  const load = useCallback(() => rpc.call("detail", { id: taskId, ...(initialSessionId ? { sessionId: initialSessionId } : {}) }), [rpc, taskId, initialSessionId]);
   const { data: dossier, error, refresh } = useSnapshot(load);
   async function action(fn: () => Promise<unknown>): Promise<boolean> {
     if (busy) return false;
@@ -625,10 +717,11 @@ function TaskPage({ taskId, returnTo, threadId }: { taskId: string; returnTo?: s
   const pending = dossier.proposals.filter((p) => p.status === "pending" || p.status === "approved");
   const syncPending = dossier.syncUpdates.filter((p) => p.status === "pending");
   const pendingCount = pending.length + syncPending.length;
+  const focusedSession = showSessionProposal ? dossier.sessions.find(s => s.id === initialSessionId) : undefined;
   const active = dossier.sessions.some((s) => ACTIVE.has(s.status));
   return <div className="relative h-full min-h-0 overflow-y-auto"><TaskViewMarker id={dossier.task.id} revision={dossier.task.revision} /><div className="mx-auto max-w-6xl space-y-5 p-5 md:p-8">
     <Button variant="ghost" size="sm" className="-ml-3" onClick={() => navigate.toPluginPanel("desk", { subPath: withThread(returnTo ?? "", threadId) })}><Icon name="ChevronLeft" /> {backLabel}</Button>
-    <div className="flex flex-wrap items-start justify-between gap-4"><div className="min-w-0 flex-1"><div className="mb-2 flex items-center gap-2"><Pill>{dossier.task.status === "open" ? "Open" : dossier.task.status === "done" ? "Done" : "Archived"}</Pill><span className="text-xs text-muted-foreground">Revision {dossier.task.revision}</span></div><h1 className="break-words text-2xl font-medium leading-snug tracking-tight">{dossier.task.title}</h1></div><div className="flex gap-2">{dossier.task.status === "open" ? <><Button variant="outline" size="sm" disabled={busy || active} onClick={() => void action(() => rpc.call("status", { taskId, status: "done", revision: dossier.task.revision }))}><Icon name="Check" /> Complete</Button><Button variant="ghost" size="icon" aria-label="Archive task" disabled={busy || active} onClick={() => void action(() => rpc.call("status", { taskId, status: "archived", revision: dossier.task.revision }))}><Icon name="Archive" /></Button></> : <Button variant="outline" size="sm" disabled={busy} onClick={() => void action(() => rpc.call("status", { taskId, status: "open", revision: dossier.task.revision }))}>Reopen task</Button>}</div></div>
+    <div className="flex flex-wrap items-start justify-between gap-4"><div className="min-w-0 flex-1"><div className="mb-2 flex items-center gap-2"><span className={cn("inline-flex rounded-full px-2 py-0.5 text-xs", dossier.task.status === "waiting" ? "bg-sky-400/15 text-sky-700 dark:text-sky-300" : "bg-muted text-muted-foreground")}>{taskStatusNames[dossier.task.status]}</span><span className="text-xs text-muted-foreground">Revision {dossier.task.revision}</span></div><h1 className="break-words text-2xl font-medium leading-snug tracking-tight">{dossier.task.title}</h1></div><div className="flex flex-wrap gap-2">{isLiveTask(dossier.task.status) ? <><Button variant="outline" size="sm" className={cn("border-sky-400/40 text-sky-700 hover:bg-sky-400/10 dark:text-sky-300", dossier.task.status === "waiting" && "bg-sky-400/10")} disabled={busy} onClick={() => void action(() => rpc.call("status", { taskId, status: dossier.task.status === "waiting" ? "open" : "waiting", revision: dossier.task.revision }))}>{dossier.task.status === "waiting" ? "Resume task" : "Waiting for response"}</Button><Button variant="outline" size="sm" disabled={busy || active} onClick={() => void action(() => rpc.call("status", { taskId, status: "done", revision: dossier.task.revision }))}><Icon name="Check" /> Complete</Button><Button variant="ghost" size="icon" aria-label="Archive task" disabled={busy || active} onClick={() => void action(() => rpc.call("status", { taskId, status: "archived", revision: dossier.task.revision }))}><Icon name="Archive" /></Button></> : <Button variant="outline" size="sm" disabled={busy} onClick={() => void action(() => rpc.call("status", { taskId, status: "open", revision: dossier.task.revision }))}>Reopen task</Button>}</div></div>
     <TaskSources key={taskId} links={dossier.sourceLinks} primaryUrl={dossier.primarySource?.url} busy={busy}
       onPrimary={url => void action(() => rpc.call("setPrimarySource", { taskId, url, revision: dossier.sourceRevision, requestId: crypto.randomUUID() }))} />
     <TaskTimeSummary taskId={taskId} threadId={threadId} initialDate={returnTo?.match(/\d{4}-\d{2}-\d{2}/)?.[0]} />
@@ -636,8 +729,8 @@ function TaskPage({ taskId, returnTo, threadId }: { taskId: string; returnTo?: s
     <ErrorNotice error={mutationError ?? error} retry={() => void refresh()} />
     {pendingCount > 0 && tab === "overview" && <button type="button" className="flex w-full items-center justify-between gap-4 rounded-xl border border-primary/20 bg-primary/5 p-4 text-left" onClick={() => setTab("proposals")}><div><p className="text-sm font-medium">Changes awaiting review</p><p className="mt-1 text-xs text-muted-foreground">Check what will be saved to the permanent dossier.</p></div><Icon name="ChevronRight" className="size-4 shrink-0" /></button>}
     {tab === "overview" && <TaskOverview dossier={dossier} busy={busy} action={action} showWork={() => { setDiscussionId(null); setTab("work"); }} />}
-    {tab === "work" && <Work key={discussionId ?? "work"} discussionId={discussionId} dossier={dossier} refresh={refresh} showProposals={() => setTab("proposals")} />}
-    {tab === "proposals" && <div className="mx-auto max-w-4xl space-y-4">{syncPending.map((p) => <SyncCandidateCard key={p.id} candidate={p} currentTask={{ ...dossier.task, activeSession: active ? "active" : null }} action={action} busy={busy} />)}{pending.map((p) => <ProposalCard discuss={discuss} key={p.id} proposal={p} dossier={dossier} busy={busy} action={action} />)}{!pendingCount && <div className="rounded-xl border border-dashed border-border py-12 text-center"><Icon name="CircleCheck" className="mx-auto mb-3 size-7 text-muted-foreground" /><h2 className="text-sm font-medium">Everything reviewed</h2><p className="mt-1 text-sm text-muted-foreground">New session results will appear here.</p></div>}</div>}
+    {tab === "work" && <Work key={discussionId ?? initialSessionId ?? "work"} initialSessionId={initialSessionId} discussionId={discussionId} dossier={dossier} refresh={refresh} showProposals={() => setTab("proposals")} />}
+    {tab === "proposals" && <div className="mx-auto max-w-4xl space-y-4">{showSessionProposal && initialSessionId && <SessionProposal dossier={dossier} sessionId={initialSessionId} discuss={discuss} busy={busy} action={action} />}{syncPending.map((p) => <SyncCandidateCard key={p.id} candidate={p} currentTask={{ ...dossier.task, activeSession: active ? "active" : null }} action={action} busy={busy} />)}{pending.filter(p => p.id !== focusedSession?.proposalId).map((p) => <ProposalCard discuss={discuss} key={p.id} proposal={p} dossier={dossier} busy={busy} action={action} />)}{!pendingCount && !showSessionProposal && <div className="rounded-xl border border-dashed border-border py-12 text-center"><Icon name="CircleCheck" className="mx-auto mb-3 size-7 text-muted-foreground" /><h2 className="text-sm font-medium">Everything reviewed</h2><p className="mt-1 text-sm text-muted-foreground">New session results will appear here.</p></div>}</div>}
     {tab === "history" && <div className="mx-auto max-w-4xl space-y-5"><h2 className="text-sm font-medium">Decisions and accepted changes</h2>{dossier.proposals.filter((p) => !["pending", "approved"].includes(p.status)).map((p) => <ProposalCard discuss={discuss} key={p.id} proposal={p} dossier={dossier} busy={busy} action={action} />)}<details className="rounded-xl border border-border p-4"><summary className="cursor-pointer text-sm">Dossier log · latest {dossier.events.length} events</summary><ol className="mt-3 space-y-3">{dossier.events.map((event) => <li key={event.id} className="text-xs"><span className="text-muted-foreground">{date(event.createdAt)}</span><span className="ml-2">{event.kind}</span></li>)}</ol></details></div>}
   </div></div>;
 }
@@ -653,7 +746,7 @@ function KnowledgeBody({ entry }: { entry: KnowledgeEntry }) {
 }
 
 function KnowledgePage() {
-  const rpc = useRpc<typeof rpcContract>();
+  const rpc = useUxRpc();
   const navigate = useBbNavigate();
   const [query, setQuery] = useState("");
   const [offset, setOffset] = useState(0);
@@ -681,7 +774,7 @@ const reviewSelection = (item: ReviewItem): ReviewSelection => ({ kind: item.kin
 function ProposalInboxPage() {
   const updater = useUpdaterHealth();
   const incompleteSources = Boolean(updater.error || updater.data?.alert);
-  const rpc = useRpc<typeof rpcContract>(), navigate = useBbNavigate();
+  const rpc = useUxRpc(), navigate = useBbNavigate();
   const [offset, setOffset] = useState(0);
   const [previousOffsets, setPreviousOffsets] = useState<number[]>([]);
   const [filter, setFilter] = useState("all");
@@ -765,33 +858,41 @@ function ProposalInboxPage() {
 }
 
 function Page({ subPath }: PluginNavPanelProps) {
-  const rpc = useRpc<typeof rpcContract>();
+  const rpc = useUxRpc();
+  const reviews = useReviewFailures();
   const load = useCallback(() => rpc.call("threadProject", {}), [rpc]);
   const { data, error, refresh } = useSnapshot(load);
   const navigate = useBbNavigate(), { threadId } = deskRoute(subPath);
   if (!data && error) return <ErrorNotice error={error} retry={() => void refresh()} />;
   if (!data) return <p role="status">Loading 247C settings…</p>;
-  return <PlanningTimeZone.Provider value={data.timeZone ?? DAY_TIME_ZONE}><ErrorNotice error={error} retry={() => void refresh()} /><NavigationFrame subPath={subPath} returnToThread={threadId ? () => navigate.toThread(threadId) : undefined}><div className="flex h-full min-h-0 flex-col"><UpdaterHealthBanner showHealthy={deskRoute(subPath).path === "updates"} /><div className="min-h-0 flex-1"><PageContent subPath={subPath} /></div></div></NavigationFrame></PlanningTimeZone.Provider>;
+  const page = deskRoute(subPath).path.split("/")[0];
+  const uxPage = !page ? "tasks" : ["day", "report", "proposals", "updates", "knowledge", "ux"].includes(page) ? page as "day" | "report" | "proposals" | "updates" | "knowledge" | "ux" : "task";
+  return <UxScope page={uxPage} view={subPath} className="h-full min-h-0"><PlanningTimeZone.Provider value={data.timeZone ?? DAY_TIME_ZONE}><ErrorNotice error={error} retry={() => void refresh()} /><NavigationFrame subPath={subPath} pendingTotal={data.pendingTotal} failedReviews={reviews.data?.total ?? 0} today={localDay(new Date(), data.timeZone ?? DAY_TIME_ZONE)} goTo={path => navigate.toPluginPanel("desk", { subPath: withThread(path, threadId) })} returnToThread={threadId ? () => navigate.toThread(threadId) : undefined}><div className="flex h-full min-h-0 flex-col"><UpdaterHealthBanner showHealthy={deskRoute(subPath).path === "updates"} /><div className="min-h-0 flex-1"><PageContent subPath={subPath} /></div></div></NavigationFrame></PlanningTimeZone.Provider></UxScope>;
 }
 
 function PageContent({ subPath }: PluginNavPanelProps) {
   const timeZone = usePlanningTimeZone();
   const { path, threadId, focusTaskId } = deskRoute(subPath);
+  if (path === "reviews") return <ReviewFailuresPage />;
+  if (path === "ux") return <UxPageView />;
   if (path === "proposals") return <ProposalInboxPage />;
   if (path === "updates") return <SyncPage />;
   if (path === "knowledge") return <KnowledgePage />;
   const parts = path.split("/");
+  if (parts[0] === "new-chat" && parts.length === 2 && /^[A-Za-z0-9_-]{1,120}$/.test(parts[1])) return <TaskPage key={parts[1]} taskId={parts[1]} threadId={threadId} />;
   if (parts[0] === "day" || parts[0] === "report") {
     const report = parts[0] === "report", period = parts[1] === "day" ? "day" : "week";
     const date = (report ? parts[2] : parts[1]) || localDay(new Date(), timeZone);
     if (!dayDateSchema.safeParse(date).success) return <div className="p-6"><ErrorNotice error="The link contains an invalid date." /></div>;
     return <DayPage key={`${report}:${period}:${date}:${focusTaskId ?? ""}`} date={date} report={report} period={period} threadId={threadId} focusTaskId={focusTaskId} />;
   }
+  const sessionRoute = path.match(/^[A-Za-z0-9_-]{1,120}\/session\/([A-Za-z0-9_-]{1,120})(\/proposal)?$/);
+  const reviewSession = sessionRoute?.[1], showSessionProposal = Boolean(sessionRoute?.[2]);
   const returnTo = path.match(/^[^/]+\/from\/((?:day|report\/(?:day|week))\/\d{4}-\d{2}-\d{2}(?:\/task\/[A-Za-z0-9_-]{1,120})?)$/)?.[1];
-  return path ? <TaskPage key={parts[0]} taskId={parts[0]} returnTo={returnTo} threadId={threadId} /> : <Desk />;
+  return path ? <TaskPage key={`${parts[0]}:${reviewSession ?? ""}:${showSessionProposal}`} taskId={parts[0]} initialSessionId={reviewSession} showSessionProposal={showSessionProposal} returnTo={returnTo} threadId={threadId} /> : <Desk />;
 }
 function SidebarReported() {
-  const rpc = useRpc<typeof rpcContract>();
+  const rpc = useUxRpc();
   const load = useCallback(() => rpc.call("day", {}), [rpc]);
   const { data, error } = useSnapshot(load);
   if (!data && !error) return null;
@@ -803,14 +904,15 @@ function SidebarReported() {
 }
 
 function SidebarCount() {
-  const rpc = useRpc<typeof rpcContract>();
+  const rpc = useUxRpc();
   const navigate = useBbNavigate();
   const load = useCallback(() => rpc.call("list", { history: false }), [rpc]);
   const { data } = useSnapshot(load);
   const pendingLabel = `Proposals awaiting a decision: ${data?.pendingTotal ?? 0}`;
-  // BB clips this accessory to 4rem × 1.25rem. Keep the proposal signal
-  // first and non-shrinking; longer task counts yield space to reported time.
-  return <span className="inline-flex w-16 min-w-0 max-w-full items-center justify-end gap-0.5 whitespace-nowrap leading-4">
+  // The scoped sidebar style reserves room for failure and proposal signals
+  // together, without clipping reported time or covering BB’s menu button.
+  return <span className="inline-flex w-auto min-w-0 items-center justify-end gap-0.5 whitespace-nowrap leading-4">
+    <ReviewFailureBadge />
     <UpdaterHealthBadge />
     {data && data.pendingTotal > 0 && <button type="button" data-c247-proposals-shortcut="" className="inline-flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-full bg-orange-500/20 font-mono text-[9px] font-semibold leading-none tabular-nums text-orange-700 hover:bg-orange-500/35 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-orange-500 dark:text-orange-300" title={`${pendingLabel}. Open Proposals`} aria-label={pendingLabel} onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); navigate.toPluginPanel("desk", { subPath: "proposals" }); }}>{data.pendingTotal > 9 ? "9+" : data.pendingTotal}</button>}
     {data && data.total > 0 && <span className="min-w-0 truncate font-mono text-[10px] tabular-nums text-muted-foreground" title={`Open tasks: ${data.total}`}>{data.total}</span>}
@@ -818,10 +920,14 @@ function SidebarCount() {
   </span>;
 }
 export default definePluginApp((app) => {
+  app.slots.experimental_appOverlay({ id: "ux-recording", component: UxOverlay });
+  app.slots.settingsSection({ id: "ux-recording", title: "UX recording", component: UxPageView });
+  app.slots.experimental_appOverlay({ id: "review-failure-notification", component: ReviewFailureNotification });
   app.slots.experimental_appOverlay({ id: "updater-health-notification", component: UpdaterHealthNotification });
   app.contentScripts.register({ id: "sidebar-proposals-shortcut", mount: mountSidebarShortcut });
   app.slots.navPanel({ id: "desk", title: "247C", icon: "Target", path: "desk", component: Page, experimental_sidebarAccessory: SidebarCount });
   app.slots.experimental_threadHeaderAction({ id: "task", title: "247C task", component: ThreadTaskAction });
+  app.slots.experimental_threadHeaderAction({ id: "proposal", title: "247C proposal", component: ThreadProposalAction });
   app.slots.experimental_threadHeaderAction({ id: "source", title: "247C primary source", component: ThreadSourceAction });
   app.slots.experimental_threadHeaderAction({ id: "reported", title: "247C reported today", component: ThreadReportedAction });
   app.slots.experimental_threadHeaderAction({ id: "session", title: "247C session", component: ThreadSessionAction });

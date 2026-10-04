@@ -1,3 +1,6 @@
+import { reviewFailures } from "./review-failures.js";
+import { TASK_STATUS_MIGRATION } from "./task-status-migration.js";
+import { isLiveTask, statusNeedsStoppedSession } from "./task-status.js";
 import { SessionTime } from "./session-time.js";
 import { DayPlanning } from "./day-planning.js";
 import { DAY_TIME_ZONE } from "./day-contracts.js";
@@ -43,6 +46,7 @@ export const EXTRA_SCHEMA = [
   `CREATE TABLE task_source_preferences (task_id TEXT PRIMARY KEY REFERENCES tasks(id), url TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1)`,
   // Reserve index 34 for installations retaining the retired time migration at 33.
   `SELECT 1`,
+  TASK_STATUS_MIGRATION,
 ];
 export const ACTIVE = new Set<Session["status"]>(["starting", "working", "collecting", "review_starting", "reviewing", "repair_starting"]);
 export const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -90,7 +94,7 @@ export class Repository {
   assertCurrent(taskId: string, revision: number, requireOpen = true) {
     const task = this.kernel.getTask(taskId);
     if (task.revision !== revision) throw new ConflictError("The dossier changed. Refresh it and check the new data.");
-    if (requireOpen && task.status !== "open") throw new PolicyError("The task is closed. Reopen it first.");
+    if (requireOpen && !isLiveTask(task.status)) throw new PolicyError("The task is closed. Reopen it first.");
     return task;
   }
 
@@ -126,7 +130,7 @@ export class Repository {
   }
 
   status(taskId: string, status: TaskRecord["status"], revision: number) {
-    if (this.active().some((s) => s.taskId === taskId)) throw new PolicyError("Stop the current work session first.");
+    if (statusNeedsStoppedSession(this.kernel.getTask(taskId).status, status) && this.active().some((s) => s.taskId === taskId)) throw new PolicyError("Stop the current work session first.");
     const task = this.kernel.setTaskStatus(taskId, status, revision);
     this.changed();
     return task;
@@ -138,36 +142,52 @@ export class Repository {
   }
   list(history = false): { tasks: TaskCard[]; total: number; pendingTotal: number } {
     if (!this.db.inTransaction) this.sessionTime.reconcile();
-    const where = history ? "" : "WHERE t.status='open'";
+    const failures = new Map(reviewFailures(this).failures.slice().reverse().map(failure => [failure.taskId, failure.sessionId]));
+    const where = history ? "" : "WHERE t.status IN ('open','waiting')";
     const total = Number((this.db.prepare(`SELECT count(*) AS n FROM tasks t ${where}`).get() as Row).n);
     const tasks = (this.db.prepare(`SELECT t.*,p.summary,p.next_step,v.seen_revision,
       ((SELECT count(*) FROM proposals x WHERE x.task_id=t.id AND x.status IN ('pending','approved')) +
        (SELECT count(*) FROM source_sync_candidates c WHERE c.task_id=t.id AND c.status='pending')) AS pending_count,
       (SELECT id FROM sessions s WHERE s.task_id=t.id AND s.status IN ('starting','working','collecting','review_starting','reviewing','repair_starting') LIMIT 1) AS active_session
       FROM tasks t JOIN task_projections p ON p.task_id=t.id LEFT JOIN task_views v ON v.task_id=t.id ${where} ORDER BY t.updated_at DESC,t.id LIMIT 500`).all() as Row[]).map((row) => ({
-        ...this.kernel.getTask(String(row.id)), unseen: row.seen_revision == null ? "new" as const : Number(row.seen_revision) < Number(row.revision) ? "updated" as const : null, planning: this.planning(String(row.id)), summary: row.summary === null ? null : String(row.summary), nextStep: row.next_step === null ? null : String(row.next_step), pendingCount: Number(row.pending_count), activeSession: row.active_session === null ? null : String(row.active_session),
+        ...this.kernel.getTask(String(row.id)), failedReviewId: failures.get(String(row.id)) ?? null, unseen: row.seen_revision == null ? "new" as const : Number(row.seen_revision) < Number(row.revision) ? "updated" as const : null, planning: this.planning(String(row.id)), summary: row.summary === null ? null : String(row.summary), nextStep: row.next_step === null ? null : String(row.next_step), pendingCount: Number(row.pending_count), activeSession: row.active_session === null ? null : String(row.active_session),
       }));
     return { tasks, total, pendingTotal: this.pendingTotal() };
   }
 
-  detail(taskId: string): Dossier {
+  detail(taskId: string, sessionId?: string): Dossier {
     // A partial acceptance reads its dossier before retiring the original draft.
     // Do not reconcile that draft midway through the enclosing transaction.
     if (!this.db.inTransaction) this.sessionTime.reconcile(taskId);
+    const linkedSession = sessionId ? this.session(sessionId) : null;
+    if (linkedSession && linkedSession.taskId !== taskId) throw new PolicyError("The linked session belongs to a different task.");
     const dossier = this.kernel.getDossier(taskId);
-    const proposals = this.kernel.listProposals(taskId).map((proposal) => {
+    const drafts = this.kernel.listProposals(taskId);
+    // A thread link must still work after the recent-history limits are reached.
+    if (linkedSession?.proposalId && !drafts.some(p => p.id === linkedSession.proposalId)) {
+      const proposal = this.kernel.getProposal(linkedSession.proposalId);
+      if (proposal.taskId !== taskId) throw new PolicyError("The linked proposal belongs to a different task.");
+      drafts.unshift(proposal);
+    }
+    const proposals = drafts.map((proposal) => {
       const receipt = proposal.status === "applied" ? this.kernel.getApplicationReceipt(proposal.id) : null;
       return { ...proposal, ...this.partReviewFields("proposal", proposal.id), evidence: this.kernel.proposalEvidence(proposal.id), receipt: receipt ? { id: receipt.id, beforeRevision: receipt.beforeRevision, afterRevision: receipt.afterRevision, createdAt: receipt.createdAt } : null };
     });
     const events = (this.db.prepare("SELECT id,type,created_at,payload_json FROM kernel_events WHERE task_id=? ORDER BY sequence DESC LIMIT 100").all(taskId) as Row[]).map((r) => ({ id: String(r.id), kind: String(r.type), createdAt: String(r.created_at), detail: String(r.payload_json) }));
     const sessionUpdates = (this.db.prepare("SELECT u.value_json FROM session_updates u JOIN proposals p ON p.id=u.proposal_id WHERE p.task_id=? ORDER BY p.created_at DESC LIMIT 200").all(taskId) as Row[]).map((r) => sessionUpdateSchema.parse(JSON.parse(String(r.value_json))));
+    if (linkedSession?.proposalId && !sessionUpdates.some(u => u.proposalId === linkedSession.proposalId)) {
+      const row = this.db.prepare("SELECT value_json FROM session_updates WHERE proposal_id=? AND session_id=?").get(linkedSession.proposalId, linkedSession.id) as Row | undefined;
+      if (row) sessionUpdates.unshift(sessionUpdateSchema.parse(JSON.parse(String(row.value_json))));
+    }
+    const sessions = this.sessions(taskId);
+    if (linkedSession && !sessions.some(s => s.id === linkedSession.id)) sessions.unshift(linkedSession);
     const syncUpdates = (this.db.prepare("SELECT value_json FROM source_sync_candidates WHERE task_id=? ORDER BY rowid DESC LIMIT 200").all(taskId) as Row[]).map((r) => syncCandidateSchema.parse(JSON.parse(String(r.value_json)))).map(candidate => ({ ...candidate, ...this.partReviewFields("source", candidate.id) }));
     // Read accepted provenance independently of the recent review-history limit,
     // so the original source remains visible after many later checks.
     const acceptedSources = this.db.prepare("SELECT value_json FROM source_sync_candidates WHERE task_id=? AND status='applied' ORDER BY rowid").iterate(taskId) as Iterable<{ value_json: string }>;
     function* sources() { for (const row of acceptedSources) yield syncCandidateSchema.parse(JSON.parse(row.value_json)); }
     const sourceLinks = taskSourceLinks({ ...dossier, proposals }, sources());
-    return { ...dossier, planning: this.planning(taskId), proposals, sessions: this.sessions(taskId), events, brief: this.kernel.prepareBrief(taskId).markdown, sessionUpdates, syncUpdates, sourceLinks, ...this.sourceSelection(taskId, sourceLinks) };
+    return { ...dossier, planning: this.planning(taskId), proposals, sessions, events, brief: this.kernel.prepareBrief(taskId).markdown, sessionUpdates, syncUpdates, sourceLinks, ...this.sourceSelection(taskId, sourceLinks) };
   }
 
   sourceSelection(taskId: string, links: TaskSourceLink[]) {
@@ -284,7 +304,7 @@ export class Repository {
     this.store.transaction(() => {
       this.assertCurrent(proposal.taskId, revision, false);
       if (proposal.baseRevision !== revision) throw new ConflictError("The proposal targets an old dossier revision. A new result is required.");
-      if (proposal.changes.status && this.active().some((s) => s.taskId === proposal.taskId)) throw new PolicyError("Finish this task's current work session first.");
+      if (proposal.changes.status && statusNeedsStoppedSession(this.kernel.getTask(proposal.taskId).status, proposal.changes.status.value) && this.active().some((s) => s.taskId === proposal.taskId)) throw new PolicyError("Finish this task's current work session first.");
       if (this.active().some((s) => s.discussionProposalId === proposalId)) throw new PolicyError("Finish discussing this review first. Its revised proposal will appear after the session ends.");
       if (proposal.status === "pending") this.kernel.approveProposal(proposalId, "human:bb-panel");
       this.kernel.applyProposal(proposalId);

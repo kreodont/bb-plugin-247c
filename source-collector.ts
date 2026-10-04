@@ -1,4 +1,5 @@
-import { jiraReferences, pullRequestReferences } from "./source-links.js";
+import { isLiveTask } from "./task-status.js";
+import { jiraReferenceDetails, jiraReferences, pullRequestReferences } from "./source-links.js";
 import { defaultSourceConfig, type SourceConfig } from "./source-config.js";
 import { randomUUID } from "node:crypto";
 import type { SyncCandidate, SyncRun, NativeSyncSource as SyncSource, SyncSubmit } from "./contracts.js";
@@ -93,6 +94,7 @@ async function pool<T>(items: T[], work: (item: T) => Promise<void>, concurrency
   await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, async () => { while (index < items.length) await work(items[index++]); }));
 }
 function documentContent(source: SyncSource, data: Json, until: number): string {
+  if (source === "gmail" && !Array.isArray(data.messages) && typeof data.threadId === "string") data = { id: data.threadId, messages: [data] };
   if (source === "gmail" && Array.isArray(data.messages)) {
     return JSON.stringify({ id: data.id, messages: data.messages.filter((m: Json) => Number(m.internalDate ?? Date.parse(m.date)) <= until).map((m: Json) => ({
       id: m.id, threadId: m.threadId, date: m.date, internalDate: m.internalDate, sender: m.sender, to: m.toRecipients, cc: m.ccRecipients,
@@ -114,10 +116,16 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
   const start = Date.now();
   const signal = AbortSignal.any([options.signal ?? new AbortController().signal, AbortSignal.timeout(options.timeoutMs ?? 180000)]);
   const calls: SourceCall[] = [], documents: SourceDocument[] = [];
+  const recoveredCalls = new Set<string>();
   const problems: Record<SyncSource, string[]> = { gmail: [], slack: [], jira: [] };
   const scanned = { gmail: 0, slack: 0, jira: 0 };
-  const linked = sourceLinks(JSON.stringify([dossiers.filter(d => d.task.status === "open"), options.pendingCandidates ?? []]));
+  const linked = sourceLinks(JSON.stringify([dossiers.filter(d => isLiveTask(d.task.status)), options.pendingCandidates ?? []]));
   const pending = { gmail: new Set(linked.gmail), slack: new Map(linked.slack.map(s => [`${s.channel}:${s.ts}`, s])), jira: new Set(linked.jira) };
+  const jiraProject = (key: string) => key.slice(0, key.lastIndexOf("-"));
+  // Bare identifiers in source prose can also be store, project or customer IDs.
+  // Trust projects already present in durable task context or Jira search results;
+  // a direct Jira URL remains authoritative for a newly discovered project.
+  const trustedJiraProjects = new Set(linked.jira.map(jiraProject));
   const searchedGmail = new Set<string>(), gmailThreads = new Map<string, string>();
   const read = { gmail: new Set<string>(), slack: new Set<string>(), jira: new Set<string>() };
   const knownPullRequests = new Set(pullRequestReferences(JSON.stringify(dossiers)));
@@ -129,10 +137,16 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
   const progress = (source: SyncSource, detail: string) => options.onProgress?.({ source, detail, calls: calls.filter(c => c.source === source).length, reads: calls.filter(c => c.source === source && c.read && c.completed).length });
   const addLinks = (text: string) => {
     const found = sourceLinks(text);
-    found.gmail.forEach(id => pending.gmail.add(id)); found.jira.forEach(id => pending.jira.add(id));
+    found.gmail.forEach(id => pending.gmail.add(id));
+    for (const reference of jiraReferenceDetails(text)) {
+      const project = jiraProject(reference.key);
+      if (!reference.explicit && !trustedJiraProjects.has(project)) continue;
+      trustedJiraProjects.add(project);
+      pending.jira.add(reference.key);
+    }
     found.slack.forEach(s => pending.slack.set(`${s.channel}:${s.ts}`, s));
   };
-  async function call(source: SyncSource, tool: string, args: Json, full = false): Promise<Json | null> {
+  async function call(source: SyncSource, tool: string, args: Json, full = false, expectedThreadId?: string): Promise<Json | null> {
     if (signal.aborted || count >= (options.maxCalls ?? 600) || bytes > 28 * 1024 * 1024) { error(source, "The export limit was reached; the unchecked interval is preserved."); return null; }
     const connection = connections[source];
     if ("error" in connection) { error(source, connection.error); return null; }
@@ -154,12 +168,20 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
       }
       const data = responseData(result), raw = result as Json;
       const output = receiptText(data);
-      const shapeOk = tool === "get_message" ? typeof data.id === "string" && typeof data.threadId === "string" : !full || (source === "gmail" ? Array.isArray(data.messages) : source === "jira" ? Boolean(data.key && data.fields) : typeof data.messages === "string");
+      const shapeOk = tool === "get_message" ? data.id === args.messageId && typeof data.threadId === "string"
+        && (!expectedThreadId || data.threadId === expectedThreadId)
+        && (!full || typeof (data.plaintextBody ?? data.plaintext_body) === "string" && Number.isFinite(Number(data.internalDate ?? Date.parse(data.date))))
+        : !full || (source === "gmail" ? Array.isArray(data.messages) : source === "jira" ? Boolean(data.key && data.fields) : typeof data.messages === "string");
       const completed = !raw?.isError && !(raw?.statusCode >= 400) && !data.error && shapeOk;
       const size = Buffer.byteLength(output);
       const truncated = size > 3 * 1024 * 1024 || bytes + size > 32 * 1024 * 1024;
-      bytes += size;
-      calls.push({ ref, source, tool: `${source}.${tool}`, args, output: truncated ? output.slice(0, 1000) : output, completed: completed && !truncated, truncated, read: full });
+      const savedOutput = truncated ? output.slice(0, 1000) : output;
+      bytes += Buffer.byteLength(savedOutput);
+      calls.push({ ref, source, tool: `${source}.${tool}`, args, output: savedOutput, completed: completed && !truncated, truncated, read: full });
+      if (completed && source === "gmail" && tool === "get_thread" && full && size > 3 * 1024 * 1024) {
+        await readLargeGmailThread(data, String(args.threadId), ref);
+        return data;
+      }
       if (!completed || truncated) {
         const sourceFailure = raw?.isError || raw?.statusCode >= 400 || data.error;
         const target = args.threadId ?? args.messageId ?? args.issueIdOrKey ?? args.channel_id;
@@ -168,6 +190,15 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
       }
       if (full) {
         const content = documentContent(source, data, Date.parse(run.until));
+        // Ticket keys in email subject brackets establish a project before
+        // following bare references in that thread. Use the time-filtered export.
+        if (source === "gmail") {
+          for (const message of JSON.parse(content).messages ?? []) {
+            for (const match of String(message.subject ?? "").matchAll(/\[([A-Z][A-Z0-9]*-[1-9]\d*)\]/g)) {
+              if (jiraReferences(match[1]).length) trustedJiraProjects.add(jiraProject(match[1]));
+            }
+          }
+        }
         documents.push({ ref, source, tool, args, content }); addLinks(output);
         for (const url of pullRequestReferences(content)) if (!knownPullRequests.has(url)) pendingPullRequests.add(url);
       }
@@ -178,6 +209,20 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
       calls.push({ ref, source, tool: `${source}.${tool}`, args, output: message, completed: false, truncated: false, read: full });
       error(source, `${tool}: ${message}`); progress(source, "Some data is unavailable"); return null;
     }
+  }
+  async function readLargeGmailThread(data: Json, threadId: string, ref: string) {
+    const timestamp = (message: Json) => Number(message.internalDate ?? Date.parse(message.date));
+    const valid = data.messages.every((message: Json) => typeof message.id === "string" && message.id.length > 0 && Number.isFinite(timestamp(message)));
+    const messages = [...new Map<string, Json>(data.messages.filter((message: Json) => typeof message.id === "string" && Number.isFinite(timestamp(message)) && timestamp(message) <= Date.parse(run.until))
+      .map((message: Json) => [message.id, message] as const)).values()].sort((a, b) => timestamp(b) - timestamp(a));
+    let loaded = 0;
+    for (const message of messages) {
+      const result = await call("gmail", "get_message", { messageId: message.id, messageFormat: "PLAIN_TEXT" }, true, threadId);
+      if (result) loaded++;
+      if (signal.aborted || count >= (options.maxCalls ?? 600) || bytes > 28 * 1024 * 1024) break;
+    }
+    if (valid && loaded === messages.length) recoveredCalls.add(ref);
+    else error("gmail", `get_thread (${threadId}): oversized thread recovery incomplete (${loaded}/${messages.length} messages read${valid ? "" : "; invalid message metadata"}).`);
   }
   async function pages(source: SyncSource, tool: string, args: Json, take: (data: Json) => number, tokenName: string, limit: number, full = false): Promise<void> {
     const tokens = new Set<string>();
@@ -201,7 +246,7 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
     const since = Math.floor(Date.parse(run.ranges.gmail.since) / 1000 - 300), until = Math.floor(Date.parse(run.until) / 1000 + 1);
     await Promise.all([gmailSearch(`is:unread in:inbox after:${since} before:${until}`), gmailSearch(`after:${since} before:${until} ${config.mailFilters}`)]);
     // Stable task keys also find conversations whose dossier has no source URL.
-    const keys = [...new Set(JSON.stringify(dossiers.filter(d => d.task.status === "open")).match(/\b(?:[A-Z][A-Z0-9]*-\d+|SO\d{5,}|E\d{6,}|Q-\d+)\b/g) ?? [])];
+    const keys = [...new Set(JSON.stringify(dossiers.filter(d => isLiveTask(d.task.status))).match(/\b(?:[A-Z][A-Z0-9]*-\d+|SO\d{5,}|E\d{6,}|Q-\d+)\b/g) ?? [])];
     for (let i = 0; i < keys.length; i += 25) await gmailSearch(`after:${since} before:${until} {${keys.slice(i, i + 25).join(" ")}}`);
     await readGmail();
   }
@@ -279,6 +324,7 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
       for (const issue of data.issues) {
         const at = Date.parse(issue.fields?.updated);
         if (!Number.isFinite(at)) error("jira", `Missing update time for ${issue.key}.`);
+        if (typeof issue.key === "string") trustedJiraProjects.add(jiraProject(issue.key));
         if (Number.isFinite(at) && at >= sinceMs && at <= untilMs && typeof issue.key === "string") pending.jira.add(issue.key);
       }
       scanned.jira += data.issues.length; return data.issues.length;
@@ -317,10 +363,10 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
     await Promise.all(SOURCES.map(async source => { const c = connections?.[source]; if (c && !("error" in c)) await c.close().catch(() => {}); }));
   }
   const reports = SOURCES.map(source => {
-    const receipts = calls.filter(c => c.source === source), good = receipts.filter(c => c.completed);
+    const receipts = calls.filter(c => c.source === source && !recoveredCalls.has(c.ref)), good = receipts.filter(c => c.completed);
     const issues = problems[source];
     return { source, status: (!good.length ? "unavailable" : issues.length ? "partial" : "complete") as SyncSubmit["reports"][number]["status"],
-      detail: issues.length ? issues.join("\n").slice(0, 3800) : `Loaded by script: ${good.filter(c => c.read).length} full threads/issues.`,
+      detail: issues.length ? issues.join("\n").slice(0, 3800) : `Loaded by script: ${good.filter(c => c.read).length} full threads/messages/issues.`,
       callRefs: receipts.map(c => c.ref), paginationComplete: !issues.length, linkedTasksChecked: !issues.length,
       scanned: scanned[source], threadsRead: good.filter(c => c.read).length,
     };

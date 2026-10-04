@@ -6,7 +6,7 @@ import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { CapturedPluginApp, RenderedSlot } from "@get-bb/plugin-sdk/testing/app";
 import { randomUUID } from "node:crypto";
 import { fixture } from "./test-support.js";
-import { rpcContract } from "./contracts.js";
+import { rpcContract, syncStartSchema } from "./contracts.js";
 import { SourceSyncStore } from "./source-sync.js";
 import { DayPlanning } from "./day-planning.js";
 import { sourceData, startSourceSync, submitSourceData } from "./source-sync-test-support.js";
@@ -23,6 +23,103 @@ async function setup(taskId?: string, supplied?: Awaited<ReturnType<typeof fixtu
   mounts.push(slot);
   return { f, slot };
 }
+
+it.each(["list", "cards"])("creates an empty native thread directly from the %s task layout", async layout => {
+  localStorage.setItem("247c-task-layout", layout);
+  const f = await fixture(), task = await f.create();
+  await f.harness.behavior.setSettings({ workProvider: "claude-work", workModel: "claude-opus-5[1m]" });
+  const { slot } = await setup(undefined, f);
+  const button = await slot.findByRole("button", { name: "New chat" });
+  fireEvent.click(button); fireEvent.click(button);
+  await waitFor(() => expect(slot.inspection.navigateCalls).toHaveLength(1));
+  const session = f.repo.sessions(task.id)[0];
+  expect(JSON.stringify(slot.inspection.navigateCalls)).toContain(session.workerThreadId);
+  expect(slot.queryByTestId("bb-new-thread-composer")).toBeNull();
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")[0][0]).toMatchObject({ input: [{ type: "text", visibility: "agent-only" }], providerId: "claude-work", model: "claude-opus-5[1m]" });
+  await slot.behavior.emitRealtime("desk-changed", {});
+  fireEvent.click(await slot.findByRole("button", { name: "Open chat" }));
+  await waitFor(() => expect(slot.inspection.navigateCalls).toHaveLength(2));
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
+  localStorage.removeItem("247c-task-layout");
+});
+
+it("retries an uncertain direct-chat response with the same key and opens the existing thread", async () => {
+  const f = await fixture(), task = await f.create(); hosts.push(f);
+  await f.harness.behavior.setSettings({ workProvider: "claude-work", workModel: "claude-opus-5[1m]" });
+  let calls = 0;
+  const rpc = Object.fromEntries(Object.keys(rpcContract).map(name => [name, async (input: unknown) => {
+    const result = await f.harness.behavior.callRpc(name, input);
+    if (name === "openChat" && ++calls === 1) throw new Error("Connection lost after creation");
+    return result;
+  }]));
+  const slot = renderSlot(app.navPanels[0], { subPath: "" }, { rpc }); mounts.push(slot);
+  fireEvent.click(await slot.findByRole("button", { name: "New chat" }));
+  await waitFor(() => expect(f.repo.sessions(task.id)).toHaveLength(1));
+  await waitFor(() => expect((slot.getByRole("button", { name: "New chat" }) as HTMLButtonElement).disabled).toBe(false));
+  expect(slot.inspection.navigateCalls).toHaveLength(0);
+  fireEvent.click(slot.getByRole("button", { name: "New chat" }));
+  await waitFor(() => expect(slot.inspection.navigateCalls).toHaveLength(1));
+  const requests = slot.inspection.rpcCalls.filter(c => c.method === "openChat");
+  expect(requests[0].input).toEqual(requests[1].input);
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
+});
+
+it("edits a reported total directly in the thread without changing planned time or navigating", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-10-02T09:00:00Z"));
+  const f = await fixture(), task = await f.create(), days = new DayPlanning(f.repo);
+  await f.harness.behavior.callRpc("start", { ...f.startInput(task.id, task.revision), criteria: [] });
+  const item = days.add({ date: "2026-10-02", taskId: task.id, plannedMinutes: 50, reportedMinutes: 20, requestId: randomUUID() });
+  const header = setupThread(f, f.repo.sessions(task.id)[0].workerThreadId!, false, "reported");
+  fireEvent.click(await header.findByRole("button", { name: "Reported today: 20m. Edit reported time" }));
+  const dialog = within(await header.findByRole("dialog"));
+  const input = await dialog.findByLabelText("Reported total");
+  await waitFor(() => expect((input as HTMLInputElement).value).toBe("20m"));
+  expect(document.activeElement).toBe(input);
+  fireEvent.change(input, { target: { value: "1:15" } });
+  fireEvent.click(dialog.getByRole("button", { name: "Save total" }));
+  await header.findByLabelText("Reported today: 1h 15m");
+  expect(days.get(item.id)).toMatchObject({ plannedMinutes: 50, reportedMinutes: 75, reportedLocked: true });
+  expect(header.inspection.navigateCalls).toHaveLength(0);
+});
+
+it("opening or cancelling quick time does not add a day row; saving adds exactly the explicit total", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-10-02T09:00:00Z"));
+  const f = await fixture(), task = await f.create(), days = new DayPlanning(f.repo);
+  await f.harness.behavior.callRpc("start", { ...f.startInput(task.id, task.revision), criteria: [] });
+  const header = setupThread(f, f.repo.sessions(task.id)[0].workerThreadId!, false, "reported");
+  const edit = await header.findByRole("button", { name: "Reported today: —. Edit reported time" });
+  fireEvent.click(edit); let dialog = within(await header.findByRole("dialog"));
+  await waitFor(() => expect((dialog.getByLabelText("Reported total") as HTMLInputElement).disabled).toBe(false));
+  expect(days.taskItem(task.id, "2026-10-02")).toBeNull();
+  fireEvent.click(dialog.getByRole("button", { name: "Cancel" }));
+  expect(days.taskItem(task.id, "2026-10-02")).toBeNull();
+  fireEvent.click(edit); dialog = within(await header.findByRole("dialog"));
+  await waitFor(() => expect((dialog.getByLabelText("Reported total") as HTMLInputElement).disabled).toBe(false));
+  fireEvent.change(dialog.getByLabelText("Reported total"), { target: { value: "25m" } });
+  fireEvent.click(dialog.getByRole("button", { name: "Save total" }));
+  await header.findByLabelText("Reported today: 25m");
+  const item = days.taskItem(task.id, "2026-10-02")!;
+  expect(item).toMatchObject({ plannedMinutes: 0, reportedMinutes: 25 });
+  expect(days.history(item.id).items).toHaveLength(1);
+});
+
+it("keeps a concurrent reported-time change and preserves the quick editor draft on conflict", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-10-02T09:00:00Z"));
+  const f = await fixture(), task = await f.create(), days = new DayPlanning(f.repo);
+  await f.harness.behavior.callRpc("start", { ...f.startInput(task.id, task.revision), criteria: [] });
+  const item = days.add({ date: "2026-10-02", taskId: task.id, reportedMinutes: 20, requestId: randomUUID() });
+  const header = setupThread(f, f.repo.sessions(task.id)[0].workerThreadId!, false, "reported");
+  fireEvent.click(await header.findByRole("button", { name: "Reported today: 20m. Edit reported time" }));
+  const dialog = within(await header.findByRole("dialog")); const input = dialog.getByLabelText("Reported total") as HTMLInputElement;
+  await waitFor(() => expect(input.value).toBe("20m"));
+  days.edit({ id: item.id, revision: item.revision, requestId: randomUUID(), reportedMinutes: 35 });
+  fireEvent.change(input, { target: { value: "45m" } }); fireEvent.click(dialog.getByRole("button", { name: "Save total" }));
+  await dialog.findByRole("alert"); expect(input.value).toBe("45m"); expect(days.get(item.id).reportedMinutes).toBe(35);
+  fireEvent.click(dialog.getByRole("button", { name: "Reload saved time" }));
+  await waitFor(() => expect(input.value).toBe("35m"));
+  expect(header.inspection.navigateCalls).toHaveLength(0);
+});
 
 it("shows the saved source directly below the title across dossier tabs", async () => {
   const f = await fixture(); const { run } = await startSourceSync(f); const { input } = await sourceData(f, run);
@@ -65,7 +162,7 @@ it.each(["work", "updates"])("opens the %s composer in the configured thread pro
   const f = await fixture(); const task = await f.create();
   await f.harness.behavior.setSettings({ threadProjectId: "proj_tasks", composerDefaults: JSON.stringify({ providerId: "claude-work", model: "claude-opus-5[1m]" }) });
   const { slot } = await setup(page === "work" ? task.id : "updates", f);
-  const startControl = await slot.findByRole(page === "work" ? "tab" : "button", { name: page === "work" ? "Work" : "Check for updates" });
+  const startControl = await slot.findByRole(page === "work" ? "tab" : "button", { name: page === "work" ? "Work" : "Custom check…" });
   await waitFor(() => expect((startControl as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(startControl);
   const composer = await slot.findByTestId("bb-new-thread-composer");
@@ -192,12 +289,61 @@ it("requires a current-task review before replacing a conflicting proposal and k
   expect(slot.inspection.rpcCalls.find(call => call.method === "refreshProposal")?.input).toMatchObject({ reviewed: true, parts: ["field:summary"] });
 });
 
-it("opens source updates without a model run, and forwards an optional date through the native composer", async () => {
+it("labels the desk navigation Updates and does not launch a check while navigating", async () => {
+  const { f, slot } = await setup();
+  fireEvent.click(await slot.findByText("More"));
+  fireEvent.click(await slot.findByRole("button", { name: "Updates" }));
+  expect(slot.inspection.navigateCalls).toContainEqual({ method: "toPluginPanel", path: "desk", options: { subPath: "updates" } });
+  expect(slot.queryByRole("button", { name: "Check for updates" })).toBeNull();
+  expect(new SourceSyncStore(f.repo).state().runs).toHaveLength(0);
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
+});
+
+it("starts collecting with one click using saved preferences and prevents a second launch", async () => {
+  const collect = vi.spyOn(collector, "collectSources").mockImplementation(async (_run, _dossiers, options) => new Promise((_resolve, reject) => {
+    options?.signal?.addEventListener("abort", () => reject(new Error("Stopped")), { once: true });
+  }));
+  const f = await fixture();
+  await f.harness.behavior.setSettings({ syncProvider: "codex", syncModel: "gpt-5.6-sol", syncReasoningLevel: "medium" });
+  const store = new SourceSyncStore(f.repo);
+  const first = store.insert(syncStartSchema.parse({ requestId: randomUUID(), since: null, request: { ...f.startInput("unused", 0).request, model: "gpt-6-astra", reasoningLevel: "max" } }));
+  store.save({ ...first, status: "completed", finishedAt: first.startedAt });
+  const before = f.repo.list(true);
+  const { slot } = await setup("updates", f);
+  const button = await slot.findByRole("button", { name: "Check for updates" });
+  await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(button); fireEvent.click(button);
+  await slot.findByText("Check started. Progress is shown below.");
+  expect(slot.queryByTestId("bb-new-thread-composer")).toBeNull();
+  expect(collect).toHaveBeenCalledOnce();
+  expect(store.state().runs).toHaveLength(2);
+  const run = store.active()[0];
+  expect(run).toMatchObject({ model: "gpt-5.6-sol", manualSince: null, collection: { phase: "collecting" } });
+  expect(store.request(run.id)).toMatchObject({ incremental: true, input: { request: { reasoningLevel: "medium" } } });
+  expect((slot.getByRole("button", { name: "Check running…" }) as HTMLButtonElement).disabled).toBe(true);
+  expect(slot.getAllByText("Loading data…")).toHaveLength(3);
+  expect(slot.inspection.rpcCalls.filter(call => call.method === "syncQuickStart")).toHaveLength(1);
+  expect(f.repo.list(true)).toEqual(before);
+});
+
+it("offers a custom check when the first launch needs setup", async () => {
+  const { f, slot } = await setup("updates");
+  const button = await slot.findByRole("button", { name: "Check for updates" });
+  await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(button);
+  await slot.findByText(/Run a Custom check first/);
+  expect(new SourceSyncStore(f.repo).state().runs).toHaveLength(0);
+  fireEvent.click(slot.getByRole("button", { name: "Custom check…" }));
+  await slot.findByRole("heading", { name: "Custom check" });
+  expect(slot.queryByText(/Run a Custom check first/)).toBeNull();
+});
+
+it("opens a custom check without a model run, and forwards an optional date through the native composer", async () => {
   vi.spyOn(collector, "collectSources").mockImplementation(async run => ({ version: 1, runId: run.id, startedAt: run.startedAt, finishedAt: run.until, elapsedMs: 1000, calls: [], documents: [], reports: ["gmail", "slack", "jira"].map(source => ({ source: source as "gmail" | "slack" | "jira", status: "complete", detail: "Checked", callRefs: [], paginationComplete: true, linkedTasksChecked: true, scanned: 0, threadsRead: 0 })) }));
   const f = await fixture();
   await f.harness.behavior.setSettings({ syncProvider: "codex", syncModel: "gpt-5.6-sol" });
   const { slot } = await setup("updates", f);
-  const checkButton = await slot.findByRole("button", { name: "Check for updates" });
+  const checkButton = await slot.findByRole("button", { name: "Custom check…" });
   await waitFor(() => expect((checkButton as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(checkButton);
   const composer = await slot.findByTestId("bb-new-thread-composer");
@@ -685,6 +831,7 @@ it("opens an ordinary conversation from BB's native composer and finishes only b
   expect(session.criteria).toEqual([]);
   expect(session.mode).toBe("conversation");
   expect(session.objective).toBe("Составь план");
+  await waitFor(() => expect(JSON.stringify(slot.inspection.navigateCalls)).toContain(session.workerThreadId));
   const spawn = f.harness.inspection.sdk.callsTo("threads.spawn")[0][0];
   expect(spawn).toMatchObject({ providerId: "claude-work", model: "claude-opus-5[1m]", permissionMode: "accept-edits", environment: { type: "project-default" } });
   await f.idle(session.workerThreadId!, "Давай обсудим план.");
@@ -1005,4 +1152,43 @@ it.each(["bulk", "single", "partial"])("sets priority on a collapsed new-task pr
   await waitFor(() => expect(f.repo.list().total).toBe(1));
   expect(f.repo.list().tasks[0].planning).toMatchObject({ urgent: true, important: false });
   if (mode === "partial") expect(f.repo.detail(f.repo.list().tasks[0].id).projection.nextStep).toBeNull();
+});
+
+it.each(["list", "cards"])("filters waiting tasks in %s without losing their chat shortcut", async layout => {
+  localStorage.setItem("247c-task-layout", layout);
+  const f = await fixture({ settings: { workProvider: "claude-work", workModel: "claude-opus-5[1m]" } }), task = await f.create();
+  f.repo.status(task.id, "waiting", task.revision);
+  const evidence = f.repo.kernel.appendFact({ taskId: task.id, kind: "progress", text: "The request is awaiting a reply." });
+  f.repo.kernel.createProposal({ taskId: task.id, baseRevision: f.repo.kernel.getTask(task.id).revision, model: "test", output: { rationale: "Pending summary", confidence: 1, changes: { summary: { value: evidence.text, evidenceRefs: [evidence.id] } } } });
+  const other = f.repo.create({ title: "Actionable task", description: "", requestId: randomUUID() });
+  const { slot } = await setup(undefined, f);
+  await slot.findByRole("heading", { name: new RegExp(task.title) });
+  const filter = slot.getByRole("button", { name: /Waiting for response/, pressed: false });
+  expect(filter.textContent).toContain("1");
+  fireEvent.click(filter);
+  expect(filter.getAttribute("aria-pressed")).toBe("true");
+  expect(slot.queryByRole("heading", { name: new RegExp(other.title) })).toBeNull();
+  const heading = slot.getByRole("heading", { name: new RegExp(task.title) });
+  const row = heading.closest(".border-l-4")!;
+  expect(row.className).toContain("bg-sky-400/10");
+  expect(row.textContent).toContain("Waiting for response");
+  expect(row.textContent).toContain("Awaiting a decision · 1");
+  fireEvent.click(within(row as HTMLElement).getByRole("button", { name: "New chat" }));
+  await waitFor(() => expect(slot.inspection.navigateCalls).toHaveLength(1));
+  expect(f.repo.kernel.getTask(task.id).status).toBe("waiting");
+  localStorage.removeItem("247c-task-layout");
+});
+
+it("switches Open and Waiting in the task header while keeping an active chat", async () => {
+  const f = await fixture({ settings: { workProvider: "claude-work", workModel: "claude-opus-5[1m]" } }), task = await f.create();
+  await f.harness.behavior.callRpc("openChat", { taskId: task.id, requestId: randomUUID() });
+  const { slot } = await setup(task.id, f);
+  fireEvent.click(await slot.findByRole("button", { name: "Waiting for response" }));
+  await slot.findByRole("button", { name: "Resume task" });
+  expect(f.repo.kernel.getTask(task.id).status).toBe("waiting");
+  expect(f.repo.sessions(task.id)[0].status).toBe("working");
+  fireEvent.click(slot.getByRole("button", { name: "Resume task" }));
+  await slot.findByRole("button", { name: "Waiting for response" });
+  expect(f.repo.kernel.getTask(task.id).status).toBe("open");
+  expect(f.harness.inspection.sdk.callsTo("threads.archive")).toHaveLength(0);
 });

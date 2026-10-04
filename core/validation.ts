@@ -82,7 +82,7 @@ export function parseProposalDraft(input: unknown): StewardProposalDraft {
     });
   }
   if ("status" in rawChanges) changes.status = proposed(rawChanges.status, "status", (value) => {
-    if (value !== "open" && value !== "done" && value !== "archived") throw new PolicyError("proposed status must be open, done or archived");
+    if (value !== "open" && value !== "waiting" && value !== "done" && value !== "archived") throw new PolicyError("proposed status must be open, waiting, done or archived");
     return value;
   });
   if ("summary" in rawChanges) changes.summary = proposed(rawChanges.summary, "summary", nullableString);

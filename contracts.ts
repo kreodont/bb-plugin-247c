@@ -1,3 +1,6 @@
+import { reviewFailuresSchema } from "./review-failures-contracts.js";
+import { taskStatuses } from "./task-status.js";
+import { uxRpcContract } from "./ux-contracts.js";
 import { updaterHealthSchema, updaterStartResultSchema } from "./updater-health-contracts.js";
 import { z } from "zod";
 import { defineRpcContract, type NewThreadRequest } from "@get-bb/plugin-sdk";
@@ -6,7 +9,7 @@ import { sourceUrl } from "./task-sources.js";
 
 export const idSchema = z.string().min(1).max(120);
 export const revisionSchema = z.number().int().nonnegative();
-export const statusSchema = z.enum(["open", "done", "archived"]);
+export const statusSchema = z.enum(taskStatuses);
 export const factKindSchema = z.enum(["description", "progress", "user_instruction", "explicit_next_step", "decision", "open_question", "artifact", "constraint", "blocker"]);
 export const axisSchema = z.boolean().nullable();
 const text = z.string().trim().min(1).max(12000);
@@ -29,7 +32,7 @@ export const draftSchema = z.object({ rationale: text, confidence: z.number().mi
 export const taskSchema = z.object({ id: idSchema, title: z.string(), status: statusSchema, revision: revisionSchema, createdAt: z.string(), updatedAt: z.string() });
 export const initialPrioritySchema = z.object({ urgent: z.boolean(), important: z.boolean() }).strict();
 export const planningSchema = z.object({ urgent: axisSchema, important: axisSchema, revision: revisionSchema });
-export const taskCardSchema = taskSchema.extend({ planning: planningSchema, summary: z.string().nullable(), nextStep: z.string().nullable(), pendingCount: z.number(), activeSession: z.string().nullable(), unseen: z.enum(["new", "updated"]).nullable().default(null) });
+export const taskCardSchema = taskSchema.extend({ planning: planningSchema, summary: z.string().nullable(), nextStep: z.string().nullable(), pendingCount: z.number(), activeSession: z.string().nullable(), failedReviewId: z.string().nullable().default(null), unseen: z.enum(["new", "updated"]).nullable().default(null) });
 export const factSchema = z.object({ id: idSchema, taskId: idSchema, kind: factKindSchema, text: z.string(), source: z.string(), sourceRef: z.string().nullable(), occurredAt: z.string(), createdAt: z.string() });
 export const projectionSchema = z.object({ taskId: idSchema, summary: z.string().nullable(), nextStep: z.string().nullable(), openQuestions: z.array(z.string()), blockers: z.array(z.string()), artifacts: z.array(artifactSchema), updatedAt: z.string() });
 export const evidenceSchema = z.object({ ref: z.string(), kind: factKindSchema, text: z.string(), source: z.string(), sourceRef: z.string().nullable() });
@@ -239,12 +242,15 @@ export const syncStartSchema = z.object({ requestId: z.uuid(), since: z.iso.date
 export const syncImportSchema = z.object({ requestId: z.uuid(), path: z.string().min(1).max(4096), sha256: z.string().regex(/^[a-f0-9]{64}$/) }).strict();
 export const syncStateSchema = z.object({ runs: z.array(syncRunSchema), candidates: z.array(syncCandidateSchema), pending: z.number(), checkpoints: z.record(sourceKeySchema, z.string().nullable()), nextSince: z.record(sourceKeySchema, z.string()) });
 export const rpcContract = defineRpcContract({
-  threadProject: { input: z.object({}).strict(), output: z.object({ projectId: idSchema.nullable(), providerId: z.string().nullable().default(null), model: z.string().nullable().default(null), timeZone: z.string().optional(), workProvider: z.string().optional(), workModel: z.string().optional(), syncProvider: z.string().optional(), syncModel: z.string().optional() }) },
+  reviewFailures: { input: z.object({}).strict(), output: reviewFailuresSchema },
+  ...uxRpcContract,
+  threadProject: { input: z.object({}).strict(), output: z.object({ projectId: idSchema.nullable(), providerId: z.string().nullable().default(null), model: z.string().nullable().default(null), timeZone: z.string().optional(), pendingTotal: z.number().optional(), workProvider: z.string().optional(), workModel: z.string().optional(), syncProvider: z.string().optional(), syncModel: z.string().optional() }) },
   ...dayRpcContract,
   proposalInbox: { input: z.object({ offset: z.number().int().min(0).default(0) }).strict(), output: z.object({ items: z.array(reviewItemSchema), total: z.number(), nextOffset: z.number().nullable() }) },
   acceptInbox: { input: z.object({ items: z.array(reviewSelectionSchema).min(1).max(50) }).strict(), output: z.object({ applied: z.array(z.object({ kind: z.enum(["source", "proposal"]), id: idSchema, taskId: idSchema })), failed: z.array(z.object({ kind: z.enum(["source", "proposal"]), id: idSchema, message: z.string() })) }) },
   syncState: { input: z.object({}).strict(), output: syncStateSchema },
   syncStart: { input: syncStartSchema, output: syncRunSchema },
+  syncQuickStart: { input: z.object({ requestId: z.uuid() }).strict(), output: z.object({ run: syncRunSchema, alreadyRunning: z.boolean() }) },
   syncImport: { input: syncImportSchema, output: syncRunSchema },
   syncCancel: { input: z.object({ runId: idSchema }).strict(), output: syncRunSchema },
   syncAccept: { input: z.object({ candidateId: idSchema, initialPriority: initialPrioritySchema.optional() }).strict(), output: dossierSchema },
@@ -252,8 +258,8 @@ export const rpcContract = defineRpcContract({
   list: { input: z.object({ history: z.boolean().default(false) }).strict(), output: z.object({ tasks: z.array(taskCardSchema), total: z.number(), pendingTotal: z.number(), settings: settingsViewSchema }) },
   taskSeen: { input: z.object({ id: idSchema, revision: revisionSchema }).strict(), output: z.object({ seenRevision: revisionSchema }) },
   reviewParts: { input: partDecisionSchema, output: partDecisionResultSchema },
-  detail: { input: z.object({ id: idSchema }).strict(), output: dossierSchema },
-  threadSession: { input: z.object({ threadId: idSchema }).strict(), output: z.object({ session: sessionSchema.pick({ id: true, taskId: true, workerThreadId: true, mode: true, status: true }).nullable(), reportedToday: z.object({ date: dayDateSchema, timeZone: z.string().optional(), minutes: dayMinutesSchema, estimated: z.boolean() }).optional() }) },
+  detail: { input: z.object({ id: idSchema, sessionId: idSchema.optional() }).strict(), output: dossierSchema },
+  threadSession: { input: z.object({ threadId: idSchema }).strict(), output: z.object({ session: sessionSchema.pick({ id: true, taskId: true, workerThreadId: true, reviewerThreadId: true, mode: true, status: true, finishedAt: true, proposalId: true }).nullable(), reportedToday: z.object({ date: dayDateSchema, timeZone: z.string().optional(), minutes: dayMinutesSchema, estimated: z.boolean() }).optional() }) },
   threadSource: { input: z.object({ threadId: idSchema }).strict(), output: z.object({ source: taskSourceLinkSchema.nullable() }) },
   setPrimarySource: { input: z.object({ taskId: idSchema, url: sourceUrlSchema, revision: revisionSchema, requestId: z.uuid() }).strict(), output: sourceSelectionSchema },
   create: { input: z.object({ title: z.string().trim().min(1).max(200), description: z.string().trim().max(12000).default(""), primarySourceUrl: sourceUrlSchema.nullable().optional(), requestId: z.uuid() }).strict(), output: taskSchema },
@@ -267,6 +273,7 @@ export const rpcContract = defineRpcContract({
   reject: { input: z.object({ proposalId: idSchema }).strict(), output: proposalSchema },
   revert: { input: z.object({ proposalId: idSchema }).strict(), output: proposalSchema },
   start: { input: sessionStartSchema, output: sessionSchema },
+  openChat: { input: z.object({ taskId: idSchema, requestId: z.uuid() }).strict(), output: sessionSchema },
   finish: { input: z.object({ sessionId: idSchema, recorder: z.enum(["auto", "same", "personal-claude"]).default("auto") }).strict(), output: sessionSchema },
   retry: { input: z.object({ sessionId: idSchema, recorder: z.enum(["auto", "same", "personal-claude"]).default("auto") }).strict(), output: sessionSchema },
   resume: { input: z.object({ sessionId: idSchema }).strict(), output: sessionSchema },

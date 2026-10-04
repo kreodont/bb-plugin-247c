@@ -26,6 +26,55 @@ async function setup() {
 const plannerRun = { id: "run_plan", status: "running" as const, startedAt: Date.now(), finishedAt: null, error: null, skipReason: null };
 const plannerState = { configured: true, today: localDay(), name: "Work planner", scheduled: true, nextRunAt: Date.now() + 60000, run: null };
 
+it.each([false, true])("saves day edits before opening a task chat (existing session: %s)", async existing => {
+  const { f, task, days, item, mount } = await setup();
+  await f.harness.behavior.setSettings({ workProvider: "claude-work", workModel: "claude-opus-5[1m]" });
+  const session = existing ? await f.start(task.id, task.revision) : null;
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const edit = vi.fn(async input => { if (edit.mock.calls.length === 1) await gate; return days.edit(input); });
+  const slot = mount(`day/${item.date}/thread/thr_origin`, { dayEdit: edit });
+  const input = await slot.findByLabelText(`Reported: ${task.title}`);
+  fireEvent.change(input, { target: { value: "10m" } });
+  const chat = slot.getByRole("button", { name: existing ? "Open chat" : "New chat" });
+  fireEvent.click(chat); fireEvent.click(chat);
+  await waitFor(() => expect(edit).toHaveBeenCalledOnce());
+  expect(slot.inspection.navigateCalls).toHaveLength(0);
+  fireEvent.change(input, { target: { value: "35m" } });
+  await act(async () => { release(); });
+  await waitFor(() => expect(slot.inspection.navigateCalls).toHaveLength(1));
+  expect(days.get(item.id).reportedMinutes).toBe(35);
+  expect(slot.inspection.rpcCalls.filter(c => c.method === "openChat")).toHaveLength(1);
+  expect(JSON.stringify(slot.inspection.navigateCalls)).toContain(session?.workerThreadId ?? f.repo.sessions(task.id)[0].workerThreadId);
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
+});
+
+it("keeps conflicting time visible instead of leaving Day for a new chat", async () => {
+  const { task, days, item, mount } = await setup();
+  const slot = mount(`day/${item.date}`);
+  const input = await slot.findByLabelText(`Reported: ${task.title}`) as HTMLInputElement;
+  fireEvent.change(input, { target: { value: "1h" } });
+  days.edit({ id: item.id, revision: item.revision, reportedMinutes: 10, requestId: randomUUID() });
+  fireEvent.click(slot.getByRole("button", { name: "New chat" }));
+  await slot.findByRole("alert");
+  expect(slot.inspection.navigateCalls).toHaveLength(0);
+  expect(slot.inspection.rpcCalls.some(c => c.method === "openChat")).toBe(false);
+  expect(input.value).toBe("1h");
+  expect(days.get(item.id).reportedMinutes).toBe(10);
+});
+
+it("opens a chat created in another window after the day was loaded", async () => {
+  const { f, task, item, mount } = await setup();
+  const slot = mount(`day/${item.date}`);
+  const button = await slot.findByRole("button", { name: "New chat" });
+  const session = await f.start(task.id, task.revision);
+  fireEvent.click(button);
+  await waitFor(() => expect(JSON.stringify(slot.inspection.navigateCalls)).toContain(session.workerThreadId));
+  expect(f.repo.sessions(task.id)).toHaveLength(1);
+  await slot.behavior.emitRealtime("desk-changed", {});
+  expect(await slot.findByRole("button", { name: "Open chat" })).toBeTruthy();
+});
+
 it("saves day edits before one launch and refreshes saved entries when the run finishes", async () => {
   const { task, days, mount } = await setup(); const date = localDay();
   const item = days.add({ date, taskId: task.id, requestId: randomUUID() });
@@ -273,6 +322,7 @@ it("overrides a meeting manually, preserves it through calendar changes and rest
   const event = normalizeCalendarEvent({ id: "meeting", summary: "Work meeting", start: { dateTime: "2026-09-10T08:00:00Z" }, end: { dateTime: "2026-09-10T08:30:00Z" } })!;
   days.mergeCalendar([event]); const id = days.calendarItems()[0].id;
   const slot = mount("day/2026-09-10"); const row = within(await slot.findByRole("article", { name: "Day entry: Work meeting" }));
+  expect(row.queryByRole("button", { name: /^(New|Open) chat$/ })).toBeNull();
   fireEvent.change(row.getByLabelText("Planned: Work meeting"), { target: { value: "45m" } });
   fireEvent.change(row.getByLabelText("Reported: Work meeting"), { target: { value: "20m" } });
   fireEvent.click(row.getByRole("button", { name: "Details" }));
@@ -443,4 +493,18 @@ it("hides removed entries immediately and after reopening, with optional restora
   await waitFor(() => expect(days.get(item.id).removed).toBe(false));
   expect(await reopened.findByRole("article", { name: `Day entry: ${task.title}` })).toBeTruthy();
   expect(days.day(item.date).totals).toMatchObject({ plannedMinutes: 60, reportedMinutes: 30 });
+});
+
+it("shows waiting status in Day and saves time before opening its chat", async () => {
+  const { f, task, days, item, mount } = await setup();
+  await f.harness.behavior.setSettings({ workProvider: "claude-work", workModel: "claude-opus-5[1m]" });
+  f.repo.status(task.id, "waiting", task.revision);
+  const slot = mount(`day/${item.date}`);
+  await slot.findByText("Waiting for response");
+  const input = await slot.findByLabelText(`Reported: ${task.title}`);
+  fireEvent.change(input, { target: { value: "40m" } });
+  fireEvent.click(slot.getByRole("button", { name: "New chat" }));
+  await waitFor(() => expect(slot.inspection.navigateCalls).toHaveLength(1));
+  expect(days.get(item.id).reportedMinutes).toBe(40);
+  expect(f.repo.kernel.getTask(task.id).status).toBe("waiting");
 });

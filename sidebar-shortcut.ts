@@ -4,15 +4,17 @@ import type { PluginContentScriptContext } from "@get-bb/plugin-sdk/app";
 // This content script adapts only the row containing our shortcut: keep the
 // badge visible and reserve a separate 28px column for BB's options button.
 // Keep these host DOM selectors isolated for compatibility with future BB UI.
-const row = '[data-sidebar-navigation-item]:has(> [data-plugin-nav-sidebar-accessory] :is([data-c247-proposals-shortcut], [data-c247-updater-shortcut]))';
+const row = '[data-sidebar-navigation-item]:has(> [data-plugin-nav-sidebar-accessory] :is([data-c247-proposals-shortcut], [data-c247-updater-shortcut], [data-c247-review-shortcut]))';
 export const sidebarShortcutStyles = `
-${row} span:has(> [data-c247-updater-shortcut]) { justify-content: flex-start; }
-${row} > button { padding-right: 6rem; }
+${row} span:has(> :is([data-c247-updater-shortcut], [data-c247-review-shortcut])) { justify-content: flex-start; }
+${row} > button { padding-right: 9rem; }
 ${row} > [data-plugin-nav-sidebar-accessory] {
   right: 1.75rem;
+  width: auto;
+  max-width: 7rem;
   opacity: 1 !important;
 }
-${row} :is([data-c247-proposals-shortcut], [data-c247-updater-shortcut]) { pointer-events: auto; }
+${row} :is([data-c247-proposals-shortcut], [data-c247-updater-shortcut], [data-c247-review-shortcut]) { pointer-events: auto; }
 `;
 
 export function mountSidebarShortcut({ signal }: Pick<PluginContentScriptContext, "signal">) {

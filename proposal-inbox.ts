@@ -1,3 +1,4 @@
+import { statusNeedsStoppedSession } from "./task-status.js";
 import { randomUUID } from "node:crypto";
 import { reviewDossierSchema, type ReviewItem, type ReviewSelection } from "./contracts.js";
 import { ACTIVE, Repository } from "./repository.js";
@@ -16,7 +17,7 @@ export class ProposalInbox {
       const currentTask = task ? { revision: task.revision, status: task.status, activeSession: active ? "active" : null } : null;
       const duplicate = !task && this.repo.list(true).tasks.some(t => t.title.trim().toLocaleLowerCase() === candidate.title.trim().toLocaleLowerCase());
       const blockedReason = task && task.revision !== candidate.baseRevision ? "The dossier changed after the check. An updated proposal is required."
-        : active && candidate.changes.status ? "Finish the work session before changing the task status."
+        : active && candidate.changes.status && task && statusNeedsStoppedSession(task.status, candidate.changes.status.value) ? "Finish the work session before changing the task status."
         : duplicate ? "A task with this title already exists. Check for a duplicate." : null;
       return { kind, candidate, currentTask, blockedReason };
     }
@@ -29,7 +30,7 @@ export class ProposalInbox {
     const context = reviewDossierSchema.parse({ ...dossier, facts: dossier.facts.filter(f => used.has(f.id)), sessions, sessionUpdates: update ? [JSON.parse(update.value_json)] : [] });
     const blockedReason = raw.baseRevision !== dossier.task.revision ? "The dossier changed. Expand this proposal to refresh it or review the current task."
       : sessions.some(s => s.discussionProposalId === id) ? "Finish discussing this review first."
-      : raw.changes.status && sessions.length ? "Finish the work session before changing the task status." : null;
+      : raw.changes.status && statusNeedsStoppedSession(dossier.task.status, raw.changes.status.value) && sessions.length ? "Finish the work session before changing the task status." : null;
     return { kind, proposal, dossier: context, blockedReason };
   }
   list(offset = 0) {

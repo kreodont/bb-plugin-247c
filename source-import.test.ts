@@ -111,7 +111,7 @@ it("deduplicates subsequent imports and keeps an incomplete source checkpoint", 
   const state = await f.harness.behavior.callRpc("syncState", {});
   expect(state).toMatchObject({ nextSince: { teams: bundle.windows.teams.since, outlook: bundle.windows.outlook.since } });
   const runtime = { store, repo: f.repo } as SourceSyncRuntime;
-  await expect(scheduledSourceUpdate(runtime, async () => true, new Date("2026-09-14T08:00:00Z"))).rejects.toThrow(/manual check/);
+  await expect(scheduledSourceUpdate(runtime, async () => true, new Date("2026-09-14T08:00:00Z"))).rejects.toThrow(/Custom check/);
 });
 
 it("derives Teams source and full-read authority from the resource operation", () => {

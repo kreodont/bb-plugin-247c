@@ -1,6 +1,8 @@
+import { isLiveTask, taskStatusNames } from "./task-status.js";
+import { useUxRpc } from "./ux-app.js";
 import { usePlanningTimeZone } from "./day-zone.js";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useBbNavigate, useRpc, useRealtime, useRealtimeConnectionState } from "@get-bb/plugin-sdk/app";
+import { useBbNavigate, useRealtime, useRealtimeConnectionState } from "@get-bb/plugin-sdk/app";
 import type { rpcContract } from "./contracts.js";
 import { dayDateSchema, dayRpcContract, formatMinutes, localDay, parseMinutes, shiftDay, type DayItem, type DayView, type ReportedChange } from "./day-contracts.js";
 import { z } from "zod";
@@ -33,7 +35,7 @@ type Flush = () => Promise<boolean>;
 
 function DayPlannerControl({ date, beforeStart, refreshDay }: { date: string; beforeStart: Flush; refreshDay: () => Promise<void> }) {
   const timeZone = usePlanningTimeZone();
-  const rpc = useRpc<typeof rpcContract>();
+  const rpc = useUxRpc();
   const read = useCallback(() => rpc.call("dayPlannerState", {}), [rpc]);
   const { data, error, refresh } = useDaySnapshot(read);
   const [busy, setBusy] = useState(false), [mutationError, setMutationError] = useState<string | null>(null);
@@ -66,7 +68,7 @@ function DayPlannerControl({ date, beforeStart, refreshDay }: { date: string; be
 
 export function CalendarStatus({ date }: { date?: string }) {
   const timeZone = usePlanningTimeZone();
-  const rpc = useRpc<typeof rpcContract>();
+  const rpc = useUxRpc();
   const read = useCallback(() => rpc.call("calendarState", {}), [rpc]);
   const { data, error, refresh } = useDaySnapshot(read);
   const [busy, setBusy] = useState(false), [mutationError, setMutationError] = useState<string | null>(null);
@@ -107,19 +109,20 @@ function ReportedOrigin({ changes, timeZone }: { changes: ReportedChange[]; time
 
 function ItemHistory({ id }: { id: string }) {
   const timeZone = usePlanningTimeZone();
-  const rpc = useRpc<typeof rpcContract>();
+  const rpc = useUxRpc();
   const [offset, setOffset] = useState(0);
   const read = useCallback(() => rpc.call("dayHistory", { id, offset }), [rpc, id, offset]);
   const { data, error } = useDaySnapshot(read);
   return <div className="space-y-3"><ErrorText error={error} />{data?.items.map(event => <div key={event.sequence} className="rounded-lg bg-muted/40 p-3 text-xs"><div className="flex flex-wrap justify-between gap-2 text-muted-foreground"><span>{new Intl.DateTimeFormat("en-GB", { dateStyle: "short", timeStyle: "short", timeZone }).format(new Date(event.at))}</span><span>{event.actor.startsWith("agent-time:") ? "Agent time / estimate" : event.actor.startsWith("calendar:") ? "Calendar" : event.actor.startsWith("bb-thread:") ? "From conversation" : event.actor.startsWith("human:session-time:") ? "Accepted session estimate" : "Manual"}</span></div><p className="mt-2">Planned: {formatMinutes(event.before?.plannedMinutes ?? null)} → {formatMinutes(event.after.plannedMinutes)} · Actual: {formatMinutes(event.before?.actualMinutes ?? null)} → {formatMinutes(event.after.actualMinutes)} · Reported: {formatMinutes(event.before?.reportedMinutes ?? null)} → {formatMinutes(event.after.reportedMinutes)}</p>{event.after.reportedMode === "estimate" && <p className="mt-1">Estimate: {event.after.reportedEstimate?.reason}</p>}{event.before?.date !== event.after.date && <p className="mt-1">Date: {event.before?.date ?? "—"} → {event.after.date}</p>}{event.after.carriedTo && <p className="mt-1">Continuation: {event.after.carriedTo}</p>}{event.before?.step !== event.after.step && event.after.step && <p className="mt-1 whitespace-pre-wrap">{event.after.step}</p>}{event.before?.removed !== event.after.removed && event.after.removed && <p className="mt-1">Removed from the plan; reported time preserved.</p>}</div>)}{data && (offset > 0 || data.nextOffset !== null) && <div className="flex gap-2"><Button size="sm" variant="ghost" disabled={!offset} onClick={() => setOffset(Math.max(0, offset - 50))}>Newer</Button><Button size="sm" variant="ghost" disabled={data.nextOffset === null} onClick={() => setOffset(data.nextOffset!)}>Older</Button></div>}</div>;
 }
 
-function DayRow({ item, refresh, register, openTask, openDay, move, moveDisabled, focused = false, hidden = false }: {
+function DayRow({ item, refresh, register, openTask, openDay, openChat, hasActiveChat, chatBusy, move, moveDisabled, focused = false, hidden = false }: {
   item: ViewItem; refresh: () => Promise<void>; register: (id: string, flush: Flush | null) => void;
   openTask: (id: string) => Promise<void>; openDay: (date: string) => Promise<void>; move: (id: string, direction: number) => Promise<void>; moveDisabled: boolean; focused?: boolean; hidden?: boolean;
+  openChat: (id: string) => Promise<void>; hasActiveChat: boolean; chatBusy: boolean;
 }) {
   const timeZone = usePlanningTimeZone();
-  const rpc = useRpc<typeof rpcContract>();
+  const rpc = useUxRpc();
   const [draft, setDraft] = useState({ planned: inputTime(item.plannedMinutes), reported: inputTime(item.reportedMinutes), step: item.step, reportedDate: item.reportedDate });
   const [fields, setFields] = useState<Set<keyof typeof draft>>(new Set());
   const [baseRevision, setBaseRevision] = useState(item.revision), [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
@@ -214,12 +217,13 @@ function DayRow({ item, refresh, register, openTask, openDay, move, moveDisabled
     <div className="grid grid-cols-3 items-start gap-3 md:grid-cols-[minmax(0,1fr)_6.5rem_6.5rem_6.5rem]">
       <div className="col-span-3 flex min-w-0 items-start gap-3 md:col-span-1">
         {item.kind === "task" ? <input type="checkbox" className="mt-1 size-4 shrink-0 accent-current" aria-label={`Step completed: ${item.title}`} checked={item.state === "done"} disabled={busy && !flight.current || inactive || item.state === "carried"} onChange={e => void save({ state: e.target.checked ? "done" : "open" })} /> : <span aria-label="Calendar meeting" className="mt-0.5 text-primary">▦</span>}
-        <div className="min-w-0"><div className="flex flex-wrap items-center gap-2">{item.taskId ? <button type="button" className={cn("break-words text-left text-sm font-medium underline-offset-4 hover:text-primary hover:underline", inactive && "text-muted-foreground")} onClick={() => void openTask(item.taskId!)}>{item.title}</button> : item.calendar?.url ? <a href={item.calendar.url} target="_blank" rel="noreferrer" className="break-words text-sm font-medium underline-offset-4 hover:underline">{item.title}</a> : <h3 className="break-words text-sm font-medium">{item.title}</h3>}{item.taskStatus && item.taskStatus !== "open" && <span className="text-xs text-muted-foreground">Task {item.taskStatus === "done" ? "closed" : "archived"}</span>}</div>
+        <div className="min-w-0"><div className="flex flex-wrap items-center gap-2">{item.taskId ? <button type="button" className={cn("break-words text-left text-sm font-medium underline-offset-4 hover:text-primary hover:underline", inactive && "text-muted-foreground")} onClick={() => void openTask(item.taskId!)}>{item.title}</button> : item.calendar?.url ? <a href={item.calendar.url} target="_blank" rel="noreferrer" className="break-words text-sm font-medium underline-offset-4 hover:underline">{item.title}</a> : <h3 className="break-words text-sm font-medium">{item.title}</h3>}{item.taskStatus && item.taskStatus !== "open" && <span className={cn("text-xs", item.taskStatus === "waiting" ? "rounded-full bg-sky-400/15 px-2 py-0.5 text-sky-700 dark:text-sky-300" : "text-muted-foreground")}>{taskStatusNames[item.taskStatus]}</span>}</div>
           {item.calendar ? <p className="mt-1 text-xs text-muted-foreground">{shortDate(item.date)} · {eventTime(item.calendar.startAt, timeZone)}–{eventTime(item.calendar.endAt, timeZone)} · {item.calendar.status === "cancelled" ? "canceled" : item.calendar.status === "declined" ? "invitation declined" : item.calendar.status === "excluded" ? "excluded from meeting time" : "from calendar"}</p> : item.step && <p className="mt-1 whitespace-pre-wrap break-words text-xs leading-relaxed text-muted-foreground">{item.step}</p>}
           {item.carriedTo && <button className="mt-1 text-xs text-primary hover:underline" onClick={() => void openDay(item.carriedTo!)}>Continuation {shortDate(item.carriedTo)}</button>}
           {item.reportOnly && <p className="mt-1 text-xs text-muted-foreground">Reported time is saved here. The meeting is planned for {shortDate(item.date)}.</p>}
           {item.removed && <p className="mt-1 text-xs text-muted-foreground">Removed from the plan; reported time preserved.</p>}
           {!item.calendar && item.plannedMinutes === null && item.reportedMinutes !== null && <p className="mt-1 text-xs text-muted-foreground">Outside the plan</p>}
+          {item.taskId && (hasActiveChat || isLiveTask(item.taskStatus)) && <Button data-c247-ux-action={hasActiveChat ? "return-thread" : "session-start"} type="button" className="mt-2" size="sm" variant="outline" disabled={chatBusy} onClick={() => void openChat(item.taskId!)}>{hasActiveChat ? "Open chat" : "New chat"}</Button>}
         </div>
       </div>
       <label className="text-xs text-muted-foreground">Planned<Input aria-label={`Planned: ${item.title}`} className="mt-1 text-right tabular-nums" value={draft.planned} placeholder="—" onFocus={() => { focusedField.current = "planned"; }} onBlur={() => { focusedField.current = null; if (!error) void save(); }} onChange={e => edit("planned", e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); void save(); } }} />{item.calendar && <span className="mt-1 block text-right text-xs">{item.plannedMode === "calendar" ? "calendar" : "manual"}</span>}</label>
@@ -245,7 +249,7 @@ function DayRow({ item, refresh, register, openTask, openDay, move, moveDisabled
 
 export function DayPage({ date, report = false, period = "week", threadId, focusTaskId }: { date: string; report?: boolean; period?: "day" | "week"; threadId?: string; focusTaskId?: string }) {
   const timeZone = usePlanningTimeZone();
-  const rpc = useRpc<typeof rpcContract>(), navigate = useBbNavigate();
+  const rpc = useUxRpc(), navigate = useBbNavigate();
   const load = useCallback(async () => {
     const [day, tasks, time] = await Promise.all([rpc.call("day", { date }), report ? Promise.resolve(null) : rpc.call("list", { history: true }), report ? rpc.call("timeReport", { date, period }) : Promise.resolve(null)]);
     return { day, tasks: tasks?.tasks ?? [], time };
@@ -256,16 +260,34 @@ export function DayPage({ date, report = false, period = "week", threadId, focus
   const [removedDate, setRemovedDate] = useState<string | null>(null);
   const showRemoved = removedDate === date;
   const flushers = useRef(new Map<string, Flush>());
+  const chatFlight = useRef(false), mounted = useRef(true);
+  const chatRequests = useRef(new Map<string, string>());
+  const [openingChat, setOpeningChat] = useState(false);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const register = useCallback((id: string, flush: Flush | null) => { if (flush) flushers.current.set(id, flush); else flushers.current.delete(id); }, []);
   const route = report ? `report/${period}/${date}` : taskDayPath(date, focusTaskId);
   async function flushAll() { for (const flush of [...flushers.current.values()]) if (!await flush()) return false; return true; }
-  useNavigationGuard(flushAll);
+  useNavigationGuard(() => chatFlight.current ? Promise.resolve(false) : flushAll());
   async function go(path: string) {
+    if (chatFlight.current) return;
     const target = focusTaskId && /^day\/\d{4}-\d{2}-\d{2}$/.test(path) ? `${path}/task/${focusTaskId}` : path;
     if (await flushAll()) navigate.toPluginPanel("desk", { subPath: withThread(target, threadId) });
   }
   async function openTask(id: string) { await go(`${id}/from/${route}`); }
   async function openDay(next: string) { if (dayDateSchema.safeParse(next).success) await go(taskDayPath(next, focusTaskId)); }
+  async function openChat(id: string) {
+    if (chatFlight.current) return;
+    chatFlight.current = true; setOpeningChat(true); setMutationError(null);
+    try {
+      if (!await flushAll() || !mounted.current) return;
+      const requestId = chatRequests.current.get(id) ?? crypto.randomUUID(); chatRequests.current.set(id, requestId);
+      const session = await rpc.call("openChat", { taskId: id, requestId });
+      if (!session.workerThreadId) throw new Error(session.error || "The chat is still starting. Try again.");
+      if (!await flushAll() || !mounted.current) return;
+      navigate.toThread(session.workerThreadId);
+    } catch (cause) { if (mounted.current) setMutationError(cause instanceof Error ? cause.message : "Could not open the work chat. Try again."); }
+    finally { chatFlight.current = false; if (mounted.current) setOpeningChat(false); }
+  }
   async function action(work: () => Promise<unknown>) {
     if (busy || !await flushAll()) return;
     setBusy(true); setMutationError(null);
@@ -283,36 +305,38 @@ export function DayPage({ date, report = false, period = "week", threadId, focus
       await rpc.call("dayReorder", { requestId: crypto.randomUUID(), date, ids: items.map(i => i.id), revisions: Object.fromEntries(items.map(i => [i.id, i.revision])) });
     });
   }
-  const choices = data?.tasks.filter(task => (showClosed || task.status === "open" || task.id === focusTaskId) && !data.day.items.some(i => i.taskId === task.id && !i.reportOnly) && task.title.toLocaleLowerCase().includes(query.toLocaleLowerCase())) ?? [];
+  const choices = data?.tasks.filter(task => (showClosed || isLiveTask(task.status) || task.id === focusTaskId) && !data.day.items.some(i => i.taskId === task.id && !i.reportOnly) && task.title.toLocaleLowerCase().includes(query.toLocaleLowerCase())) ?? [];
   const chosenTaskId = choices.some(task => task.id === taskId) ? taskId : choices[0]?.id ?? "";
   const totals = data?.time?.totals ?? data?.day.totals;
-  return <div className="h-full min-h-0 overflow-y-auto"><div className="mx-auto max-w-6xl space-y-5 p-5 md:p-8">
-    <Button variant="ghost" size="sm" className="-ml-3" onClick={() => void go("")}><Icon name="ChevronLeft" /> All tasks</Button>
-    <div className="flex flex-wrap items-center justify-between gap-4"><div><h1 className="text-2xl font-medium">{report ? "Time report" : "Day"}</h1><p className="mt-1 text-sm text-muted-foreground">{report ? "Planned, actual and reported time are totaled separately." : "Plan the day, see agent time, and review time to report."}</p></div><div className="flex gap-2"><Button variant={report ? "outline" : "default"} onClick={() => void go(`day/${date}`)}>Day</Button><Button variant={report ? "default" : "outline"} onClick={() => void go(`report/${period}/${date}`)}>Report</Button></div></div>
-    <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><Button size="icon" variant="outline" aria-label="Previous day" onClick={() => void go(report ? `report/${period}/${shiftDay(date, -1)}` : `day/${shiftDay(date, -1)}`)}><Icon name="ChevronLeft" /></Button><Input type="date" aria-label="Plan date" value={date} className="w-40" onChange={e => { if (dayDateSchema.safeParse(e.target.value).success) void go(report ? `report/${period}/${e.target.value}` : `day/${e.target.value}`); }} /><Button size="icon" variant="outline" aria-label="Next day" onClick={() => void go(report ? `report/${period}/${shiftDay(date, 1)}` : `day/${shiftDay(date, 1)}`)}><Icon name="ChevronRight" /></Button><Button variant="ghost" size="sm" onClick={() => void go(report ? `report/${period}/${localDay(new Date(), timeZone)}` : `day/${localDay(new Date(), timeZone)}`)}>Today</Button></div>{report && <div className="flex gap-2"><Button size="sm" variant={period === "day" ? "default" : "outline"} onClick={() => void go(`report/day/${date}`)}>By day</Button><Button size="sm" variant={period === "week" ? "default" : "outline"} onClick={() => void go(`report/week/${date}`)}>By week</Button></div>}</div>
+  return <div className="h-full min-h-0 overflow-y-auto"><div className="mx-auto max-w-6xl space-y-4 p-4 md:p-5">
+    <div className="flex flex-wrap items-center justify-between gap-4"><div><h1 className="text-xl font-medium">{report ? "Time report" : "Day"}</h1><p className="mt-1 text-sm text-muted-foreground">{report ? "Planned, actual and reported time are totaled separately." : "Plan the day, see agent time, and review time to report."}</p></div><div className="flex gap-2"><Button variant={report ? "outline" : "default"} onClick={() => void go(`day/${date}`)}>Day</Button><Button variant={report ? "default" : "outline"} onClick={() => void go(`report/${period}/${date}`)}>Report</Button></div></div>
+    <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><Button size="icon" variant="outline" aria-label="Previous day" onClick={() => void go(report ? `report/${period}/${shiftDay(date, -1)}` : `day/${shiftDay(date, -1)}`)}><Icon name="ChevronLeft" /></Button><Input type="date" aria-label="Plan date" value={date} className="w-40" onChange={e => { if (dayDateSchema.safeParse(e.target.value).success) void go(report ? `report/${period}/${e.target.value}` : `day/${e.target.value}`); }} /><Button size="icon" variant="outline" aria-label="Next day" onClick={() => void go(report ? `report/${period}/${shiftDay(date, 1)}` : `day/${shiftDay(date, 1)}`)}><Icon name="ChevronRight" /></Button><Button variant="ghost" size="sm" aria-label="Go to today" onClick={() => void go(report ? `report/${period}/${localDay(new Date(), timeZone)}` : `day/${localDay(new Date(), timeZone)}`)}>Today</Button></div>{report && <div className="flex gap-2"><Button size="sm" variant={period === "day" ? "default" : "outline"} onClick={() => void go(`report/day/${date}`)}>By day</Button><Button size="sm" variant={period === "week" ? "default" : "outline"} onClick={() => void go(`report/week/${date}`)}>By week</Button></div>}</div>
     <ErrorText error={mutationError ?? error} />
-    {!report && <DayPlannerControl key={date} date={date} beforeStart={flushAll} refreshDay={refresh} />}
-    {totals && <div className="grid grid-cols-1 gap-3 sm:grid-cols-3"><div className="rounded-xl border border-border bg-card p-4"><p className="text-xs text-muted-foreground">Planned time</p><p className="mt-2 text-2xl font-medium tabular-nums">{formatMinutes(totals.plannedMinutes)}</p></div><div className="rounded-xl border border-border bg-card p-4"><p className="text-xs text-muted-foreground">Actual time</p><p className="mt-2 text-2xl font-medium tabular-nums">{formatMinutes(totals.actualMinutes)}</p></div><div className="rounded-xl border border-border bg-card p-4"><p className="text-xs text-muted-foreground">Reported time</p><p className="mt-2 text-2xl font-medium tabular-nums">{formatMinutes(totals.reportedMinutes)}</p></div></div>}
+    {totals && <div className="flex flex-wrap gap-x-6 gap-y-2 rounded-lg border border-border bg-card px-4 py-2"><div className="flex items-baseline gap-2"><p className="text-xs text-muted-foreground">Planned time</p><p className="text-base font-medium tabular-nums">{formatMinutes(totals.plannedMinutes)}</p></div><div className="flex items-baseline gap-2"><p className="text-xs text-muted-foreground">Actual time</p><p className="text-base font-medium tabular-nums">{formatMinutes(totals.actualMinutes)}</p></div><div className="flex items-baseline gap-2"><p className="text-xs text-muted-foreground">Reported time</p><p className="text-base font-medium tabular-nums">{formatMinutes(totals.reportedMinutes)}</p></div></div>}
     {!!totals?.estimatedReported && <p role="status" className="rounded-lg bg-muted/40 p-3 text-sm">Reported time includes {totals.estimatedReported} automatic estimate(s). Review them before using this work report.</p>}
-    {data && <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground"><p>Actual sums completed agent runs, excluding recorded approval and question waits. Parallel agents add together; meetings equal reported.{data.day.agentTime?.checkedAt ? ` Checked ${eventTime(data.day.agentTime.checkedAt, timeZone)} · tracking since ${data.day.agentTime.from}.` : ""}</p><Button size="sm" variant="outline" disabled={busy || data.day.agentTime?.running} onClick={() => void action(() => rpc.call("agentTimeSync", {}))}>Refresh agent time</Button>{data.day.agentTime?.errors.length ? <p role="alert" className="w-full whitespace-pre-wrap text-destructive">Some measurements could not be refreshed. Saved time is preserved. {data.day.agentTime.errors.join("\n")}</p> : null}</div>}
+
     {!data && !error && <p role="status" className="text-sm text-muted-foreground">Opening the saved day…</p>}
     {data && !report && <>
-      <DayParameters config={data.day.config} register={register} refresh={refresh} planned={data.day.totals.plannedMinutes} />
       <section className="overflow-hidden rounded-xl border border-border bg-card"><div className="flex items-center justify-between gap-3 p-4"><h2 className="font-medium">Tasks and meetings</h2><div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground"><span>{data.day.items.filter(i => !i.removed).length} records</span>{data.day.items.some(i => i.removed) && <label className="flex items-center gap-2"><input type="checkbox" checked={showRemoved} onChange={e => setRemovedDate(e.target.checked ? date : null)} /> Show removed ({data.day.items.filter(i => i.removed).length})</label>}</div></div>
         {/* Keep hidden rows mounted so an in-flight save retains its draft and navigation guard. */}
-        {data.day.items.map(item => <DayRow key={item.id} item={item} hidden={item.removed && !showRemoved} focused={item.taskId === focusTaskId && (!item.removed || showRemoved)} refresh={refresh} register={register} openTask={openTask} openDay={openDay} move={reorder} moveDisabled={busy} />)}
+        {data.day.items.map(item => <DayRow key={item.id} item={item} hidden={item.removed && !showRemoved} focused={item.taskId === focusTaskId && (!item.removed || showRemoved)} refresh={refresh} register={register} openTask={openTask} openDay={openDay} openChat={openChat} hasActiveChat={Boolean(data.tasks.find(t => t.id === item.taskId)?.activeSession)} chatBusy={openingChat} move={reorder} moveDisabled={busy} />)}
         {!data.day.items.some(i => !i.removed) && <p className="border-t border-border p-7 text-center text-sm text-muted-foreground">The plan is empty. Add tasks or check the calendar.</p>}
         <form className="space-y-3 border-t border-border p-4" onSubmit={e => { e.preventDefault(); const chosen = chosenTaskId; if (chosen && choices.some(t => t.id === chosen)) void action(async () => { await rpc.call("dayAdd", { date, taskId: chosen, requestId: crypto.randomUUID() }); setTaskId(""); }); }}><div className="flex flex-wrap gap-2"><Input value={query} onChange={e => { setQuery(e.target.value); setTaskId(""); }} aria-label="Find a task for this day" placeholder="Find a task for this day" className="min-w-48 flex-1" /><label className="flex items-center gap-2 text-xs text-muted-foreground"><input type="checkbox" checked={showClosed} onChange={e => { setShowClosed(e.target.checked); setTaskId(""); }} /> Include closed tasks</label></div><div className="flex flex-wrap gap-2"><select className="min-w-48 flex-1 rounded-lg border border-input bg-background p-2 text-sm" aria-label="Task to plan" value={chosenTaskId} onChange={e => setTaskId(e.target.value)} disabled={!choices.length || busy}>{choices.length ? choices.map(task => <option key={task.id} value={task.id}>{task.title}</option>) : <option value="">No matching tasks</option>}</select><Button type="submit" variant="outline" disabled={busy || !choices.length}>Add to day</Button></div></form>
       </section>
+      <details className="rounded-lg border border-border p-3"><summary className="cursor-pointer text-sm font-medium">Planning, calendar and time details</summary><div className="mt-4 space-y-4">
+    {!report && <DayPlannerControl key={date} date={date} beforeStart={flushAll} refreshDay={refresh} />}
+      <DayParameters config={data.day.config} register={register} refresh={refresh} planned={data.day.totals.plannedMinutes} />
+    {data && <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground"><p>Actual sums completed agent runs, excluding recorded approval and question waits. Parallel agents add together; meetings equal reported.{data.day.agentTime?.checkedAt ? ` Checked ${eventTime(data.day.agentTime.checkedAt, timeZone)} · tracking since ${data.day.agentTime.from}.` : ""}</p><Button size="sm" variant="outline" disabled={busy || data.day.agentTime?.running} onClick={() => void action(() => rpc.call("agentTimeSync", {}))}>Refresh agent time</Button>{data.day.agentTime?.errors.length ? <p role="alert" className="w-full whitespace-pre-wrap text-destructive">Some measurements could not be refreshed. Saved time is preserved. {data.day.agentTime.errors.join("\n")}</p> : null}</div>}
       <p className="text-xs leading-relaxed text-muted-foreground">Planned time stays as entered. Actual counts agent runtime and excludes your reading, checking and other work. Completed agent work outside the plan is added with planned = 0. AI proposes reported minutes from the volume and type of work, including reading and checking. Estimates need your review. Manual reported time is independent and preserved. A blank field means unspecified time; 0 means an explicit zero minutes. The checkbox marks the daily step. Entry edits save automatically after a short pause, when leaving the field, or when pressing Enter.</p>
       <CalendarStatus date={date} />
+      </div></details>
     </>}
     {data?.time && <section className="overflow-hidden rounded-xl border border-border bg-card"><h2 className="p-4 text-sm font-medium">{shortDate(data.time.from)} — {shortDate(data.time.through)}</h2><div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-muted/30 text-xs text-muted-foreground"><tr><th className="px-4 py-3 font-medium">Task / meeting</th><th className="px-4 py-3 text-right font-medium">Planned</th><th className="px-4 py-3 text-right font-medium">Actual</th><th className="px-4 py-3 text-right font-medium">Reported</th></tr></thead><tbody>{data.time.rows.map(row => <tr key={row.key} className="border-t border-border"><td className="px-4 py-3">{row.taskId ? <button className="text-left font-medium underline-offset-4 hover:text-primary hover:underline" onClick={() => void openTask(row.taskId!)}>{row.title}</button> : <span className="font-medium">{row.title}</span>}<div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">{row.days.map(day => <button key={`${day.itemId}:${day.date}`} className="text-xs text-muted-foreground hover:text-primary hover:underline" onClick={() => void openDay(day.date)}>{shortDate(day.date)} · actual {formatMinutes(day.actualMinutes)} · reported {formatMinutes(day.reportedMinutes)}{day.estimatedReported ? " (estimate)" : ""}</button>)}</div></td><td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">{formatMinutes(row.plannedMinutes)}</td><td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">{formatMinutes(row.actualMinutes)}</td><td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">{formatMinutes(row.reportedMinutes)}{row.estimatedReported && <span className="block text-xs text-muted-foreground">includes estimate</span>}</td></tr>)}</tbody><tfoot className="border-t border-border font-medium"><tr><td className="px-4 py-3">Total</td><td className="px-4 py-3 text-right tabular-nums">{formatMinutes(data.time.totals.plannedMinutes)}</td><td className="px-4 py-3 text-right tabular-nums">{formatMinutes(data.time.totals.actualMinutes)}</td><td className="px-4 py-3 text-right tabular-nums">{formatMinutes(data.time.totals.reportedMinutes)}</td></tr></tfoot></table></div>{!data.time.rows.length && <p className="px-4 pb-5 text-sm text-muted-foreground">No time has been entered for this period yet.</p>}<p className="border-t border-border px-4 py-3 text-xs text-muted-foreground">{data.time.totals.missingReported ? `Without reported time: ${data.time.totals.missingReported}. ` : ""}Click a date to open that day and edit an entry. Timezone: {data.time.timeZone}.</p></section>}
   </div></div>;
 }
 
 function DayParameters({ config, register, refresh, planned }: { config: DayView["config"]; register: (id: string, flush: Flush | null) => void; refresh: () => Promise<void>; planned: number }) {
-  const rpc = useRpc<typeof rpcContract>();
+  const rpc = useUxRpc();
   const [draft, setDraft] = useState({ capacity: inputTime(config.capacityMinutes), note: config.note });
   const [dirty, setDirty] = useState(false), [busy, setBusy] = useState(false), [saved, setSaved] = useState(false), [error, setError] = useState<string | null>(null);
   const pending = useRef({ draft, dirty: false, revision: config.revision });
@@ -366,7 +390,7 @@ function DayParameters({ config, register, refresh, planned }: { config: DayView
 
 export function TaskTimeSummary({ taskId, threadId, initialDate }: { taskId: string; threadId?: string; initialDate?: string }) {
   const timeZone = usePlanningTimeZone();
-  const rpc = useRpc<typeof rpcContract>(), navigate = useBbNavigate();
+  const rpc = useUxRpc(), navigate = useBbNavigate();
   const read = useCallback(() => rpc.call("taskTime", { taskId }), [rpc, taskId]);
   const { data, error } = useDaySnapshot(read);
   const [date, setDate] = useState(initialDate && dayDateSchema.safeParse(initialDate).success ? initialDate : localDay(new Date(), timeZone)), [busy, setBusy] = useState(false), [mutationError, setMutationError] = useState<string | null>(null);

@@ -17,7 +17,8 @@ Run ${run.id}. Interval end ${run.until}; per-source starts: ${JSON.stringify(ru
 You do not need to connect to corporate accounts, discover tools or collect the data again.
 Do not call external connectors, shell, web or agents. Use the export below and c247_sync_data for its remaining pages.
 In the user's original request, checking sources means analyzing this packet; collection is complete.
-The analysis packet has ${page.totalPages} pages of full changed threads/issues. Page 0 is included below.
+The analysis packet has ${page.totalPages} pages of full changed threads/messages/issues. Page 0 is included below.
+Large Gmail threads may appear as individual get_message documents. Group them by threadId; use c247_sync_context for earlier messages when interpreting a new reply.
 ${run.analysis ? `${run.analysis.documents} documents require analysis; ${run.analysis.reusedDocuments} unchanged documents were already analyzed successfully. Do not reread unchanged documents routinely. The full current export remains saved: use c247_sync_context to find and read a specific unchanged thread/issue only when needed for matching or interpreting a change. If you consult a context document, read all of its parts before drawing conclusions about replies. A packet with no documents may still require day-plan reconciliation.` : "This is a full analysis packet."}
 Read ALL remaining pages (c247_sync_data with page=1, then 2, etc.; independent pages can be read together).
 Document segments have part/parts and share one ref. Reading pages is local and does not query sources.
@@ -190,6 +191,8 @@ ${JSON.stringify(remembered)}
 
 const DONE_TASK_FOLLOW_UP_RULES = `COMPLETED-TASK FOLLOW-UPS
 A done task may receive a new substantive request after completion. Read the complete current source conversation, check for a later reply or resolution, and compare the new work with the accepted result. A direct mention with a new question, correction or requested check must not disappear solely because the related task is done.
+Waiting tasks (status=waiting, Waiting for response) remain unfinished and must be matched and checked like open tasks. A substantive reply that enables the next action can support a proposal status=open on that same task; do not create a duplicate. When a request has been sent and an external reply is still pending, status=waiting can be proposed with verified evidence. Keep the saved priority, ignore empty reminders, and leave the status unchanged until human acceptance.
+
 For new unresolved work belonging to that same task, propose status=open and a specific nextStep on its existing taskId. Both fields need fresh verified source facts from this check's interval (including the five-minute overlap), strictly after the task's saved updatedAt. Use progress/decision evidence for status and a matching explicit_next_step fact for the new action. Explain the new request in the rationale, preserve the completed work in the summary, and leave priority unchanged without new evidence. The user decides whether to reopen by accepting the proposal; never reopen directly or create a duplicate task for the same work.
 An existing still-pending follow-up can retain its unchanged, previously verified reopening evidence when merged under the normal merge rules; that request must still postdate the task's updatedAt. Do not lose its proposed reopening just because the user missed an earlier check.
 Old requests, reminders with no new substance, thanks, approval-only notifications and missing telemetry do not justify reopening. Archived tasks remain excluded. If a related request cannot be proposed safely, identify it and the reason in the final response instead of silently dropping it.`;

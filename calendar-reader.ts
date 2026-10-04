@@ -19,6 +19,14 @@ function jsonResult(value: unknown): unknown {
   try { return JSON.parse(text); } catch { throw new Error("The calendar response contains no readable data."); }
 }
 function safeUrl(raw?: string) { try { const url = new URL(raw ?? ""); return url.protocol === "https:" ? url.href : null; } catch { return null; } }
+function isMissingEvent(error: unknown) {
+  const message = sourceError(error).trim();
+  // The Calendar connector can omit the HTTP status from a missing-event
+  // response. Match its exact message only when rechecking a known event,
+  // after calendar access and the full date query have already succeeded.
+  return /\b(404|410)\b|\bNOT_FOUND\b/i.test(message)
+    || /^The requested resource could not be found or has been deleted\.?$/i.test(message);
+}
 export function normalizeCalendarEvent(value: unknown, previous?: CalendarEvent, calendarId = WORK_CALENDAR): CalendarEvent | null {
   const raw = remoteEvent.parse(value);
   const declined = raw.attendees?.some(a => (a.self || a.email?.toLowerCase() === calendarId) && a.responseStatus === "declined");
@@ -103,7 +111,7 @@ export async function readCalendar(input: { from: string; through: string; known
           if (normalized) events.set(normalized.key, normalized);
           else events.set(old.key, { ...old, status: "excluded" });
         } catch (error) {
-          if (/\b(404|410)\b|\bNOT_FOUND\b/i.test(sourceError(error))) events.set(old.key, { ...old, status: "cancelled" });
+          if (isMissingEvent(error)) events.set(old.key, { ...old, status: "cancelled" });
           else throw error;
         }
       }));

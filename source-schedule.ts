@@ -1,6 +1,6 @@
 import { DAY_TIME_ZONE } from "./day-contracts.js";
 import { createHash } from "node:crypto";
-import { syncStartSchema } from "./contracts.js";
+import { syncStartSchema, type SyncRun } from "./contracts.js";
 import { PolicyError } from "./core/errors.js";
 import type { SourceSyncRuntime } from "./source-sync.js";
 
@@ -34,6 +34,36 @@ export function hourlyUpdateId(slot: string): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
+function savedSourceCheck(sync: SourceSyncRuntime, requestId: string, schedule: Pick<Schedule, "syncProvider" | "syncModel" | "syncReasoningLevel">, scheduled: boolean) {
+  const previous = sync.repo.db.prepare("SELECT id FROM source_sync_runs WHERE status IN ('completed','partial') AND json_extract(request_json,'$.externalImport') IS NULL ORDER BY rowid DESC LIMIT 1").get() as { id: string } | undefined;
+  if (!previous) throw new PolicyError("Run a Custom check first to choose an account, model and workspace. Future checks will start with one click.");
+  const source = sync.store.request(previous.id).input;
+  if (!source) throw new PolicyError("The previous native check has no launch request.");
+  const overrides = Object.fromEntries([
+    ["providerId", schedule.syncProvider?.trim()],
+    ["model", schedule.syncModel?.trim()],
+    ["reasoningLevel", schedule.syncReasoningLevel?.trim()],
+  ].filter(([, value]) => value));
+  return syncStartSchema.parse({ requestId, since: null, request: { ...source.request,
+    ...overrides,
+    executionInputSources: { ...source.request.executionInputSources, ...Object.fromEntries(Object.keys(overrides).map(key => [key, "explicit"])) },
+    input: [{ type: "text", text: `${scheduled ? "Scheduled hourly" : "Manual"} 247C update check requested by the user. Analyze the prepared email, Slack and Jira export and propose updates to 247C tasks. Read every export page and finish the run by submitting the result through the standard tool. Proposals await user acceptance in the 247C panel.`, mentions: [] }],
+  } });
+}
+
+export async function quickSourceUpdate(sync: SourceSyncRuntime, requestId: string, settings: Pick<Schedule, "syncProvider" | "syncModel" | "syncReasoningLevel">): Promise<{ run: SyncRun; alreadyRunning: boolean }> {
+  if (sync.repo.db.prepare("SELECT id FROM source_sync_runs WHERE id=?").get(requestId)) return { run: sync.store.run(requestId), alreadyRunning: false };
+  const active = sync.store.active()[0];
+  if (active) return { run: active, alreadyRunning: true };
+  const input = savedSourceCheck(sync, requestId, settings, false);
+  try { return { run: await sync.start(input, { incremental: true }), alreadyRunning: false }; }
+  catch (error) {
+    const running = sync.store.active()[0];
+    if (running) return { run: running, alreadyRunning: true };
+    throw error;
+  }
+}
+
 export async function scheduledSourceUpdate(sync: SourceSyncRuntime, enabled: () => Promise<boolean>, date = new Date(), schedule = defaultSchedule): Promise<string | null> {
   const slot = hourlyUpdateSlot(date, schedule);
   if (!slot || !await enabled()) return null;
@@ -42,20 +72,7 @@ export async function scheduledSourceUpdate(sync: SourceSyncRuntime, enabled: ()
   // The native cron runner and a repeated callback must not create a second
   // check for a completed or failed attempt in the same hourly slot.
   if (sync.repo.db.prepare("SELECT id FROM source_sync_runs WHERE id=?").get(requestId)) return null;
-  const previous = sync.repo.db.prepare("SELECT id FROM source_sync_runs WHERE status IN ('completed','partial') AND json_extract(request_json,'$.externalImport') IS NULL ORDER BY rowid DESC LIMIT 1").get() as { id: string } | undefined;
-  if (!previous) throw new PolicyError("Before enabling the schedule, run a manual check and select an account, model and workspace.");
-  const source = sync.store.request(previous.id).input;
-  if (!source) throw new PolicyError("The previous native check has no launch request.");
-  const overrides = Object.fromEntries([
-    ["providerId", schedule.syncProvider?.trim()],
-    ["model", schedule.syncModel?.trim()],
-    ["reasoningLevel", schedule.syncReasoningLevel?.trim()],
-  ].filter(([, value]) => value));
-  const input = syncStartSchema.parse({ requestId, since: null, request: { ...source.request,
-    ...overrides,
-    executionInputSources: { ...source.request.executionInputSources, ...Object.fromEntries(Object.keys(overrides).map(key => [key, "explicit"])) },
-    input: [{ type: "text", text: "Scheduled hourly 247C update check requested by the user. Analyze the prepared email, Slack and Jira export and propose updates to 247C tasks. Read every export page and finish the run by submitting the result through the standard tool. Proposals await user acceptance in the 247C panel.", mentions: [] }],
-  } });
+  const input = savedSourceCheck(sync, requestId, schedule, true);
   try { return (await sync.start(input, { incremental: true })).id; }
   catch (error) {
     // A manual check may have started after the initial read.

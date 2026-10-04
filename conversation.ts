@@ -71,7 +71,7 @@ export function acceptedEvidence(dossier: Pick<Dossier, "projection" | "task">):
   return evidence;
 }
 
-export function validateExtraction(value: unknown, transcript: Transcript, timeContext?: Session["reportedTimeContext"]): Extraction {
+export function validateExtraction(value: unknown, transcript: Transcript, timeContext?: Session["reportedTimeContext"], taskStatus?: Dossier["task"]["status"]): Extraction {
   const extraction = extractionSchema.parse(value);
   const messages = new Map(transcript.messages.map((m) => [m.ref, m]));
   for (const fact of extraction.facts) {
@@ -88,9 +88,10 @@ export function validateExtraction(value: unknown, transcript: Transcript, timeC
   const factRefs = new Set(extraction.facts.map((_, index) => `fact:${index}`));
   if (extraction.changes?.status) {
     const status = extraction.changes.status;
+    const progressStatus = status.value === "done" || status.value === "waiting" && (taskStatus === "open" || taskStatus === "waiting") || status.value === "open" && taskStatus === "waiting";
     const completionFacts = status.evidenceRefs.map((ref) => factRefs.has(ref) ? extraction.facts[Number(ref.slice(5))] : undefined);
-    if (!completionFacts.some((fact) => fact && (status.value === "done" ? ["progress", "decision", "user_instruction"] : ["decision", "user_instruction"]).includes(fact.kind) && fact.citations.some((citation) => status.value === "done" ? ["user", "assistant"].includes(messages.get(citation.messageRef)?.role ?? "") : messages.get(citation.messageRef)?.role === "user"))) {
-      throw new PolicyError(status.value === "done" ? "A proposal to complete the task must cite a result or decision in this conversation." : "Archiving or reopening a task must cite a user decision in the conversation.");
+    if (!completionFacts.some((fact) => fact && (progressStatus ? ["progress", "decision", "user_instruction"] : ["decision", "user_instruction"]).includes(fact.kind) && fact.citations.some((citation) => progressStatus ? ["user", "assistant"].includes(messages.get(citation.messageRef)?.role ?? "") : messages.get(citation.messageRef)?.role === "user"))) {
+      throw new PolicyError(status.value === "done" ? "A proposal to complete the task must cite a result or decision in this conversation." : progressStatus ? "A task status proposal must cite a result or decision in this conversation." : "Archiving or reopening a task must cite a user decision in the conversation.");
     }
   }
   for (const field of ["title", "urgent", "important"] as const) {

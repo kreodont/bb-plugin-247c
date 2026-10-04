@@ -123,7 +123,7 @@ export class Kernel {
   }
 
   setTaskStatus(taskId: string, status: TaskRecord["status"], expectedRevision: number): TaskRecord {
-    if (!["open", "done", "archived"].includes(status)) throw new PolicyError("invalid task status");
+    if (!["open", "waiting", "done", "archived"].includes(status)) throw new PolicyError("invalid task status");
     return this.store.transaction(() => {
       const task = this.getTask(taskId);
       if (task.revision !== expectedRevision) throw new ConflictError("Task changed; refresh before changing its status");

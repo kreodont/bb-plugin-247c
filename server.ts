@@ -1,3 +1,7 @@
+import { reviewFailures } from "./review-failures.js";
+import { migrateTaskStatuses } from "./task-status-migration.js";
+import { dirname, join } from "node:path";
+import { UxRecording } from "./ux-recording.js";
 import { UpdaterHealth } from "./updater-health.js";
 import { KnowledgeSearch } from "./knowledge-search.js";
 import { importSourceBundle } from "./source-import.js";
@@ -19,7 +23,7 @@ import { proposalRefreshPreview, refreshProposal } from "./proposal-refresh.js";
 import { ACTIVE, EXTRA_SCHEMA, Repository } from "./repository.js";
 import { SessionRuntime } from "./runtime.js";
 import { ThreadRouting } from "./thread-routing.js";
-import { managementGuide } from "./prompts.js";
+import { managementGuide, emptyChatInstructions } from "./prompts.js";
 import { SourceSyncRuntime, SYNC_ACTIVE } from "./source-sync.js";
 import { ProposalInbox } from "./proposal-inbox.js";
 import { DayPlanning } from "./day-planning.js";
@@ -27,7 +31,7 @@ import { DayPlanner } from "./day-planner.js";
 import { CalendarRuntime } from "./calendar-runtime.js";
 import { dayEstimateSchema, dayRpcContract } from "./day-contracts.js";
 import { AgentTimeRuntime, DAY_REVIEW_INSTRUCTIONS } from "./agent-time.js";
-import { hourlyUpdateSlot, scheduledSourceUpdate, UPDATE_CRON, UPDATE_SCHEDULE } from "./source-schedule.js";
+import { hourlyUpdateSlot, quickSourceUpdate, scheduledSourceUpdate, UPDATE_CRON, UPDATE_SCHEDULE } from "./source-schedule.js";
 
 export { rpcContract } from "./contracts.js";
 export const DESCRIPTION = "Durable task dossiers, work conversations and a shared knowledge base.";
@@ -49,11 +53,12 @@ function boundedJson(value: unknown): string {
 export default async function plugin(bb: BbPluginApi) {
   const settings = defineSettings(bb);
   const db = bb.storage.database();
+  const ux = new UxRecording(join(dirname(db.name), "ux-recording"));
   await applyLocalPatch(settings, db.name, message => bb.log.error(message));
   let configuration = await settings.get();
   settings.onChange(next => { configuration = next; });
   db.pragma("foreign_keys = ON");
-  bb.storage.migrate(db, compatibleMigrations(db, [CORE_SCHEMA, ...EXTRA_SCHEMA]));
+  migrateTaskStatuses(db, () => bb.storage.migrate(db, compatibleMigrations(db, [CORE_SCHEMA, ...EXTRA_SCHEMA])));
   let knowledge: KnowledgeSearch | undefined;
   const changed = () => { bb.realtime.publish("desk-changed", { at: Date.now() }); knowledge?.schedule(); };
   const repo = new Repository(db, changed, () => configuration.timeZone);
@@ -82,8 +87,13 @@ export default async function plugin(bb: BbPluginApi) {
   days.tick();
 
   bb.rpc.register(rpcContract, {
+    reviewFailures: () => reviewFailures(repo),
+    uxState: () => ux.state(),
+    uxControl: ({ action }) => { const state = ux.control(action); bb.realtime.publish("ux-changed", {}); return state; },
+    uxRecord: input => ux.record(input),
+    uxReport: () => ux.report(),
     threadProject: async () => ({ ...composerDefaultsSchema.parse(JSON.parse(configuration.composerDefaults)), projectId: configuration.threadProjectId || null, timeZone: configuration.timeZone,
-      workProvider: configuration.workProvider, workModel: configuration.workModel, syncProvider: configuration.syncProvider, syncModel: configuration.syncModel }),
+      pendingTotal: repo.pendingTotal(), workProvider: configuration.workProvider, workModel: configuration.workModel, syncProvider: configuration.syncProvider, syncModel: configuration.syncModel }),
     day: ({ date }) => ({ ...days.day(date), agentTime: agentTime.state() }),
     dayPlannerState: () => dayPlanner.state(),
     dayPlannerStart: (input) => dayPlanner.start(input),
@@ -103,6 +113,11 @@ export default async function plugin(bb: BbPluginApi) {
     updaterStart: (input) => updaterHealth.start(input),
     updaterHealth: ({ refresh }) => updaterHealth.state(refresh),
     syncState: () => sync.store.state(),
+    syncQuickStart: ({ requestId }) => {
+      if (configuration.sourceUpdaterProjectId.trim() || configuration.sourceUpdaterAutomationId.trim())
+        throw new PolicyError("A source updater automation is configured. Refresh the Updates page and use Check for updates to run it.");
+      return quickSourceUpdate(sync, requestId, configuration);
+    },
     syncStart: (input) => {
       if (configuration.sourceUpdaterProjectId.trim() || configuration.sourceUpdaterAutomationId.trim())
         throw new PolicyError("A source updater automation is configured. Refresh the Updates page and use Check for updates to run it.");
@@ -113,7 +128,7 @@ export default async function plugin(bb: BbPluginApi) {
     syncAccept: async ({ candidateId, initialPriority }) => { const result = sync.store.accept(candidateId, initialPriority); await runtime.archiveFinishedThreads(); return result; },
     syncReject: ({ candidateId }) => sync.store.reject(candidateId),
     list: async ({ history }) => ({ ...repo.list(history), settings: await getSettings() }),
-    detail: ({ id }) => repo.detail(id),
+    detail: ({ id, sessionId }) => repo.detail(id, sessionId),
     taskSeen: ({ id, revision }) => repo.markSeen(id, revision),
     reviewParts: async (input) => {
       const result = input.kind === "source" ? sync.store.reviewParts(input) : await runtime.reviewParts(input);
@@ -123,9 +138,9 @@ export default async function plugin(bb: BbPluginApi) {
     threadSession: ({ threadId }) => {
       const session = repo.forThread(threadId);
       if (!session) return { session: null };
-      const { id, taskId, workerThreadId, mode, status } = session;
+      const { id, taskId, workerThreadId, reviewerThreadId, mode, status, finishedAt, proposalId } = session;
       const date = days.today(), item = days.taskItem(taskId, date);
-      return { session: { id, taskId, workerThreadId, mode, status }, reportedToday: {
+      return { session: { id, taskId, workerThreadId, reviewerThreadId, mode, status, finishedAt, proposalId }, reportedToday: {
         date, timeZone: days.timeZone, minutes: item?.reportedMinutes ?? null, estimated: item?.reportedMode === "estimate" && item.reportedMinutes !== null,
       } };
     },
@@ -145,6 +160,10 @@ export default async function plugin(bb: BbPluginApi) {
     reject: async ({ proposalId }) => { const proposal = repo.reject(proposalId); await runtime.archiveFinishedThreads(proposal.taskId); return proposal; },
     revert: ({ proposalId }) => { const proposal = repo.kernel.proposeRevert(proposalId); changed(); return proposal; },
     start: (input) => runtime.start(input),
+    openChat: (input) => {
+      const defaults = composerDefaultsSchema.parse(JSON.parse(configuration.composerDefaults));
+      return runtime.openChat(input, { projectId: configuration.threadProjectId, providerId: defaults.providerId || configuration.workProvider, model: defaults.model || configuration.workModel });
+    },
     finish: ({ sessionId, recorder }) => runtime.finish(sessionId, recorder),
     retry: ({ sessionId, recorder }) => runtime.retry(sessionId, recorder),
     resume: ({ sessionId }) => runtime.resume(sessionId),
@@ -283,7 +302,7 @@ export default async function plugin(bb: BbPluginApi) {
     execute(input, ctx) { independentCaller(ctx.threadId); return boundedJson(repo.create(input)); },
   });
   bb.agents.registerTool({
-    name: "c247_propose", description: "Submit a pending 247C task patch using evidence IDs from c247_read. Supports title, status (open/done/archived), urgent and important (true/false/null), summary, nextStep, openQuestions, blockers and artifacts. Does not apply it. Title/priority need decision or user_instruction evidence. nextStep must exactly match an explicit_next_step/user_instruction fact; questions and blockers must also match evidence. Never manufacture evidence or claim human approval.",
+    name: "c247_propose", description: "Submit a pending 247C task patch using evidence IDs from c247_read. Supports title, status (open/waiting/done/archived), urgent and important (true/false/null), summary, nextStep, openQuestions, blockers and artifacts. Does not apply it. Title/priority need decision or user_instruction evidence. nextStep must exactly match an explicit_next_step/user_instruction fact; questions and blockers must also match evidence. Never manufacture evidence or claim human approval.",
     instructions: managementGuide,
     parameters: rpcContract.propose.input,
     execute(input, ctx) { independentCaller(ctx.threadId); return boundedJson(repo.propose(input, `bb-thread:${ctx.threadId}`)); },
@@ -318,12 +337,13 @@ export default async function plugin(bb: BbPluginApi) {
     const reviewer = role === "reviewer";
     const worker = role === "worker";
     const conversation = session?.mode === "conversation";
+    const emptyChat = worker && session && (repo.sessionRequest(session.id) as { emptyChat?: boolean }).emptyChat;
     const timeTools = ["c247_day", "c247_plan_add", "c247_time_edit", "c247_plan_move", "c247_time_report"];
     return { skills: [], tools: reviewer ? [] : worker ? ["c247_read", "c247_knowledge", ...timeTools, ...(conversation ? [] : ["c247_submit_result"])] : ["c247_tasks", "c247_read", "c247_knowledge", "c247_create", "c247_propose", "c247_sync_status", "c247_sync_start", ...timeTools],
-      ...(reviewer || localInstructions ? { instructions: instructions(reviewer ? "This is a separate 247C recording/review session. Use only the supplied snapshots. Do not invoke tools or delegate. Return the requested JSON." : "") } : {}) };
+      ...(reviewer || localInstructions || emptyChat ? { instructions: instructions(reviewer ? "This is a separate 247C recording/review session. Use only the supplied snapshots. Do not invoke tools or delegate. Return the requested JSON." : emptyChat ? emptyChatInstructions(session!, repo.detail(session!.taskId)) : "") } : {}) };
   });
 
-  bb.experimental_hooks.on("message.dispatch", (context) => runtime.dispatch(context.thread.id));
+  bb.experimental_hooks.on("message.dispatch", (context) => runtime.bootstrapDispatch(context) ?? runtime.dispatch(context.thread.id));
   bb.events.on("thread.created", async ({ thread }) => { await runtime.created(thread); await sync.created(thread); });
   for (const event of ["thread.idle", "thread.failed", "thread.deleted"] as const) {
     bb.events.on(event, async ({ thread }) => {
@@ -333,6 +353,9 @@ export default async function plugin(bb: BbPluginApi) {
       if (run) await sync.tick(run.id);
     });
   }
+  bb.background.service("ux-retention", {
+    async start(signal) { while (!signal.aborted) { ux.sweep(true); await sleep(60000, signal); } },
+  });
   bb.background.service("updater-health", {
     async start(signal) {
       while (!signal.aborted) {

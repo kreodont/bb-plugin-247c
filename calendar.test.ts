@@ -63,6 +63,37 @@ it("does not infer cancellation or apply a partial batch after a read failure", 
   expect(days.calendarItems()).toEqual(before); expect(c.close).toHaveBeenCalledOnce();
 });
 
+it("recognizes the connector's text-only missing event response without blocking other meetings or changing manual time", async () => {
+  const { days } = await setup();
+  days.mergeCalendar([normalizeCalendarEvent(event("removed-auto"))!, normalizeCalendarEvent(event("removed-manual"))!]);
+  const manual = days.calendarItems().find(i => i.calendar?.eventId === "removed-manual")!;
+  days.edit({ id: manual.id, revision: manual.revision, reportedMinutes: 25, requestId: randomUUID() });
+  const close = vi.fn(async () => {});
+  const runtime = new CalendarRuntime(days, async () => true, data => readCalendar(data, async () => ({ close, call: async name => {
+    if (name === "list_calendars") return { structuredContent: { calendars: [{ id: WORK_CALENDAR }] } };
+    if (name === "list_events") return { structuredContent: { events: [event("new")] } };
+    return { isError: true, content: [{ type: "text", text: "The requested resource could not be found or has been deleted." }] };
+  } })));
+  await runtime.start("2026-09-10"); await runtime.settled();
+  expect(days.calendarState()).toMatchObject({ status: "complete", message: null, events: 1 });
+  expect(days.calendarItems().find(i => i.calendar?.eventId === "removed-auto")).toMatchObject({ calendar: { status: "cancelled" }, reportedMinutes: null });
+  expect(days.get(manual.id)).toMatchObject({ calendar: { status: "cancelled" }, reportedMinutes: 25, reportedMode: "manual" });
+  expect(days.calendarItems().find(i => i.calendar?.eventId === "new")?.calendar?.status).toBe("confirmed");
+  expect(close).toHaveBeenCalledOnce();
+});
+
+it.each(["list_calendars", "list_events"])("preserves the whole batch when %s returns a missing resource error", async failedTool => {
+  const { days } = await setup(); days.mergeCalendar([normalizeCalendarEvent(event())!]);
+  const before = days.calendarItems();
+  const runtime = new CalendarRuntime(days, async () => true, data => readCalendar(data, async () => ({ close: async () => {}, call: async name => {
+    if (name === failedTool) return { isError: true, content: [{ type: "text", text: "The requested resource could not be found or has been deleted." }] };
+    return { structuredContent: { calendars: [{ id: WORK_CALENDAR }] } };
+  } })));
+  await runtime.start("2026-09-10"); await runtime.settled();
+  expect(days.calendarState().status).toBe("error");
+  expect(days.calendarItems()).toEqual(before);
+});
+
 it("refuses wrong accounts, repeated pages, malformed dates and recurring masters", async () => {
   const wrong = connection(() => ({ calendars: [{ id: "personal@example.com" }] }));
   await expect(readCalendar(input(), wrong.connect)).rejects.toThrow(/does not contain the work calendar/); expect(wrong.close).toHaveBeenCalledOnce();

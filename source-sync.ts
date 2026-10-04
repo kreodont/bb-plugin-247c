@@ -1,3 +1,4 @@
+import { isLiveTask } from "./task-status.js";
 import { DAY_TIME_ZONE } from "./day-contracts.js";
 import { DAY_REVIEW_INSTRUCTIONS } from "./agent-time.js";
 import { partitionParts, pickChanges, receiptDraft, sourceParts } from "./proposal-parts.js";
@@ -137,7 +138,7 @@ export function validateSyncDraft(draft: SyncDraft, run: SyncRun, snapshots: Tas
   const dossier = draft.taskId ? snapshots.find((d) => d.task.id === draft.taskId) : emptyDossier(draft.title);
   if (!dossier) throw new PolicyError(`taskId ${draft.taskId} is absent from the snapshot. Copy the exact id of the matching task from the snapshot; do not create a duplicate.`);
   const reopening = Boolean(draft.taskId && dossier.task.status === "done");
-  if (draft.taskId && dossier.task.status !== "open" && (!reopening || draft.changes.status?.value !== "open" || !draft.changes.nextStep?.value)) {
+  if (draft.taskId && !isLiveTask(dossier.task.status) && (!reopening || draft.changes.status?.value !== "open" || !draft.changes.nextStep?.value)) {
     throw new PolicyError(`Task "${dossier.task.title}" (${draft.taskId}) has status=${dossier.task.status}. A done task requires a proposal to reopen it with a specific new next step; archived tasks are not updated automatically.`);
   }
   if (!draft.taskId && (!draft.changes.summary?.value || !draft.changes.nextStep?.value)) throw new PolicyError("A new task must have a summary and a specific next step.");
@@ -191,7 +192,7 @@ export function validateSyncDraft(draft: SyncDraft, run: SyncRun, snapshots: Tas
 }
 
 export function requiredSourceReads(dossiers: TaskDossier[], source: SyncSource, pending: SyncCandidate[] = []): string[] {
-  const text = JSON.stringify([dossiers.filter((d) => d.task.status === "open"), pending]);
+  const text = JSON.stringify([dossiers.filter((d) => isLiveTask(d.task.status)), pending]);
   if (source === "jira") return jiraReferences(text);
   if (source === "clickup") return [...new Set([...text.matchAll(/clickup\.com\/t\/(?:\d+\/)?([A-Za-z0-9_-]+)/g)].map(m => m[1]))];
   if (source === "teams" || source === "outlook") return [];

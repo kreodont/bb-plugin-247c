@@ -15,7 +15,7 @@ export type FactKind = (typeof factKinds)[number];
 export interface TaskRecord {
   id: string;
   title: string;
-  status: "open" | "done" | "archived";
+  status: import("../task-status.js").TaskStatus;
   revision: number;
   createdAt: string;
   updatedAt: string;

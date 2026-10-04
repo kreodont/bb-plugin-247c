@@ -67,6 +67,26 @@ it("keeps Jira complete when a collected issue describes an all-zero placeholder
   expect(validateSyncReports(bundle.reports, bundle.calls, dossiers).find(r => r.source === "jira")).toMatchObject({ status: "complete", paginationComplete: true, linkedTasksChecked: true, threadsRead: 2 });
 });
 
+it("does not treat bare store identifiers as Jira links from collected issue prose", async () => {
+  const ids: unknown[] = [];
+  const dossiers = [{ task: { status: "open" }, text: "BK-820" }] as unknown as Parameters<typeof collectSources>[1];
+  const connections: SourceConnections = {
+    gmail: { error: "Unavailable" }, slack: { error: "Unavailable" },
+    jira: { close: async () => {}, async call(tool, args) {
+      if (tool === "searchJiraIssuesUsingJql") return { content: [{ type: "text", text: '{"issues":[],"isLast":true}' }] };
+      ids.push(args.issueIdOrKey);
+      if (args.issueIdOrKey === "BK-820") return { content: [{ type: "text", text: JSON.stringify({
+        key: "BK-820", fields: { description: "Stores ABC-197 and ABC-335 failed. See https://example.atlassian.net/browse/SYS-100.", comment: { comments: [], total: 0 } },
+      }) }] };
+      if (args.issueIdOrKey === "SYS-100") return { content: [{ type: "text", text: JSON.stringify({ key: "SYS-100", fields: { description: "Confirmed", comment: { comments: [], total: 0 } } }) }] };
+      return { isError: true, content: [{ type: "text", text: "Issue does not exist." }] };
+    } },
+  };
+  const bundle = await collectSources(sampleRun(), dossiers, { connect: async () => connections });
+  expect(ids).toEqual(["BK-820", "SYS-100"]);
+  expect(bundle.reports.find(report => report.source === "jira")).toMatchObject({ status: "complete", paginationComplete: true, linkedTasksChecked: true });
+});
+
 it.each([600, 4])("follows a linked issue chain through completion or the request limit (%i), including cycles", async maxCalls => {
   const ids: unknown[] = [];
   const connections: SourceConnections = {
