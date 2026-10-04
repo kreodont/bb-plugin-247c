@@ -20,7 +20,13 @@ export type CollectionOptions = {
   signal?: AbortSignal; connect?: (signal: AbortSignal) => Promise<SourceConnections>;
   onProgress?: (progress: CollectionProgress) => void;
   timeoutMs?: number; maxCalls?: number;
+  retryDelayMs?: (attempt: number, rateLimited: boolean) => number;
 };
+// Slack answers rate limits with a bare "ratelimited" payload, sometimes wrapped
+// in a transport error. A one-second retry falls inside the same rate window.
+const TRANSIENT_SOURCE_ERROR = /429|502|503|504|fetch failed|ECONNRESET|currently unavailable|temporarily unavailable|rate.?limit|timed?\s*out|timeout|-32001/i;
+const RATE_LIMITED = /\b429\b|rate.?limit/i;
+export const sourceRetryDelay = (attempt: number, rateLimited: boolean) => rateLimited ? [5000, 15000, 30000][attempt] ?? 30000 : (attempt + 1) * 1000;
 // Budget the actual pretty-printed tool response, including JSON escaping.
 // Claude moves oversized results to a file the analyst must not need to read.
 export const SOURCE_PAGE_BYTES = 24000;
@@ -158,12 +164,17 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
         try {
           result = await connection.call(tool, args, signal);
           const response = result as Json;
-          if ((response?.isError || response?.statusCode >= 400) && /429|502|503|504|currently unavailable|temporarily unavailable|rate.limit|timed?\s*out|timeout|-32001/i.test(JSON.stringify(response))) throw new Error("The source is temporarily unavailable (503/429/timeout).");
+          if ((response?.isError || response?.statusCode >= 400) && TRANSIENT_SOURCE_ERROR.test(JSON.stringify(response))) throw RATE_LIMITED.test(JSON.stringify(response)) ? new Error("The source rate limit was reached.") : new Error("The source is temporarily unavailable (503/timeout).");
           break;
         }
         catch (cause) {
-          if (attempt >= 2 || signal.aborted || !/429|502|503|504|fetch failed|ECONNRESET|timed?\s*out|timeout|-32001/i.test(sourceError(cause))) throw cause;
-          await new Promise<void>(resolve => { const t = setTimeout(resolve, (attempt + 1) * 1000); t.unref?.(); });
+          const message = sourceError(cause), rateLimited = RATE_LIMITED.test(message);
+          if (attempt >= (rateLimited ? 3 : 2) || signal.aborted || !TRANSIENT_SOURCE_ERROR.test(message)) throw cause;
+          await new Promise<void>(resolve => {
+            const done = () => { clearTimeout(t); signal.removeEventListener("abort", done); resolve(); };
+            const t = setTimeout(done, (options.retryDelayMs ?? sourceRetryDelay)(attempt, rateLimited)); t.unref?.();
+            signal.addEventListener("abort", done, { once: true });
+          });
         }
       }
       const data = responseData(result), raw = result as Json;

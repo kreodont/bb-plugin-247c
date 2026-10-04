@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { makePluginAgentConfigurationContext } from "@get-bb/plugin-sdk/testing";
 import * as collector from "./source-collector.js";
-import { collectSources, pageState, responseData, sourceExportPage, sourceLinks, type SourceExport } from "./source-collector.js";
+import { collectSources, pageState, sourceRetryDelay, responseData, sourceExportPage, sourceLinks, type SourceExport } from "./source-collector.js";
 import { syncStartSchema, type SyncRun } from "./contracts.js";
 import type { SourceConnections } from "./source-connectors.js";
 import { SourceSyncStore, requiredSourceReads, syncRanges, validateSyncReports } from "./source-sync.js";
@@ -200,6 +200,30 @@ it("retries a transient MCP error payload and does not cite its failed body", as
   expect(attempts).toBe(3);
   expect(bundle.reports[0].status).toBe("complete");
   expect(bundle.calls.some(c => c.output.includes("currently unavailable"))).toBe(false);
+});
+
+it("waits out Slack rate limits, including transport-wrapped ratelimited payloads", async () => {
+  let searches = 0, threadReads = 0;
+  const delays: Array<[number, boolean]> = [];
+  const limited = 'Streamable HTTP error: Error POSTing to endpoint: event: message\ndata: {"jsonrpc":"2.0","result":{"content":[{"type":"text","text":"ratelimited"}],"isError":true},"id":282}';
+  const connections: SourceConnections = { gmail: { error: "Нет доступа" }, jira: { error: "Нет доступа" }, slack: { close: async () => {}, async call(tool) {
+    if (tool === "slack_search_public_and_private") {
+      if (++searches === 1) return { isError: true, content: [{ type: "text", text: "ratelimited" }] };
+      return { content: [{ type: "text", text: JSON.stringify({ results: "### Result 1\nhttps://acme.slack.com/archives/C0123456789/p1757500000000100" }) }] };
+    }
+    if (++threadReads <= 2) throw new Error(limited);
+    return { content: [{ type: "text", text: JSON.stringify({ messages: "Message_TS: 1757500000.000100 hello" }) }] };
+  } } };
+  const bundle = await collectSources(sampleRun(), [], { connect: async () => connections, retryDelayMs: (attempt, rateLimited) => { delays.push([attempt, rateLimited]); return 0; } });
+  expect(bundle.reports[1].status).toBe("complete");
+  expect(threadReads).toBe(3);
+  expect(delays.filter(([, rateLimited]) => rateLimited).length).toBeGreaterThanOrEqual(3);
+  expect(bundle.calls.some(c => c.output.includes("ratelimited"))).toBe(false);
+});
+
+it("backs off rate limits for seconds rather than retrying inside the same window", () => {
+  expect([0, 1, 2].map(attempt => sourceRetryDelay(attempt, true))).toEqual([5000, 15000, 30000]);
+  expect([0, 1].map(attempt => sourceRetryDelay(attempt, false))).toEqual([1000, 2000]);
 });
 
 it("starts analysis with the chosen non-corporate model only after the export and requires all pages", async () => {

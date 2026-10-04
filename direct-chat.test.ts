@@ -90,3 +90,12 @@ it("keeps a failed queue cleanup held, then recovers the same thread without del
   expect(f.queued.get(thread.id)).toEqual([userRow]);
   expect(f.threads.size).toBe(1);
 });
+
+it("marks an open conversation as waiting for the user, not as a running agent", async () => {
+  const { f, task, open } = await setup();
+  const session = await open();
+  const card = f.repo.list().tasks.find(t => t.id === task.id)!;
+  expect(card).toMatchObject({ activeSession: session.id, activeSessionBusy: false, activeSessionSince: session.createdAt });
+  f.repo.db.prepare("UPDATE sessions SET status='reviewing' WHERE id=?").run(session.id);
+  expect(f.repo.list().tasks.find(t => t.id === task.id)).toMatchObject({ activeSession: session.id, activeSessionBusy: true });
+});
