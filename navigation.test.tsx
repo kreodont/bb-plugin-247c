@@ -25,7 +25,7 @@ it("flushes day edits before persistent section navigation and retains the page 
   await waitFor(() => expect(check).toHaveBeenCalledTimes(1)); expect(goTo).not.toHaveBeenCalled();
   await waitFor(() => expect((view.getByRole("button", { name: "Tasks" }) as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(view.getByRole("button", { name: "Tasks" }));
-  await waitFor(() => expect(goTo).toHaveBeenCalledWith(""));
+  await waitFor(() => expect(goTo).toHaveBeenCalledWith("tasks"));
 });
 
 it("returns directly to the originating thread after all saves even without browser history", async () => {

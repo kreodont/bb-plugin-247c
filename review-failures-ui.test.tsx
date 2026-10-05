@@ -88,7 +88,7 @@ it("opens the exact failed session in Work, even when a newer session exists, an
 it.each(["list", "cards"])("shows a persistent failure shortcut in %s and the failures page after popup dismissal", async layout => {
   localStorage.setItem("247c-task-layout", layout);
   const { task, failed, mount } = await failedFixture();
-  const list = mount("");
+  const list = mount("tasks");
   fireEvent.click(await list.findByRole("button", { name: "Review failed" }));
   expect(list.inspection.navigateCalls).toContainEqual({ method: "toPluginPanel", path: "desk", options: { subPath: taskReviewPath(task.id, failed.id) } });
   list.lifecycle.unmount(); mounts.pop();

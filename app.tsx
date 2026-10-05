@@ -380,7 +380,7 @@ function SyncPage() {
     } catch (cause) { setMutationError(cause instanceof Error ? cause.message : String(cause)); throw cause; }
   }
   return <div className="h-full min-h-0 overflow-y-auto"><div className="mx-auto max-w-5xl space-y-5 p-5 md:p-8">
-    <Button variant="ghost" size="sm" className="-ml-3" onClick={() => navigate.toPluginPanel("desk")}><Icon name="ChevronLeft" /> All tasks</Button>
+    <Button variant="ghost" size="sm" className="-ml-3" onClick={() => navigate.toPluginPanel("desk", { subPath: "tasks" })}><Icon name="ChevronLeft" /> All tasks</Button>
     <div className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-medium">Work source updates</h1><p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">Connected work sources reveal task updates and new requests. Review the proposals and accept the ones you need.</p></div>{!starting && <div className="flex flex-wrap gap-2"><Button disabled={busy || !data || !updater || Boolean(updaterError) || updater.running || (!updater.configured && Boolean(active))} onClick={() => updater?.configured ? void startUpdater() : void startQuickCheck()}>{updater?.running || (!updater?.configured && active) ? "Check running…" : busy ? "Starting…" : "Check for updates"}</Button>{updater && !updater.configured && <Button variant="outline" disabled={busy || !data || Boolean(active) || Boolean(updaterError)} onClick={() => { setLaunchNotice(null); setMutationError(null); setStarting(true); }}>Custom check…</Button>}</div>}</div>
     <ErrorNotice error={mutationError ?? updaterError ?? error} retry={() => { refreshUpdater(); void refresh(); }} />
     {launchNotice && <p role="status" className="text-sm text-muted-foreground">{launchNotice}</p>}
@@ -735,14 +735,14 @@ function TaskPage({ taskId, returnTo, threadId, initialSessionId, showSessionPro
     catch (cause) { setMutationError(cause instanceof Error ? cause.message : String(cause)); await refresh(); return false; }
     finally { setBusy(false); }
   }
-  if (!dossier || dossier.task.id !== taskId) return <div className="space-y-4 p-6"><Button variant="ghost" onClick={() => navigate.toPluginPanel("desk", { subPath: withThread(returnTo ?? "", threadId) })}><Icon name="ChevronLeft" /> {backLabel}</Button>{error ? <ErrorNotice error={error} retry={() => void refresh()} /> : <p role="status" className="text-sm text-muted-foreground">Opening the dossier…</p>}</div>;
+  if (!dossier || dossier.task.id !== taskId) return <div className="space-y-4 p-6"><Button variant="ghost" onClick={() => navigate.toPluginPanel("desk", { subPath: withThread(returnTo ?? "tasks", threadId) })}><Icon name="ChevronLeft" /> {backLabel}</Button>{error ? <ErrorNotice error={error} retry={() => void refresh()} /> : <p role="status" className="text-sm text-muted-foreground">Opening the dossier…</p>}</div>;
   const pending = dossier.proposals.filter((p) => p.status === "pending" || p.status === "approved");
   const syncPending = dossier.syncUpdates.filter((p) => p.status === "pending");
   const pendingCount = pending.length + syncPending.length;
   const focusedSession = showSessionProposal ? dossier.sessions.find(s => s.id === initialSessionId) : undefined;
   const active = dossier.sessions.some((s) => ACTIVE.has(s.status));
   return <div className="relative h-full min-h-0 overflow-y-auto"><TaskViewMarker id={dossier.task.id} revision={dossier.task.revision} /><div className="mx-auto max-w-6xl space-y-5 p-5 md:p-8">
-    <Button variant="ghost" size="sm" className="-ml-3" onClick={() => navigate.toPluginPanel("desk", { subPath: withThread(returnTo ?? "", threadId) })}><Icon name="ChevronLeft" /> {backLabel}</Button>
+    <Button variant="ghost" size="sm" className="-ml-3" onClick={() => navigate.toPluginPanel("desk", { subPath: withThread(returnTo ?? "tasks", threadId) })}><Icon name="ChevronLeft" /> {backLabel}</Button>
     <div className="flex flex-wrap items-start justify-between gap-4"><div className="min-w-0 flex-1"><div className="mb-2 flex items-center gap-2"><span className={cn("inline-flex rounded-full px-2 py-0.5 text-xs", dossier.task.status === "waiting" ? "bg-sky-400/15 text-sky-700 dark:text-sky-300" : "bg-muted text-muted-foreground")}>{taskStatusNames[dossier.task.status]}</span><span className="text-xs text-muted-foreground">Revision {dossier.task.revision}</span></div><h1 className="break-words text-2xl font-medium leading-snug tracking-tight">{dossier.task.title}</h1></div><div className="flex flex-wrap gap-2">{isLiveTask(dossier.task.status) ? <><Button variant="outline" size="sm" className={cn("border-sky-400/40 text-sky-700 hover:bg-sky-400/10 dark:text-sky-300", dossier.task.status === "waiting" && "bg-sky-400/10")} disabled={busy} onClick={() => void action(() => rpc.call("status", { taskId, status: dossier.task.status === "waiting" ? "open" : "waiting", revision: dossier.task.revision }))}>{dossier.task.status === "waiting" ? "Resume task" : "Waiting for response"}</Button><Button variant="outline" size="sm" disabled={busy || active} onClick={() => void action(() => rpc.call("status", { taskId, status: "done", revision: dossier.task.revision }))}><Icon name="Check" /> Complete</Button><Button variant="ghost" size="icon" aria-label="Archive task" disabled={busy || active} onClick={() => void action(() => rpc.call("status", { taskId, status: "archived", revision: dossier.task.revision }))}><Icon name="Archive" /></Button></> : <Button variant="outline" size="sm" disabled={busy} onClick={() => void action(() => rpc.call("status", { taskId, status: "open", revision: dossier.task.revision }))}>Reopen task</Button>}</div></div>
     <TaskSources key={taskId} links={dossier.sourceLinks} primaryUrl={dossier.primarySource?.url} busy={busy}
       onPrimary={url => void action(() => rpc.call("setPrimarySource", { taskId, url, revision: dossier.sourceRevision, requestId: crypto.randomUUID() }))} />
@@ -776,7 +776,7 @@ function KnowledgePage() {
   const load = useCallback(() => rpc.call("knowledge", { query, offset }), [rpc, query, offset]);
   const { data, error, refresh } = useSnapshot(load);
   return <div className="h-full min-h-0 overflow-y-auto"><div className="mx-auto max-w-4xl space-y-5 p-5 md:p-8">
-    <Button variant="ghost" size="sm" className="-ml-3" onClick={() => navigate.toPluginPanel("desk")}><Icon name="ChevronLeft" /> All tasks</Button>
+    <Button variant="ghost" size="sm" className="-ml-3" onClick={() => navigate.toPluginPanel("desk", { subPath: "tasks" })}><Icon name="ChevronLeft" /> All tasks</Button>
     <div><h1 className="text-2xl font-medium">Knowledge base</h1><p className="mt-2 text-sm leading-relaxed text-muted-foreground">Reference documents, file notes and accepted knowledge from work conversations. Available in future sessions for any task.</p></div>
     <Input aria-label="Search the knowledge base" placeholder="Find a rule, term or solution" value={query} onChange={(event) => { setQuery(event.target.value); setOffset(0); setPreviousOffsets([]); }} />
     <ErrorNotice error={error} retry={() => void refresh()} />
@@ -842,7 +842,7 @@ function ProposalInboxPage() {
     });
   }
   return <div className="h-full min-h-0 overflow-y-auto"><div className="mx-auto max-w-5xl space-y-5 p-5 md:p-8">
-    <Button variant="ghost" size="sm" className="-ml-3" onClick={() => navigate.toPluginPanel("desk")}><Icon name="ChevronLeft" /> All tasks</Button>
+    <Button variant="ghost" size="sm" className="-ml-3" onClick={() => navigate.toPluginPanel("desk", { subPath: "tasks" })}><Icon name="ChevronLeft" /> All tasks</Button>
     <div className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-medium">Proposals{data ? ` · ${data.total}` : ""}</h1><p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">New tasks, updates and session outcomes in one place. Review the changes and accept the ones you need.</p></div><Button variant="outline" onClick={() => navigate.toPluginPanel("desk", { subPath: "updates" })}>Check sources</Button></div>
     <div className="flex flex-wrap gap-2" aria-label="Proposal types">{([{ id: "all", name: "All" }, { id: "new", name: "New tasks" }, { id: "updates", name: "Task updates" }, { id: "dossier", name: "Dossiers and sessions" }]).map(group => <Button key={group.id} size="sm" variant={filter === group.id ? "default" : "outline"} aria-pressed={filter === group.id} disabled={busy} onClick={() => { setFilter(group.id); setSelected(new Set()); }}>{group.name} · {items.filter(item => group.id === "all" || reviewGroup(item) === group.id).length}</Button>)}</div>
     <div className="sticky top-0 z-10 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-background p-3 shadow-sm">
@@ -879,7 +879,27 @@ function ProposalInboxPage() {
   </div></div>;
 }
 
+// The sidebar always opens the panel root. Keep the Tasks route explicit so
+// choosing Tasks never redirects back to the inbox while proposals are pending.
 function Page({ subPath }: PluginNavPanelProps) {
+  return deskRoute(subPath).path === "" ? <EntryPage subPath={subPath} /> : <DeskPage subPath={subPath} />;
+}
+
+function EntryPage({ subPath }: PluginNavPanelProps) {
+  const rpc = useUxRpc(), navigate = useBbNavigate();
+  const load = useCallback(() => rpc.call("threadProject", {}), [rpc]);
+  const { data, error, refresh } = useSnapshot(load);
+  const { threadId } = deskRoute(subPath);
+  useEffect(() => {
+    if (data) navigate.toPluginPanel("desk", {
+      subPath: withThread((data.pendingTotal ?? 0) > 0 ? "proposals" : "tasks", threadId),
+      replace: true,
+    });
+  }, [data, navigate, threadId]);
+  return error ? <ErrorNotice error={error} retry={() => void refresh()} /> : <p role="status">Opening 247C…</p>;
+}
+
+function DeskPage({ subPath }: PluginNavPanelProps) {
   const rpc = useUxRpc();
   const reviews = useReviewFailures();
   const load = useCallback(() => rpc.call("threadProject", {}), [rpc]);
@@ -888,13 +908,14 @@ function Page({ subPath }: PluginNavPanelProps) {
   if (!data && error) return <ErrorNotice error={error} retry={() => void refresh()} />;
   if (!data) return <p role="status">Loading 247C settings…</p>;
   const page = deskRoute(subPath).path.split("/")[0];
-  const uxPage = !page ? "tasks" : ["day", "report", "proposals", "updates", "knowledge", "ux"].includes(page) ? page as "day" | "report" | "proposals" | "updates" | "knowledge" | "ux" : "task";
+  const uxPage = !page || page === "tasks" ? "tasks" : ["day", "report", "proposals", "updates", "knowledge", "ux"].includes(page) ? page as "day" | "report" | "proposals" | "updates" | "knowledge" | "ux" : "task";
   return <UxScope page={uxPage} view={subPath} className="h-full min-h-0"><PlanningTimeZone.Provider value={data.timeZone ?? DAY_TIME_ZONE}><ErrorNotice error={error} retry={() => void refresh()} /><NavigationFrame subPath={subPath} pendingTotal={data.pendingTotal} failedReviews={reviews.data?.total ?? 0} today={localDay(new Date(), data.timeZone ?? DAY_TIME_ZONE)} goTo={path => navigate.toPluginPanel("desk", { subPath: withThread(path, threadId) })} returnToThread={threadId ? () => navigate.toThread(threadId) : undefined}><div className="flex h-full min-h-0 flex-col"><UpdaterHealthBanner showHealthy={deskRoute(subPath).path === "updates"} /><div className="min-h-0 flex-1"><PageContent subPath={subPath} /></div></div></NavigationFrame></PlanningTimeZone.Provider></UxScope>;
 }
 
 function PageContent({ subPath }: PluginNavPanelProps) {
   const timeZone = usePlanningTimeZone();
   const { path, threadId, focusTaskId } = deskRoute(subPath);
+  if (path === "tasks") return <Desk />;
   if (path === "reviews") return <ReviewFailuresPage />;
   if (path === "ux") return <UxPageView />;
   if (path === "proposals") return <ProposalInboxPage />;

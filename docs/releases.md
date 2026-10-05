@@ -21,6 +21,14 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Sidebar entry in 0.5.55
+
+Opening 247C from the sidebar checks the current pending proposal count and opens
+Proposals when a decision is waiting, otherwise Tasks. Explicit Tasks navigation
+always opens the list. Deep links and the originating thread are preserved, and
+the entry redirect replaces its history entry so Back returns to the previous
+page. There are no database or local configuration changes.
+
 ## Compatibility in 0.5.48
 
 This release combines local navigation, review recovery, waiting status and

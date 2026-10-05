@@ -20,10 +20,43 @@ afterEach(async () => { for (const m of mounts.splice(0)) m.lifecycle.unmount();
 async function setup(taskId?: string, supplied?: Awaited<ReturnType<typeof fixture>>) {
   const f = supplied ?? await fixture(); if (!hosts.includes(f)) hosts.push(f);
   const rpc = Object.fromEntries(Object.keys(rpcContract).map((name) => [name, (input: unknown) => f.harness.behavior.callRpc(name, input)]));
-  const slot = renderSlot(app.navPanels[0], { subPath: taskId ?? "" }, { rpc });
+  const slot = renderSlot(app.navPanels[0], { subPath: taskId ?? "tasks" }, { rpc });
   mounts.push(slot);
   return { f, slot };
 }
+
+it("opens the inbox from the sidebar only while proposals await a decision", async () => {
+  const f = await fixture(), task = await f.create();
+  const empty = await setup("", f);
+  await waitFor(() => expect(empty.slot.inspection.navigateCalls).toEqual([
+    { method: "toPluginPanel", path: "desk", options: { subPath: "tasks", replace: true } },
+  ]));
+  empty.slot.lifecycle.unmount();
+  const proposal = f.repo.propose({ taskId: task.id, revision: task.revision, requestId: randomUUID(), draft: {
+    rationale: "New context to review", confidence: 1,
+    changes: { summary: { value: "Updated context", evidenceRefs: [f.repo.detail(task.id).facts[0].id] } },
+  } }, "test");
+  const pending = await setup("/thread/thr_origin", f);
+  await waitFor(() => expect(pending.slot.inspection.navigateCalls).toEqual([
+    { method: "toPluginPanel", path: "desk", options: { subPath: "proposals/thread/thr_origin", replace: true } },
+  ]));
+  expect(f.repo.pendingTotal()).toBe(1);
+  pending.slot.lifecycle.unmount();
+  const tasks = await setup("tasks", f);
+  await tasks.slot.findByRole("heading", { name: "Tasks" });
+  expect(tasks.slot.inspection.navigateCalls).toEqual([]);
+  const inbox = await setup("proposals", f);
+  fireEvent.click(await inbox.slot.findByRole("button", { name: "All tasks" }));
+  expect(inbox.slot.inspection.navigateCalls).toEqual([
+    { method: "toPluginPanel", path: "desk", options: { subPath: "tasks" } },
+  ]);
+  tasks.slot.lifecycle.unmount(); inbox.slot.lifecycle.unmount();
+  f.repo.reject(proposal.id);
+  const reviewed = await setup("", f);
+  await waitFor(() => expect(reviewed.slot.inspection.navigateCalls).toEqual([
+    { method: "toPluginPanel", path: "desk", options: { subPath: "tasks", replace: true } },
+  ]));
+});
 
 it.each(["list", "cards"])("creates an empty native thread directly from the %s task layout", async layout => {
   localStorage.setItem("247c-task-layout", layout);
@@ -54,7 +87,7 @@ it("retries an uncertain direct-chat response with the same key and opens the ex
     if (name === "openChat" && ++calls === 1) throw new Error("Connection lost after creation");
     return result;
   }]));
-  const slot = renderSlot(app.navPanels[0], { subPath: "" }, { rpc }); mounts.push(slot);
+  const slot = renderSlot(app.navPanels[0], { subPath: "tasks" }, { rpc }); mounts.push(slot);
   fireEvent.click(await slot.findByRole("button", { name: "New chat" }));
   await waitFor(() => expect(f.repo.sessions(task.id)).toHaveLength(1));
   await waitFor(() => expect((slot.getByRole("button", { name: "New chat" }) as HTMLButtonElement).disabled).toBe(false));
