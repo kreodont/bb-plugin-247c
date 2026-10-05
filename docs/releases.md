@@ -21,6 +21,11 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Day title alignment in 0.5.57
+
+Long task titles in the day plan wrap alongside the open-chat marker instead of
+pushing the title onto a separate row. No data or behavior changes.
+
 ## Open chat indicators in 0.5.56
 
 Tasks with an open chat have a filled speech-bubble marker and a filled Open chat
