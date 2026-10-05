@@ -21,6 +21,16 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Review activity in 0.5.59
+
+The main work chat shows a spinning sidebar indicator while its conversation is
+being saved, its review is starting, or the reviewer is running. The indicator
+uses BB's thread-row status API and remains visible across navigation. It clears
+when review finishes, fails or is cancelled, and on plugin deactivation. Realtime
+updates, reconnects and a lightweight fallback refresh keep it current without
+starting another agent or changing the main chat's execution state. No database
+or local configuration migration is required.
+
 ## Collection limits in 0.5.58
 
 Collectors can distinguish finished scans of available chats from excluded chats,

@@ -263,6 +263,7 @@ export const rpcContract = defineRpcContract({
   taskSeen: { input: z.object({ id: idSchema, revision: revisionSchema }).strict(), output: z.object({ seenRevision: revisionSchema }) },
   reviewParts: { input: partDecisionSchema, output: partDecisionResultSchema },
   detail: { input: z.object({ id: idSchema, sessionId: idSchema.optional() }).strict(), output: dossierSchema },
+  reviewActivity: { input: z.object({}).strict(), output: z.object({ threads: z.array(z.object({ threadId: idSchema, status: z.enum(["collecting", "review_starting", "reviewing"]) })) }) },
   threadSession: { input: z.object({ threadId: idSchema }).strict(), output: z.object({ session: sessionSchema.pick({ id: true, taskId: true, workerThreadId: true, reviewerThreadId: true, mode: true, status: true, finishedAt: true, proposalId: true }).nullable(), reportedToday: z.object({ date: dayDateSchema, timeZone: z.string().optional(), minutes: dayMinutesSchema, estimated: z.boolean() }).optional() }) },
   threadSource: { input: z.object({ threadId: idSchema }).strict(), output: z.object({ source: taskSourceLinkSchema.nullable() }) },
   setPrimarySource: { input: z.object({ taskId: idSchema, url: sourceUrlSchema, revision: revisionSchema, requestId: z.uuid() }).strict(), output: sourceSelectionSchema },

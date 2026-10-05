@@ -1,4 +1,5 @@
 import { reviewFailures } from "./review-failures.js";
+import { reviewActivity } from "./review-activity.js";
 import { migrateTaskStatuses } from "./task-status-migration.js";
 import { dirname, join } from "node:path";
 import { UxRecording } from "./ux-recording.js";
@@ -156,6 +157,7 @@ export default async function plugin(bb: BbPluginApi) {
       if (input.kind === "source" && result.taskId) await runtime.archiveFinishedThreads(result.taskId);
       return result;
     },
+    reviewActivity: () => reviewActivity(repo),
     threadSession: ({ threadId }) => {
       const session = repo.forThread(threadId);
       if (!session) return { session: null };
