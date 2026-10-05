@@ -21,6 +21,15 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Collection limits in 0.5.58
+
+Collectors can distinguish finished scans of available chats from excluded chats,
+unavailable channels and bounded history. The Updates card shows a neutral scan
+result with separate access and history limits when no requests or queued messages
+remain outstanding. Actual failures, unfinished scans and legacy snapshots retain
+their warnings. Historical coverage and checkpoints are unchanged. No database or
+local configuration migration is required.
+
 ## Day title alignment in 0.5.57
 
 Long task titles in the day plan wrap alongside the open-chat marker instead of

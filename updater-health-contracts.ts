@@ -7,6 +7,11 @@ export const sourceCoverageSchema = z.object({
   status: z.enum(["complete", "partial", "unavailable"]),
   savedRecords: z.number().int().nonnegative(),
   gaps: z.array(z.string().max(1000)).max(10),
+  limitations: z.array(z.string().max(1000)).max(10).optional(),
+  chatScan: z.object({
+    checked: z.number().int().nonnegative(), available: z.number().int().nonnegative(),
+    excluded: z.number().int().nonnegative(), pendingMessages: z.number().int().nonnegative(),
+  }).refine(value => value.checked <= value.available, "Invalid chat scan counts.").optional(),
   scannedChats: z.number().int().nonnegative().optional(), discoveredChats: z.number().int().nonnegative().optional(),
 }).refine(value => Date.parse(value.since) <= Date.parse(value.collectedAt)
   && (!value.fullyCheckedThrough || Date.parse(value.fullyCheckedThrough) <= Date.parse(value.collectedAt)), "Invalid coverage interval.");

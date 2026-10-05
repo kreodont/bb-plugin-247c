@@ -199,6 +199,17 @@ Optional `scannedChats` and `discoveredChats` explain chat coverage. Include at
 most six sources and ten gap messages per source, each at most 1,000 characters.
 The entire snapshot remains limited to 64 KB. Do not include source bodies.
 
+Collectors may separate known access and history limits into optional
+`limitations` (up to ten strings, each at most 1,000 characters), retaining
+request failures and unfinished work in `gaps`. Optional `chatScan` supplies
+nonnegative `checked`, `available`, `excluded` and `pendingMessages` counts.
+`available` excludes deliberately skipped chats; `checked` must not exceed it.
+When all available chat lists have been checked, their queue is empty and no
+gaps remain, the card shows a neutral "Available chats checked" status with
+limits in a separate section. A partial collection remains partial and its
+full-coverage checkpoint does not advance. Unknown failures must stay in gaps.
+Legacy snapshots keep their existing display.
+
 The Updates page displays these collection dates and gaps separately from
 proposal analysis. The last complete collection checkpoint must only advance
 when source collection confirms full coverage; a successful analysis of a
