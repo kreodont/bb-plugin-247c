@@ -21,6 +21,13 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Open chat indicators in 0.5.56
+
+Tasks with an open chat have a filled speech-bubble marker and a filled Open chat
+button in task lists, cards and the day plan. New chat keeps its outlined button
+and adds a plus icon. Priority colors and existing running-agent indicators are
+preserved. There are no database, session or configuration changes.
+
 ## Sidebar entry in 0.5.55
 
 Opening 247C from the sidebar checks the current pending proposal count and opens

@@ -21,6 +21,8 @@ no retention cutoff deletes old exports. See [storage compatibility](docs/releas
 
 Click **247C** in the sidebar to open **Proposals** when any proposals await a decision, or **Tasks** when none remain. The **Tasks** tab and **All tasks** links always open the task list. The proposal count remains a direct shortcut and also works with Enter or Space when focused; the panel options menu remains available to its right.
 
+Tasks with an open chat show a filled speech-bubble icon and a filled **Open chat** button in the list, cards and day plan. Priority colors stay visible. The marker means a chat is open; only a running agent uses the activity pulse.
+
 - [Source updater health warnings](skills/updater-health.md)
 - [Local OpenKnowledge export and search](skills/knowledge-search.md)
 - [Local configuration and update patches](docs/local-configuration.md)
