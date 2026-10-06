@@ -210,6 +210,14 @@ limits in a separate section. A partial collection remains partial and its
 full-coverage checkpoint does not advance. Unknown failures must stay in gaps.
 Legacy snapshots keep their existing display.
 
+For a configured request limit, an optional `budgetPause` provides `usedThisRun`,
+`perRun`, `usedLast24Hours`, `per24Hours`, nullable ISO UTC `resumesAt`, and optional
+`deferredTasks` / `deferredDocuments`. At least one limit must be exhausted.
+The card explains the planned pause and remaining scan work when no other gaps
+remain. The resume timestamp is the earliest released request, not a promise
+that the scan will finish then. Preserve other failures in `gaps` and historical
+coverage as incomplete. These fields neither increase budgets nor trigger checks.
+
 The Updates page displays these collection dates and gaps separately from
 proposal analysis. The last complete collection checkpoint must only advance
 when source collection confirms full coverage; a successful analysis of a

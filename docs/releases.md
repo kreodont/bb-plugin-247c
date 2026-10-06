@@ -21,6 +21,13 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Request budget pauses in 0.5.60
+
+Source cards can show an exhausted request budget as a planned collection pause,
+with per-run and rolling daily counts, the earliest available request and the
+remaining scan work. Actual errors remain visible alongside the budget. This does
+not change limits, scheduling or full-coverage checkpoints and needs no migration.
+
 ## Review activity in 0.5.59
 
 The main work chat shows a spinning sidebar indicator while its conversation is

@@ -8,6 +8,12 @@ export const sourceCoverageSchema = z.object({
   savedRecords: z.number().int().nonnegative(),
   gaps: z.array(z.string().max(1000)).max(10),
   limitations: z.array(z.string().max(1000)).max(10).optional(),
+  budgetPause: z.object({
+    usedThisRun: z.number().int().nonnegative(), perRun: z.number().int().positive(),
+    usedLast24Hours: z.number().int().nonnegative(), per24Hours: z.number().int().positive(),
+    resumesAt: z.string().datetime().nullable(),
+    deferredTasks: z.number().int().nonnegative().optional(), deferredDocuments: z.number().int().nonnegative().optional(),
+  }).refine(value => value.usedThisRun >= value.perRun || value.usedLast24Hours >= value.per24Hours, "Request budget is not exhausted.").optional(),
   chatScan: z.object({
     checked: z.number().int().nonnegative(), available: z.number().int().nonnegative(),
     excluded: z.number().int().nonnegative(), pendingMessages: z.number().int().nonnegative(),
