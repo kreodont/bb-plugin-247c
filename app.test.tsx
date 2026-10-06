@@ -246,7 +246,7 @@ it("reviews new tasks and existing task updates together and accepts the selecte
   fireEvent.click(slot.getByRole("button", { name: "Expand all" }));
   expect(slot.getAllByText("After").length).toBeGreaterThan(0);
   expect(slot.getAllByText("Before").length).toBeGreaterThan(0);
-  fireEvent.click(slot.getByRole("checkbox", { name: "Select all" }));
+  expect((slot.getByRole("checkbox", { name: "Select all" }) as HTMLInputElement).checked).toBe(true);
   expect(slot.getByText("Selected: 2 · new tasks: 1")).toBeTruthy();
   fireEvent.click(slot.getByRole("button", { name: "Accept selected · 2" }));
   await slot.findByText("Accepted: 2.");
@@ -254,6 +254,73 @@ it("reviews new tasks and existing task updates together and accepts the selecte
   expect(f.repo.list().total).toBe(2); expect(f.repo.pendingTotal()).toBe(0);
   expect(slot.inspection.rpcCalls.filter(c => c.method === "acceptInbox")).toHaveLength(1);
   expect(slot.inspection.navigateCalls).toHaveLength(0);
+});
+
+it("preserves unchecked proposals across refreshes and filters and accepts only the visible selection", async () => {
+  const f = await fixture(), task = await f.create();
+  const { run } = await startSourceSync(f), { input } = await sourceData(f, run, task.id);
+  const fresh = structuredClone(input.suggestions[0]); fresh.taskId = null; fresh.title = "New request";
+  input.suggestions.push(fresh); await submitSourceData(f, run, input);
+  const { slot } = await setup("proposals", f);
+  const updateName = `Select: ${input.suggestions[0].title}`;
+  const update = await slot.findByRole("checkbox", { name: updateName }) as HTMLInputElement;
+  expect(update.checked).toBe(true);
+  fireEvent.click(update);
+  await slot.behavior.emitRealtime("desk-changed", {});
+  await waitFor(() => expect(slot.inspection.rpcCalls.filter(c => c.method === "proposalInbox").length).toBeGreaterThan(1));
+  expect((slot.getByRole("checkbox", { name: updateName }) as HTMLInputElement).checked).toBe(false);
+  fireEvent.click(slot.getByRole("button", { name: "Task updates · 1" }));
+  expect(slot.getByText("Selected: 0")).toBeTruthy();
+  fireEvent.click(slot.getByRole("checkbox", { name: "Select all" }));
+  expect((slot.getByRole("checkbox", { name: updateName }) as HTMLInputElement).checked).toBe(true);
+  fireEvent.click(slot.getByRole("button", { name: "New tasks · 1" }));
+  fireEvent.click(slot.getByRole("button", { name: "Accept selected · 1" }));
+  await slot.findByText("Accepted: 1.");
+  expect(f.repo.pendingTotal()).toBe(1);
+  expect(f.repo.detail(task.id).projection.nextStep).toBeNull();
+  expect(slot.inspection.rpcCalls.filter(c => c.method === "acceptInbox")).toHaveLength(1);
+});
+
+it("selects newly arriving proposals while retaining manual deselections and skips conflicting alternatives", async () => {
+  const f = await fixture();
+  const propose = (title: string) => {
+    const task = f.repo.create({ title, description: "Context", requestId: randomUUID() });
+    const draft = { rationale: "Update", confidence: 1, changes: { summary: { value: "Summary", evidenceRefs: [f.repo.detail(task.id).facts[0].id] } } };
+    f.repo.propose({ taskId: task.id, revision: task.revision, requestId: randomUUID(), draft }, "test");
+    return { task, draft };
+  };
+  propose("First task");
+  const { task, draft } = propose("Conflicting task");
+  f.repo.propose({ taskId: task.id, revision: task.revision, requestId: randomUUID(), draft }, "test");
+  const { slot } = await setup("proposals", f);
+  fireEvent.click(await slot.findByRole("checkbox", { name: "Select: First task" }));
+  expect(slot.getAllByRole("checkbox", { name: "Select: Conflicting task" }).every(box => !(box as HTMLInputElement).checked)).toBe(true);
+  propose("New arrival");
+  await slot.behavior.emitRealtime("desk-changed", {});
+  expect((await slot.findByRole("checkbox", { name: "Select: New arrival" }) as HTMLInputElement).checked).toBe(true);
+  expect((slot.getByRole("checkbox", { name: "Select: First task" }) as HTMLInputElement).checked).toBe(false);
+  fireEvent.click(slot.getAllByRole("checkbox", { name: "Select: Conflicting task" })[0]);
+  expect((slot.getAllByRole("checkbox", { name: "Select: Conflicting task" })[1] as HTMLInputElement).disabled).toBe(true);
+  expect(f.repo.pendingTotal()).toBe(4);
+});
+
+it("selects each new inbox page without accepting proposals from another page", async () => {
+  const f = await fixture();
+  for (let index = 0; index < 51; index++) {
+    const task = f.repo.create({ title: `Page task ${index}`, description: "Context", requestId: randomUUID() });
+    f.repo.propose({ taskId: task.id, revision: task.revision, requestId: randomUUID(), draft: {
+      rationale: "Update", confidence: 1, changes: { summary: { value: "Summary", evidenceRefs: [f.repo.detail(task.id).facts[0].id] } },
+    } }, "test");
+  }
+  const { slot } = await setup("proposals", f);
+  await slot.findByRole("button", { name: "Accept selected · 50" });
+  fireEvent.click(slot.getByRole("checkbox", { name: "Select all on this page" }));
+  expect(slot.getByText("Selected: 0")).toBeTruthy();
+  fireEvent.click(slot.getByRole("button", { name: "Next page" }));
+  fireEvent.click(await slot.findByRole("button", { name: "Accept selected · 1" }));
+  await slot.findByText("Accepted: 1.");
+  await waitFor(() => expect(slot.getByText("Selected: 0")).toBeTruthy());
+  expect(f.repo.pendingTotal()).toBe(50);
 });
 
 it("counts new-task suggestions in the prominent home link before a task exists", async () => {
@@ -274,7 +341,7 @@ it("keeps session proposals in the same inbox and excludes stale entries from se
   await slot.findByRole("heading", { name: "Proposals · 2" });
   expect(slot.getByRole("button", { name: "Dossiers and sessions · 1" })).toBeTruthy();
   expect((slot.getByRole("checkbox", { name: `Select: ${task.title}` }) as HTMLInputElement).disabled).toBe(true);
-  fireEvent.click(slot.getByRole("checkbox", { name: "Select all" }));
+  expect((slot.getByRole("checkbox", { name: "Select all" }) as HTMLInputElement).checked).toBe(true);
   fireEvent.click(slot.getByRole("button", { name: "Accept selected · 1" }));
   await slot.findByText("Accepted: 1.");
   expect(f.repo.pendingTotal()).toBe(1);
@@ -1104,7 +1171,7 @@ it("honors individual part choices in bulk acceptance, including after collapse 
   fireEvent.click(slot.getByRole("button", { name: "Collapse all" }));
   fireEvent.click(slot.getByRole("button", { name: "Expand all" }));
   expect((await slot.findByRole("checkbox", { name: "Select part: Next step" }) as HTMLInputElement).checked).toBe(false);
-  fireEvent.click(slot.getByRole("checkbox", { name: "Select all" }));
+  expect((slot.getByRole("checkbox", { name: "Select all" }) as HTMLInputElement).checked).toBe(true);
   fireEvent.click(slot.getByRole("button", { name: "Accept selected · 1" }));
   await slot.findByText("Accepted: 1.");
   expect(f.repo.detail(task.id).projection.nextStep).toBeNull();
@@ -1175,7 +1242,7 @@ it.each(["bulk", "single", "partial"])("sets priority on a collapsed new-task pr
   fireEvent.click(slot.getByRole("button", { name: "Orange: Urgent, not important" }));
   expect(f.repo.list().total).toBe(0);
   if (mode === "bulk") {
-    fireEvent.click(slot.getByRole("checkbox", { name: "Select all" }));
+    expect((slot.getByRole("checkbox", { name: "Select all" }) as HTMLInputElement).checked).toBe(true);
     fireEvent.click(slot.getByRole("button", { name: "Accept selected · 1" }));
   } else {
     fireEvent.click(slot.getByRole("button", { name: `View: ${input.suggestions[0].title}` }));

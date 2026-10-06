@@ -802,7 +802,7 @@ function ProposalInboxPage() {
   const [offset, setOffset] = useState(0);
   const [previousOffsets, setPreviousOffsets] = useState<number[]>([]);
   const [filter, setFilter] = useState("all");
-  const [selected, setSelected] = useState(new Set<string>());
+  const [selectionOverrides, setSelectionOverrides] = useState<Record<string, boolean>>({});
   const [expanded, setExpanded] = useState(new Set<string>());
   const [partSelections, setPartSelections] = useState<Record<string, string[] | undefined>>({});
   const [priorities, setPriorities] = useState<Record<string, InitialPriority | undefined>>({});
@@ -813,14 +813,18 @@ function ProposalInboxPage() {
   const { data, error, refresh } = useSnapshot(load);
   const items = data?.items ?? [];
   const visible = items.filter(item => filter === "all" || reviewGroup(item) === filter);
-  const picked = items.filter(item => selected.has(reviewKey(item)) && !item.blockedReason && partSelections[reviewKey(item)]?.length !== 0);
   const taskCounts = new Map<string, number>();
   for (const item of items) { const id = reviewTask(item); if (id && !item.blockedReason) taskCounts.set(id, (taskCounts.get(id) ?? 0) + 1); }
-  const eligible = visible.filter(item => !item.blockedReason && partSelections[reviewKey(item)]?.length !== 0 && (!reviewTask(item) || taskCounts.get(reviewTask(item)!) === 1));
+  const ready = visible.filter(item => !item.blockedReason && partSelections[reviewKey(item)]?.length !== 0);
+  const unambiguous = (item: ReviewItem) => !reviewTask(item) || taskCounts.get(reviewTask(item)!) === 1;
+  const eligible = ready.filter(unambiguous);
+  // New proposals start selected; explicit choices survive refreshes and filters.
+  // Conflicting alternatives still need a deliberate choice of one proposal.
+  const picked = ready.filter(item => selectionOverrides[reviewKey(item)] ?? unambiguous(item));
+  const selected = new Set(picked.map(reviewKey));
   const allSelected = eligible.length > 0 && eligible.every(item => selected.has(reviewKey(item)));
   useEffect(() => {
     if (!data) return;
-    setSelected(previous => new Set(data.items.filter(item => !item.blockedReason && previous.has(reviewKey(item))).map(reviewKey)));
     if (!data.items.length && offset > 0) { setOffset(0); setPreviousOffsets([]); }
   }, [data, offset]);
   async function action(fn: () => Promise<unknown>) {
@@ -831,14 +835,25 @@ function ProposalInboxPage() {
     finally { locked.current = false; setBusy(false); }
   }
   function selectAll() {
-    setSelected(previous => { const next = new Set(previous); eligible.forEach(item => allSelected ? next.delete(reviewKey(item)) : next.add(reviewKey(item))); return next; });
+    setSelectionOverrides(previous => ({ ...previous, ...Object.fromEntries(eligible.map(item => [reviewKey(item), !allSelected])) }));
+  }
+  function toggleSelection(item: ReviewItem) {
+    const key = reviewKey(item), checked = !selected.has(key), taskId = reviewTask(item);
+    setSelectionOverrides(previous => {
+      const next = { ...previous, [key]: checked };
+      if (checked && taskId) for (const other of items) {
+        if (reviewKey(other) !== key && reviewTask(other) === taskId) next[reviewKey(other)] = false;
+      }
+      return next;
+    });
   }
   function acceptSelected() {
     if (!picked.length) return;
     const snapshot = picked;
     void action(async () => {
       const result = await rpc.call("acceptInbox", { items: snapshot.map(item => ({ ...reviewSelection(item), ...(priorities[reviewKey(item)] && reviewGroup(item) === "new" ? { initialPriority: priorities[reviewKey(item)] } : {}), ...(partSelections[reviewKey(item)] ? { parts: partSelections[reviewKey(item)] } : {}) })) });
-      setSelected(new Set(result.failed.map(item => `${item.kind}:${item.id}`)));
+      const failed = new Set(result.failed.map(item => `${item.kind}:${item.id}`));
+      setSelectionOverrides(previous => ({ ...previous, ...Object.fromEntries(snapshot.map(item => [reviewKey(item), failed.has(reviewKey(item))])) }));
       setNotice(`Accepted: ${result.applied.length}.${result.failed.length ? ` Need attention: ${result.failed.length}.` : ""}`);
       if (result.failed.length) setMutationError(result.failed.map(failure => `${reviewTitle(snapshot.find(item => reviewKey(item) === `${failure.kind}:${failure.id}`)!)}: ${failure.message}`).join("\n"));
     });
@@ -846,7 +861,7 @@ function ProposalInboxPage() {
   return <div className="h-full min-h-0 overflow-y-auto"><div className="mx-auto max-w-5xl space-y-5 p-5 md:p-8">
     <Button variant="ghost" size="sm" className="-ml-3" onClick={() => navigate.toPluginPanel("desk", { subPath: "tasks" })}><Icon name="ChevronLeft" /> All tasks</Button>
     <div className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-medium">Proposals{data ? ` · ${data.total}` : ""}</h1><p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">New tasks, updates and session outcomes in one place. Review the changes and accept the ones you need.</p></div><Button variant="outline" onClick={() => navigate.toPluginPanel("desk", { subPath: "updates" })}>Check sources</Button></div>
-    <div className="flex flex-wrap gap-2" aria-label="Proposal types">{([{ id: "all", name: "All" }, { id: "new", name: "New tasks" }, { id: "updates", name: "Task updates" }, { id: "dossier", name: "Dossiers and sessions" }]).map(group => <Button key={group.id} size="sm" variant={filter === group.id ? "default" : "outline"} aria-pressed={filter === group.id} disabled={busy} onClick={() => { setFilter(group.id); setSelected(new Set()); }}>{group.name} · {items.filter(item => group.id === "all" || reviewGroup(item) === group.id).length}</Button>)}</div>
+    <div className="flex flex-wrap gap-2" aria-label="Proposal types">{([{ id: "all", name: "All" }, { id: "new", name: "New tasks" }, { id: "updates", name: "Task updates" }, { id: "dossier", name: "Dossiers and sessions" }]).map(group => <Button key={group.id} size="sm" variant={filter === group.id ? "default" : "outline"} aria-pressed={filter === group.id} disabled={busy} onClick={() => setFilter(group.id)}>{group.name} · {items.filter(item => group.id === "all" || reviewGroup(item) === group.id).length}</Button>)}</div>
     <div className="sticky top-0 z-10 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-background p-3 shadow-sm">
       <label className="flex cursor-pointer items-center gap-2 text-sm"><input type="checkbox" aria-label={data?.nextOffset !== null && data?.nextOffset !== undefined || offset ? "Select all on this page" : "Select all"} checked={allSelected} disabled={busy || !eligible.length} onChange={selectAll} />{data?.nextOffset !== null && data?.nextOffset !== undefined || offset ? "Select all on page" : "Select all"}</label>
       <Button size="sm" variant="ghost" disabled={!visible.length} onClick={() => setExpanded(previous => visible.every(item => previous.has(reviewKey(item))) ? new Set() : new Set(visible.map(reviewKey)))}>{visible.length > 0 && visible.every(item => expanded.has(reviewKey(item))) ? "Collapse all" : "Expand all"}</Button>
@@ -864,7 +879,7 @@ function ProposalInboxPage() {
       const group = reviewGroup(item), open = expanded.has(key);
       const conflict = Boolean(taskId && picked.some(other => reviewKey(other) !== key && reviewTask(other) === taskId));
       return <section key={key} aria-label={`Proposal: ${title}`} className={cn("overflow-hidden rounded-xl border bg-card", selected.has(key) ? "border-primary/40" : "border-border")}>
-        <div className="flex items-start gap-3 p-4"><input type="checkbox" className="mt-1 size-4 shrink-0" aria-label={`Select: ${title}`} checked={selected.has(key)} disabled={busy || Boolean(item.blockedReason) || conflict || partSelections[key]?.length === 0} onChange={() => setSelected(previous => { const next = new Set(previous); next.has(key) ? next.delete(key) : next.add(key); return next; })} />
+        <div className="flex items-start gap-3 p-4"><input type="checkbox" className="mt-1 size-4 shrink-0" aria-label={`Select: ${title}`} checked={selected.has(key)} disabled={busy || Boolean(item.blockedReason) || conflict || partSelections[key]?.length === 0} onChange={() => toggleSelection(item)} />
           <div className="min-w-0 flex-1"><div className="mb-2 flex flex-wrap items-center gap-2"><Pill attention={group === "new"}>{group === "new" ? "New task" : group === "updates" ? "Task changes" : item.kind === "proposal" && item.dossier.sessionUpdates.length ? "Session outcomes" : "Dossier changes"}</Pill><span className="text-xs text-muted-foreground">{[...Object.keys(changes).map(field => fieldNames[field as keyof typeof fieldNames]), ...(item.kind === "proposal" && item.dossier.sessionUpdates[0]?.extraction.reportedTime ? ["Reported time"] : [])].join(" · ")}</span></div>
             <button type="button" className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-expanded={open} aria-label={`${open ? "Collapse" : "View"}: ${title}`} onClick={() => setExpanded(previous => { const next = new Set(previous); next.has(key) ? next.delete(key) : next.add(key); return next; })}><h2 className="break-words font-medium leading-snug">{title}</h2><p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">{draft.rationale}</p></button>
             {!open && changes.nextStep?.value && <p className="mt-3 line-clamp-3 text-sm leading-relaxed"><span className="text-muted-foreground">Next: </span>{changes.nextStep.value}</p>}
@@ -877,7 +892,7 @@ function ProposalInboxPage() {
       </section>;
     })}
     {data && !visible.length && <div className="rounded-xl border border-dashed border-border p-10 text-center"><Icon name={incompleteSources ? "AlertCircle" : "CircleCheck"} className="mx-auto mb-3 size-7 text-muted-foreground" /><h2 className="font-medium">{data.total ? "No proposals in this section" : incompleteSources ? "No proposals are ready" : "Everything reviewed"}</h2><p className="mt-2 text-sm text-muted-foreground">{data.total ? "Choose another proposal type or the next page." : incompleteSources ? "Source checks need attention. New work may not have reached this list." : "New proposals will appear after checking sources or finishing sessions."}</p></div>}
-    {data && (offset > 0 || data.nextOffset !== null) && <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="outline" disabled={busy || !previousOffsets.length} onClick={() => { setOffset(previousOffsets.at(-1) ?? 0); setPreviousOffsets(previousOffsets.slice(0, -1)); setSelected(new Set()); }}>Previous page</Button><span className="text-xs text-muted-foreground">On this page {items.length} of {data.total}. The rest are on the next page.</span><Button variant="outline" disabled={busy || data.nextOffset === null} onClick={() => { if (data.nextOffset !== null) { setPreviousOffsets([...previousOffsets, offset]); setOffset(data.nextOffset); setSelected(new Set()); } }}>Next page</Button></div>}
+    {data && (offset > 0 || data.nextOffset !== null) && <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="outline" disabled={busy || !previousOffsets.length} onClick={() => { setOffset(previousOffsets.at(-1) ?? 0); setPreviousOffsets(previousOffsets.slice(0, -1)); }}>Previous page</Button><span className="text-xs text-muted-foreground">On this page {items.length} of {data.total}. The rest are on the next page.</span><Button variant="outline" disabled={busy || data.nextOffset === null} onClick={() => { if (data.nextOffset !== null) { setPreviousOffsets([...previousOffsets, offset]); setOffset(data.nextOffset); } }}>Next page</Button></div>}
   </div></div>;
 }
 

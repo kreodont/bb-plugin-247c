@@ -21,6 +21,15 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Default proposal selection in 0.5.61
+
+Eligible proposals are selected by default on each inbox page, including newly
+arriving proposals. Manual deselections survive refreshes and filter changes.
+Bulk acceptance applies only to the visible page and proposal type. Blocked
+entries remain unchecked, and competing proposals for one task still require
+choosing one manually. Nothing is accepted until the user clicks Accept selected.
+No database or local configuration migration is required.
+
 ## Request budget pauses in 0.5.60
 
 Source cards can show an exhausted request budget as a planned collection pause,
