@@ -8,11 +8,12 @@ import { rpcContract } from "./contracts.js";
 import { DayPlanning } from "./day-planning.js";
 import { localDay, shiftDay } from "./day-contracts.js";
 import { normalizeCalendarEvent } from "./calendar-reader.js";
+import { DAY_SORT_KEY } from "./day-sort.js";
 
 let app: CapturedPluginApp;
 const mounts: RenderedSlot[] = [], hosts: Awaited<ReturnType<typeof fixture>>[] = [];
 beforeAll(async () => { app = await loadPluginApp(() => import("./app.js")); }, 60000);
-afterEach(async () => { for (const slot of mounts.splice(0)) slot.lifecycle.unmount(); for (const f of hosts.splice(0)) await f.harness.lifecycle.dispose(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+afterEach(async () => { for (const slot of mounts.splice(0)) slot.lifecycle.unmount(); for (const f of hosts.splice(0)) await f.harness.lifecycle.dispose(); vi.restoreAllMocks(); vi.unstubAllGlobals(); window.localStorage.removeItem(DAY_SORT_KEY); });
 async function setup() {
   const f = await fixture(); hosts.push(f); const task = await f.create(), days = new DayPlanning(f.repo);
   const item = days.add({ date: "2026-09-10", taskId: task.id, requestId: randomUUID() });
@@ -25,6 +26,58 @@ async function setup() {
 
 const plannerRun = { id: "run_plan", status: "running" as const, startedAt: Date.now(), finishedAt: null, error: null, skipReason: null };
 const plannerState = { configured: true, today: localDay(), name: "Work planner", scheduled: true, nextRunAt: Date.now() + 60000, run: null };
+
+it("remembers duration sorting without rewriting time or the manual order", async () => {
+  const { f, task, days, item, mount } = await setup();
+  const other = await f.harness.behavior.callRpc("create", { title: "Another task", requestId: randomUUID() }) as { id: string };
+  days.edit({ id: item.id, revision: item.revision, plannedMinutes: 120, reportedMinutes: 5, requestId: randomUUID() });
+  days.add({ date: item.date, taskId: other.id, plannedMinutes: 9, reportedMinutes: 60, requestId: randomUUID() });
+  const before = days.day(item.date);
+  const slot = mount(`day/${item.date}`);
+  const select = await slot.findByRole("combobox", { name: "Sort day tasks" });
+  const order = () => slot.getAllByRole("article").map(row => row.getAttribute("aria-label"));
+  expect(order()).toEqual([`Day entry: ${task.title}`, "Day entry: Another task"]);
+  fireEvent.change(select, { target: { value: "planned-asc" } });
+  expect(order()).toEqual(["Day entry: Another task", `Day entry: ${task.title}`]);
+  fireEvent.click(within(slot.getAllByRole("article")[0]).getByRole("button", { name: "Details" }));
+  expect((slot.getByRole("button", { name: "Move up" }) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.change(select, { target: { value: "reported-asc" } });
+  expect(order()).toEqual([`Day entry: ${task.title}`, "Day entry: Another task"]);
+  fireEvent.change(select, { target: { value: "reported-desc" } });
+  expect(order()).toEqual(["Day entry: Another task", `Day entry: ${task.title}`]);
+  expect(days.day(item.date)).toEqual(before);
+  expect(slot.inspection.rpcCalls.some(call => ["dayReorder", "dayEdit"].includes(call.method))).toBe(false);
+  slot.lifecycle.unmount();
+  const reopened = mount(`day/${item.date}`);
+  const saved = await reopened.findByRole("combobox", { name: "Sort day tasks" });
+  expect((saved as HTMLSelectElement).value).toBe("reported-desc");
+  fireEvent.change(saved, { target: { value: "manual" } });
+  expect(reopened.getAllByRole("article").map(row => row.getAttribute("aria-label"))).toEqual([`Day entry: ${task.title}`, "Day entry: Another task"]);
+});
+
+it("keeps the same editor and pending save when duration sorting moves its row", async () => {
+  const { f, task, days, item, mount } = await setup();
+  const other = await f.harness.behavior.callRpc("create", { title: "Short task", requestId: randomUUID() }) as { id: string };
+  days.edit({ id: item.id, revision: item.revision, plannedMinutes: 120, requestId: randomUUID() });
+  days.add({ date: item.date, taskId: other.id, plannedMinutes: 9, requestId: randomUUID() });
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const edit = vi.fn(async input => { await gate; return days.edit(input); });
+  const slot = mount(`day/${item.date}`, { dayEdit: edit });
+  const input = await slot.findByLabelText(`Reported: ${task.title}`) as HTMLInputElement;
+  fireEvent.change(input, { target: { value: "45m" } });
+  fireEvent.blur(input);
+  await waitFor(() => expect(edit).toHaveBeenCalledOnce());
+  fireEvent.change(slot.getByRole("combobox", { name: "Sort day tasks" }), { target: { value: "planned-asc" } });
+  expect(slot.getAllByRole("article")[1].getAttribute("aria-label")).toBe(`Day entry: ${task.title}`);
+  expect(slot.getByLabelText(`Reported: ${task.title}`)).toBe(input);
+  expect(input.value).toBe("45m");
+  await act(async () => release());
+  await waitFor(() => expect(days.get(item.id).reportedMinutes).toBe(45));
+  await waitFor(() => expect(slot.queryByText("Saving…")).toBeNull());
+  expect(edit).toHaveBeenCalledOnce();
+  expect(input.value).toBe("45m");
+});
 
 it.each([false, true])("saves day edits before opening a task chat (existing session: %s)", async existing => {
   const { f, task, days, item, mount } = await setup();

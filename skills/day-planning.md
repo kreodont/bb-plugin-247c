@@ -6,6 +6,16 @@ Use **Open task → Log time → Return to thread**. The selected date defaults 
 
 Planned, actual and reported time are stored in 247C SQLite separately from the accepted task dossier. Time edits do not accept proposals, complete tasks or change priority.
 
+## Day task order
+
+Use **Sort tasks** above the day entries to sort tasks by Planned, Reported or
+Actual duration, shortest or longest first. Blank values stay last; zero is a
+recorded duration. Meetings keep their calendar order. The selection is saved
+locally in the browser and applies when opening other dates. Sorting changes only
+the view, preserving time values, pending edits and the saved manual order.
+Select **Manual order** to restore that order and use **Move up / Move down** in
+an entry's Details.
+
 ## Tools
 
 - `c247_day({date?})` reads a day with full entry IDs and revisions. The default is today in the configured planning time zone.

@@ -21,6 +21,14 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Day duration sorting in 0.5.62
+
+The Day panel can sort tasks by Planned, Reported or Actual duration in either
+direction and remembers the selection locally. Blank durations stay last and
+meetings keep calendar order. Manual order remains available; sorting does not
+rewrite saved entries or discard pending edits. No data or settings migration
+is required.
+
 ## Default proposal selection in 0.5.61
 
 Eligible proposals are selected by default on each inbox page, including newly
