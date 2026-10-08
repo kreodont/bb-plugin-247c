@@ -180,13 +180,16 @@ export class SessionRuntime {
       this.bb.sdk.providers.list(routing),
       // Conversations choose their recorder on Finish, not when the chat opens.
       mode === "result" ? this.bb.sdk.providers.models({ ...routing, providerId: reviewerProvider }) : null,
-      // Claude Code accepts explicit IDs outside its non-exhaustive catalog.
-      // Pass the chosen ID unchanged; the provider reports actual model errors.
-      input.request.providerId === "codex" ? this.bb.sdk.providers.models({ ...routing, providerId: input.request.providerId }) : null,
+      // Empty chats persist native thread defaults before removing the bootstrap.
+      // BB requires a catalog entry for that update, even when the CLI accepts
+      // unlisted IDs on a normal launch with a first message.
+      emptyChat || input.request.providerId === "codex" ? this.bb.sdk.providers.models({ ...routing, providerId: input.request.providerId }) : null,
     ]);
     if (![input.request.providerId, reviewerProvider].every((id) => providers.some((p) => p.id === id && p.available))) throw new PolicyError(mode === "conversation" ? "The selected account is unavailable on this machine." : "Both Codex and Claude Code must be available on the selected machine to start.");
     if (reviewerCatalog && (reviewerCatalog.modelLoadError || !reviewerCatalog.models.some((m) => m.model === reviewerModel || m.id === reviewerModel))) throw new PolicyError(`Verification model ${reviewerModel} is unavailable. Another model will not be substituted automatically.`);
-    if (workerCatalog && (workerCatalog.modelLoadError || !workerCatalog.models.some((m) => m.model === input.request.model || m.id === input.request.model))) throw new PolicyError("The selected worker model is unavailable.");
+    if (workerCatalog && (workerCatalog.modelLoadError || !workerCatalog.models.some((m) => m.model === input.request.model || !emptyChat && m.id === input.request.model))) throw new PolicyError(emptyChat
+      ? `The selected worker model ${input.request.model} is missing from the ${input.request.providerId} BB model catalog or the catalog could not be loaded. Register the model with that provider before opening an empty chat. No model was substituted.`
+      : "The selected worker model is unavailable.");
     const timestamp = new Date().toISOString();
     let session: Session = { id: input.requestId, taskId: input.taskId, baseRevision: input.revision, status: "starting", objective, criteria: input.criteria, mode, finishedAt: null, extraction: null, extractionRepair: null,
       continuedFrom: discussion?.session.id ?? null, discussionProposalId: discussion?.proposal?.id ?? null,

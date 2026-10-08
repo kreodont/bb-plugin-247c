@@ -53,13 +53,15 @@ source check's standard default. Users can change the selection before launch;
 the displayed choice is submitted explicitly. This setting does not change the
 automatic recorder policy or models already saved with a session.
 
-Claude Code work chats accept explicitly selected model IDs even when BB's
-model catalog has not discovered them yet, including context-window variants.
-247C passes the ID unchanged and surfaces any provider rejection without
-substituting a model. Account availability is still checked. Ordinary chats
-select their recorder on Finish; opening them does not require a verification
-model. Assignments with acceptance criteria still check their separate verifier
-before starting the worker.
+Claude Code launches with a first message can pass explicit model IDs outside
+BB's catalog unchanged, including context-window variants. **New chat** also
+saves native thread defaults before the user sends the first message, and BB
+requires an exact catalog entry for that update. Register the desired model in
+the selected provider's catalog first. 247C checks this before creating an empty
+chat, preserves the chosen ID and never substitutes a model. Account availability
+is still checked. Ordinary chats select their recorder on Finish; opening them
+does not require a verification model. Assignments with acceptance criteria still
+check their separate verifier before starting the worker.
 
 For corporate use, register `claude-work` as a separate BB provider and verify its
 login profile and account. Do not redirect personal `claude-code`. Account

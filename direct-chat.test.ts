@@ -58,20 +58,40 @@ it("uses remembered project execution choices when no local work model is config
   expect(session).toMatchObject({ workerProvider: "codex", workerModel: "gpt-5.6-sol" });
 });
 
-it.each(["claude-code", "claude-work"])("passes an unlisted explicit model unchanged to %s without a verification preflight", async providerId => {
+it.each(["claude-code", "claude-work"])("persists the exact catalogued model in an empty %s chat", async providerId => {
   const { f, open } = await setup();
   const model = "claude-opus-5-5[1m]";
   await f.harness.behavior.setSettings({ composerDefaults: "{}", workProvider: providerId, workModel: model });
-  // Model discovery can lag behind the CLI or fail independently of a chat.
-  f.harness.inspection.sdk.stub("providers.models", () => ({ models: [], modelLoadError: "Catalog refresh failed" }));
+  f.harness.inspection.sdk.stub("providers.models", () => ({ models: [{ id: model, model }], modelLoadError: null }));
+  // Match BB's native default-update check, which is stricter than CLI startup.
+  f.harness.inspection.sdk.stub("threads.update", ({ threadId, model: nextModel, title }) => {
+    if (nextModel && nextModel !== model) throw new Error("Model is not in this thread's catalog");
+    if (nextModel) f.models.set(threadId, nextModel);
+    const thread = { ...f.threads.get(threadId)!, ...(title === undefined ? {} : { title }) };
+    f.threads.set(threadId, thread); return thread;
+  });
   const session = await open();
   expect(session).toMatchObject({ status: "working", mode: "conversation", workerProvider: providerId, workerModel: model });
   expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
   expect(f.harness.inspection.sdk.callsTo("threads.spawn")[0][0]).toMatchObject({ providerId, model });
   expect(f.models.get(session.workerThreadId!)).toBe(model);
-  expect(f.harness.inspection.sdk.callsTo("providers.models")).toHaveLength(0);
+  expect(f.harness.inspection.sdk.callsTo("providers.models")).toHaveLength(1);
+  expect(f.harness.inspection.sdk.callsTo("providers.models")[0][0]).toMatchObject({ providerId });
   expect(f.harness.inspection.sdk.callsTo("threads.send")).toHaveLength(0);
   expect(f.queued.get(session.workerThreadId!)).toEqual([]);
+});
+
+it.each([
+  { models: [], modelLoadError: null },
+  { models: [], modelLoadError: "Catalog refresh failed" },
+  { models: [{ id: "claude-opus-5-5[1m]", model: "claude-opus-5-5" }], modelLoadError: null },
+])("rejects an empty chat before spawning when native model defaults cannot be saved (%j)", async catalog => {
+  const { f, task, open } = await setup();
+  await f.harness.behavior.setSettings({ composerDefaults: "{}", workProvider: "claude-work", workModel: "claude-opus-5-5[1m]" });
+  f.harness.inspection.sdk.stub("providers.models", () => catalog);
+  await expect(open()).rejects.toThrow("Register the model with that provider");
+  expect(f.repo.sessions(task.id)).toHaveLength(0);
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
 });
 
 it("still checks account availability before opening a chat with an unlisted model", async () => {
@@ -83,9 +103,10 @@ it("still checks account availability before opening a chat with an unlisted mod
   expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
 });
 
-it("surfaces a provider rejection of an unlisted model without falling back or respawning", async () => {
+it("surfaces a provider rejection of a catalogued model without falling back or respawning", async () => {
   const { f, task, open } = await setup();
   await f.harness.behavior.setSettings({ composerDefaults: "{}", workProvider: "claude-work", workModel: "claude-opus-5-5[1m]" });
+  f.harness.inspection.sdk.stub("providers.models", () => ({ models: [{ id: "claude-opus-5-5[1m]", model: "claude-opus-5-5[1m]" }], modelLoadError: null }));
   f.harness.inspection.sdk.stub("threads.spawn", () => { throw new Error("Model unavailable for this account"); });
   await expect(open()).rejects.toThrow("Model unavailable for this account");
   expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);

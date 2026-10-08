@@ -21,6 +21,15 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Native model defaults for empty chats in 0.5.64
+
+New chat now checks that BB can persist the exact selected work model before
+creating a session. Claude Code can accept unlisted IDs on a regular launch, but
+BB's native thread-default update requires the model in the provider's catalog.
+A missing entry or failed catalog read produces an actionable work-model error
+before a thread is created. The selected model is never replaced, and ordinary
+chats do not run a verification-model preflight. No data migration is required.
+
 ## Explicit Claude work models in 0.5.63
 
 Opening a work chat no longer rejects an explicit Claude Code model merely
