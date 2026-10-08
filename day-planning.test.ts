@@ -88,6 +88,38 @@ it("keeps manual reported on its original day when the calendar moves or cancels
   expect(days.report({ date: "2026-09-11", period: "day" }).totals.reportedMinutes).toBe(25);
 });
 
+it("removes automatic meeting time from day and report totals until the meeting is restored", async () => {
+  const { days } = await setup();
+  const event = meeting(); days.mergeCalendar([event]);
+  let item = days.calendarItems()[0];
+  expect(item.reportedMinutes).toBe(30);
+  const request = { id: item.id, revision: item.revision, removed: true, requestId: randomUUID() };
+  item = days.edit(request);
+  expect(days.edit(request)).toEqual(item);
+  expect(item).toMatchObject({ removed: true, reportedMode: "calendar", reportedMinutes: null, actualMinutes: null });
+  days.tick(); days.mergeCalendar([event]);
+  expect(days.get(item.id).reportedMinutes).toBeNull();
+  for (const totals of [days.day(item.date).totals, days.report({ date: item.date, period: "day" }).totals,
+    days.report({ date: item.date, period: "week" }).totals]) {
+    expect(totals).toMatchObject({ plannedMinutes: 0, actualMinutes: 0, reportedMinutes: 0 });
+  }
+  const audit = days.history(item.id).items.find(e => e.before?.removed === false && e.after.removed);
+  expect(audit?.before?.reportedMinutes).toBe(30); expect(audit?.after.reportedMinutes).toBeNull();
+  item = days.get(item.id);
+  item = days.edit({ id: item.id, revision: item.revision, removed: false, requestId: randomUUID() });
+  expect(item).toMatchObject({ removed: false, reportedMode: "calendar", reportedMinutes: 30, actualMinutes: 30 });
+});
+
+it.each([null, 0, 20])("preserves an explicit meeting report of %s when removing and restoring it", async reportedMinutes => {
+  const { days } = await setup(); days.mergeCalendar([meeting()]);
+  let item = days.calendarItems()[0];
+  item = days.edit({ id: item.id, revision: item.revision, reportedMinutes, removed: true, requestId: randomUUID() });
+  expect(item).toMatchObject({ reportedMinutes, reportedMode: "manual", reportedLocked: true });
+  days.tick(); days.mergeCalendar([meeting()]); item = days.get(item.id);
+  item = days.edit({ id: item.id, revision: item.revision, removed: false, requestId: randomUUID() });
+  expect(item).toMatchObject({ reportedMinutes, reportedMode: "manual", reportedLocked: true });
+});
+
 it("reports upcoming meetings from planned time when enabled and follows duration changes", async () => {
   const { f } = await setup();
   const days = new DayPlanning(f.repo, () => new Date("2026-09-10T07:00:00Z"), () => "Europe/Athens", () => true);

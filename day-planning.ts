@@ -123,7 +123,9 @@ export class DayPlanning {
       if (input.state !== undefined) { item.state = input.state; item.carriedTo = null; }
       if (input.removed !== undefined) {
         item.removed = input.removed;
-        if (item.removed && item.reportedMinutes !== null) item.reportedMode = "manual";
+        // Removing an unattended meeting must let automatic() clear calendar
+        // time. Explicit manual reports remain independent of plan membership.
+        if (item.removed && item.kind !== "meeting" && item.reportedMinutes !== null) item.reportedMode = "manual";
       }
       if (input.restoreAuto) {
         if (!item.calendar) {

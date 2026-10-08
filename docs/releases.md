@@ -21,6 +21,16 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Removed meeting accounting in 0.5.65
+
+Removing a meeting from the day clears its automatically reported calendar time
+from day, week and sidebar totals. Previously removal converted the automatic
+value to manual time, so an unattended meeting kept contributing after it was
+hidden. Restoring the meeting resumes calendar accounting. Explicit manual
+reports and task time remain unchanged, and the audit history retains the
+previous value. No database migration is required; existing manual values are
+preserved and can be corrected explicitly.
+
 ## Native model defaults for empty chats in 0.5.64
 
 New chat now checks that BB can persist the exact selected work model before
