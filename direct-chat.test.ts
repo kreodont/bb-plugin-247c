@@ -58,10 +58,44 @@ it("uses remembered project execution choices when no local work model is config
   expect(session).toMatchObject({ workerProvider: "codex", workerModel: "gpt-5.6-sol" });
 });
 
-it("does not substitute a model or create a session when the configured model is unavailable", async () => {
+it.each(["claude-code", "claude-work"])("passes an unlisted explicit model unchanged to %s without a verification preflight", async providerId => {
+  const { f, open } = await setup();
+  const model = "claude-opus-5-5[1m]";
+  await f.harness.behavior.setSettings({ composerDefaults: "{}", workProvider: providerId, workModel: model });
+  // Model discovery can lag behind the CLI or fail independently of a chat.
+  f.harness.inspection.sdk.stub("providers.models", () => ({ models: [], modelLoadError: "Catalog refresh failed" }));
+  const session = await open();
+  expect(session).toMatchObject({ status: "working", mode: "conversation", workerProvider: providerId, workerModel: model });
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")[0][0]).toMatchObject({ providerId, model });
+  expect(f.models.get(session.workerThreadId!)).toBe(model);
+  expect(f.harness.inspection.sdk.callsTo("providers.models")).toHaveLength(0);
+  expect(f.harness.inspection.sdk.callsTo("threads.send")).toHaveLength(0);
+  expect(f.queued.get(session.workerThreadId!)).toEqual([]);
+});
+
+it("still checks account availability before opening a chat with an unlisted model", async () => {
   const { f, task, open } = await setup();
-  await f.harness.behavior.setSettings({ composerDefaults: JSON.stringify({ providerId: "claude-work", model: "unavailable-model" }) });
-  await expect(open()).rejects.toThrow("unavailable");
+  await f.harness.behavior.setSettings({ composerDefaults: "{}", workProvider: "claude-work", workModel: "claude-opus-5-5[1m]" });
+  f.harness.inspection.sdk.stub("providers.list", () => [{ id: "claude-work", available: false }]);
+  await expect(open()).rejects.toThrow("The selected account is unavailable");
+  expect(f.repo.sessions(task.id)).toHaveLength(0);
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
+});
+
+it("surfaces a provider rejection of an unlisted model without falling back or respawning", async () => {
+  const { f, task, open } = await setup();
+  await f.harness.behavior.setSettings({ composerDefaults: "{}", workProvider: "claude-work", workModel: "claude-opus-5-5[1m]" });
+  f.harness.inspection.sdk.stub("threads.spawn", () => { throw new Error("Model unavailable for this account"); });
+  await expect(open()).rejects.toThrow("Model unavailable for this account");
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
+  expect(f.repo.sessions(task.id)[0]).toMatchObject({ status: "blocked", workerModel: "claude-opus-5-5[1m]" });
+});
+
+it("does not substitute a model or create a session when a Codex model is absent from its catalog", async () => {
+  const { f, task, open } = await setup();
+  await f.harness.behavior.setSettings({ composerDefaults: JSON.stringify({ providerId: "codex", model: "unavailable-model" }) });
+  await expect(open()).rejects.toThrow("worker model");
   expect(f.repo.sessions(task.id)).toHaveLength(0);
   expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
 });

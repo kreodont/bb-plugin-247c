@@ -21,6 +21,15 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Explicit Claude work models in 0.5.63
+
+Opening a work chat no longer rejects an explicit Claude Code model merely
+because it is missing from BB's catalog. The chosen ID reaches the provider
+unchanged, including context-window suffixes. A normal conversation no longer
+runs a misleading verification-model preflight. Account checks, separate result
+verifier checks and provider errors remain in effect; no model is substituted.
+No data or local settings migration is required.
+
 ## Day duration sorting in 0.5.62
 
 The Day panel can sort tasks by Planned, Reported or Actual duration in either

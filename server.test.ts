@@ -116,6 +116,16 @@ describe("Bounded work and independent review", () => {
     await f.idle(session.workerThreadId!, { summary: "1. Вводные 2. План 3. Проверка", artifacts: [] });
     expect(f.repo.session(session.id).status).toBe("reviewing");
   });
+  it("allows an unlisted Claude worker while checking the result verifier separately", async () => {
+    const f = await setup(), task = await f.create();
+    const input = f.startInput(task.id, task.revision);
+    input.request = { ...input.request, providerId: "claude-work", model: "claude-opus-5-5[1m]" };
+    const session = sessionSchema.parse(await f.harness.behavior.callRpc("start", input));
+    expect(session).toMatchObject({ status: "working", mode: "result", workerModel: "claude-opus-5-5[1m]", reviewerProvider: "codex", reviewerModel: "gpt-5.6-sol" });
+    expect(f.harness.inspection.sdk.callsTo("providers.models")).toHaveLength(1);
+    expect(f.harness.inspection.sdk.callsTo("providers.models")[0][0]).toMatchObject({ providerId: "codex" });
+    expect(f.harness.inspection.sdk.callsTo("threads.spawn")[0][0]).toMatchObject({ providerId: "claude-work", model: "claude-opus-5-5[1m]" });
+  });
   it("fails preflight before creating a worker when the review model is unavailable", async () => {
     const f = await setup(); const task = await f.create();
     f.harness.inspection.sdk.stub("providers.models", () => ({ models: [], modelLoadError: null }));
