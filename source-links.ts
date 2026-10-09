@@ -19,6 +19,18 @@ export function jiraReferences(text: string): string[] {
   return jiraReferenceDetails(text).map(reference => reference.key);
 }
 
+export const jiraProject = (key: string) => key.slice(0, key.lastIndexOf("-"));
+export const jiraProjectAllowed = (key: string, allowedProjects: readonly string[]) => !allowedProjects.length || allowedProjects.includes(jiraProject(key));
+
+// A key-shaped string alone may be a store/customer code. Only Jira URLs or
+// projects established by source evidence can turn it into a required read.
+export function confirmedJiraReferences(text: string, trustedProjects: Iterable<string> = [], allowedProjects: readonly string[] = []): string[] {
+  const references = jiraReferenceDetails(text).filter(r => jiraProjectAllowed(r.key, allowedProjects));
+  if (allowedProjects.length) return references.map(r => r.key);
+  const projects = new Set([...trustedProjects, ...references.filter(r => r.explicit).map(r => jiraProject(r.key))]);
+  return references.filter(r => r.explicit || projects.has(jiraProject(r.key))).map(r => r.key);
+}
+
 export function pullRequestReferences(text: string): string[] {
   const urls = text.replace(/\\\//g, "/").match(/https:\/\/github\.com\/[a-z0-9_.-]+\/[a-z0-9_.-]+\/pull\/[1-9]\d*(?=[/?#.,:;!\s"<>\\)\]|]|$)/gi) ?? [];
   return [...new Set(urls.map(url => url.toLowerCase()))];

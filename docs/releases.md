@@ -21,6 +21,20 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Jira reference scope in 0.5.68
+
+Store and customer codes in task notes no longer establish a Jira project by
+themselves. Without a project filter, bare keys require project evidence from a
+Jira URL, search result or Jira notification. Keys seen before that evidence are
+reconsidered when it arrives. Genuine unavailable issue links remain partial.
+
+The installation-only `sources.jiraProjects` list restricts JQL searches, linked
+issue reads and coverage to exact project keys. It also scopes the analyst's
+handling of Jira notifications in other sources. Each native check saves its
+project scope so later settings changes cannot alter its coverage at submission.
+An empty list keeps automatic project discovery. Existing tasks, proposals and
+source history are preserved; no database migration is required.
+
 ## Source error classification in 0.5.67
 
 Source checks distinguish HTTP error status and diagnostic messages from quota

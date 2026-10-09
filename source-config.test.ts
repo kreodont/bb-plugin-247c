@@ -8,6 +8,7 @@ it("a fresh installation has no personal identity or watched channels", async ()
   expect(config.expectedEmail).toBe("");
   expect(config.profilePath).toBe("");
   expect(config.jiraSite).toBe("");
+  expect(config.jiraProjects).toEqual([]);
   expect(config.slackGroups).toEqual([]);
   const fetch = vi.spyOn(globalThis, "fetch");
   try {
@@ -17,6 +18,11 @@ it("a fresh installation has no personal identity or watched channels", async ()
     expect(missingProfile.gmail).toMatchObject({ error: expect.stringContaining("profilePath") });
     expect(fetch).not.toHaveBeenCalled();
   } finally { fetch.mockRestore(); }
+});
+
+it("validates an installation's exact Jira project keys", () => {
+  expect(parseSourceConfig('{"jiraProjects":["APP","OPS","APP"]}').jiraProjects).toEqual(["APP", "OPS"]);
+  for (const value of ["APP-", "app", "APP,OPS", 'APP") OR 1=1']) expect(() => parseSourceConfig(JSON.stringify({ jiraProjects: [value] }))).toThrow();
 });
 
 it("rejects unknown settings and unsafe Jira sites", () => {

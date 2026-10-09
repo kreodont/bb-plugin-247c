@@ -9,6 +9,7 @@ export const sourceConfigSchema = z.object({
   calendarId: z.string().min(1).default("primary"),
   jiraSite: z.string().regex(/^(?:[a-z0-9-]+\.atlassian\.net)?$/).default(""),
   jiraScope: z.string().min(1).max(4000).default("assignee = currentUser() OR reporter = currentUser()"),
+  jiraProjects: z.array(z.string().regex(/^[A-Z][A-Z0-9]*$/)).max(100).default([]).transform(projects => [...new Set(projects)]),
   slackChannels: z.array(z.string().regex(/^[A-Za-z0-9_-]+$/)).max(100).default([]),
   slackGroups: z.array(z.string().regex(/^[A-Z0-9]+$/)).max(100).default([]),
   slackUserId: z.string().regex(/^[A-Z0-9]*$/).default(""),

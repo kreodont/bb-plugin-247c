@@ -6,7 +6,7 @@ For corporate conversations, also follow the [setup-agent guide](setup-agent.md)
 
 The plugin reads the saved Claude login from `profilePath`: through Keychain on macOS, or the file created by Claude on other systems. Sign in to that profile with the standard Claude CLI and connect the required integrations. `expectedEmail` is required; the plugin verifies the account matches. Set `profilePath` explicitly to your configured profile; no personal profile path is bundled. Login refresh requires `claude` on the BB server's PATH.
 
-`jiraSite` restricts reads to one Jira site. `jiraScope` is the JQL condition within the time interval. `slackChannels` lists channel names to search; `slackGroups` lists group chat IDs whose history should be read. Set `slackUserId` to the account owner's Slack member ID: the collector searches the literal `<@USER_ID>` mention across accessible channels, including channels outside `slackChannels`. The `to:me` search alone can miss these mentions. `mailFilters` is appended to general email searches; unread inbox messages are checked separately. `analysisContext` explains the account owner's responsibilities to the analysis model and must not contain secrets. `calendarId` selects the calendar; `primary` resolves to `expectedEmail`.
+`jiraSite` restricts reads to one Jira site. `jiraScope` is the JQL condition within the time interval. `jiraProjects` optionally lists exact allowed project keys, for example `["APP", "OPS"]`: it restricts searches and linked reads, including direct URLs from other sources. An empty list keeps automatic discovery. Store this preference in the installation settings or local settings patch, not in the repository. Each native check freezes this scope for coverage validation; excluded projects do not create missing-read warnings. Existing task records are preserved. `slackChannels` lists channel names to search; `slackGroups` lists group chat IDs whose history should be read. Set `slackUserId` to the account owner's Slack member ID: the collector searches the literal `<@USER_ID>` mention across accessible channels, including channels outside `slackChannels`. The `to:me` search alone can miss these mentions. `mailFilters` is appended to general email searches; unread inbox messages are checked separately. `analysisContext` explains the account owner's responsibilities to the analysis model and must not contain secrets. `calendarId` selects the calendar; `primary` resolves to `expectedEmail`.
 
 Apply a local configuration file without shell interpolation:
 
@@ -42,6 +42,8 @@ plan is already saved. Meetings remain calendar rows; do not create task dossier
 to represent them.
 
 Gmail permalinks can identify a message rather than its thread. The collector resolves message IDs from already loaded threads or with the read-only `get_message` metadata operation, then reads the full conversation once. Connector errors include the requested ID and the source's error text.
+
+Without a configured project list, a bare issue-shaped string requires project evidence from a Jira URL, Jira search result or Jira notification subject. Store and customer codes in saved notes cannot establish a Jira project. Keys discovered before project evidence are reconsidered when that evidence arrives.
 
 Jira link discovery excludes UUID fragments and bare `Q-…` quote numbers. An explicit Jira `/browse/Q-…` URL still identifies a Jira issue. Collection and coverage validation use the same reference rules; unavailable real issues continue to make the check partial.
 

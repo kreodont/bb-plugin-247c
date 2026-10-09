@@ -1,6 +1,6 @@
 import { isLiveTask } from "./task-status.js";
 import type { SlackTarget } from "./source-slack-evidence.js";
-import { jiraReferenceDetails, jiraReferences, pullRequestReferences } from "./source-links.js";
+import { confirmedJiraReferences, jiraProject, jiraProjectAllowed, jiraReferenceDetails, jiraReferences, pullRequestReferences } from "./source-links.js";
 import { defaultSourceConfig, type SourceConfig } from "./source-config.js";
 import { randomUUID } from "node:crypto";
 import type { SyncCandidate, SyncRun, NativeSyncSource as SyncSource, SyncSubmit } from "./contracts.js";
@@ -127,13 +127,34 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
   const callProblems = new Map<string, string>();
   const problems: Record<SyncSource, string[]> = { gmail: [], slack: [], jira: [] };
   const scanned = { gmail: 0, slack: 0, jira: 0 };
-  const linked = sourceLinks(JSON.stringify([dossiers.filter(d => isLiveTask(d.task.status)), options.pendingCandidates ?? []]));
+  const contextText = JSON.stringify([dossiers.filter(d => isLiveTask(d.task.status)), options.pendingCandidates ?? []]);
+  const linked = { ...sourceLinks(contextText), jira: confirmedJiraReferences(contextText, [], config.jiraProjects) };
   const pending = { gmail: new Set(linked.gmail), slack: new Map(linked.slack.map(s => [`${s.channel}:${s.ts}`, s])), jira: new Set(linked.jira) };
-  const jiraProject = (key: string) => key.slice(0, key.lastIndexOf("-"));
   // Bare identifiers in source prose can also be store, project or customer IDs.
-  // Trust projects already present in durable task context or Jira search results;
+  // Trust projects established by Jira URLs or Jira search results;
   // a direct Jira URL remains authoritative for a newly discovered project.
-  const trustedJiraProjects = new Set(linked.jira.map(jiraProject));
+  const trustedJiraProjects = new Set([...config.jiraProjects, ...linked.jira.map(jiraProject)]);
+  const unconfirmedJira = new Set<string>();
+  const trustJiraProject = (key: string) => {
+    if (!jiraProjectAllowed(key, config.jiraProjects)) return;
+    const project = jiraProject(key);
+    trustedJiraProjects.add(project);
+    for (const candidate of unconfirmedJira) if (jiraProject(candidate) === project) {
+      pending.jira.add(candidate); unconfirmedJira.delete(candidate);
+    }
+  };
+  const addJiraLinks = (text: string) => {
+    const references = jiraReferenceDetails(text).filter(r => jiraProjectAllowed(r.key, config.jiraProjects));
+    // Establish projects before inspecting bare keys, regardless of text order.
+    for (const reference of references) if (reference.explicit) trustJiraProject(reference.key);
+    for (const reference of references) {
+      if (reference.explicit || trustedJiraProjects.has(jiraProject(reference.key))) pending.jira.add(reference.key);
+      else unconfirmedJira.add(reference.key);
+    }
+  };
+  // Retain unconfirmed keys in case a later source read establishes the project.
+  // They are not requested or counted as missing while still unconfirmed.
+  addJiraLinks(contextText);
   const searchedGmail = new Set<string>(), gmailThreads = new Map<string, string>();
   const read = { gmail: new Set<string>(), slack: new Set<string>(), jira: new Set<string>() };
   const knownPullRequests = new Set(pullRequestReferences(JSON.stringify(dossiers)));
@@ -146,12 +167,7 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
   const addLinks = (text: string) => {
     const found = sourceLinks(text);
     found.gmail.forEach(id => pending.gmail.add(id));
-    for (const reference of jiraReferenceDetails(text)) {
-      const project = jiraProject(reference.key);
-      if (!reference.explicit && !trustedJiraProjects.has(project)) continue;
-      trustedJiraProjects.add(project);
-      pending.jira.add(reference.key);
-    }
+    addJiraLinks(text);
     found.slack.forEach(s => pending.slack.set(`${s.channel}:${s.ts}`, s));
   };
   async function call(source: SyncSource, tool: string, args: Json, full = false, expectedThreadId?: string): Promise<Json | null> {
@@ -204,13 +220,12 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
       }
       if (full) {
         const content = documentContent(source, data, Date.parse(run.until));
-        // Ticket keys in email subject brackets establish a project before
-        // following bare references in that thread. Use the time-filtered export.
+        // Jira notification subjects establish a project before following bare
+        // references in that thread. Ordinary bracketed store codes do not.
         if (source === "gmail") {
           for (const message of JSON.parse(content).messages ?? []) {
-            for (const match of String(message.subject ?? "").matchAll(/\[([A-Z][A-Z0-9]*-[1-9]\d*)\]/g)) {
-              if (jiraReferences(match[1]).length) trustedJiraProjects.add(jiraProject(match[1]));
-            }
+            const subject = String(message.subject ?? "");
+            if (/\[JIRA\]/i.test(subject)) for (const reference of jiraReferenceDetails(subject)) trustJiraProject(reference.key);
           }
         }
         documents.push({ ref, source, tool, args, content }); addLinks(output);
@@ -347,16 +362,19 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
     // Expand by a day, then filter returned ISO timestamps exactly in code.
     const sinceMs = Date.parse(run.ranges.jira.since) - 300000, untilMs = Date.parse(run.until);
     const since = new Date(sinceMs - 86400000).toISOString().slice(0, 10), until = new Date(untilMs + 2 * 86400000).toISOString().slice(0, 10);
-    const jql = `updated >= "${since}" AND updated <= "${until}" AND (${config.jiraScope}) ORDER BY updated DESC`;
+    const projects = config.jiraProjects.length ? ` AND project IN (${config.jiraProjects.map(key => `"${key}"`).join(", ")})` : "";
+    const jql = `updated >= "${since}" AND updated <= "${until}" AND (${config.jiraScope})${projects} ORDER BY updated DESC`;
     await pages("jira", "searchJiraIssuesUsingJql", { cloudId: config.jiraSite, jql, maxResults: 100, fields: ["summary", "status", "updated"], responseContentFormat: "markdown" }, data => {
       if (!Array.isArray(data.issues)) { error("jira", "Unrecognized Jira search format."); return 0; }
       for (const issue of data.issues) {
+        if (typeof issue.key === "string" && !jiraProjectAllowed(issue.key, config.jiraProjects)) continue;
+        scanned.jira++;
         const at = Date.parse(issue.fields?.updated);
         if (!Number.isFinite(at)) error("jira", `Missing update time for ${issue.key}.`);
-        if (typeof issue.key === "string") trustedJiraProjects.add(jiraProject(issue.key));
+        if (typeof issue.key === "string") trustJiraProject(issue.key);
         if (Number.isFinite(at) && at >= sinceMs && at <= untilMs && typeof issue.key === "string") pending.jira.add(issue.key);
       }
-      scanned.jira += data.issues.length; return data.issues.length;
+      return data.issues.length;
     }, "nextPageToken", 100);
     await readJira();
   }

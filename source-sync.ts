@@ -4,7 +4,7 @@ import { slackCitationMatches, slackPermalink, verifiedSlackTarget, type SlackTa
 import { DAY_TIME_ZONE } from "./day-contracts.js";
 import { DAY_REVIEW_INSTRUCTIONS } from "./agent-time.js";
 import { partitionParts, pickChanges, receiptDraft, sourceParts } from "./proposal-parts.js";
-import { jiraReferences, pullRequestReferences } from "./source-links.js";
+import { confirmedJiraReferences, jiraProject, pullRequestReferences } from "./source-links.js";
 import { mergeSyncDraft } from "./source-sync-merge.js";
 import { defaultSourceConfig, type SourceConfig } from "./source-config.js";
 import { randomUUID } from "node:crypto";
@@ -17,13 +17,13 @@ import { validateEvidence } from "./core/validation.js";
 import { acceptedEvidence } from "./conversation.js";
 import { digest, Repository } from "./repository.js";
 import { syncAnalysisInstructions } from "./source-sync-prompt.js";
-import { collectSources, sourceExportPage, type SourceExport } from "./source-collector.js";
+import { collectSources, responseData, sourceExportPage, type SourceExport } from "./source-collector.js";
 import { analysisExport, needsDayAnalysis, planSourceAnalysis, rekeyAnalysisDocuments, sourceAnalysisSchema, type AnalysisWork, type SourceAnalysis } from "./source-analysis.js";
 
 export const SYNC_SOURCES: SyncSource[] = ["gmail", "slack", "jira"];
 export const SYNC_ACTIVE = new Set<SyncRun["status"]>(["starting", "working"]);
 type Row = Record<string, unknown>;
-type RunRequest = { input?: SyncStart; externalImport?: { path: string; sha256: string }; snapshots: TaskDossier[]; pendingCandidates?: SyncCandidate[]; submittedFingerprint?: string; submittedFingerprints?: string[]; submittedBatches?: string[]; dataPagesRead?: number[]; dayItemsRead?: string[]; incremental?: boolean; analysis?: SourceAnalysis };
+type RunRequest = { input?: SyncStart; externalImport?: { path: string; sha256: string }; snapshots: TaskDossier[]; pendingCandidates?: SyncCandidate[]; jiraProjects?: string[]; submittedFingerprint?: string; submittedFingerprints?: string[]; submittedBatches?: string[]; dataPagesRead?: number[]; dayItemsRead?: string[]; incremental?: boolean; analysis?: SourceAnalysis };
 export type SourceCall = { ref: string; source: SyncSource; tool: string; args: unknown; output: string; completed: boolean; truncated: boolean; read: boolean };
 // Threaded replies omit task IDs. Prove their task URL through a successful
 // parent-comment listing, matching structured IDs rather than quoted message text.
@@ -194,9 +194,26 @@ export function validateSyncDraft(draft: SyncDraft, run: SyncRun, snapshots: Tas
   return dossier;
 }
 
-export function requiredSourceReads(dossiers: TaskDossier[], source: SyncSource, pending: SyncCandidate[] = []): string[] {
+function sourceJiraProjects(calls: SourceCall[]): Set<string> {
+  const projects = new Set<string>();
+  for (const call of calls) {
+    if (call.source !== "jira" || !call.completed || call.truncated) continue;
+    try {
+      // Native receipts start with a complete JSON line; older MCP receipts
+      // wrap the source response in content. Never infer projects from prose.
+      const raw = JSON.parse(call.output.split("\n")[0]);
+      const data = Array.isArray(raw?.content) ? responseData(raw) : raw;
+      for (const issue of [data, ...(Array.isArray(data?.issues) ? data.issues : [])]) {
+        if (typeof issue?.key === "string" && /^[A-Z][A-Z0-9]*-\d+$/.test(issue.key) && !/-0+$/.test(issue.key)) projects.add(jiraProject(issue.key));
+      }
+    } catch { /* An unstructured receipt cannot establish a Jira project. */ }
+  }
+  return projects;
+}
+
+export function requiredSourceReads(dossiers: TaskDossier[], source: SyncSource, pending: SyncCandidate[] = [], calls: SourceCall[] = [], jiraProjects: readonly string[] = []): string[] {
   const text = JSON.stringify([dossiers.filter((d) => isLiveTask(d.task.status)), pending]);
-  if (source === "jira") return jiraReferences(text);
+  if (source === "jira") return confirmedJiraReferences(text, sourceJiraProjects(calls), jiraProjects);
   if (source === "clickup") return [...new Set([...text.matchAll(/clickup\.com\/t\/(?:\d+\/)?([A-Za-z0-9_-]+)/g)].map(m => m[1]))];
   if (source === "teams" || source === "outlook") return [];
   const found = source === "gmail"
@@ -216,7 +233,7 @@ function hasUnfetchedPage(call: SourceCall, selected: SourceCall[]): boolean {
   return tokens.some((token) => !selected.some((other) => other.ref !== call.ref && other.tool === call.tool && other.completed && suppliedTokens(other.args).includes(token)));
 }
 
-export function validateSyncReports(reports: SyncSubmit["reports"], calls: SourceCall[], snapshots: TaskDossier[] = [], pending: SyncCandidate[] = []): SyncSubmit["reports"] {
+export function validateSyncReports(reports: SyncSubmit["reports"], calls: SourceCall[], snapshots: TaskDossier[] = [], pending: SyncCandidate[] = [], jiraProjects: readonly string[] = []): SyncSubmit["reports"] {
   const byRef = new Map(calls.map((call) => [call.ref, call]));
   return reports.map((report) => {
     const selected = [...new Set(report.callRefs)].map((ref) => {
@@ -235,7 +252,7 @@ export function validateSyncReports(reports: SyncSubmit["reports"], calls: Sourc
       if (report.scanned > 0 && !live.some((call) => call.read)) problems.push("no thread or Jira comment reads");
       if (selected.some((call) => !call.completed || call.truncated)) problems.push("an error or truncated response is present");
       if (selected.some((call) => hasUnfetchedPage(call, selected))) problems.push("the next source page was not read");
-      const missing = requiredSourceReads(snapshots, report.source, pending).filter((id) => !live.some((call) => call.read && `${JSON.stringify(call.args)}\n${call.output}`.includes(id)));
+      const missing = requiredSourceReads(snapshots, report.source, pending, live, jiraProjects).filter((id) => !live.some((call) => call.read && `${JSON.stringify(call.args)}\n${call.output}`.includes(id)));
       if (missing.length) problems.push(`linked threads/issues were not read: ${missing.slice(0, 10).join(", ")}${missing.length > 10 ? "…" : ""}`);
     }
     return { ...report, callRefs: selected.map((call) => call.ref), threadsRead: live.filter((call) => call.read).length,
@@ -411,7 +428,7 @@ export class SourceSyncStore {
       if (supplement ? !["completed", "partial"].includes(run.status) : !SYNC_ACTIVE.has(run.status)) throw new PolicyError("The check has already finished. Its result cannot be changed.");
       if ((request.submittedFingerprints?.length ?? 0) >= 101) throw new PolicyError("The proposal batch limit for this run was reached.");
       if (JSON.stringify(input.reports.map(r => r.source).sort()) !== JSON.stringify(Object.keys(run.ranges).sort())) throw new PolicyError("Reports must cover exactly the sources in this run.");
-      const reports = validateSyncReports(input.reports, calls, request.snapshots, request.pendingCandidates);
+      const reports = validateSyncReports(input.reports, calls, request.snapshots, request.pendingCandidates, request.jiraProjects);
       const batchKey = digest(input.suggestions);
       const replayedBatch = request.submittedBatches?.includes(batchKey) ?? false;
       const suggestions = replayedBatch ? [] : input.suggestions;
@@ -630,6 +647,7 @@ export class SourceSyncRuntime {
     const progress = new Map<SyncSource, { calls: number; reads: number }>();
     try {
       const config = await this.sourceConfiguration();
+      this.store.storage.patchMetadata(id, metadata => ({ ...metadata, jiraProjects: [...config.jiraProjects] }));
       const context = this.store.request(id);
       const bundle = await collectSources(initial, context.snapshots, { config, pendingCandidates: context.pendingCandidates, resolveSlackLink: this.store.slackLinkResolver(), signal: controller.signal, onProgress: p => {
         if (this.disposed || controller.signal.aborted) return;
@@ -642,7 +660,7 @@ export class SourceSyncRuntime {
       this.store.saveExport(bundle);
       let run = this.store.run(id);
       if (!SYNC_ACTIVE.has(run.status) || controller.signal.aborted) return;
-      run = this.store.save({ ...run, reports: validateSyncReports(bundle.reports, bundle.calls, context.snapshots, context.pendingCandidates), collection: { phase: "analyzing", calls: bundle.calls.length, reads: bundle.documents.length, elapsedMs: bundle.elapsedMs } });
+      run = this.store.save({ ...run, reports: validateSyncReports(bundle.reports, bundle.calls, context.snapshots, context.pendingCandidates, context.jiraProjects), collection: { phase: "analyzing", calls: bundle.calls.length, reads: bundle.documents.length, elapsedMs: bundle.elapsedMs } });
       if (bundle.reports.every(r => r.status === "unavailable")) throw new PolicyError("The built-in source check could not load any configured sources. See this run’s source reports in Check history; analysis was not started.");
       const work = await this.analysisWork();
       if (this.disposed || controller.signal.aborted || !SYNC_ACTIVE.has(this.store.run(id).status)) return;

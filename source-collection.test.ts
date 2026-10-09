@@ -46,14 +46,14 @@ it("requires the parent thread for a Slack reply link, even after the reply is d
 });
 
 it("excludes quote numbers and UUID fragments consistently from collection and coverage", () => {
-  const text = "Q-12345 12345678-ABC4-4321-89AB-123456789ABC APP-815 https://example.atlassian.net/browse/Q-42";
+  const text = "Q-12345 12345678-ABC4-4321-89AB-123456789ABC APP-815 https://example.atlassian.net/browse/APP-815 https://example.atlassian.net/browse/Q-42";
   const dossiers = [{ task: { status: "open" }, text }] as unknown as Parameters<typeof collectSources>[1];
   expect(sourceLinks(text).jira).toEqual(["APP-815", "Q-42"]);
   expect(requiredSourceReads(dossiers, "jira")).toEqual(["APP-815", "Q-42"]);
 });
 
 it("excludes all-zero example numbers from bare references and Jira URLs without dropping real numbers", () => {
-  const text = "CASE-000000 APP-0 APP-00 APP-1 APP-100000 APP-00012 https://example.atlassian.net/browse/APP-000 https://example.atlassian.net/browse/Q-42";
+  const text = "CASE-000000 APP-0 APP-00 APP-1 APP-100000 APP-00012 https://example.atlassian.net/browse/APP-1 https://example.atlassian.net/browse/APP-000 https://example.atlassian.net/browse/Q-42";
   const dossiers = [{ task: { status: "open" }, text }] as unknown as Parameters<typeof collectSources>[1];
   expect(sourceLinks(text).jira).toEqual(["APP-1", "APP-100000", "APP-00012", "Q-42"]);
   expect(requiredSourceReads(dossiers, "jira")).toEqual(sourceLinks(text).jira);
@@ -62,7 +62,7 @@ it("excludes all-zero example numbers from bare references and Jira URLs without
 it("keeps Jira complete when a collected issue describes an all-zero placeholder", async () => {
   const ids: unknown[] = [];
   const description = "Manual audits currently use a fake case number, for example CASE-000000. See APP-43 for a real related issue.";
-  const dossiers = [{ task: { status: "open" }, text: "APP-42 and the example https://example.atlassian.net/browse/CASE-000000" }] as unknown as Parameters<typeof collectSources>[1];
+  const dossiers = [{ task: { status: "open" }, text: "https://example.atlassian.net/browse/APP-42 and the example https://example.atlassian.net/browse/CASE-000000" }] as unknown as Parameters<typeof collectSources>[1];
   const connections: SourceConnections = {
     gmail: { error: "Unavailable" }, slack: { error: "Unavailable" },
     jira: { close: async () => {}, async call(tool, args) {
@@ -81,7 +81,7 @@ it("keeps Jira complete when a collected issue describes an all-zero placeholder
 
 it("does not treat bare store identifiers as Jira links from collected issue prose", async () => {
   const ids: unknown[] = [];
-  const dossiers = [{ task: { status: "open" }, text: "BK-820" }] as unknown as Parameters<typeof collectSources>[1];
+  const dossiers = [{ task: { status: "open" }, text: "https://example.atlassian.net/browse/BK-820" }] as unknown as Parameters<typeof collectSources>[1];
   const connections: SourceConnections = {
     gmail: { error: "Unavailable" }, slack: { error: "Unavailable" },
     jira: { close: async () => {}, async call(tool, args) {
@@ -320,6 +320,26 @@ it("keeps partial script reports authoritative even when the model claims comple
   await f.harness.behavior.callAgentTool("c247_sync_submit", { reports, suggestions: [], finalize: true }, { threadId: run.threadId! });
   expect(store.run(run.id).status).toBe("partial");
   expect(store.checkpoints()).toEqual({ gmail: run.until, slack: null, jira: run.until });
+});
+
+it("keeps the collection's Jira project scope through finalization even after settings change", async () => {
+  const collect = vi.spyOn(collector, "collectSources").mockImplementation(async run => bundleFor(run));
+  const f = await fixture(); hosts.push(f);
+  await f.create("https://example.atlassian.net/browse/OTHER-7");
+  await f.harness.behavior.setSettings({ sources: '{"jiraProjects":["APP"]}' });
+  const input = syncStartSchema.parse({ requestId: randomUUID(), since: null, request: f.startInput("unused", 0).request });
+  const initial = await f.harness.behavior.callRpc("syncStart", input) as SyncRun;
+  const store = new SourceSyncStore(f.repo);
+  await vi.waitFor(() => expect(store.run(initial.id).status).toBe("working"));
+  expect(collect.mock.calls[0][2]?.config?.jiraProjects).toEqual(["APP"]);
+  expect(store.request(initial.id).jiraProjects).toEqual(["APP"]);
+  const run = store.run(initial.id);
+  const spawn = f.harness.inspection.sdk.callsTo("threads.spawn")[0][0];
+  expect(JSON.stringify(spawn)).toContain("Jira project scope: only APP");
+  await f.harness.behavior.setSettings({ sources: '{"jiraProjects":["OTHER"]}' });
+  await f.harness.behavior.callAgentTool("c247_sync_submit", { suggestions: [], finalize: true }, { threadId: run.threadId! });
+  expect(store.run(initial.id).status).toBe("completed");
+  expect(store.checkpoints().jira).toBe(run.until);
 });
 
 it("cancels collection without launching a model and retains any returned export", async () => {

@@ -5,6 +5,10 @@ import type { SyncCandidate, SyncRun } from "./contracts.js";
 import type { TaskDossier } from "./core/types.js";
 import { sourceExportPage, type SourceExport } from "./source-collector.js";
 
+const jiraProjectInstructions = (config: SourceConfig) => config.jiraProjects.length
+  ? `Jira project scope: only ${config.jiraProjects.join(", ")}. Other project keys are outside this check, including direct Jira links and ticket notifications quoted in Gmail or Slack. Do not propose work solely from those out-of-scope ticket updates. Preserve existing tasks; independently actionable non-Jira requests remain eligible.`
+  : "";
+
 export function syncAnalysisInstructions(run: SyncRun, dossiers: TaskDossier[], previous: SyncCandidate[], bundle: SourceExport, config: SourceConfig = defaultSourceConfig, timeZone = DAY_TIME_ZONE): string {
   const legacy = syncInstructions(run, dossiers, previous, config, timeZone);
   const rules = legacy.slice(legacy.indexOf("Each suggestion:"));
@@ -40,6 +44,7 @@ Gmail: the latest message has the maximum internalDate. SENT on the latest messa
 A reply by the user or another participant may resolve a blocker or change an existing task's next step; a reply alone does not prove task completion.
 Slack: consider all replies and the user's own messages. Acknowledgments and closing replies alone are not new tasks. A user-authored update or request for review of their own work can establish progress, a waiting state or unfinished work, even outside watched channels. A colleague's response may change the next step. Keep requests assigned to others as FYI unless the evidence also establishes the user's ownership of the underlying work; do not assign the colleague's approval action to the user.
 Account owner's local context: ${config.analysisContext}
+${jiraProjectInstructions(config)}
 Jira: inspect the meaning of status, description and comments, including the user's own replies. Review is a valid status name.
 Use source message timestamps: Slack edits use edited.ts, Jira issues use updated, and comments use updated/created.
 Messages after ${run.until} are outside this run. Earlier thread messages provide context, not new events.
@@ -82,6 +87,7 @@ For Gmail, use after:<unix-seconds> and before:<until+1-second>. Account for Jir
 Exclude events after until. Earlier messages may be read for thread context.
 Work identity: ${config.expectedEmail}; Slack ${config.slackUserId}; timezone ${timeZone}; Jira ${config.jiraSite}.
 Account owner's local context: ${config.analysisContext}
+${jiraProjectInstructions(config)}
 
 ACCESS AND ACTION BOUNDARIES
 Find the Gmail, Slack and Jira tools available to the selected account, usually Claude Work.
