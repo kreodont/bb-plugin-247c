@@ -115,7 +115,7 @@ export class UpdaterHealth {
   private key = "";
   private pending: Promise<UpdaterHealthState> | null = null;
   private disposed = false;
-  constructor(private bb: BbPluginApi, private settings: () => UpdaterSettings, private now = () => Date.now()) {}
+  constructor(private bb: BbPluginApi, private settings: () => UpdaterSettings, private now = () => Date.now(), private nativeState?: () => UpdaterHealthState) {}
   dispose() { this.disposed = true; }
   async start({ requestId }: { requestId: string }) {
     const settings = this.settings();
@@ -140,7 +140,13 @@ export class UpdaterHealth {
     const statusFile = settings.sourceUpdaterStatusFile?.trim() ?? "";
     const key = JSON.stringify({ ...input, statusFile });
     if (key !== this.key) { this.cached = null; this.key = key; }
-    if (!input.projectId && !input.automationId) return emptyUpdaterHealth(this.now());
+    if (!input.projectId && !input.automationId) {
+      const state = this.nativeState?.() ?? emptyUpdaterHealth(this.now());
+      const changed = JSON.stringify(this.cached && { ...this.cached, checkedAt: 0 }) !== JSON.stringify({ ...state, checkedAt: 0 });
+      this.cached = state;
+      if (changed && !this.disposed) this.bb.realtime.publish("updater-health-changed", {});
+      return state;
+    }
     if (!force && this.cached && this.now() - this.cached.checkedAt < 30_000) return this.cached;
     if (this.pending) return this.pending;
     this.pending = (async () => {

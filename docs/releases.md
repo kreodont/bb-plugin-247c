@@ -21,6 +21,20 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Slack evidence and source-check alerts in 0.5.66
+
+Native source checks now feed the app-wide updater notification, sidebar warning
+and persistent status banner, without requiring an external automation. Partial
+or failed checks remain visible during retries and clear after successful
+recovery. Native quick/custom checks remain available.
+
+Slack citations must match the channel and message timestamp of the actual saved
+read. A model cannot combine one channel with a message from another. When an
+older saved link returns `thread_not_found`, the collector can recover its address
+from that citation's verified receipt and read it again. Ambiguous, unavailable
+or incomplete recovery remains partial. Original receipts, task data and pending
+proposals are preserved; a historical receipt alone never advances coverage.
+
 ## Removed meeting accounting in 0.5.65
 
 Removing a meeting from the day clears its automatically reported calendar time

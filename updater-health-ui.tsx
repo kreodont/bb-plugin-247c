@@ -12,6 +12,7 @@ export function useUpdaterHealth() {
   const [revision, setRevision] = useState(0);
   const refresh = useCallback(() => setRevision(value => value + 1), []);
   useRealtime("updater-health-changed", refresh);
+  useRealtime("desk-changed", refresh);
   useEffect(() => {
     const timer = setInterval(refresh, 30_000);
     window.addEventListener("focus", refresh);

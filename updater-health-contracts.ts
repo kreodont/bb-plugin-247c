@@ -24,6 +24,7 @@ export const sourceCoverageSchema = z.object({
 export type SourceCoverage = z.infer<typeof sourceCoverageSchema>;
 
 export const updaterHealthSchema = z.object({
+  mode: z.enum(["native", "external"]).optional(),
   configured: z.boolean(), status: z.enum(["disabled", "healthy", "running", "paused", "failed", "attention", "overdue", "unavailable"]),
   alert: z.boolean(), title: z.string(), detail: z.string(), incidentId: z.string().nullable(),
   checkedAt: z.number(), lastSuccessAt: z.number().nullable(), lastStartedAt: z.number().nullable(), nextRunAt: z.number().nullable(),

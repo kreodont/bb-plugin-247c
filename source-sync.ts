@@ -1,5 +1,6 @@
 import { SourceStorage, packSourceRequest } from "./source-storage.js";
 import { isLiveTask } from "./task-status.js";
+import { slackCitationMatches, slackPermalink, verifiedSlackTarget, type SlackTarget } from "./source-slack-evidence.js";
 import { DAY_TIME_ZONE } from "./day-contracts.js";
 import { DAY_REVIEW_INSTRUCTIONS } from "./agent-time.js";
 import { partitionParts, pickChanges, receiptDraft, sourceParts } from "./proposal-parts.js";
@@ -169,6 +170,7 @@ export function validateSyncDraft(draft: SyncDraft, run: SyncRun, snapshots: Tas
       : citation.source === "outlook" ? ["outlook.office.com", "outlook.office365.com", "outlook.live.com"].includes(url.hostname) && proof.includes(citation.url)
       : (url.hostname === "clickup.com" || url.hostname.endsWith(".clickup.com")) && (proof.includes(citation.url) || (pathIds[0] === "t" && (proof.includes(pathIds.at(-1)!) || replyBelongsToTask(call, calls, pathIds.at(-1)!))) || (pathIds[1] === "docs" && pathIds.length === 4 && pathIds.slice(2).every(part => proof.includes(part))));
     if (url.protocol !== "https:" || !allowed || url.username || url.password) throw new PolicyError("A direct HTTPS source link matching the saved connector response is required.");
+    if (citation.source === "slack" && !slackCitationMatches(citation, call)) throw new PolicyError("The Slack citation must use the channel_id from its saved read and the cited message's exact timestamp. Copy the actual permalink; do not combine a channel from another source with this message.");
     if (!`${JSON.stringify(call.args)}\n${call.output}`.includes(citation.messageId)) throw new PolicyError("The message identifier is absent from the source call.");
     if (Date.parse(citation.occurredAt) > Date.parse(run.until)) throw new PolicyError("The message is newer than the interval end. It will be included in the next run.");
   }
@@ -254,6 +256,34 @@ export class SourceSyncStore {
   saveRequest(id: string, request: RunRequest) { this.storage.saveRequest(id, request); }
   export(id: string): SourceExport | null { return this.storage.export<SourceExport>(id); }
   saveExport(bundle: SourceExport) { this.storage.saveExport(bundle.runId, bundle); }
+  nativeHealthRuns(): SyncRun[] {
+    return (this.repo.db.prepare("SELECT id FROM source_sync_runs WHERE json_extract(request_json,'$.externalImport') IS NULL ORDER BY rowid DESC LIMIT 100").all() as Row[])
+      .map(row => this.run(String(row.id)));
+  }
+  slackLinkResolver() {
+    const exports = new Map<string, SourceExport | null>();
+    return (target: SlackTarget): SlackTarget | null => {
+      const rows = this.repo.db.prepare("SELECT value_json FROM source_sync_candidates WHERE value_json LIKE ? LIMIT 100").all(`%/p${target.ts.replace(".", "")}%`) as Row[];
+      if (rows.length === 100) return null;
+      const verified = new Map<string, SlackTarget>();
+      for (const row of rows) {
+        const candidate = syncCandidateSchema.parse(JSON.parse(String(row.value_json)));
+        for (const fact of candidate.facts) for (const citation of fact.citations) {
+          const link = slackPermalink(citation.url);
+          if (!link || link.channel !== target.channel || link.ts !== target.ts) continue;
+          const runId = /^export:([a-f0-9-]{36}):/.exec(citation.callRef)?.[1];
+          if (!runId) continue;
+          if (!exports.has(runId)) exports.set(runId, this.export(runId));
+          const call = exports.get(runId)?.calls.find(c => c.ref === citation.callRef);
+          const recovered = verifiedSlackTarget(citation, call);
+          if (recovered) verified.set(`${recovered.channel}:${recovered.ts}`, recovered);
+        }
+      }
+      // A historical receipt only identifies the address. The collector must
+      // still read that address successfully now before it claims coverage.
+      return verified.size === 1 ? [...verified.values()][0] : null;
+    };
+  }
   analysisBaseline(): SourceAnalysis | undefined {
     const row = this.repo.db.prepare("SELECT id,request_json FROM source_sync_runs WHERE status IN ('completed','partial') AND json_extract(request_json,'$.incremental')=1 AND json_extract(request_json,'$.analysis') IS NOT NULL ORDER BY rowid DESC LIMIT 1").get() as { id: string; request_json: string } | undefined;
     const request: RunRequest | undefined = row ? JSON.parse(row.request_json) : undefined;
@@ -601,7 +631,7 @@ export class SourceSyncRuntime {
     try {
       const config = await this.sourceConfiguration();
       const context = this.store.request(id);
-      const bundle = await collectSources(initial, context.snapshots, { config, pendingCandidates: context.pendingCandidates, signal: controller.signal, onProgress: p => {
+      const bundle = await collectSources(initial, context.snapshots, { config, pendingCandidates: context.pendingCandidates, resolveSlackLink: this.store.slackLinkResolver(), signal: controller.signal, onProgress: p => {
         if (this.disposed || controller.signal.aborted) return;
         progress.set(p.source, p);
         const run = this.store.run(id);

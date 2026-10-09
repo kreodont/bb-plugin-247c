@@ -4,6 +4,7 @@ import { migrateTaskStatuses } from "./task-status-migration.js";
 import { dirname, join } from "node:path";
 import { UxRecording } from "./ux-recording.js";
 import { UpdaterHealth } from "./updater-health.js";
+import { evaluateNativeUpdater } from "./native-updater-health.js";
 import { KnowledgeSearch } from "./knowledge-search.js";
 import { importSourceBundle } from "./source-import.js";
 import { applyLocalSettingsPatch, composerDefaultsSchema, PinnedFilesSettings } from "./local-settings.js";
@@ -69,7 +70,6 @@ export default async function plugin(bb: BbPluginApi) {
   const threadRouting = new ThreadRouting(bb, async () => (await settings.get()).threadProjectId);
   const runtime = new SessionRuntime(bb, repo, getSettings, threadRouting);
   const days = new DayPlanning(repo, () => new Date(), () => configuration.timeZone, () => configuration.reportMeetingsWhenPlanned);
-  const updaterHealth = new UpdaterHealth(bb, () => configuration);
   const dayPlanner = new DayPlanner(bb, () => settings.get(), () => days.today());
   const agentTime = new AgentTimeRuntime(bb, days);
   const sourceConfiguration = async () => parseSourceConfig((await settings.get()).sources);
@@ -85,6 +85,8 @@ export default async function plugin(bb: BbPluginApi) {
     return { dayWork: days.analysisWork(), dayComplete: complete && agentTime.state().errors.length === 0, policy: configuration.threadInstructions };
   });
   const inbox = new ProposalInbox(repo, sync.store, runtime);
+  const updaterHealth = new UpdaterHealth(bb, () => configuration, () => Date.now(),
+    () => evaluateNativeUpdater(sync.store.nativeHealthRuns(), configuration, Date.now()));
   if (days.calendarState().status === "running") days.saveCalendarState({ ...days.calendarState(), status: "error", message: "The calendar check was interrupted. Run it again." });
   days.tick();
 

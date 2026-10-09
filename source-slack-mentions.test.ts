@@ -61,3 +61,22 @@ it("does not send an invalid mention query when the Slack member ID is not confi
   } }) });
   expect(queries).toEqual(["is:dm", "is:mpim", "to:me", "from:me"]);
 });
+
+it.each(["complete", "failed", "missing-message", "no-proof"])("recovers an invalid saved address only after a verified current read: %s", async outcome => {
+  const bundle = await collectSources(run(), [], {
+    resolveSlackLink: () => outcome === "no-proof" ? null : { channel: "C123REAL", ts: parent },
+    connect: async () => connections({ close: async () => {}, async call(tool, args) {
+      if (tool === "slack_search_public_and_private") return response({ results: args.query === "is:dm"
+        ? `### Result 1 of 1\nPermalink: https://example.slack.com/archives/C987WRONG/p${parent.replace(".", "")}` : "No results found.", pagination_info: "No more results" });
+      if (args.channel_id === "C987WRONG" || outcome === "failed") return { isError: true, content: [{ type: "text", text: "execution_failed: thread_not_found" }] };
+      return response({ messages: `Message TS: ${outcome === "missing-message" ? "1789034700.654321" : parent}\nPlease review.`, pagination_info: "No more messages" });
+    } }),
+  });
+  const report = bundle.reports.find(r => r.source === "slack")!;
+  expect(report.status).toBe(outcome === "complete" ? "complete" : "partial");
+  if (outcome === "complete") {
+    expect(bundle.calls.some(c => !c.completed && c.output.includes("thread_not_found"))).toBe(true);
+    expect(report.callRefs.every(ref => bundle.calls.find(c => c.ref === ref)?.completed)).toBe(true);
+    expect(bundle.documents[0].args.channel_id).toBe("C123REAL");
+  } else expect(report.detail).toContain(`C987WRONG:${parent}`);
+});

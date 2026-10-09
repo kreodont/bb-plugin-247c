@@ -1,4 +1,5 @@
 import { isLiveTask } from "./task-status.js";
+import type { SlackTarget } from "./source-slack-evidence.js";
 import { jiraReferenceDetails, jiraReferences, pullRequestReferences } from "./source-links.js";
 import { defaultSourceConfig, type SourceConfig } from "./source-config.js";
 import { randomUUID } from "node:crypto";
@@ -21,6 +22,7 @@ export type CollectionOptions = {
   onProgress?: (progress: CollectionProgress) => void;
   timeoutMs?: number; maxCalls?: number;
   retryDelayMs?: (attempt: number, rateLimited: boolean) => number;
+  resolveSlackLink?: (target: SlackTarget) => SlackTarget | null;
 };
 // Slack answers rate limits with a bare "ratelimited" payload, sometimes wrapped
 // in a transport error. A one-second retry falls inside the same rate window.
@@ -123,6 +125,7 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
   const signal = AbortSignal.any([options.signal ?? new AbortController().signal, AbortSignal.timeout(options.timeoutMs ?? 180000)]);
   const calls: SourceCall[] = [], documents: SourceDocument[] = [];
   const recoveredCalls = new Set<string>();
+  const callProblems = new Map<string, string>();
   const problems: Record<SyncSource, string[]> = { gmail: [], slack: [], jira: [] };
   const scanned = { gmail: 0, slack: 0, jira: 0 };
   const linked = sourceLinks(JSON.stringify([dossiers.filter(d => isLiveTask(d.task.status)), options.pendingCandidates ?? []]));
@@ -195,8 +198,9 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
       }
       if (!completed || truncated) {
         const sourceFailure = raw?.isError || raw?.statusCode >= 400 || data.error;
-        const target = args.threadId ?? args.messageId ?? args.issueIdOrKey ?? args.channel_id;
-        error(source, `${tool}${target ? ` (${target})` : ""}: ${truncated ? "response too large" : sourceFailure ? sourceError(data.message ?? data.text ?? output).slice(0, 400) : !shapeOk ? "unrecognized source response format" : sourceError(output).slice(0, 400)}`);
+        const target = args.threadId ?? args.messageId ?? args.issueIdOrKey ?? (args.channel_id && args.message_ts ? `${args.channel_id}:${args.message_ts}` : args.channel_id);
+        const detail = `${tool}${target ? ` (${target})` : ""}: ${truncated ? "response too large" : sourceFailure ? sourceError(data.message ?? data.text ?? output).slice(0, 400) : !shapeOk ? "unrecognized source response format" : sourceError(output).slice(0, 400)}`;
+        callProblems.set(ref, detail); error(source, detail);
         return null;
       }
       if (full) {
@@ -218,7 +222,8 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
     } catch (cause) {
       const message = signal.aborted ? "The export timed out or was canceled." : sourceError(cause);
       calls.push({ ref, source, tool: `${source}.${tool}`, args, output: message, completed: false, truncated: false, read: full });
-      error(source, `${tool}: ${message}`); progress(source, "Some data is unavailable"); return null;
+      const detail = `${tool}${args.channel_id && args.message_ts ? ` (${args.channel_id}:${args.message_ts})` : ""}: ${message}`;
+      callProblems.set(ref, detail); error(source, detail); progress(source, "Some data is unavailable"); return null;
     }
   }
   async function readLargeGmailThread(data: Json, threadId: string, ref: string) {
@@ -235,16 +240,17 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
     if (valid && loaded === messages.length) recoveredCalls.add(ref);
     else error("gmail", `get_thread (${threadId}): oversized thread recovery incomplete (${loaded}/${messages.length} messages read${valid ? "" : "; invalid message metadata"}).`);
   }
-  async function pages(source: SyncSource, tool: string, args: Json, take: (data: Json) => number, tokenName: string, limit: number, full = false): Promise<void> {
+  async function pages(source: SyncSource, tool: string, args: Json, take: (data: Json) => number, tokenName: string, limit: number, full = false): Promise<boolean> {
     const tokens = new Set<string>();
     for (let page = 0; page < 100; page++) {
-      const data = await call(source, tool, args, full); if (!data) return;
+      const data = await call(source, tool, args, full); if (!data) return false;
       const n = take(data), state = pageState(data, n, limit);
-      if (state.complete) return;
-      if (!state.token || tokens.has(state.token)) { error(source, `${tool}: the end of pagination was not confirmed.`); return; }
+      if (state.complete) return true;
+      if (!state.token || tokens.has(state.token)) { error(source, `${tool}: the end of pagination was not confirmed.`); return false; }
       tokens.add(state.token); args = { ...args, [tokenName]: state.token };
     }
     error(source, `${tool}: page limit exceeded.`);
+    return false;
   }
   async function gmailSearch(query: string) {
     await pages("gmail", "search_threads", { query, pageSize: 50, view: "THREAD_VIEW_MINIMAL" }, data => {
@@ -317,11 +323,24 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
   async function readSlack() {
     await pool([...pending.slack.values()].filter(s => !read.slack.has(`${s.channel}:${s.ts}`)), async s => {
       read.slack.add(`${s.channel}:${s.ts}`);
-      await pages("slack", "slack_read_thread", { channel_id: s.channel, message_ts: s.ts, limit: 1000, latest: String(Date.parse(run.until) / 1000) }, data => {
+      const readThread = (target: SlackTarget) => pages("slack", "slack_read_thread", { channel_id: target.channel, message_ts: target.ts, limit: 1000, latest: String(Date.parse(run.until) / 1000) }, data => {
         const text = String(data.messages ?? "");
         if (!text && !/no more|no thread/i.test(String(data.pagination_info ?? ""))) error("slack", `Could not read thread ${s.channel}:${s.ts}.`);
         return [...text.matchAll(/Message[_ ]TS:/gi)].length;
       }, "cursor", 1000, true);
+      const first = calls.length;
+      if (await readThread(s)) return;
+      const failed = calls.slice(first).filter(c => c.source === "slack" && (c.args as Json).channel_id === s.channel && (c.args as Json).message_ts === s.ts && !c.completed);
+      if (failed.length !== 1 || !/\bthread_not_found\b/.test(failed[0].output)) return;
+      const target = options.resolveSlackLink?.(s);
+      if (!target || target.channel === s.channel && target.ts === s.ts || !await readThread(target)) return;
+      const containsMessage = calls.some(c => c.source === "slack" && c.completed && (c.args as Json).channel_id === target.channel && (c.args as Json).message_ts === target.ts
+        && [...c.output.matchAll(/Message[_ ]TS:\s*(\d{10}\.\d{6})/gi)].some(m => m[1] === s.ts));
+      if (!containsMessage) return;
+      recoveredCalls.add(failed[0].ref);
+      const detail = callProblems.get(failed[0].ref);
+      if (detail) problems.slack = problems.slack.filter(p => p !== detail);
+      read.slack.add(`${target.channel}:${target.ts}`);
     }, 4);
   }
   async function jira() {

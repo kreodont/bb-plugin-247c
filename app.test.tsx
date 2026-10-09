@@ -487,7 +487,7 @@ it("disables stale source proposals and shows source failures without a successf
   const accept = await slot.findByRole("button", { name: "Accept update" });
   expect((accept as HTMLButtonElement).disabled).toBe(true);
   expect(slot.getByText("Unavailable")).toBeTruthy();
-  expect(slot.getByText(/Slack требует входа/)).toBeTruthy();
+  expect(slot.getAllByText(/Slack требует входа/)).toHaveLength(2); // Source card and persistent health warning.
   expect(slot.getByText(/The dossier changed after this check/)).toBeTruthy();
 });
 

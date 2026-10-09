@@ -108,3 +108,23 @@ it("runs the configured updater from Updates without opening the built-in source
     expect(slot.queryByRole("heading", { name: "Start check" })).toBeNull();
   } finally { await f.harness.lifecycle.dispose(); }
 });
+
+it("keeps native quick/custom checks available while showing a native partial-check warning", async () => {
+  const f = await import("./test-support.js").then(module => module.fixture());
+  try {
+    const { rpcContract } = await import("./contracts.js");
+    const rpc = Object.fromEntries(Object.keys(rpcContract).map(name => [name, (input: unknown) => f.harness.behavior.callRpc(name, input)]));
+    rpc.updaterHealth = async () => ({ ...warning, mode: "native", status: "attention", title: "Source check is incomplete", detail: "Slack: thread_not_found" });
+    let started = 0;
+    rpc.updaterStart = async () => { throw new Error("External automation must not run"); };
+    rpc.syncQuickStart = async () => { started++; return { alreadyRunning: false, run: { status: "starting", error: null } }; };
+    const slot = renderSlot(app.navPanels[0], { subPath: "updates" }, { rpc }); mounts.push(slot);
+    expect((await slot.findByRole("alert", { name: "Source updater status" })).textContent).toContain("Slack: thread_not_found");
+    expect(await slot.findByRole("button", { name: "Custom check…" })).toBeTruthy();
+    const button = await slot.findByRole("button", { name: "Check for updates" });
+    await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(button);
+    await slot.findByText("Check started. Progress is shown below.");
+    expect(started).toBe(1);
+  } finally { await f.harness.lifecycle.dispose(); }
+});
