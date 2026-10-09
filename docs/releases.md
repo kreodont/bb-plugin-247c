@@ -21,6 +21,15 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Source error classification in 0.5.67
+
+Source checks distinguish HTTP error status and diagnostic messages from quota
+metadata. An unavailable Jira issue no longer becomes a false rate-limit error
+merely because its response includes a `rateLimit` counter. Permanent errors
+are reported with the requested issue and original diagnostic without retries;
+actual rate limits and temporary failures retain bounded backoff and recovery.
+Unread intervals remain preserved. No database or local settings migration.
+
 ## Slack evidence and source-check alerts in 0.5.66
 
 Native source checks now feed the app-wide updater notification, sidebar warning

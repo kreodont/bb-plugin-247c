@@ -238,6 +238,46 @@ it("backs off rate limits for seconds rather than retrying inside the same windo
   expect([0, 1].map(attempt => sourceRetryDelay(attempt, false))).toEqual([1000, 2000]);
 });
 
+it.each([404, 403, 429, 503])("classifies Jira HTTP %i by the error status, not quota metadata", async statusCode => {
+  let reads = 0;
+  const delays: boolean[] = [];
+  const message = statusCode === 429 ? "Too many requests." : statusCode === 503 ? "Service unavailable." : "Issue does not exist or you do not have permission to see it.";
+  const payload = { error: true, message: JSON.stringify({ errorMessages: [message], errors: {} }),
+    rateLimit: { limit: 400, remaining: 399, headers: { "x-ratelimit-limit": "400", "x-ratelimit-remaining": "399", "x-request-id": "429" } }, statusCode };
+  const connections: SourceConnections = { gmail: { error: "Unavailable" }, slack: { error: "Unavailable" }, jira: {
+    close: async () => {}, async call(tool) {
+      if (tool === "searchJiraIssuesUsingJql") return { content: [{ type: "text", text: '{"issues":[{"key":"APP-7","fields":{"updated":"2026-09-10T10:00:00Z"}}],"isLast":true}' }] };
+      reads++;
+      return { isError: true, content: [{ type: "text", text: JSON.stringify(payload) }] };
+    },
+  } };
+  const bundle = await collectSources(sampleRun(), [], { connect: async () => connections, retryDelayMs: (_attempt, limited) => { delays.push(limited); return 0; } });
+  expect(reads).toBe(statusCode === 429 ? 4 : statusCode === 503 ? 3 : 1);
+  expect(delays).toEqual(statusCode === 429 ? [true, true, true] : statusCode === 503 ? [false, false] : []);
+  const report = bundle.reports.find(r => r.source === "jira")!;
+  expect(report.status).toBe("partial");
+  expect(report.detail).toContain(`getJiraIssue (APP-7): HTTP ${statusCode}: ${message}`);
+  expect(bundle.documents).toHaveLength(0);
+  if (statusCode === 404) expect(bundle.calls.find(c => c.tool === "jira.getJiraIssue")?.output).toContain('"remaining":399');
+});
+
+it("retries an actual nested Jira 429 and completes after recovery", async () => {
+  let reads = 0;
+  const connections: SourceConnections = { gmail: { error: "Unavailable" }, slack: { error: "Unavailable" }, jira: {
+    close: async () => {}, async call(tool) {
+      if (tool === "searchJiraIssuesUsingJql") return { content: [{ type: "text", text: '{"issues":[{"key":"APP-7","fields":{"updated":"2026-09-10T10:00:00Z"}}],"isLast":true}' }] };
+      const data = ++reads === 1 ? { statusCode: 429, message: "Quota exhausted", rateLimit: { limit: 400, remaining: 0 } }
+        : { key: "APP-7", fields: { comment: { comments: [], total: 0 } }, rateLimit: { limit: 400, remaining: 399 } };
+      return { content: [{ type: "text", text: JSON.stringify(data) }] };
+    },
+  } };
+  const bundle = await collectSources(sampleRun(), [], { connect: async () => connections, retryDelayMs: () => 0 });
+  expect(reads).toBe(2);
+  expect(bundle.reports.find(r => r.source === "jira")?.status).toBe("complete");
+  expect(bundle.documents).toHaveLength(1);
+  expect(bundle.calls.some(c => c.output.includes("Quota exhausted"))).toBe(false);
+});
+
 it("starts analysis with the chosen non-corporate model only after the export and requires all pages", async () => {
   vi.spyOn(collector, "collectSources").mockImplementation(async run => bundleFor(run, true));
   const f = await fixture(); hosts.push(f);

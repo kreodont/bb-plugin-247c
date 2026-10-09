@@ -7,6 +7,7 @@ import type { SyncCandidate, SyncRun, NativeSyncSource as SyncSource, SyncSubmit
 import type { TaskDossier } from "./core/types.js";
 import type { SourceCall } from "./source-sync.js";
 import { connectSources, sourceError, type SourceConnections } from "./source-connectors.js";
+import { sourceResponseFailure, sourceThrownFailure } from "./source-errors.js";
 
 type Json = Record<string, any>;
 export type SourceDocument = { ref: string; source: SyncSource; tool: string; args: Record<string, unknown>; content: string };
@@ -26,8 +27,6 @@ export type CollectionOptions = {
 };
 // Slack answers rate limits with a bare "ratelimited" payload, sometimes wrapped
 // in a transport error. A one-second retry falls inside the same rate window.
-const TRANSIENT_SOURCE_ERROR = /429|502|503|504|fetch failed|ECONNRESET|currently unavailable|temporarily unavailable|rate.?limit|timed?\s*out|timeout|-32001/i;
-const RATE_LIMITED = /\b429\b|rate.?limit/i;
 export const sourceRetryDelay = (attempt: number, rateLimited: boolean) => rateLimited ? [5000, 15000, 30000][attempt] ?? 30000 : (attempt + 1) * 1000;
 // Budget the actual pretty-printed tool response, including JSON escaping.
 // Claude moves oversized results to a file the analyst must not need to read.
@@ -161,18 +160,19 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
     if ("error" in connection) { error(source, connection.error); return null; }
     count++;
     const ref = `export:${run.id}:${randomUUID()}`;
+    const target = args.threadId ?? args.messageId ?? args.issueIdOrKey ?? (args.channel_id && args.message_ts ? `${args.channel_id}:${args.message_ts}` : args.channel_id);
     try {
       let result: unknown;
       for (let attempt = 0; ; attempt++) {
         try {
           result = await connection.call(tool, args, signal);
-          const response = result as Json;
-          if ((response?.isError || response?.statusCode >= 400) && TRANSIENT_SOURCE_ERROR.test(JSON.stringify(response))) throw RATE_LIMITED.test(JSON.stringify(response)) ? new Error("The source rate limit was reached.") : new Error("The source is temporarily unavailable (503/timeout).");
+          const failure = sourceResponseFailure(result as Json, responseData(result));
+          if (failure?.retryable) throw failure;
           break;
         }
         catch (cause) {
-          const message = sourceError(cause), rateLimited = RATE_LIMITED.test(message);
-          if (attempt >= (rateLimited ? 3 : 2) || signal.aborted || !TRANSIENT_SOURCE_ERROR.test(message)) throw cause;
+          const failure = sourceThrownFailure(cause), { rateLimited } = failure;
+          if (attempt >= (rateLimited ? 3 : 2) || signal.aborted || !failure.retryable) throw failure;
           await new Promise<void>(resolve => {
             const done = () => { clearTimeout(t); signal.removeEventListener("abort", done); resolve(); };
             const t = setTimeout(done, (options.retryDelayMs ?? sourceRetryDelay)(attempt, rateLimited)); t.unref?.();
@@ -181,12 +181,13 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
         }
       }
       const data = responseData(result), raw = result as Json;
+      const failure = sourceResponseFailure(raw, data);
       const output = receiptText(data);
       const shapeOk = tool === "get_message" ? data.id === args.messageId && typeof data.threadId === "string"
         && (!expectedThreadId || data.threadId === expectedThreadId)
         && (!full || typeof (data.plaintextBody ?? data.plaintext_body) === "string" && Number.isFinite(Number(data.internalDate ?? Date.parse(data.date))))
         : !full || (source === "gmail" ? Array.isArray(data.messages) : source === "jira" ? Boolean(data.key && data.fields) : typeof data.messages === "string");
-      const completed = !raw?.isError && !(raw?.statusCode >= 400) && !data.error && shapeOk;
+      const completed = !failure && shapeOk;
       const size = Buffer.byteLength(output);
       const truncated = size > 3 * 1024 * 1024 || bytes + size > 32 * 1024 * 1024;
       const savedOutput = truncated ? output.slice(0, 1000) : output;
@@ -197,9 +198,7 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
         return data;
       }
       if (!completed || truncated) {
-        const sourceFailure = raw?.isError || raw?.statusCode >= 400 || data.error;
-        const target = args.threadId ?? args.messageId ?? args.issueIdOrKey ?? (args.channel_id && args.message_ts ? `${args.channel_id}:${args.message_ts}` : args.channel_id);
-        const detail = `${tool}${target ? ` (${target})` : ""}: ${truncated ? "response too large" : sourceFailure ? sourceError(data.message ?? data.text ?? output).slice(0, 400) : !shapeOk ? "unrecognized source response format" : sourceError(output).slice(0, 400)}`;
+        const detail = `${tool}${target ? ` (${target})` : ""}: ${truncated ? "response too large" : failure ? failure.message.slice(0, 400) : !shapeOk ? "unrecognized source response format" : sourceError(output).slice(0, 400)}`;
         callProblems.set(ref, detail); error(source, detail);
         return null;
       }
@@ -222,7 +221,7 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
     } catch (cause) {
       const message = signal.aborted ? "The export timed out or was canceled." : sourceError(cause);
       calls.push({ ref, source, tool: `${source}.${tool}`, args, output: message, completed: false, truncated: false, read: full });
-      const detail = `${tool}${args.channel_id && args.message_ts ? ` (${args.channel_id}:${args.message_ts})` : ""}: ${message}`;
+      const detail = `${tool}${target ? ` (${target})` : ""}: ${message}`;
       callProblems.set(ref, detail); error(source, detail); progress(source, "Some data is unavailable"); return null;
     }
   }
