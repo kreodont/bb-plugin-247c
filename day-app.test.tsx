@@ -27,6 +27,21 @@ async function setup() {
 const plannerRun = { id: "run_plan", status: "running" as const, startedAt: Date.now(), finishedAt: null, error: null, skipReason: null };
 const plannerState = { configured: true, today: localDay(), name: "Work planner", scheduled: true, nextRunAt: Date.now() + 60000, run: null };
 
+it.each(["updates", "day/2026-09-10"])("checks the calendar from %s with a JSON-safe date input", async path => {
+  const { days, mount } = await setup();
+  const expected = path === "updates" ? {} : { date: "2026-09-10" };
+  const sync = vi.fn((input: unknown) => {
+    expect(input).toStrictEqual(expected);
+    expect(input).toStrictEqual(JSON.parse(JSON.stringify(input)));
+    return days.calendarState();
+  });
+  const slot = mount(path, { calendarSync: sync });
+  fireEvent.click(await slot.findByRole("button", { name: "Check calendar" }));
+  await waitFor(() => expect(sync).toHaveBeenCalledOnce());
+  expect(sync.mock.calls[0][0]).toStrictEqual(expected);
+  await waitFor(() => expect(slot.queryByRole("alert")).toBeNull());
+});
+
 it("remembers duration sorting without rewriting time or the manual order", async () => {
   const { f, task, days, item, mount } = await setup();
   const other = await f.harness.behavior.callRpc("create", { title: "Another task", requestId: randomUUID() }) as { id: string };

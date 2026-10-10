@@ -21,6 +21,14 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Calendar button JSON input in 0.5.69
+
+Check calendar on the Updates page now omits an unspecified date from the RPC
+request. Previously it sent an undefined value, which BB rejected before the
+calendar reader could start. Checking a selected day still sends that date.
+Both page entry points are covered by UI regression tests. No data migration or
+settings change is required.
+
 ## Jira reference scope in 0.5.68
 
 Store and customer codes in task notes no longer establish a Jira project by

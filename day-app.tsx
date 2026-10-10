@@ -76,7 +76,7 @@ export function CalendarStatus({ date }: { date?: string }) {
   const [busy, setBusy] = useState(false), [mutationError, setMutationError] = useState<string | null>(null);
   async function sync() {
     if (busy) return; setBusy(true); setMutationError(null);
-    try { await rpc.call("calendarSync", { date }); await refresh(); }
+    try { await rpc.call("calendarSync", date === undefined ? {} : { date }); await refresh(); }
     catch (e) { setMutationError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }
