@@ -21,6 +21,13 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Proposals in More in 0.5.71
+
+Proposals moves into More, including its pending count. Today, Tasks and Updates
+remain directly accessible. The sidebar still opens Proposals automatically when
+there are pending proposals, and Tasks otherwise. Pending-edit navigation guards
+and continuous UX recording are preserved.
+
 ## Continuous UX recording and direct Updates navigation in 0.5.70
 
 Updates is a top-level navigation button beside Proposals, with the same pending

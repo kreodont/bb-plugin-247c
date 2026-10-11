@@ -323,9 +323,11 @@ it("selects each new inbox page without accepting proposals from another page", 
   expect(f.repo.pendingTotal()).toBe(50);
 });
 
-it("counts new-task suggestions in the prominent home link before a task exists", async () => {
+it("counts new-task suggestions in the More menu before a task exists", async () => {
   const f = await fixture(); const { run } = await startSourceSync(f); const { input } = await sourceData(f, run); await submitSourceData(f, run, input);
   const { slot } = await setup(undefined, f);
+  await slot.findByRole("heading", { name: "Tasks" });
+  fireEvent.click(slot.getByText("More"));
   const button = await slot.findByRole("button", { name: "Proposals · 1" });
   fireEvent.click(button);
   expect(JSON.stringify(slot.inspection.navigateCalls)).toContain('"proposals"');

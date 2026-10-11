@@ -21,6 +21,7 @@ function Guard({ check }: { check: () => boolean | Promise<boolean> }) {
 it("flushes day edits before persistent section navigation and retains the page when saving fails", async () => {
   const goTo = vi.fn(), check = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true);
   const view = render(<NavigationFrame subPath="day/2026-10-02" today="2026-10-02" pendingTotal={3} goTo={goTo}><Guard check={check} /></NavigationFrame>);
+  fireEvent.click(view.getByText("More"));
   fireEvent.click(view.getByRole("button", { name: "Proposals · 3" }));
   await waitFor(() => expect(check).toHaveBeenCalledTimes(1)); expect(goTo).not.toHaveBeenCalled();
   await waitFor(() => expect((view.getByRole("button", { name: "Tasks" }) as HTMLButtonElement).disabled).toBe(false));
