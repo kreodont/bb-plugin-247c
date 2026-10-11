@@ -4,7 +4,7 @@ import { UX_BUILD, type UxState } from "./ux-contracts.js";
 import { UxCollector, beginUxAction, markUxFeedback, uxViewChanged } from "./ux-client.js";
 
 let collector: UxCollector | undefined;
-afterEach(() => { collector?.dispose(); collector = undefined; document.body.innerHTML = ""; vi.useRealTimers(); });
+afterEach(() => { collector?.dispose(); collector = undefined; document.body.innerHTML = ""; sessionStorage.clear(); vi.useRealTimers(); });
 function setup() {
   vi.useFakeTimers(); Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
   document.body.innerHTML = '<div data-c247-ux-page="tasks" data-c247-ux-view="PRIVATE_TASK_ID"><button data-c247-ux-action="task-open">Private task title</button><input value="secret"><div data-c247-ux-private><button id="private">Do not record</button></div></div><button id="outside">Other app</button>';
@@ -56,4 +56,43 @@ it("excludes WebDriver automation even if the global study is enabled", async ()
     expect(markUxFeedback("Automated probe")).toBe(false);
     await collector.flush(); expect(send).not.toHaveBeenCalled();
   } finally { Reflect.deleteProperty(navigator, "webdriver"); }
+});
+
+it("keeps recording without an end date, retries unavailable storage, and survives a collector reload", async () => {
+  const { c, send, status, state } = setup();
+  const continuous = { ...state, endsAt: null };
+  c.update(continuous); send.mockResolvedValueOnce({ reason: "unavailable" });
+  document.querySelector("button")!.click(); await c.flush();
+  const original = send.mock.calls[0][0];
+  c.update({ ...continuous, enabled: false, storageAvailable: false });
+  c.dispose();
+  collector = new UxCollector(send, status, false); collector.update(continuous);
+  await collector.flush();
+  expect(send.mock.calls.at(-1)![0].batchId).toBe(original.batchId);
+  expect(JSON.stringify(sessionStorage)).not.toMatch(/PRIVATE_TASK_ID|secret/);
+  document.querySelector("button")!.click(); await collector.flush();
+  expect(send.mock.calls.at(-1)![0].events.some((e: { kind: string }) => e.kind === "click")).toBe(true);
+});
+
+it("coalesces focus noise and uses the active dialog for keyboard action outcomes", async () => {
+  const { c, send, state } = setup(); c.update({ ...state, endsAt: null });
+  for (let i=0; i<20; i++) { window.dispatchEvent(new Event("blur")); window.dispatchEvent(new Event("focus")); }
+  await vi.advanceTimersByTimeAsync(1001);
+  window.dispatchEvent(new Event("focus")); await vi.advanceTimersByTimeAsync(1001);
+  const dialog = document.createElement("div"); dialog.innerHTML = '<div role="dialog"><div data-c247-ux-page="thread"><button data-c247-ux-action="reported-save">Save</button></div></div>'; document.body.append(dialog);
+  const finish = beginUxAction("reported-save"); finish(); finish();
+  await c.flush();
+  const events = send.mock.calls.flatMap(call => call[0].events);
+  expect(events.filter((e: { kind: string }) => e.kind === "active")).toHaveLength(1);
+  expect(events.filter((e: { kind: string }) => e.kind === "inactive")).toHaveLength(0);
+  expect(events.filter((e: { kind: string }) => e.kind === "result")).toEqual([expect.objectContaining({ page: "thread", action: "reported-save" })]);
+});
+
+it("rejects saved buffers after pause or a new recording and does not collect during an acknowledged pause", async () => {
+  const { c, send, state } = setup(); c.update({ ...state, endsAt: null });
+  send.mockResolvedValueOnce({ reason: "paused" }); await c.flush();
+  document.querySelector("button")!.click(); await c.flush(); expect(send).toHaveBeenCalledTimes(1);
+  c.dispose(); collector = new UxCollector(send, vi.fn(), false);
+  collector.update({ ...state, enabled: false, recordingId: null, endsAt: null });
+  await collector.flush(); expect(send).toHaveBeenCalledTimes(1);
 });

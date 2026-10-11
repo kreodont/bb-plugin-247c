@@ -1,5 +1,5 @@
 import { afterEach, expect, it } from "vitest";
-import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -25,12 +25,19 @@ it("starts disabled, persists opt-in, deduplicates retries across restart and re
   restarted.control("pause"); expect(restarted.record({ ...batch, batchId: randomUUID() }).reason).toBe("paused");
   restarted.control("start"); expect(restarted.record({ ...batch, batchId: randomUUID() }).reason).toBe("paused");
   restarted.control("clear"); expect(restarted.report().events).toBe(0); expect(restarted.state().enabled).toBe(false);
-  expect(readdirSync(f.directory)).toEqual(["state.json"]);
+  expect(readdirSync(f.directory)).toEqual(["state.json", "summaries.json"]);
+  expect(restarted.state().controls?.at(-1)?.reason).toBe("user-clear");
 });
-it("expires both recording permission and files without requiring another event", () => {
+it("expires raw events while continuous opt-in and anonymous daily counts survive restart", () => {
   const f = setup(); f.store.control("start"); f.store.record(f.batch());
   f.advance(UX_RETENTION_MS + 1); f.store.sweep(true);
-  expect(f.store.state().enabled).toBe(false); expect(f.store.report().events).toBe(0);
+  expect(f.store.state().enabled).toBe(true); expect(f.store.report().events).toBe(0);
+  expect(f.store.report().daily).toEqual([expect.objectContaining({ clicks: 1, events: 1 })]);
+  const restarted = new UxRecording(f.directory, f.now);
+  expect(restarted.state()).toMatchObject({ enabled: true, endsAt: null });
+  expect(restarted.record(f.batch()).reason).toBe("saved");
+  f.advance(90 * 86400000); f.store.sweep(true);
+  expect(f.store.report().daily).toEqual([]);
   expect(readdirSync(f.directory).some(n => n.endsWith(".jsonl"))).toBe(false);
 });
 it("rejects page text, URLs, arbitrary actions, input values and notes outside explicit feedback", () => {
@@ -55,9 +62,10 @@ it("separates clients, reports outcomes and handles an interrupted final line", 
   const report = f.store.report(); expect(report.events).toBe(5); expect(report.transitions).toEqual([{ from: "tasks", to: "thread", count: 1 }]);
   expect(report.results).toEqual([{ action: "reported-save", ok: 1, errors: 1, medianMs: 450 }]);
 });
-it("caps storage and fails closed when local storage is unavailable", () => {
+it("rotates full chunks without stopping and reports unavailable storage", () => {
   const f = setup(); f.store.control("start"); writeFileSync(join(f.directory, "2026-10-02T12.jsonl"), " ".repeat(512 * 1024));
-  expect(f.store.record(f.batch()).reason).toBe("full");
+  expect(f.store.record(f.batch()).reason).toBe("saved");
+  expect(f.store.state().enabled).toBe(true);
   const bad = join(f.directory, "not-a-directory"); writeFileSync(bad, "x"); const store = new UxRecording(bad);
   expect(store.state().storageAvailable).toBe(false); expect(store.record(f.batch()).reason).toBe("unavailable");
 });
@@ -76,4 +84,73 @@ it("registers local recording RPCs without starting agents or changing task data
     await f.reload();
     expect(await f.harness.behavior.callRpc("uxState", {})).toMatchObject({ enabled: true, recordingId: state.recordingId });
   } finally { await f.harness.lifecycle.dispose(); }
+});
+
+it("preserves timed consent from old installations and never resumes an explicit pause", () => {
+  const f = setup(), recordingId = randomUUID();
+  writeFileSync(join(f.directory, "state.json"), JSON.stringify({ recordingId, endsAt: f.now() + 60000 }));
+  const migrated = new UxRecording(f.directory, f.now);
+  expect(migrated.state()).toMatchObject({ enabled: true, recordingId });
+  f.advance(60001);
+  expect(migrated.state()).toMatchObject({ enabled: false, status: "expired" });
+  migrated.control("start");
+  expect(migrated.state()).toMatchObject({ enabled: true, endsAt: null });
+  migrated.control("pause");
+  expect(new UxRecording(f.directory, f.now).state()).toMatchObject({ enabled: false, status: "paused", controls: expect.arrayContaining([expect.objectContaining({ reason: "user-pause" })]) });
+});
+
+it("recovers from a temporary append failure without losing opt-in or duplicating the retry", () => {
+  const f = setup(); const state = f.store.control("start"), batch = f.batch();
+  mkdirSync(join(f.directory, "state.json.tmp"));
+  expect(f.store.record(batch).reason).toBe("unavailable"); // Append succeeds, state commit fails.
+  expect(f.store.state()).toMatchObject({ enabled: false, recordingId: state.recordingId, storageAvailable: false });
+  rmSync(join(f.directory, "state.json.tmp"), { recursive: true });
+  expect(f.store.record(batch).reason).toBe("duplicate");
+  expect(f.store.report()).toMatchObject({ events: 1, state: { enabled: true, recordingId: state.recordingId } });
+  expect(f.store.state().controls?.map(c => c.reason)).toEqual(["start", "storage-error", "storage-recovered"]);
+});
+
+it("rotates a full raw budget, keeps daily counts once, and continues after restart", () => {
+  const f = setup(); f.store.control("start");
+  const old = f.batch(); f.store.record(old);
+  const first = readdirSync(f.directory).find(n => n.endsWith("jsonl"))!;
+  const content = readFileSync(join(f.directory, first), "utf8");
+  writeFileSync(join(f.directory, first), content + " ".repeat(16 * 1024 * 1024));
+  expect(f.store.record(f.batch()).reason).toBe("saved");
+  expect(f.store.state().bytes).toBeLessThan(16 * 1024 * 1024);
+  expect(f.store.report().daily?.[0]).toMatchObject({ clicks: 2, events: 2 });
+  const restarted = new UxRecording(f.directory, f.now);
+  expect(restarted.record(f.batch()).reason).toBe("saved");
+  expect(restarted.report().daily?.[0]).toMatchObject({ clicks: 3, events: 3 });
+  const summary = readFileSync(join(f.directory, "summaries.json"), "utf8");
+  expect(summary).not.toContain(old.clientId); expect(summary).not.toContain(old.batchId);
+});
+
+it("keeps legacy client builds valid and deduplicates across hour rollover and restart", () => {
+  const f = setup(); f.store.control("start"); f.advance(3599000);
+  const batch = { ...f.batch(), build: "2026-10-04.1" };
+  f.store.record(batch); f.advance(2000);
+  const restarted = new UxRecording(f.directory, f.now);
+  expect(restarted.record(batch).reason).toBe("duplicate");
+  expect(restarted.record({ ...f.batch(), build: "0.5.999" }).reason).toBe("saved");
+  expect(restarted.report().events).toBe(2);
+});
+
+it("does not double count if a retired file remains after its summary was committed", () => {
+  const f = setup(); f.store.control("start"); f.store.record(f.batch());
+  const file = readdirSync(f.directory).find(n => n.endsWith("jsonl"))!, text = readFileSync(join(f.directory, file), "utf8");
+  f.advance(UX_RETENTION_MS + 1); f.store.sweep(true);
+  writeFileSync(join(f.directory, file), text); // Simulate crash before unlink.
+  expect(new UxRecording(f.directory, f.now).report().daily?.[0]).toMatchObject({ clicks: 1, events: 1 });
+});
+
+it("appends a valid batch after an interrupted line and fails closed for damaged consent", () => {
+  const f = setup(); f.store.control("start"); f.store.record(f.batch());
+  const file = join(f.directory, readdirSync(f.directory).find(n => n.endsWith("jsonl"))!);
+  writeFileSync(file, readFileSync(file, "utf8") + '{"partial":');
+  expect(f.store.record(f.batch()).reason).toBe("saved"); expect(f.store.report().events).toBe(2);
+  writeFileSync(join(f.directory, "state.json"), '{"recordingId":');
+  const restarted = new UxRecording(f.directory, f.now);
+  expect(restarted.state()).toMatchObject({ enabled: false, storageAvailable: false });
+  expect(readFileSync(join(f.directory, "state.json"), "utf8")).toBe('{"recordingId":');
 });

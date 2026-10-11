@@ -21,6 +21,27 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Continuous UX recording and direct Updates navigation in 0.5.70
+
+Updates is a top-level navigation button beside Proposals, with the same pending
+edit guards. UX recording can now run until explicitly paused. Upgrades and
+restarts preserve consent; existing timed studies are not silently extended.
+Pause is confirmed in the review page, and paused/error states remain visible.
+
+Storage rotates at its raw log budget and retries temporary failures. Daily
+counts survive raw event expiration for 90 days without retaining notes, client
+IDs or coordinates. The last save and bounded control/recovery history explain
+recording status. Recent browser-session buffers survive frontend reloads.
+Compatible previous UI builds remain accepted; new events carry the package
+version. Focus noise is coalesced, and chat, proposal-selection and reported-time
+controls have distinct actions. No task data or settings migration is required.
+
+Regression checks cover continuous recording beyond seven days and across reload,
+legacy expiry and explicit pause, storage failures, full-budget rotation, retries
+at hour boundaries, partial log writes, summary crash recovery, privacy validation,
+dialog outcomes, and buffer restoration. Real BB restarts still require the app to
+be reopened; recording cannot observe an application that is closed.
+
 ## Calendar button JSON input in 0.5.69
 
 Check calendar on the Updates page now omits an unspecified date from the RPC

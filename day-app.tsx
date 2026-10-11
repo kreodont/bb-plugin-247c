@@ -1,5 +1,6 @@
 import { ChatIndicator } from "./chat-indicator.js";
 import { isLiveTask, taskStatusNames } from "./task-status.js";
+import { beginUxAction } from "./ux-client.js";
 import { useUxRpc } from "./ux-app.js";
 import { usePlanningTimeZone } from "./day-zone.js";
 import { DAY_SORT_KEY, durationSorts, isDaySort, savedDaySort, sortDayItems, type DaySort } from "./day-sort.js";
@@ -121,7 +122,7 @@ function ItemHistory({ id }: { id: string }) {
 function DayRow({ item, refresh, register, openTask, openDay, openChat, hasActiveChat, chatBusy, move, moveDisabled, focused = false, hidden = false }: {
   item: ViewItem; refresh: () => Promise<void>; register: (id: string, flush: Flush | null) => void;
   openTask: (id: string) => Promise<void>; openDay: (date: string) => Promise<void>; move: (id: string, direction: number) => Promise<void>; moveDisabled: boolean; focused?: boolean; hidden?: boolean;
-  openChat: (id: string) => Promise<void>; hasActiveChat: boolean; chatBusy: boolean;
+  openChat: (id: string, existing: boolean) => Promise<void>; hasActiveChat: boolean; chatBusy: boolean;
 }) {
   const timeZone = usePlanningTimeZone();
   const rpc = useUxRpc();
@@ -225,12 +226,12 @@ function DayRow({ item, refresh, register, openTask, openDay, openChat, hasActiv
           {item.reportOnly && <p className="mt-1 text-xs text-muted-foreground">Reported time is saved here. The meeting is planned for {shortDate(item.date)}.</p>}
           {item.removed && <p className="mt-1 text-xs text-muted-foreground">Removed from the plan; reported time preserved.</p>}
           {!item.calendar && item.plannedMinutes === null && item.reportedMinutes !== null && <p className="mt-1 text-xs text-muted-foreground">Outside the plan</p>}
-          {item.taskId && (hasActiveChat || isLiveTask(item.taskStatus)) && <Button data-c247-ux-action={hasActiveChat ? "return-thread" : "session-start"} type="button" className="mt-2" size="sm" variant={hasActiveChat ? "default" : "outline"} disabled={chatBusy} onClick={() => void openChat(item.taskId!)}><Icon name={hasActiveChat ? "MessageSquare" : "Plus"} aria-hidden="true" />{hasActiveChat ? "Open chat" : "New chat"}</Button>}
+          {item.taskId && (hasActiveChat || isLiveTask(item.taskStatus)) && <Button data-c247-ux-action={hasActiveChat ? "chat-open" : "chat-new"} type="button" className="mt-2" size="sm" variant={hasActiveChat ? "default" : "outline"} disabled={chatBusy} onClick={() => void openChat(item.taskId!, hasActiveChat)}><Icon name={hasActiveChat ? "MessageSquare" : "Plus"} aria-hidden="true" />{hasActiveChat ? "Open chat" : "New chat"}</Button>}
         </div>
       </div>
       <label className="text-xs text-muted-foreground">Planned<Input aria-label={`Planned: ${item.title}`} className="mt-1 text-right tabular-nums" value={draft.planned} placeholder="—" onFocus={() => { focusedField.current = "planned"; }} onBlur={() => { focusedField.current = null; if (!error) void save(); }} onChange={e => edit("planned", e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); void save(); } }} />{item.calendar && <span className="mt-1 block text-right text-xs">{item.plannedMode === "calendar" ? "calendar" : "manual"}</span>}</label>
       <div className="text-xs text-muted-foreground">Actual<output aria-label={`Actual: ${item.title}`} className="mt-1 flex h-9 items-center justify-end rounded-md border border-transparent px-3 text-sm tabular-nums text-foreground">{formatMinutes(item.actualMinutes)}</output><span className="mt-1 block text-right text-xs">{item.kind === "meeting" ? "= reported" : "agents"}</span></div>
-      <label className="text-xs text-muted-foreground">Reported<Input ref={reportedInput} aria-label={`Reported: ${item.title}`} className="mt-1 text-right tabular-nums" value={draft.reported} placeholder="—" onFocus={() => { focusedField.current = "reported"; }} onBlur={() => { focusedField.current = null; if (!error) void save(); }} onChange={e => edit("reported", e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); void save(); } }} />{item.calendar && <span className="mt-1 block text-right text-xs">{item.reportedMode === "calendar" ? item.reportedMinutes === null ? "after the meeting" : "auto" : "manual"}</span>}{!item.calendar && <span className="mt-1 block text-right text-xs">{item.reportedMode === "estimate" && item.reportedMinutes !== null ? "estimate · review" : item.reportedMinutes !== null || item.reportedLocked ? sourceNames[item.reportedChanges.at(-1)?.source ?? "panel"] : (item.actualMinutes ?? 0) > 0 ? "awaiting AI estimate" : ""}</span>}</label>
+      <label className="text-xs text-muted-foreground">Reported<Input data-c247-ux-action="reported-edit" ref={reportedInput} aria-label={`Reported: ${item.title}`} className="mt-1 text-right tabular-nums" value={draft.reported} placeholder="—" onFocus={() => { focusedField.current = "reported"; }} onBlur={() => { focusedField.current = null; if (!error) void save(); }} onChange={e => edit("reported", e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); void save(); } }} />{item.calendar && <span className="mt-1 block text-right text-xs">{item.reportedMode === "calendar" ? item.reportedMinutes === null ? "after the meeting" : "auto" : "manual"}</span>}{!item.calendar && <span className="mt-1 block text-right text-xs">{item.reportedMode === "estimate" && item.reportedMinutes !== null ? "estimate · review" : item.reportedMinutes !== null || item.reportedLocked ? sourceNames[item.reportedChanges.at(-1)?.source ?? "panel"] : (item.actualMinutes ?? 0) > 0 ? "awaiting AI estimate" : ""}</span>}</label>
     </div>
     {item.reportedMinutes !== null && item.reportedMode !== "estimate" && <ReportedOrigin changes={item.reportedChanges} timeZone={timeZone} />}
     {item.reportedMode === "estimate" && item.reportedMinutes !== null && <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><p className="min-w-48 flex-1">{item.reportedEstimate?.reason}</p><Button size="sm" variant="outline" disabled={busy || dirty} onClick={() => void save({ reportedMinutes: item.reportedMinutes })}>Confirm reported</Button></div>}
@@ -288,17 +289,18 @@ export function DayPage({ date, report = false, period = "week", threadId, focus
   }
   async function openTask(id: string) { await go(`${id}/from/${route}`); }
   async function openDay(next: string) { if (dayDateSchema.safeParse(next).success) await go(taskDayPath(next, focusTaskId)); }
-  async function openChat(id: string) {
+  async function openChat(id: string, existing: boolean) {
     if (chatFlight.current) return;
+    const finish = beginUxAction(existing ? "chat-open" : "chat-new");
     chatFlight.current = true; setOpeningChat(true); setMutationError(null);
     try {
-      if (!await flushAll() || !mounted.current) return;
+      if (!await flushAll() || !mounted.current) { finish("error"); return; }
       const requestId = chatRequests.current.get(id) ?? crypto.randomUUID(); chatRequests.current.set(id, requestId);
       const session = await rpc.call("openChat", { taskId: id, requestId });
       if (!session.workerThreadId) throw new Error(session.error || "The chat is still starting. Try again.");
-      if (!await flushAll() || !mounted.current) return;
-      navigate.toThread(session.workerThreadId);
-    } catch (cause) { if (mounted.current) setMutationError(cause instanceof Error ? cause.message : "Could not open the work chat. Try again."); }
+      if (!await flushAll() || !mounted.current) { finish("error"); return; }
+      navigate.toThread(session.workerThreadId); finish("ok");
+    } catch (cause) { finish("error"); if (mounted.current) setMutationError(cause instanceof Error ? cause.message : "Could not open the work chat. Try again."); }
     finally { chatFlight.current = false; if (mounted.current) setOpeningChat(false); }
   }
   async function action(work: () => Promise<unknown>) {

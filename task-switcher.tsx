@@ -3,6 +3,7 @@ import { useBbContext, useBbNavigate } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
 import type { TaskCard } from "./contracts.js";
 import { switcherTasks } from "./task-switch-order.js";
+import { beginUxAction } from "./ux-client.js";
 import { UxScope, useUxRpc } from "./ux-app.js";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "./components/ui/dialog.js";
 import { Input } from "./components/ui/input.js";
@@ -31,14 +32,15 @@ export function TaskSwitcher({ dotFor, updated }: { dotFor: (task: TaskCard) => 
 
   async function choose(task: TaskCard) {
     if (busy.current) return;
-    if (task.activeThreadId) { setOpen(false); if (task.activeThreadId !== current) navigate.toThread(task.activeThreadId); return; }
+    const finish = beginUxAction(task.activeThreadId ? "chat-open" : "chat-new");
+    if (task.activeThreadId) { setOpen(false); if (task.activeThreadId !== current) navigate.toThread(task.activeThreadId); finish("ok"); return; }
     busy.current = true; setOpening(task.id);
     const requestId = requests.current.get(task.id) ?? crypto.randomUUID(); requests.current.set(task.id, requestId);
     try {
       const session = await rpc.call("openChat", { taskId: task.id, requestId });
       if (!session.workerThreadId) throw new Error(session.error || "The chat is still starting. Try again.");
-      setOpen(false); navigate.toThread(session.workerThreadId);
-    } catch (cause) { toast.error("Could not open the work chat", { description: cause instanceof Error ? cause.message : String(cause) }); }
+      setOpen(false); navigate.toThread(session.workerThreadId); finish("ok");
+    } catch (cause) { finish("error"); toast.error("Could not open the work chat", { description: cause instanceof Error ? cause.message : String(cause) }); }
     finally { busy.current = false; setOpening(null); }
   }
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {

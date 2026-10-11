@@ -15,11 +15,11 @@ export function usePartSelection(id: string, parts: string[], disabled: boolean,
     picked, all: picked.length === parts.length,
     bar: <div className="flex flex-wrap items-center gap-3 border-t border-border px-4 py-3 text-xs text-muted-foreground">
       <span>Selected {picked.length} of {parts.length} parts</span>
-      <Button variant="ghost" size="sm" disabled={disabled} onClick={() => change(new Set(picked.length === parts.length ? [] : parts))}>{picked.length === parts.length ? "Clear parts" : "Select all parts"}</Button>
+      <Button data-c247-ux-action="proposal-select-all" variant="ghost" size="sm" disabled={disabled} onClick={() => change(new Set(picked.length === parts.length ? [] : parts))}>{picked.length === parts.length ? "Clear parts" : "Select all parts"}</Button>
       <p className="w-full">{note}</p>
     </div>,
     checkbox: (part: string, label: string) => <label className="flex items-start gap-2 text-sm font-medium">
-      <input type="checkbox" className="mt-0.5 accent-primary" aria-label={`Select part: ${label}`} checked={picked.includes(part)} disabled={disabled}
+      <input data-c247-ux-action="proposal-select" type="checkbox" className="mt-0.5 accent-primary" aria-label={`Select part: ${label}`} checked={picked.includes(part)} disabled={disabled}
         onChange={e => { const next = new Set(picked); e.target.checked ? next.add(part) : next.delete(part); change(next); }} />{label}
     </label>,
   };

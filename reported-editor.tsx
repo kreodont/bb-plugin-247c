@@ -6,7 +6,7 @@ import { Input } from "./components/ui/input.js";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "./components/ui/dialog.js";
 
 export function ReportedEditor({ taskId, threadId, close, saved }: { taskId: string; threadId: string; close: () => void; saved: () => Promise<void> }) {
-  const rpc = useUxRpc();
+  const rpc = useUxRpc("reported");
   const [snapshot, setSnapshot] = useState<{ date: string; item: DayItem | null }>(), [draft, setDraft] = useState(""), [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => { if (snapshot) { input.current?.focus(); input.current?.select(); } }, [snapshot]);
@@ -38,7 +38,7 @@ export function ReportedEditor({ taskId, threadId, close, saved }: { taskId: str
   return <Dialog open onOpenChange={open => { if (!open && !flight.current) close(); }}><DialogContent className="sm:max-w-sm">
     <UxScope page="thread" view={threadId}><DialogTitle>Reported time</DialogTitle><DialogDescription>Set the total for {snapshot?.date ?? "today"}. You will stay in this thread.</DialogDescription>
       <form className="mt-4 space-y-4" onSubmit={e => { e.preventDefault(); void save(); }}>
-        <label className="block text-sm">Reported total<Input ref={input} data-c247-ux-action="field" autoFocus aria-label="Reported total" placeholder="For example, 45m or 1:30" value={draft} disabled={busy || !snapshot} onChange={e => setDraft(e.target.value)} /></label>
+        <label className="block text-sm">Reported total<Input ref={input} data-c247-ux-action="reported-edit" autoFocus aria-label="Reported total" placeholder="For example, 45m or 1:30" value={draft} disabled={busy || !snapshot} onChange={e => setDraft(e.target.value)} /></label>
         <p className="text-xs text-muted-foreground">An empty field clears the value. Planned time stays unchanged.</p>
         {error && <div role="alert" className="text-sm text-destructive">{error}<Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => void load()}>Reload saved time</Button></div>}
         <div className="flex justify-end gap-2"><Button type="button" variant="ghost" disabled={busy} onClick={close}>Cancel</Button><Button data-c247-ux-action="reported-save" type="submit" disabled={busy || !snapshot}>{busy ? "Saving…" : "Save total"}</Button></div>
