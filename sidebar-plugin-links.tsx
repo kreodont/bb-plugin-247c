@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { usePortalScopeProps } from "./lib/portal-scope.js";
 
 // BB 0.46 moved panel navigation into an icon rail and stopped rendering
 // sidebar accessories. Keep host DOM dependencies in this optional adapter.
@@ -76,8 +77,9 @@ function PanelIcon({ button }: { button: HTMLButtonElement }) {
 
 export function SidebarPluginLinks({ enabled, accessory }: { enabled: boolean; accessory: ReactNode }) {
   const mount = useSidebarMount(enabled);
+  const scope = usePortalScopeProps();
   if (!mount) return null;
-  return createPortal(<nav aria-label="Plugin shortcuts" className="mx-2 mb-2 max-h-[25vh] overflow-y-auto border-b border-border/60 pb-2">
+  return createPortal(<nav {...scope} aria-label="Plugin shortcuts" className="mx-2 mb-2 max-h-[25vh] overflow-y-auto border-b border-border/60 pb-2">
     {mount.panels.map(panel => <div key={panel.id} data-c247-sidebar-plugin-link={panel.id} className={`flex min-w-0 items-center gap-1 rounded-md hover:bg-sidebar-accent ${panel.active ? "bg-sidebar-accent" : ""}`}>
       <button type="button" aria-label={panel.label} aria-current={panel.active ? "page" : undefined} disabled={panel.disabled}
         className="flex min-h-8 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md px-2 text-left text-sm text-sidebar-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
