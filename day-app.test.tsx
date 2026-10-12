@@ -547,7 +547,8 @@ it("hides removed entries immediately and after reopening, with optional restora
   expect(slot.queryByRole("button", { name: "Restore to day" })).toBeNull();
   expect(slot.getByText("The plan is empty. Add tasks or check the calendar.")).toBeTruthy();
   expect(days.get(item.id)).toMatchObject({ removed: true, reportedMinutes: 30 });
-  expect(days.day(item.date).totals).toMatchObject({ plannedMinutes: 0, reportedMinutes: 30 });
+  expect(days.day(item.date).totals).toMatchObject({ plannedMinutes: 0, reportedMinutes: 0 });
+  expect(slot.getByText("Reported time").parentElement?.textContent).toBe("Reported time0m");
   slot.lifecycle.unmount();
   const reopened = mount(`day/${item.date}`);
   const toggle = await reopened.findByRole("checkbox", { name: "Show removed (1)" });
@@ -557,6 +558,7 @@ it("hides removed entries immediately and after reopening, with optional restora
   await waitFor(() => expect(days.get(item.id).removed).toBe(false));
   expect(await reopened.findByRole("article", { name: `Day entry: ${task.title}` })).toBeTruthy();
   expect(days.day(item.date).totals).toMatchObject({ plannedMinutes: 60, reportedMinutes: 30 });
+  await waitFor(() => expect(reopened.getByText("Reported time").parentElement?.textContent).toBe("Reported time30m"));
 });
 
 it("shows waiting status in Day and saves time before opening its chat", async () => {

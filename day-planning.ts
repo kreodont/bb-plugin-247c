@@ -124,7 +124,7 @@ export class DayPlanning {
       if (input.removed !== undefined) {
         item.removed = input.removed;
         // Removing an unattended meeting must let automatic() clear calendar
-        // time. Explicit manual reports remain independent of plan membership.
+        // time. Keep saved manual values for restoration; totals exclude removed entries.
         if (item.removed && item.kind !== "meeting" && item.reportedMinutes !== null) item.reportedMode = "manual";
       }
       if (input.restoreAuto) {
@@ -279,8 +279,8 @@ export class DayPlanning {
     const inPeriod = (date: string) => !from || date >= from && date <= through!;
     return { plannedMinutes: items.reduce((n, i) => n + (inPeriod(i.date) && plannedCounts(i) ? i.plannedMinutes ?? 0 : 0), 0),
       actualMinutes: items.reduce((n, i) => n + (inPeriod(actualDate(i)) ? i.actualMinutes ?? 0 : 0), 0),
-      reportedMinutes: items.reduce((n, i) => n + (inPeriod(i.reportedDate) ? i.reportedMinutes ?? 0 : 0), 0),
-      estimatedReported: items.filter(i => inPeriod(i.reportedDate) && i.reportedMode === "estimate" && i.reportedMinutes !== null).length,
+      reportedMinutes: items.reduce((n, i) => n + (!i.removed && inPeriod(i.reportedDate) ? i.reportedMinutes ?? 0 : 0), 0),
+      estimatedReported: items.filter(i => !i.removed && inPeriod(i.reportedDate) && i.reportedMode === "estimate" && i.reportedMinutes !== null).length,
       missingReported: items.filter(i => inPeriod(i.date) && plannedCounts(i) && i.reportedMinutes === null && i.date <= this.today()).length };
   }
   day(raw = this.today()): DayView {
@@ -298,7 +298,7 @@ export class DayPlanning {
     for (const item of items) {
       const key = item.taskId ?? item.id;
       const planned = item.date >= from && item.date <= through && plannedCounts(item) ? item.plannedMinutes : null;
-      const reported = item.reportedDate >= from && item.reportedDate <= through ? item.reportedMinutes : null;
+      const reported = !item.removed && item.reportedDate >= from && item.reportedDate <= through ? item.reportedMinutes : null;
       const actual = actualDate(item) >= from && actualDate(item) <= through ? item.actualMinutes : null;
       const estimatedReported = item.reportedMode === "estimate" && reported !== null;
       if (planned === null && reported === null && actual === null) continue;

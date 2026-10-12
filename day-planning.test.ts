@@ -189,7 +189,7 @@ it("adds a reported delta exactly once and rejects reuse with a different amount
   expect(days.history(item.id).items).toHaveLength(2);
 });
 
-it("reorders atomically, rejects stale membership and preserves reports when removing a plan", async () => {
+it("reorders atomically, rejects stale membership and excludes removed reports", async () => {
   const { days, task, f } = await setup(); const other = await f.create();
   const first = days.add({ date: "2026-09-10", taskId: task.id, plannedMinutes: 10, reportedMinutes: 180, requestId: randomUUID() });
   const second = days.add({ date: first.date, taskId: other.id, requestId: randomUUID() });
@@ -199,7 +199,7 @@ it("reorders atomically, rejects stale membership and preserves reports when rem
   expect(days.day(first.date).items.map(i => i.id)).toEqual(order.ids);
   const current = days.get(first.id);
   days.edit({ id: first.id, revision: current.revision, removed: true, requestId: randomUUID() });
-  expect(days.report({ date: first.date, period: "day" }).totals).toMatchObject({ plannedMinutes: 0, reportedMinutes: 180 });
+  expect(days.report({ date: first.date, period: "day" }).totals).toMatchObject({ plannedMinutes: 0, reportedMinutes: 0 });
   expect(days.history(first.id).items[0].before?.plannedMinutes).toBe(10);
 });
 
@@ -233,4 +233,25 @@ it("tells manual, conversation and calendar reported time apart", async () => {
   const call = days.day("2026-09-10").items.find(i => i.calendar)!;
   expect(call.reportedMinutes).toBe(30);
   expect(call.reportedChanges.at(-1)).toMatchObject({ source: "calendar", to: 30 });
+});
+
+it("excludes removed time from day, week, task totals and report rows, and restores it without rewriting history", async () => {
+  const { days, task } = await setup();
+  const kept = days.add({ date: "2026-09-07", taskId: task.id, reportedMinutes: 180, requestId: randomUUID() });
+  let removed = days.add({ date: "2026-09-10", taskId: task.id, plannedMinutes: 60, reportedMinutes: 120, requestId: randomUUID() });
+  removed = days.edit({ id: removed.id, revision: removed.revision, removed: true, requestId: randomUUID() });
+  expect(days.get(removed.id)).toMatchObject({ reportedMinutes: 120, reportedDate: "2026-09-10", removed: true });
+  expect(days.day("2026-09-10").totals.reportedMinutes).toBe(0);
+  expect(days.day("2026-09-10").totals.plannedMinutes).toBe(0);
+  expect(days.report({ date: "2026-09-10", period: "day" }).rows).toEqual([]);
+  const week = days.report({ date: "2026-09-10", period: "week", taskId: task.id });
+  expect(week.totals.reportedMinutes).toBe(180);
+  expect(week.rows[0]).toMatchObject({ reportedMinutes: 180, days: [{ itemId: kept.id, reportedMinutes: 180 }] });
+  expect(days.taskTotals(task.id).reportedMinutes).toBe(180);
+  const history = days.history(removed.id).items;
+  removed = days.edit({ id: removed.id, revision: removed.revision, removed: false, requestId: randomUUID() });
+  expect(days.day("2026-09-10").totals.reportedMinutes).toBe(120);
+  expect(days.report({ date: "2026-09-10", period: "week" }).totals.reportedMinutes).toBe(300);
+  expect(days.taskTotals(task.id).reportedMinutes).toBe(300);
+  expect(days.history(removed.id).items.slice(1)).toEqual(history);
 });
