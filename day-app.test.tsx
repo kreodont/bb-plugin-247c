@@ -8,7 +8,7 @@ import { rpcContract } from "./contracts.js";
 import { DayPlanning } from "./day-planning.js";
 import { localDay, shiftDay } from "./day-contracts.js";
 import { normalizeCalendarEvent } from "./calendar-reader.js";
-import { DAY_SORT_KEY } from "./day-sort.js";
+const DAY_SORT_KEY = "247c:day-sort";
 
 let app: CapturedPluginApp;
 const mounts: RenderedSlot[] = [], hosts: Awaited<ReturnType<typeof fixture>>[] = [];
@@ -42,39 +42,34 @@ it.each(["updates", "day/2026-09-10"])("checks the calendar from %s with a JSON-
   await waitFor(() => expect(slot.queryByRole("alert")).toBeNull());
 });
 
-it("remembers duration sorting without rewriting time or the manual order", async () => {
+it("always sorts tasks and meetings by reported, ignoring old browser preferences", async () => {
   const { f, task, days, item, mount } = await setup();
-  const other = await f.harness.behavior.callRpc("create", { title: "Another task", requestId: randomUUID() }) as { id: string };
+  const other = await f.harness.behavior.callRpc("create", { title: "Long task", requestId: randomUUID() }) as { id: string };
   days.edit({ id: item.id, revision: item.revision, plannedMinutes: 120, reportedMinutes: 5, requestId: randomUUID() });
   days.add({ date: item.date, taskId: other.id, plannedMinutes: 9, reportedMinutes: 60, requestId: randomUUID() });
+  days.mergeCalendar([normalizeCalendarEvent({ id: "meeting", summary: "Work meeting", start: { dateTime: "2026-09-10T08:00:00Z" }, end: { dateTime: "2026-09-10T08:30:00Z" } })!]);
   const before = days.day(item.date);
+  window.localStorage.setItem(DAY_SORT_KEY, "planned-desc");
   const slot = mount(`day/${item.date}`);
-  const select = await slot.findByRole("combobox", { name: "Sort day tasks" });
-  const order = () => slot.getAllByRole("article").map(row => row.getAttribute("aria-label"));
-  expect(order()).toEqual([`Day entry: ${task.title}`, "Day entry: Another task"]);
-  fireEvent.change(select, { target: { value: "planned-asc" } });
-  expect(order()).toEqual(["Day entry: Another task", `Day entry: ${task.title}`]);
+  await slot.findByText("Reported: longest first");
+  const expected = ["Day entry: Long task", "Day entry: Work meeting", `Day entry: ${task.title}`];
+  expect(slot.getAllByRole("article").map(row => row.getAttribute("aria-label"))).toEqual(expected);
+  expect(slot.queryByRole("combobox", { name: "Sort day tasks" })).toBeNull();
   fireEvent.click(within(slot.getAllByRole("article")[0]).getByRole("button", { name: "Details" }));
-  expect((slot.getByRole("button", { name: "Move up" }) as HTMLButtonElement).disabled).toBe(true);
-  fireEvent.change(select, { target: { value: "reported-asc" } });
-  expect(order()).toEqual([`Day entry: ${task.title}`, "Day entry: Another task"]);
-  fireEvent.change(select, { target: { value: "reported-desc" } });
-  expect(order()).toEqual(["Day entry: Another task", `Day entry: ${task.title}`]);
+  expect(slot.queryByRole("button", { name: "Move up" })).toBeNull();
   expect(days.day(item.date)).toEqual(before);
   expect(slot.inspection.rpcCalls.some(call => ["dayReorder", "dayEdit"].includes(call.method))).toBe(false);
   slot.lifecycle.unmount();
   const reopened = mount(`day/${item.date}`);
-  const saved = await reopened.findByRole("combobox", { name: "Sort day tasks" });
-  expect((saved as HTMLSelectElement).value).toBe("reported-desc");
-  fireEvent.change(saved, { target: { value: "manual" } });
-  expect(reopened.getAllByRole("article").map(row => row.getAttribute("aria-label"))).toEqual([`Day entry: ${task.title}`, "Day entry: Another task"]);
+  await reopened.findByText("Reported: longest first");
+  expect(reopened.getAllByRole("article").map(row => row.getAttribute("aria-label"))).toEqual(expected);
 });
 
 it("keeps the same editor and pending save when duration sorting moves its row", async () => {
   const { f, task, days, item, mount } = await setup();
   const other = await f.harness.behavior.callRpc("create", { title: "Short task", requestId: randomUUID() }) as { id: string };
-  days.edit({ id: item.id, revision: item.revision, plannedMinutes: 120, requestId: randomUUID() });
-  days.add({ date: item.date, taskId: other.id, plannedMinutes: 9, requestId: randomUUID() });
+  days.edit({ id: item.id, revision: item.revision, reportedMinutes: 5, requestId: randomUUID() });
+  days.add({ date: item.date, taskId: other.id, reportedMinutes: 30, requestId: randomUUID() });
   let release!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });
   const edit = vi.fn(async input => { await gate; return days.edit(input); });
@@ -83,7 +78,6 @@ it("keeps the same editor and pending save when duration sorting moves its row",
   fireEvent.change(input, { target: { value: "45m" } });
   fireEvent.blur(input);
   await waitFor(() => expect(edit).toHaveBeenCalledOnce());
-  fireEvent.change(slot.getByRole("combobox", { name: "Sort day tasks" }), { target: { value: "planned-asc" } });
   expect(slot.getAllByRole("article")[1].getAttribute("aria-label")).toBe(`Day entry: ${task.title}`);
   expect(slot.getByLabelText(`Reported: ${task.title}`)).toBe(input);
   expect(input.value).toBe("45m");
@@ -91,6 +85,8 @@ it("keeps the same editor and pending save when duration sorting moves its row",
   await waitFor(() => expect(days.get(item.id).reportedMinutes).toBe(45));
   await waitFor(() => expect(slot.queryByText("Saving…")).toBeNull());
   expect(edit).toHaveBeenCalledOnce();
+  expect(slot.getAllByRole("article")[0].getAttribute("aria-label")).toBe(`Day entry: ${task.title}`);
+  expect(slot.getByLabelText(`Reported: ${task.title}`)).toBe(input);
   expect(input.value).toBe("45m");
 });
 

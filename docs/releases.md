@@ -21,6 +21,15 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Reported day order in 0.5.72
+
+Day now always sorts tasks and meetings together by reported minutes, longest
+first, with blank values last and stable ties. Meetings previously kept their
+calendar positions even when reported sorting was selected. The sort selector
+and manual move buttons are removed; old browser sort preferences no longer
+change the order. Rows update after time is saved without discarding editor
+state. Saved time and ordinals are unchanged. No migration is required.
+
 ## Proposals in More in 0.5.71
 
 Proposals moves into More, including its pending count. Today, Tasks and Updates

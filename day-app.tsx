@@ -3,7 +3,7 @@ import { isLiveTask, taskStatusNames } from "./task-status.js";
 import { beginUxAction } from "./ux-client.js";
 import { useUxRpc } from "./ux-app.js";
 import { usePlanningTimeZone } from "./day-zone.js";
-import { DAY_SORT_KEY, durationSorts, isDaySort, savedDaySort, sortDayItems, type DaySort } from "./day-sort.js";
+import { sortDayItems } from "./day-sort.js";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useBbNavigate, useRealtime, useRealtimeConnectionState } from "@get-bb/plugin-sdk/app";
 import type { rpcContract } from "./contracts.js";
@@ -119,9 +119,9 @@ function ItemHistory({ id }: { id: string }) {
   return <div className="space-y-3"><ErrorText error={error} />{data?.items.map(event => <div key={event.sequence} className="rounded-lg bg-muted/40 p-3 text-xs"><div className="flex flex-wrap justify-between gap-2 text-muted-foreground"><span>{new Intl.DateTimeFormat("en-GB", { dateStyle: "short", timeStyle: "short", timeZone }).format(new Date(event.at))}</span><span>{event.actor.startsWith("agent-time:") ? "Agent time / estimate" : event.actor.startsWith("calendar:") ? "Calendar" : event.actor.startsWith("bb-thread:") ? "From conversation" : event.actor.startsWith("human:session-time:") ? "Accepted session estimate" : "Manual"}</span></div><p className="mt-2">Planned: {formatMinutes(event.before?.plannedMinutes ?? null)} → {formatMinutes(event.after.plannedMinutes)} · Actual: {formatMinutes(event.before?.actualMinutes ?? null)} → {formatMinutes(event.after.actualMinutes)} · Reported: {formatMinutes(event.before?.reportedMinutes ?? null)} → {formatMinutes(event.after.reportedMinutes)}</p>{event.after.reportedMode === "estimate" && <p className="mt-1">Estimate: {event.after.reportedEstimate?.reason}</p>}{event.before?.date !== event.after.date && <p className="mt-1">Date: {event.before?.date ?? "—"} → {event.after.date}</p>}{event.after.carriedTo && <p className="mt-1">Continuation: {event.after.carriedTo}</p>}{event.before?.step !== event.after.step && event.after.step && <p className="mt-1 whitespace-pre-wrap">{event.after.step}</p>}{event.before?.removed !== event.after.removed && event.after.removed && <p className="mt-1">Removed from the plan; reported time preserved.</p>}</div>)}{data && (offset > 0 || data.nextOffset !== null) && <div className="flex gap-2"><Button size="sm" variant="ghost" disabled={!offset} onClick={() => setOffset(Math.max(0, offset - 50))}>Newer</Button><Button size="sm" variant="ghost" disabled={data.nextOffset === null} onClick={() => setOffset(data.nextOffset!)}>Older</Button></div>}</div>;
 }
 
-function DayRow({ item, refresh, register, openTask, openDay, openChat, hasActiveChat, chatBusy, move, moveDisabled, focused = false, hidden = false }: {
+function DayRow({ item, refresh, register, openTask, openDay, openChat, hasActiveChat, chatBusy, focused = false, hidden = false }: {
   item: ViewItem; refresh: () => Promise<void>; register: (id: string, flush: Flush | null) => void;
-  openTask: (id: string) => Promise<void>; openDay: (date: string) => Promise<void>; move: (id: string, direction: number) => Promise<void>; moveDisabled: boolean; focused?: boolean; hidden?: boolean;
+  openTask: (id: string) => Promise<void>; openDay: (date: string) => Promise<void>; focused?: boolean; hidden?: boolean;
   openChat: (id: string, existing: boolean) => Promise<void>; hasActiveChat: boolean; chatBusy: boolean;
 }) {
   const timeZone = usePlanningTimeZone();
@@ -240,7 +240,7 @@ function DayRow({ item, refresh, register, openTask, openDay, openChat, hasActiv
     {dirty && error && item.revision !== baseRevision && <div className="mt-2 rounded-lg bg-muted/40 p-3 text-xs"><p>Currently saved: planned {formatMinutes(item.plannedMinutes)}, reported {formatMinutes(item.reportedMinutes)}.</p><Button className="mt-2" size="sm" variant="outline" onClick={() => void save({}, true)}>Apply my edit</Button></div>}
     {details && <div className="mt-3 space-y-3 border-t border-border pt-3">
       <label className="block text-xs text-muted-foreground">{item.calendar ? "Meeting note" : "What to do on this day"}<textarea className="mt-1 min-h-16 w-full rounded-lg border border-input bg-transparent p-2 text-sm text-foreground" value={draft.step} onFocus={() => { focusedField.current = "step"; }} onBlur={() => { focusedField.current = null; if (!error) void save(); }} onChange={e => edit("step", e.target.value)} /></label>
-      {item.kind === "task" && !item.removed && <div className="flex flex-wrap items-center gap-2"><Input type="date" aria-label={`Continuation date: ${item.title}`} className="w-40" value={carryDate} onChange={e => setCarryDate(e.target.value)} /><Button variant="outline" size="sm" disabled={busy || item.state === "carried"} onClick={() => void carry()}>Continue on another day</Button><Button size="sm" variant="ghost" disabled={busy || moveDisabled} onClick={() => void move(item.id, -1)}>Move up</Button><Button size="sm" variant="ghost" disabled={busy || moveDisabled} onClick={() => void move(item.id, 1)}>Move down</Button></div>}
+      {item.kind === "task" && !item.removed && <div className="flex flex-wrap items-center gap-2"><Input type="date" aria-label={`Continuation date: ${item.title}`} className="w-40" value={carryDate} onChange={e => setCarryDate(e.target.value)} /><Button variant="outline" size="sm" disabled={busy || item.state === "carried"} onClick={() => void carry()}>Continue on another day</Button></div>}
       {item.calendar && <label className="block text-xs text-muted-foreground">Reported date<Input type="date" className="mt-1 w-40" aria-label={`Reported date: ${item.title}`} value={draft.reportedDate} onFocus={() => { focusedField.current = "reportedDate"; }} onBlur={() => { focusedField.current = null; if (!error) void save(); }} onChange={e => edit("reportedDate", e.target.value)} /></label>}
       {item.calendar && <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" disabled={busy && !flight.current} onClick={() => void save({ reportedMinutes: 0 })}>Did not attend</Button>{item.plannedMode === "manual" && <Button size="sm" variant="ghost" disabled={busy || dirty} onClick={() => void save({ restoreAuto: "planned" })}>Planned from calendar</Button>}{item.reportedMode === "manual" && <Button size="sm" variant="ghost" disabled={busy || dirty} onClick={() => void save({ restoreAuto: "reported" })}>Automatic reported time</Button>}</div>}
       {item.taskId && item.reportedMode !== "estimate" && (item.reportedLocked || item.reportedMinutes !== null) && (item.actualMinutes ?? 0) > 0 && <Button size="sm" variant="outline" disabled={busy || dirty} onClick={() => void save({ restoreAuto: "reported" })}>Request AI estimate</Button>}
@@ -260,17 +260,6 @@ export function DayPage({ date, report = false, period = "week", threadId, focus
   const { data, error, refresh } = useDaySnapshot(load);
   const [mutationError, setMutationError] = useState<string | null>(null), [busy, setBusy] = useState(false), [taskId, setTaskId] = useState(focusTaskId ?? "");
   const [showClosed, setShowClosed] = useState(false), [query, setQuery] = useState("");
-  const [sort, setSort] = useState<DaySort>(savedDaySort);
-  function chooseSort(value: string) {
-    if (!isDaySort(value)) return;
-    setSort(value);
-    try { window.localStorage.setItem(DAY_SORT_KEY, value); } catch { /* Sorting works without browser storage. */ }
-  }
-  useEffect(() => {
-    const changed = (event: StorageEvent) => { if (event.key === DAY_SORT_KEY || event.key === null) setSort(savedDaySort()); };
-    window.addEventListener("storage", changed);
-    return () => window.removeEventListener("storage", changed);
-  }, []);
   const [removedDate, setRemovedDate] = useState<string | null>(null);
   const showRemoved = removedDate === date;
   const flushers = useRef(new Map<string, Flush>());
@@ -310,16 +299,6 @@ export function DayPage({ date, report = false, period = "week", threadId, focus
     catch (e) { setMutationError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   }
-  async function reorder(id: string, direction: number) {
-    await action(async () => {
-      const current = await rpc.call("day", { date });
-      const items = current.items.filter(i => i.kind === "task" && !i.removed);
-      const index = items.findIndex(i => i.id === id), target = index + direction;
-      if (index < 0 || target < 0 || target >= items.length) return;
-      [items[index], items[target]] = [items[target], items[index]];
-      await rpc.call("dayReorder", { requestId: crypto.randomUUID(), date, ids: items.map(i => i.id), revisions: Object.fromEntries(items.map(i => [i.id, i.revision])) });
-    });
-  }
   const choices = data?.tasks.filter(task => (showClosed || isLiveTask(task.status) || task.id === focusTaskId) && !data.day.items.some(i => i.taskId === task.id && !i.reportOnly) && task.title.toLocaleLowerCase().includes(query.toLocaleLowerCase())) ?? [];
   const chosenTaskId = choices.some(task => task.id === taskId) ? taskId : choices[0]?.id ?? "";
   const totals = data?.time?.totals ?? data?.day.totals;
@@ -332,9 +311,9 @@ export function DayPage({ date, report = false, period = "week", threadId, focus
 
     {!data && !error && <p role="status" className="text-sm text-muted-foreground">Opening the saved day…</p>}
     {data && !report && <>
-      <section className="overflow-hidden rounded-xl border border-border bg-card"><div className="flex flex-wrap items-center justify-between gap-3 p-4"><h2 className="font-medium">Tasks and meetings</h2><div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground"><label className="flex items-center gap-2 text-sm">Sort tasks<select aria-label="Sort day tasks" className="h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground" value={sort} onChange={e => chooseSort(e.target.value)}><option value="manual">Manual order</option>{Object.entries(durationSorts).map(([value, option]) => <option key={value} value={value}>{option.label}</option>)}</select></label><span>{data.day.items.filter(i => !i.removed).length} records</span>{data.day.items.some(i => i.removed) && <label className="flex items-center gap-2"><input type="checkbox" checked={showRemoved} onChange={e => setRemovedDate(e.target.checked ? date : null)} /> Show removed ({data.day.items.filter(i => i.removed).length})</label>}</div></div>
+      <section className="overflow-hidden rounded-xl border border-border bg-card"><div className="flex flex-wrap items-center justify-between gap-3 p-4"><h2 className="font-medium">Tasks and meetings</h2><div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground"><span>Reported: longest first</span><span>{data.day.items.filter(i => !i.removed).length} records</span>{data.day.items.some(i => i.removed) && <label className="flex items-center gap-2"><input type="checkbox" checked={showRemoved} onChange={e => setRemovedDate(e.target.checked ? date : null)} /> Show removed ({data.day.items.filter(i => i.removed).length})</label>}</div></div>
         {/* Keep hidden rows mounted so an in-flight save retains its draft and navigation guard. */}
-        {sortDayItems(data.day.items, sort).map(item => <DayRow key={item.id} item={item} hidden={item.removed && !showRemoved} focused={item.taskId === focusTaskId && (!item.removed || showRemoved)} refresh={refresh} register={register} openTask={openTask} openDay={openDay} openChat={openChat} hasActiveChat={Boolean(data.tasks.find(t => t.id === item.taskId)?.activeSession)} chatBusy={openingChat} move={reorder} moveDisabled={busy || sort !== "manual"} />)}
+        {sortDayItems(data.day.items).map(item => <DayRow key={item.id} item={item} hidden={item.removed && !showRemoved} focused={item.taskId === focusTaskId && (!item.removed || showRemoved)} refresh={refresh} register={register} openTask={openTask} openDay={openDay} openChat={openChat} hasActiveChat={Boolean(data.tasks.find(t => t.id === item.taskId)?.activeSession)} chatBusy={openingChat} />)}
         {!data.day.items.some(i => !i.removed) && <p className="border-t border-border p-7 text-center text-sm text-muted-foreground">The plan is empty. Add tasks or check the calendar.</p>}
         <form className="space-y-3 border-t border-border p-4" onSubmit={e => { e.preventDefault(); const chosen = chosenTaskId; if (chosen && choices.some(t => t.id === chosen)) void action(async () => { await rpc.call("dayAdd", { date, taskId: chosen, requestId: crypto.randomUUID() }); setTaskId(""); }); }}><div className="flex flex-wrap gap-2"><Input value={query} onChange={e => { setQuery(e.target.value); setTaskId(""); }} aria-label="Find a task for this day" placeholder="Find a task for this day" className="min-w-48 flex-1" /><label className="flex items-center gap-2 text-xs text-muted-foreground"><input type="checkbox" checked={showClosed} onChange={e => { setShowClosed(e.target.checked); setTaskId(""); }} /> Include closed tasks</label></div><div className="flex flex-wrap gap-2"><select className="min-w-48 flex-1 rounded-lg border border-input bg-background p-2 text-sm" aria-label="Task to plan" value={chosenTaskId} onChange={e => setTaskId(e.target.value)} disabled={!choices.length || busy}>{choices.length ? choices.map(task => <option key={task.id} value={task.id}>{task.title}</option>) : <option value="">No matching tasks</option>}</select><Button type="submit" variant="outline" disabled={busy || !choices.length}>Add to day</Button></div></form>
       </section>
