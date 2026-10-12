@@ -16,6 +16,7 @@ import { TaskViewMarker } from "./task-view-marker.js";
 import { TaskSources } from "./task-sources-ui.js";
 import { sourceUrl } from "./task-sources.js";
 import { mountSidebarShortcut } from "./sidebar-shortcut.js";
+import { SidebarPluginLinks } from "./sidebar-plugin-links.js";
 import { TaskSwitcher, openTaskSwitcher } from "./task-switcher.js";
 import { PagePinnedFiles, ThreadPinnedFiles } from "./pinned-files-ui.js";
 import { NavigationFrame } from "./navigation.js";
@@ -954,6 +955,13 @@ function PageContent({ subPath }: PluginNavPanelProps) {
   const returnTo = path.match(/^[^/]+\/from\/((?:day|report\/(?:day|week))\/\d{4}-\d{2}-\d{2}(?:\/task\/[A-Za-z0-9_-]{1,120})?)$/)?.[1];
   return path ? <TaskPage key={`${parts[0]}:${reviewSession ?? ""}:${showSessionProposal}`} taskId={parts[0]} initialSessionId={reviewSession} showSessionProposal={showSessionProposal} returnTo={returnTo} threadId={threadId} /> : <Desk />;
 }
+function SidebarPluginLinksOverlay() {
+  const rpc = useUxRpc();
+  const load = useCallback(() => rpc.call("threadProject", {}), [rpc]);
+  const { data } = useSnapshot(load);
+  return <SidebarPluginLinks enabled={data?.sidebarPluginLinks === true} accessory={<SidebarCount />} />;
+}
+
 function SidebarReported() {
   const rpc = useUxRpc();
   const load = useCallback(() => rpc.call("day", {}), [rpc]);
@@ -992,6 +1000,7 @@ export default definePluginApp((app) => {
   app.slots.experimental_appOverlay({ id: "review-failure-notification", component: ReviewFailureNotification });
   app.slots.experimental_appOverlay({ id: "updater-health-notification", component: UpdaterHealthNotification });
   app.contentScripts.register({ id: "sidebar-proposals-shortcut", mount: mountSidebarShortcut });
+  app.slots.experimental_appOverlay({ id: "sidebar-plugin-links", component: SidebarPluginLinksOverlay });
   app.slots.navPanel({ id: "desk", title: "247C", icon: "Target", path: "desk", component: Page, experimental_sidebarAccessory: SidebarCount, headerContent: PagePinnedFiles });
   app.slots.experimental_appOverlay({ id: "task-switcher", component: TaskSwitcherOverlay });
   app.commands.register({ id: "switch-task", title: "247C: Switch task", defaultShortcut: { key: "k", mod: true, shift: true }, run: openTaskSwitcher });

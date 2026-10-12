@@ -21,6 +21,8 @@ no retention cutoff deletes old exports. See [storage compatibility](docs/releas
 
 Click **247C** in the sidebar to open **Proposals** when any proposals await a decision, or **Tasks** when none remain. The **Tasks** tab and **All tasks** links always open the task list. The proposal count remains a direct shortcut and also works with Enter or Space when focused; the panel options menu remains available to its right.
 
+In BB's icon-rail layout, enable **Show plugin links above chats** in 247C settings to restore text shortcuts above the chat list. The shortcuts follow the visible plugin panels and their order in **Customize rail**. The 247C row also shows proposal and task counts, reported time, and review/source warnings. This preference defaults to off and is preserved in the installation's local settings patch.
+
 Tasks with an open chat show a filled speech-bubble icon and a filled **Open chat** button in the list, cards and day plan. Priority colors stay visible. The marker means a chat is open; only a running agent uses the activity pulse.
 
 - [Source updater health warnings](skills/updater-health.md)

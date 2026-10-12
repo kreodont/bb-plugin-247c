@@ -21,6 +21,15 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Sidebar plugin links in 0.5.74
+
+An optional local setting restores text links for visible plugin panels above
+the chat list in BB 0.46's icon-rail layout. It follows rail ordering and
+visibility, delegates navigation and split clicks to BB, and restores the 247C
+proposal count, open task count, reported time and warning badges. The adapter
+recovers after sidebar remounts and removes its elements when disabled. Older
+BB layouts keep their existing navigation. No database migration is required.
+
 ## Reported day order in 0.5.72
 
 Day now always sorts tasks and meetings together by reported minutes, longest

@@ -248,7 +248,7 @@ export const rpcContract = defineRpcContract({
   ...pinnedFilesRpcContract,
   reviewFailures: { input: z.object({}).strict(), output: reviewFailuresSchema },
   ...uxRpcContract,
-  threadProject: { input: z.object({}).strict(), output: z.object({ projectId: idSchema.nullable(), providerId: z.string().nullable().default(null), model: z.string().nullable().default(null), timeZone: z.string().optional(), pendingTotal: z.number().optional(), workProvider: z.string().optional(), workModel: z.string().optional(), syncProvider: z.string().optional(), syncModel: z.string().optional() }) },
+  threadProject: { input: z.object({}).strict(), output: z.object({ projectId: idSchema.nullable(), providerId: z.string().nullable().default(null), model: z.string().nullable().default(null), timeZone: z.string().optional(), pendingTotal: z.number().optional(), sidebarPluginLinks: z.boolean().optional(), workProvider: z.string().optional(), workModel: z.string().optional(), syncProvider: z.string().optional(), syncModel: z.string().optional() }) },
   ...dayRpcContract,
   proposalInbox: { input: z.object({ offset: z.number().int().min(0).default(0) }).strict(), output: z.object({ items: z.array(reviewItemSchema), total: z.number(), nextOffset: z.number().nullable() }) },
   acceptInbox: { input: z.object({ items: z.array(reviewSelectionSchema).min(1).max(50) }).strict(), output: z.object({ applied: z.array(z.object({ kind: z.enum(["source", "proposal"]), id: idSchema, taskId: idSchema })), failed: z.array(z.object({ kind: z.enum(["source", "proposal"]), id: idSchema, message: z.string() })) }) },

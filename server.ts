@@ -117,7 +117,7 @@ export default async function plugin(bb: BbPluginApi) {
     uxRecord: input => ux.record(input),
     uxReport: () => ux.report(),
     threadProject: async () => ({ ...composerDefaultsSchema.parse(JSON.parse(configuration.composerDefaults)), projectId: configuration.threadProjectId || null, timeZone: configuration.timeZone,
-      pendingTotal: repo.pendingTotal(), workProvider: configuration.workProvider, workModel: configuration.workModel, syncProvider: configuration.syncProvider, syncModel: configuration.syncModel }),
+      pendingTotal: repo.pendingTotal(), sidebarPluginLinks: configuration.sidebarPluginLinks, workProvider: configuration.workProvider, workModel: configuration.workModel, syncProvider: configuration.syncProvider, syncModel: configuration.syncModel }),
     day: ({ date }) => ({ ...days.day(date), agentTime: agentTime.state() }),
     dayPlannerState: () => dayPlanner.state(),
     dayPlannerStart: (input) => dayPlanner.start(input),
