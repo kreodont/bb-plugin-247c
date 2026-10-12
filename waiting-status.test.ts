@@ -1,4 +1,4 @@
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { createFakePluginHost, makeMessageDispatchHookContext } from "@get-bb/plugin-sdk/testing";
 import { fixture } from "./test-support.js";
@@ -12,7 +12,7 @@ import { SourceSyncStore, requiredSourceReads } from "./source-sync.js";
 import { sourceData, startSourceSync, submitSourceData } from "./source-sync-test-support.js";
 
 const hosts: Awaited<ReturnType<typeof fixture>>[] = [];
-afterEach(async () => { for (const f of hosts.splice(0)) await f.harness.lifecycle.dispose(); });
+afterEach(async () => { for (const f of hosts.splice(0)) await f.harness.lifecycle.dispose(); vi.useRealTimers(); });
 async function setup() { const f = await fixture({ settings: { workProvider: "claude-work", workModel: "claude-opus-5[1m]" } }); hosts.push(f); return f; }
 
 it("upgrades a populated database without changing tasks, receipts, day time or foreign keys", async () => {
@@ -110,4 +110,44 @@ it("requires conversation evidence for waiting and preserves explicit approval w
   draft.changes.status.value = "open";
   expect(validateExtraction(draft, transcript, undefined, "waiting").changes?.status?.value).toBe("open");
   expect(() => validateExtraction(draft, transcript, undefined, "done")).toThrow(/user decision/);
+});
+
+it("derives waiting age from accepted transitions and preserves it through updates and reload", async () => {
+  const f = await setup(), task = await f.create();
+  vi.useFakeTimers({ toFake: ["Date"] });
+  const start = "2026-10-02T12:00:00.000Z";
+  vi.setSystemTime(new Date(start));
+  f.repo.status(task.id, "waiting", task.revision);
+  vi.setSystemTime(new Date("2026-10-05T12:00:00Z"));
+  // The start must survive even when it is outside the visible history window.
+  for (let i = 0; i < 105; i++) f.repo.kernel.appendFact({ taskId: task.id, kind: "progress", text: `Follow-up ${i}` });
+  f.repo.status(task.id, "waiting", f.repo.kernel.getTask(task.id).revision);
+  const fact = f.repo.detail(task.id).facts[0];
+  const propose = (status: "waiting" | "open") => f.repo.kernel.createProposal({
+    taskId: task.id, baseRevision: f.repo.kernel.getTask(task.id).revision, model: "test",
+    output: { rationale: "Confirmed status", confidence: 1, changes: { status: { value: status, evidenceRefs: [fact.id] } } },
+  });
+  const unchanged = propose("waiting");
+  f.repo.accept(unchanged.id, unchanged.baseRevision);
+  const row = new DayPlanning(f.repo).add({ taskId: task.id, date: "2026-10-05", requestId: randomUUID() });
+  await f.reload();
+  expect(f.repo.list().tasks[0].waitingSince).toBe(start);
+  expect((await f.detail(task.id)).task.waitingSince).toBe(start);
+  expect(await f.harness.behavior.callRpc("day", { date: row.date })).toMatchObject({ items: [{ waitingSince: start }] });
+  const resumed = propose("open"); f.repo.accept(resumed.id, resumed.baseRevision);
+  expect(f.repo.kernel.getTask(task.id).waitingSince).toBeNull();
+  const pending = propose("waiting");
+  expect(f.repo.kernel.getTask(task.id).waitingSince).toBeNull();
+  const restarted = "2026-10-07T12:00:00.000Z";
+  vi.setSystemTime(new Date(restarted)); f.repo.accept(pending.id, pending.baseRevision);
+  expect(f.repo.kernel.getTask(task.id).waitingSince).toBe(restarted);
+  f.repo.status(task.id, "done", f.repo.kernel.getTask(task.id).revision);
+  expect(f.repo.kernel.getTask(task.id).waitingSince).toBeNull();
+});
+
+it("leaves the age unknown when a waiting task has no status history", async () => {
+  const f = await setup(), task = await f.create();
+  f.repo.status(task.id, "waiting", task.revision);
+  f.repo.db.prepare("DELETE FROM kernel_events WHERE task_id=? AND type='task.status-changed'").run(task.id);
+  expect(f.repo.kernel.getTask(task.id).waitingSince).toBeNull();
 });

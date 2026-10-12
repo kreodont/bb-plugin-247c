@@ -566,7 +566,7 @@ it("shows waiting status in Day and saves time before opening its chat", async (
   await f.harness.behavior.setSettings({ workProvider: "claude-work", workModel: "claude-opus-5[1m]" });
   f.repo.status(task.id, "waiting", task.revision);
   const slot = mount(`day/${item.date}`);
-  await slot.findByText("Waiting for response");
+  await slot.findByText("Waiting for response · 0 days");
   const input = await slot.findByLabelText(`Reported: ${task.title}`);
   fireEvent.change(input, { target: { value: "40m" } });
   fireEvent.click(slot.getByRole("button", { name: "New chat" }));

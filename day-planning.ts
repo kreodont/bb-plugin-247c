@@ -273,7 +273,7 @@ export class DayPlanning {
   }
   private present(item: DayItem, date: string) {
     const task = item.taskId ? this.repo.kernel.getTask(item.taskId) : null;
-    return { ...item, title: task?.title ?? item.title, taskStatus: task?.status ?? null, reportOnly: item.date !== date, reportedChanges: reportedChanges(this.repo, item.id) };
+    return { ...item, title: task?.title ?? item.title, taskStatus: task?.status ?? null, waitingSince: task?.waitingSince ?? null, reportOnly: item.date !== date, reportedChanges: reportedChanges(this.repo, item.id) };
   }
   private totals(items: DayItem[], from?: string, through?: string) {
     const inPeriod = (date: string) => !from || date >= from && date <= through!;

@@ -1274,7 +1274,7 @@ it.each(["list", "cards"])("filters waiting tasks in %s without losing their cha
   const heading = slot.getByRole("heading", { name: new RegExp(task.title) });
   const row = heading.closest(".border-l-4")!;
   expect(row.className).toContain("bg-sky-400/10");
-  expect(row.textContent).toContain("Waiting for response");
+  expect(row.textContent).toContain("Waiting for response · 0 days");
   expect(row.textContent).toContain("Awaiting a decision · 1");
   fireEvent.click(within(row as HTMLElement).getByRole("button", { name: "New chat" }));
   await waitFor(() => expect(slot.inspection.navigateCalls).toHaveLength(1));
@@ -1288,6 +1288,7 @@ it("switches Open and Waiting in the task header while keeping an active chat", 
   const { slot } = await setup(task.id, f);
   fireEvent.click(await slot.findByRole("button", { name: "Waiting for response" }));
   await slot.findByRole("button", { name: "Resume task" });
+  expect(slot.getByText("Waiting for response · 0 days")).toBeTruthy();
   expect(f.repo.kernel.getTask(task.id).status).toBe("waiting");
   expect(f.repo.sessions(task.id)[0].status).toBe("working");
   fireEvent.click(slot.getByRole("button", { name: "Resume task" }));

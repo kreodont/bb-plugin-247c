@@ -21,6 +21,18 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Waiting duration in 0.5.76
+
+Tasks waiting for a response show the number of calendar days in the current
+waiting period in the task list, cards, task header and Day plan. Hover over the
+label to see the exact start in the planning time zone. Counts refresh while the
+page remains open and after returning to it.
+
+The start comes from the accepted status history, including existing tasks.
+Ordinary edits and repeated Waiting updates preserve it; resuming and entering
+Waiting again starts a new period. Tasks without a recorded transition do not
+show a guessed age. No data migration or local settings change is needed.
+
 ## Sidebar plugin links in 0.5.74–0.5.75
 
 An optional local setting restores text links for visible plugin panels above

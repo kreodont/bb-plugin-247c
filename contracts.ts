@@ -32,7 +32,7 @@ const changesObjectSchema = z.object({
 }).strict();
 export const changesSchema = changesObjectSchema.refine((v) => Object.keys(v).length > 0, "The proposal contains no changes.");
 export const draftSchema = z.object({ rationale: text, confidence: z.number().min(0).max(1), changes: changesSchema }).strict();
-export const taskSchema = z.object({ id: idSchema, title: z.string(), status: statusSchema, revision: revisionSchema, createdAt: z.string(), updatedAt: z.string() });
+export const taskSchema = z.object({ id: idSchema, title: z.string(), status: statusSchema, revision: revisionSchema, createdAt: z.string(), updatedAt: z.string(), waitingSince: z.string().nullable().optional() });
 export const initialPrioritySchema = z.object({ urgent: z.boolean(), important: z.boolean() }).strict();
 export const planningSchema = z.object({ urgent: axisSchema, important: axisSchema, revision: revisionSchema });
 export const taskCardSchema = taskSchema.extend({ planning: planningSchema, customer: customerSchema.optional(), summary: z.string().nullable(), nextStep: z.string().nullable(), sourceReferences: z.array(z.string()).optional(), pendingCount: z.number(), activeSession: z.string().nullable(), activeSessionBusy: z.boolean().default(false), activeSessionSince: z.string().nullable().default(null), activeThreadId: z.string().nullable().default(null), failedReviewId: z.string().nullable().default(null), unseen: z.enum(["new", "updated"]).nullable().default(null) });

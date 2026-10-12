@@ -35,7 +35,7 @@ export const reportedChangeSchema = z.object({
   reason: z.string().max(2000).nullable(),
 });
 export type ReportedChange = z.infer<typeof reportedChangeSchema>;
-export const dayViewItemSchema = dayItemSchema.extend({ taskStatus: z.enum(taskStatuses).nullable(), reportOnly: z.boolean(),
+export const dayViewItemSchema = dayItemSchema.extend({ taskStatus: z.enum(taskStatuses).nullable(), waitingSince: z.string().nullable().optional(), reportOnly: z.boolean(),
   reportedChanges: z.array(reportedChangeSchema).default([]) });
 export const dayConfigSchema = z.object({ date: dayDateSchema, capacityMinutes: dayMinutesSchema, note: z.string().max(4000), revision: z.number().int().min(0) });
 export const dayTotalsSchema = z.object({ plannedMinutes: z.number(), actualMinutes: z.number().default(0), reportedMinutes: z.number(), missingReported: z.number().int(), estimatedReported: z.number().int().default(0) });

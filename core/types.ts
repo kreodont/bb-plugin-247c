@@ -19,6 +19,8 @@ export interface TaskRecord {
   revision: number;
   createdAt: string;
   updatedAt: string;
+  /** Start of the current waiting period, derived from accepted status history. */
+  waitingSince?: string | null;
 }
 
 export interface TaskFact {

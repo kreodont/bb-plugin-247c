@@ -116,7 +116,16 @@ export class Kernel {
   getTask(taskId: string): TaskRecord {
     const row = this.store.db.prepare("SELECT * FROM tasks WHERE id = ?").get(taskId) as Row | undefined;
     if (!row) throw new NotFoundError(`task not found: ${taskId}`);
-    return taskFrom(row);
+    const task = taskFrom(row);
+    // Ordinary dossier updates must not reset the waiting period. Existing tasks
+    // use the same durable history, without backfilling guessed timestamps.
+    const transition = task.status === "waiting" ? this.store.db.prepare(`
+      SELECT created_at, json_extract(payload_json, '$.after') AS status
+      FROM kernel_events WHERE task_id=? AND type='task.status-changed'
+        AND json_extract(payload_json, '$.before') != json_extract(payload_json, '$.after')
+      ORDER BY sequence DESC LIMIT 1
+    `).get(taskId) as Row | undefined : undefined;
+    return { ...task, waitingSince: transition?.status === "waiting" ? String(transition.created_at) : null };
   }
 
   hasTask(taskId: string): boolean {
