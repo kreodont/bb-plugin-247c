@@ -73,6 +73,7 @@ export const sessionTimeContextSchema = z.object({
   reportedEventSequence: z.number().int().nonnegative().optional(),
 }).strict();
 export const sessionTimeEstimateSchema = z.object({
+  workSummary: z.string().trim().min(1).max(500).nullable().optional(),
   minutes: z.number().int().positive().max(525600), reason: z.string().trim().min(1).max(2000), evidenceRefs: refs,
 }).strict();
 export const extractionSchema = z.object({

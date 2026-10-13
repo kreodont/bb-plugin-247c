@@ -22,7 +22,7 @@ async function finished(before?: number) {
   const extraction: Extraction = { rationale: "Record the checked correction and estimate session work.",
     facts: [{ kind: "progress", text: quote, citations: [{ messageRef: ref, quote }] }],
     changes: { status: { value: "done", evidenceRefs: ["fact:0"] } }, knowledge: [],
-    reportedTime: { minutes: 35, reason: "Mapping review and three checks, including human reading. Estimated, not measured.", evidenceRefs: ["fact:0"] } };
+    reportedTime: { minutes: 35, workSummary: "Reviewed the mapping and checked the correction against three examples.", reason: "Mapping review and three checks, including human reading. Estimated, not measured.", evidenceRefs: ["fact:0"] } };
   await f.idle(current.reviewerThreadId!, extraction);
   const reviewed = f.repo.session(session.id);
   expect(reviewed.status).toBe("awaiting_approval");
@@ -35,6 +35,7 @@ const partInput = (id: string, revision: number, parts: string[], decision: "acc
 it("adds time only on normal proposal acceptance and preserves planned time", async () => {
   const { f, task, session, days, date } = await finished(50);
   expect(days.taskItem(task.id, date)?.reportedMinutes).toBe(50);
+  expect(days.taskItem(task.id, date)?.reportedWorkSummary).toBeNull();
   expect(f.repo.pendingTotal()).toBe(1);
   const packet = f.harness.inspection.sdk.callsTo("threads.spawn").at(-1)?.[0];
   expect(JSON.stringify(packet)).toContain("reportedTimeContext");
@@ -43,7 +44,7 @@ it("adds time only on normal proposal acceptance and preserves planned time", as
   expect(f.repo.kernel.getTask(task.id).status).toBe("done");
   await f.reload();
   await f.harness.behavior.callRpc("accept", { proposalId: session.proposalId!, revision: task.revision });
-  expect(new DayPlanning(f.repo).taskItem(task.id, date)?.reportedMinutes).toBe(85);
+  expect(new DayPlanning(f.repo).taskItem(task.id, date)).toMatchObject({ reportedMinutes: 85, reportedWorkSummary: "Reviewed the mapping and checked the correction against three examples." });
 });
 
 it("allows time to remain pending after task completion and applies it exactly once", async () => {
@@ -273,4 +274,15 @@ it("still adds a session estimate when time was entered from an unrelated conver
   days.edit({ id: days.taskItem(task.id, date)!.id, revision: days.taskItem(task.id, date)!.revision, reportedMinutes: 60, requestId: randomUUID() }, "bb-thread:thr_unrelated");
   // The unrelated edit changed the day total, so the estimate is stale for that reason instead.
   expect(f.repo.detail(task.id).sessionUpdates.find(u => u.sessionId === session.id)!.omittedReportedTime?.reason).toBe("reported_changed");
+});
+
+
+it("keeps a pending time review valid after a summary-only edit and appends accepted work", async () => {
+  const { f, task, session, days, date } = await finished(50);
+  const item = days.taskItem(task.id, date)!;
+  days.edit({ id: item.id, revision: item.revision, reportedWorkSummary: "Reviewed the requirements.", requestId: randomUUID() });
+  expect(f.repo.detail(task.id).sessionUpdates.find(u => u.sessionId === session.id)?.extraction.reportedTime).toBeTruthy();
+  await f.harness.behavior.callRpc("accept", { proposalId: session.proposalId!, revision: task.revision });
+  expect(days.taskItem(task.id, date)).toMatchObject({ reportedMinutes: 85,
+    reportedWorkSummary: "Reviewed the requirements. Reviewed the mapping and checked the correction against three examples." });
 });

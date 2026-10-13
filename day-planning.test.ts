@@ -255,3 +255,22 @@ it("excludes removed time from day, week, task totals and report rows, and resto
   expect(days.taskTotals(task.id).reportedMinutes).toBe(300);
   expect(days.history(removed.id).items.slice(1)).toEqual(history);
 });
+
+
+it("saves work summaries independently, preserves them through time edits and removal, and starts a continuation blank", async () => {
+  const { f, days, task } = await setup();
+  let item = days.add({ date: "2026-09-10", taskId: task.id, plannedMinutes: 60, reportedMinutes: 45,
+    reportedWorkSummary: "Reviewed the mapping and tested the correction.", requestId: randomUUID() });
+  item = days.edit({ id: item.id, revision: item.revision, reportedMinutes: 30, requestId: randomUUID() });
+  expect(item.reportedWorkSummary).toBe("Reviewed the mapping and tested the correction.");
+  item = days.edit({ id: item.id, revision: item.revision, reportedWorkSummary: "Checked the mapping against three examples.", requestId: randomUUID() });
+  expect(item).toMatchObject({ plannedMinutes: 60, reportedMinutes: 30, reportedLocked: true });
+  expect(days.day(item.date).items[0].reportedChanges).toHaveLength(2);
+  item = days.edit({ id: item.id, revision: item.revision, removed: true, requestId: randomUUID() });
+  item = days.edit({ id: item.id, revision: item.revision, removed: false, requestId: randomUUID() });
+  expect(item.reportedWorkSummary).toBe("Checked the mapping against three examples.");
+  const moved = days.carry({ id: item.id, revision: item.revision, date: "2026-09-11", requestId: randomUUID() });
+  expect(moved.next.reportedWorkSummary).toBeNull();
+  await f.reload();
+  expect(new DayPlanning(f.repo).get(item.id).reportedWorkSummary).toBe(item.reportedWorkSummary);
+});

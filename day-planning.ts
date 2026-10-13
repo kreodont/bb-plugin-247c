@@ -51,7 +51,7 @@ export class DayPlanning {
     const count = this.repo.db.prepare("SELECT count(*) AS n FROM day_items WHERE date=?").get(date) as { n: number };
     if (count.n >= 1000) throw new PolicyError("This day already has 1,000 entries.");
     return { id: randomUUID(), date, reportedDate: date, kind: taskId ? "task" : "meeting", taskId, title, step: "", ordinal: count.n,
-      revision: 0, plannedMinutes: null, actualMinutes: null, reportedMinutes: null, plannedMode: "manual", reportedMode: "manual", reportedEstimate: null, reportedLocked: false, state: "open", removed: false,
+      revision: 0, reportedWorkSummary: null, plannedMinutes: null, actualMinutes: null, reportedMinutes: null, plannedMode: "manual", reportedMode: "manual", reportedEstimate: null, reportedLocked: false, state: "open", removed: false,
       carriedTo: null, calendar: null, createdAt: this.now(), updatedAt: this.now() };
   }
   taskItem(taskId: string, date: string): DayItem | null {
@@ -59,12 +59,16 @@ export class DayPlanning {
     return row ? decode(JSON.parse(row.value_json)) : null;
   }
   // Called inside the normal proposal approval transaction, never by the recorder.
-  applySessionReport(taskId: string, date: string, minutes: number, actor: string, proposalId: string) {
+  applySessionReport(taskId: string, date: string, minutes: number, actor: string, proposalId: string, workSummary?: string | null) {
     dayDateSchema.parse(date);
     const before = this.taskItem(taskId, date);
     const task = this.repo.kernel.getTask(taskId);
     const item = before ? structuredClone(before) : this.blank(date, taskId, task.title);
     item.reportedMinutes = (item.reportedMinutes ?? 0) + minutes;
+    if (workSummary) {
+      const combined = [item.reportedWorkSummary, workSummary].filter(Boolean).join(" ");
+      item.reportedWorkSummary = combined.length > 2000 ? combined.slice(0, 1997) + "..." : combined;
+    }
     item.reportedMode = "manual"; item.reportedLocked = true; item.reportedEstimate = null;
     const next = this.write(item, before, actor, "session_reported");
     this.repo.sessionEvent(actor.slice("human:session-time:".length), "reported-time-applied",
@@ -84,6 +88,7 @@ export class DayPlanning {
       const item = this.blank(input.date, task.id, task.title);
       item.step = input.step ?? this.repo.kernel.getDossier(task.id).projection.nextStep ?? "";
       item.plannedMinutes = input.plannedMinutes ?? null; item.reportedMinutes = input.reportedMinutes ?? null;
+      item.reportedWorkSummary = input.reportedWorkSummary ?? null;
       item.reportedLocked = input.reportedMinutes !== undefined;
       return this.write(item, null, actor, "added");
     });
@@ -116,6 +121,7 @@ export class DayPlanning {
         }
       }
       if (input.step !== undefined) item.step = input.step;
+      if (input.reportedWorkSummary !== undefined) item.reportedWorkSummary = input.reportedWorkSummary ?? null;
       if (input.reportedDate !== undefined) {
         if (item.kind === "task" && input.reportedDate !== item.date) throw new PolicyError("Task time belongs to the entry's date. Add an entry for the required day.");
         item.reportedDate = input.reportedDate; item.reportedMode = "manual";
@@ -174,7 +180,7 @@ export class DayPlanning {
     const result = this.repo.request(input.requestId, { kind: "day.estimate", input, actor }, () => {
       const before = this.current(input.id, input.revision);
       if (!this.canEstimate(before)) throw new PolicyError("This entry has no measured work, was removed, or its reported time is manual. Leave it unchanged.");
-      const item = { ...before, reportedMode: "estimate" as const, reportedEstimate: { basis: "work" as const, reason: input.reason, source: actor }, reportedMinutes: input.reportedMinutes };
+      const item = { ...before, ...(input.workSummary && before.reportedWorkSummary === null ? { reportedWorkSummary: input.workSummary } : {}), reportedMode: "estimate" as const, reportedEstimate: { basis: "work" as const, reason: input.reason, source: actor }, reportedMinutes: input.reportedMinutes };
       return this.write(item, before, actor, "reported_estimated");
     });
     this.repo.changed(); return result;

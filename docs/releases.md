@@ -21,6 +21,16 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Reported work summaries in 0.5.77
+
+Day entries with reported time show an editable English work summary with autosave.
+Session time proposals carry an optional short description of completed work,
+separate from the estimation rationale; acceptance saves it with the day entry.
+Manual minute corrections and removal/restoration preserve the description.
+Calendar entries show their meeting title by default, and a continuation starts
+with a blank summary. Existing proposals and time history remain readable without
+a migration; missing descriptions are never inferred from planned work.
+
 ## Waiting duration in 0.5.76
 
 Tasks waiting for a response show the number of calendar days in the current

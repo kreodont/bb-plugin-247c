@@ -120,6 +120,6 @@ export class SessionTime {
     if (!estimate) return;
     this.check(update.extraction, update.reportedTimeContext, taskId);
     this.days.applySessionReport(taskId, update.reportedTimeContext!.date, estimate.minutes,
-      this.actor(update.reportedTimeContext!.sourceSessionId), proposalId);
+      this.actor(update.reportedTimeContext!.sourceSessionId), proposalId, estimate.workSummary);
   }
 }

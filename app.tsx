@@ -517,6 +517,7 @@ function ProposalCard({ proposal, dossier, action, busy, discuss, partSelection,
         <h3 className="text-sm font-medium">{pending ? selection.checkbox("reportedTime", "Reported time") : "Reported time" + partOutcome(proposal.partReview, "reportedTime")}</h3>
         <p className="mt-2 text-sm">{update.reportedTimeContext.date}: {formatMinutes(update.reportedTimeContext.beforeMinutes)} → {formatMinutes((update.reportedTimeContext.beforeMinutes ?? 0) + update.extraction.reportedTime.minutes)}</p>
         <p className="mt-1 text-sm">Add {formatMinutes(update.extraction.reportedTime.minutes)} for this session.</p>
+        {update.extraction.reportedTime.workSummary && <p className="mt-2 text-sm">{update.extraction.reportedTime.workSummary}</p>}
         <p className="mt-2 whitespace-pre-wrap text-sm">{update.extraction.reportedTime.reason}</p>
         <p className="mt-2 text-xs text-muted-foreground">Estimated human work, including reading and checking. Saved only when this part is accepted. Discuss the review to correct the estimate.</p>
       </section>}

@@ -9,3 +9,11 @@ Acceptance applies the selected time addition in the same transaction as the sel
 Retrying a review, accepting a request again, or discussing an already accepted session cannot report its original work twice. Partial reviews retain the same source session identity. Ordinary proposal undo only reverses dossier fields; correct accepted time through the day plan.
 
 Existing proposals and recorded hours are unchanged on installation. This feature has no separate inbox, time-proposal table, hourly analysis, daily review reminder or target-hours setting. Per-machine settings and source scripts remain outside the published plugin.
+
+
+Accepted time estimates may include `workSummary`, a short plain English sentence
+about the cited completed work. It is shown in the same proposal before acceptance
+and appended to the day's `reportedWorkSummary` only when the time part is accepted.
+It is separate from `reason`, which explains the estimate. Legacy proposals remain
+valid without the optional summary. Editing a day's summary does not change minutes
+or invalidate a pending time estimate; correcting minutes preserves the description.

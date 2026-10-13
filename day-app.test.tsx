@@ -574,3 +574,34 @@ it("shows waiting status in Day and saves time before opening its chat", async (
   expect(days.get(item.id).reportedMinutes).toBe(40);
   expect(f.repo.kernel.getTask(task.id).status).toBe("waiting");
 });
+
+
+it("autosaves an English work summary without changing minutes and retains it after a time correction", async () => {
+  const { task, days, item, mount } = await setup();
+  days.edit({ id: item.id, revision: item.revision, reportedMinutes: 45, requestId: randomUUID() });
+  const slot = mount(`day/${item.date}`);
+  const input = await slot.findByLabelText(`Work summary: ${task.title}`);
+  fireEvent.change(input, { target: { value: "Reviewed the mapping and checked three examples." } });
+  fireEvent.blur(input);
+  await waitFor(() => expect(days.get(item.id)).toMatchObject({ reportedMinutes: 45, reportedWorkSummary: "Reviewed the mapping and checked three examples." }));
+  const time = slot.getByLabelText(`Reported: ${task.title}`);
+  fireEvent.change(time, { target: { value: "30m" } }); fireEvent.blur(time);
+  await waitFor(() => expect(days.get(item.id).reportedMinutes).toBe(30));
+  slot.lifecycle.unmount();
+  const reopened = mount(`day/${item.date}`);
+  expect((await reopened.findByLabelText(`Work summary: ${task.title}`) as HTMLTextAreaElement).value).toBe("Reviewed the mapping and checked three examples.");
+});
+
+it("shows a calendar summary without claiming meeting outcomes and preserves a manual correction", async () => {
+  const { days, item, mount } = await setup();
+  days.mergeCalendar([{ key: "summary-meeting", calendarId: "work", eventId: "summary", occurrenceId: null,
+    title: "Finance review", startAt: `${item.date}T09:00:00Z`, endAt: `${item.date}T09:30:00Z`, url: null, status: "confirmed" }]);
+  const slot = mount(`day/${item.date}`);
+  const input = await slot.findByLabelText("Work summary: Finance review") as HTMLTextAreaElement;
+  expect(input.value).toBe("Meeting: Finance review.");
+  const meeting = days.calendarItems()[0];
+  expect(meeting.reportedWorkSummary).toBeNull();
+  fireEvent.change(input, { target: { value: "Reviewed invoice exceptions with Finance." } }); fireEvent.blur(input);
+  await waitFor(() => expect(days.get(meeting.id).reportedWorkSummary).toBe("Reviewed invoice exceptions with Finance."));
+  expect(days.get(meeting.id).reportedMinutes).toBe(30);
+});

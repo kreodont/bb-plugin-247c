@@ -19,6 +19,7 @@ export const dayItemSchema = z.object({
   id, date: dayDateSchema, reportedDate: dayDateSchema, kind: z.enum(["task", "meeting"]), taskId: id.nullable(),
   title: z.string().max(1000), step: z.string().max(2000), ordinal: z.number(), revision: z.number().int().min(0),
   plannedMinutes: dayMinutesSchema, actualMinutes: dayMinutesSchema.default(null), reportedMinutes: dayMinutesSchema,
+  reportedWorkSummary: z.string().trim().max(2000).nullable().default(null),
   plannedMode: z.enum(["manual", "calendar"]), reportedMode: z.enum(["manual", "calendar", "estimate"]),
   // Keep legacy factor metadata readable in saved entries and their audit history.
   reportedEstimate: z.object({ basis: z.literal("work").optional(), factor: z.number().gt(1).max(3).optional(), reason: z.string().max(2000), source: z.string().max(400) }).nullable().default(null),
@@ -64,12 +65,13 @@ export const dayPlannerStateSchema = z.object({
 export type DayPlannerState = z.infer<typeof dayPlannerStateSchema>;
 export const dayAddSchema = z.object({
   requestId: z.uuid(), date: dayDateSchema, taskId: id,
+  reportedWorkSummary: z.string().trim().max(2000).nullable().optional(),
   step: z.string().trim().max(2000).optional(), plannedMinutes: dayMinutesSchema.optional(), reportedMinutes: dayMinutesSchema.optional(),
 }).strict();
 export const dayEditSchema = z.object({
   requestId: z.uuid(), id, revision: z.number().int().min(0),
   plannedMinutes: dayMinutesSchema.optional(), reportedMinutes: dayMinutesSchema.optional(),
-  reportedDate: dayDateSchema.optional(),
+  reportedDate: dayDateSchema.optional(), reportedWorkSummary: z.string().trim().max(2000).nullable().optional(),
   operation: z.enum(["set", "add"]).default("set"),
   step: z.string().trim().max(2000).optional(), state: z.enum(["open", "done"]).optional(),
   removed: z.boolean().optional(), restoreAuto: z.enum(["planned", "reported", "both"]).optional(),
@@ -91,7 +93,7 @@ export const timeReportSchema = z.object({
   })),
 });
 export type TimeReport = z.infer<typeof timeReportSchema>;
-export const dayEstimateSchema = z.object({ requestId: z.uuid(), id, revision: z.number().int().min(0), reportedMinutes: dayMinutesSchema.unwrap(), reason: z.string().trim().min(1).max(2000) }).strict();
+export const dayEstimateSchema = z.object({ requestId: z.uuid(), id, revision: z.number().int().min(0), reportedMinutes: dayMinutesSchema.unwrap(), reason: z.string().trim().min(1).max(2000), workSummary: z.string().trim().min(1).max(500).optional() }).strict();
 
 export const dayRpcContract = {
   day: { input: z.object({ date: dayDateSchema.optional() }).strict(), output: dayViewSchema },

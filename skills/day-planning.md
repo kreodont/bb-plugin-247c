@@ -71,3 +71,15 @@ Estimates have no ratio floor or ceiling relative to actual. The UI labels estim
 Sequential migrations add `day_items`, `day_configs`, `day_item_events`, `day_config_events` and `calendar_sync_state`. Additive agent-time migrations add `agent_time_state`, `agent_time_threads` and `agent_time_events`, containing measurement checkpoints and minimal timestamp/ID receipts rather than message contents. Full database backups preserve them. Entries have their own revisions. Time changes, history and request keys are saved transactionally. History records actor, source, time and before/after values. Removing an entry preserves its history and manually reported time. Removing a meeting clears calendar-generated reported time, which also clears its meeting actual time. Restoring that meeting resumes normal calendar accounting. Explicit manual meeting reports, including zero and blank, remain unchanged. Completing or archiving a task does not delete its hours. Reports are calculated from the saved journal rather than stored separately.
 
 Hourly source checks reconcile measured work before deciding whether a model is needed. Their day-review pages include only new or changed work and explicit re-estimation requests. Unchanged AI estimates do not schedule themselves again; manual overrides remain excluded. An unread work item remains eligible on the next check.
+
+
+## Reported work descriptions
+
+Use `reportedWorkSummary` for a short plain English description of work actually
+performed for that day. It can be saved with `c247_plan_add` or `c247_time_edit`,
+including a summary-only correction using the current item ID and revision.
+A description edit must not change minutes. Describe evidence from the conversation
+or accepted results, not the task title or a future step. Write a concise sentence,
+without bullets, emoji, markup or long dashes. Existing minute corrections preserve
+the description. A session recorder supplies `reportedTime.workSummary` separately
+from the estimate rationale; the normal proposal approval applies both together.

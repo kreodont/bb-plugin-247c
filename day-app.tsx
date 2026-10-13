@@ -34,6 +34,10 @@ const shortDate = (date: string) => new Intl.DateTimeFormat("en-GB", { day: "num
 const eventTime = (at: string, timeZone: string) => new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", timeZone }).format(new Date(at));
 const inputTime = (minutes: number | null) => minutes === null ? "" : formatMinutes(minutes);
 type ViewItem = DayView["items"][number];
+function summaryDraft(item: DayItem): string {
+  return item.reportedWorkSummary ?? (item.calendar && item.reportedMinutes !== null
+    ? item.reportedMinutes === 0 ? "No meeting time reported." : `Meeting: ${item.title}.` : "");
+}
 type Patch = Omit<z.input<typeof dayRpcContract.dayEdit.input>, "id" | "revision" | "requestId">;
 type Flush = () => Promise<boolean>;
 
@@ -127,7 +131,7 @@ function DayRow({ item, refresh, register, openTask, openDay, openChat, hasActiv
 }) {
   const timeZone = usePlanningTimeZone();
   const rpc = useUxRpc();
-  const [draft, setDraft] = useState({ planned: inputTime(item.plannedMinutes), reported: inputTime(item.reportedMinutes), step: item.step, reportedDate: item.reportedDate });
+  const [draft, setDraft] = useState({ planned: inputTime(item.plannedMinutes), reported: inputTime(item.reportedMinutes), step: item.step, reportedDate: item.reportedDate, reportedWorkSummary: summaryDraft(item) });
   const [fields, setFields] = useState<Set<keyof typeof draft>>(new Set());
   const [baseRevision, setBaseRevision] = useState(item.revision), [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
   const [details, setDetails] = useState(false), [history, setHistory] = useState(false), [carryDate, setCarryDate] = useState(shiftDay(item.date, 1));
@@ -142,12 +146,12 @@ function DayRow({ item, refresh, register, openTask, openDay, openChat, hasActiv
   const [saved, setSaved] = useState(false);
   useLayoutEffect(() => {
     if (!pending.current.fields.size && !flight.current && item.revision >= pending.current.revision) {
-      const next = { planned: inputTime(item.plannedMinutes), reported: inputTime(item.reportedMinutes), step: item.step, reportedDate: item.reportedDate };
+      const next = { planned: inputTime(item.plannedMinutes), reported: inputTime(item.reportedMinutes), step: item.step, reportedDate: item.reportedDate, reportedWorkSummary: summaryDraft(item) };
       if (focusedField.current && item.revision === pending.current.revision) next[focusedField.current] = pending.current.draft[focusedField.current];
       pending.current = { draft: next, fields: new Set(), revision: item.revision };
       setDraft(next); setBaseRevision(item.revision);
     }
-  }, [item.revision, item.plannedMinutes, item.reportedMinutes, item.step, item.reportedDate, dirty, busy]);
+  }, [item.revision, item.plannedMinutes, item.reportedMinutes, item.step, item.reportedDate, item.reportedWorkSummary, dirty, busy]);
   function edit(field: keyof typeof draft, value: string) {
     const current = pending.current;
     const revision = !current.fields.size && !flight.current ? item.revision : current.revision;
@@ -174,6 +178,7 @@ function DayRow({ item, refresh, register, openTask, openDay, openChat, hasActiv
           if (!extra.restoreAuto) {
             if (snapshot.fields.has("planned")) patch.plannedMinutes = parseMinutes(snapshot.draft.planned);
             if (snapshot.fields.has("reported")) patch.reportedMinutes = parseMinutes(snapshot.draft.reported);
+            if (snapshot.fields.has("reportedWorkSummary")) patch.reportedWorkSummary = snapshot.draft.reportedWorkSummary.trim();
             if (snapshot.fields.has("step")) patch.step = snapshot.draft.step;
             if (snapshot.fields.has("reportedDate")) patch.reportedDate = dayDateSchema.parse(snapshot.draft.reportedDate);
           }
@@ -183,7 +188,7 @@ function DayRow({ item, refresh, register, openTask, openDay, openChat, hasActiv
           const result = await rpc.call("dayEdit", { ...body, requestId: retry.current.id });
           const current = pending.current;
           const remaining = new Set([...current.fields].filter(field => !snapshot.fields.has(field) || current.draft[field] !== snapshot.draft[field]));
-          const next = { planned: inputTime(result.plannedMinutes), reported: inputTime(result.reportedMinutes), step: result.step, reportedDate: result.reportedDate };
+          const next = { planned: inputTime(result.plannedMinutes), reported: inputTime(result.reportedMinutes), step: result.step, reportedDate: result.reportedDate, reportedWorkSummary: summaryDraft(result) };
           for (const field of remaining) next[field] = current.draft[field];
           if (focusedField.current) next[focusedField.current] = current.draft[focusedField.current];
           pending.current = { draft: next, fields: remaining, revision: result.revision };
@@ -234,6 +239,11 @@ function DayRow({ item, refresh, register, openTask, openDay, openChat, hasActiv
       <div className="text-xs text-muted-foreground">Actual<output aria-label={`Actual: ${item.title}`} className="mt-1 flex h-9 items-center justify-end rounded-md border border-transparent px-3 text-sm tabular-nums text-foreground">{formatMinutes(item.actualMinutes)}</output><span className="mt-1 block text-right text-xs">{item.kind === "meeting" ? "= reported" : "agents"}</span></div>
       <label className="text-xs text-muted-foreground">Reported<Input data-c247-ux-action="reported-edit" ref={reportedInput} aria-label={`Reported: ${item.title}`} className="mt-1 text-right tabular-nums" value={draft.reported} placeholder="—" onFocus={() => { focusedField.current = "reported"; }} onBlur={() => { focusedField.current = null; if (!error) void save(); }} onChange={e => edit("reported", e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); void save(); } }} />{item.calendar && <span className="mt-1 block text-right text-xs">{item.reportedMode === "calendar" ? item.reportedMinutes === null ? "after the meeting" : "auto" : "manual"}</span>}{!item.calendar && <span className="mt-1 block text-right text-xs">{item.reportedMode === "estimate" && item.reportedMinutes !== null ? "estimate · review" : item.reportedMinutes !== null || item.reportedLocked ? sourceNames[item.reportedChanges.at(-1)?.source ?? "panel"] : (item.actualMinutes ?? 0) > 0 ? "awaiting AI estimate" : ""}</span>}</label>
     </div>
+    {(item.reportedMinutes !== null || draft.reported.trim() || draft.reportedWorkSummary) && <label className="mt-3 block text-xs text-muted-foreground">Work summary
+      <textarea aria-label={`Work summary: ${item.title}`} maxLength={2000} rows={2} className="mt-1 w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm text-foreground"
+        placeholder="Briefly describe the work done, in English."
+        value={draft.reportedWorkSummary} onFocus={() => { focusedField.current = "reportedWorkSummary"; }} onBlur={() => { focusedField.current = null; if (!error) void save(); }} onChange={e => edit("reportedWorkSummary", e.target.value)} />
+    </label>}
     {item.reportedMinutes !== null && item.reportedMode !== "estimate" && <ReportedOrigin changes={item.reportedChanges} timeZone={timeZone} />}
     {item.reportedMode === "estimate" && item.reportedMinutes !== null && <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><p className="min-w-48 flex-1">{item.reportedEstimate?.reason}</p><Button size="sm" variant="outline" disabled={busy || dirty} onClick={() => void save({ reportedMinutes: item.reportedMinutes })}>Confirm reported</Button></div>}
     <div className="mt-3 flex flex-wrap items-center gap-2"><Button size="sm" variant="ghost" onClick={() => setDetails(!details)} aria-expanded={details}>Details</Button>{(dirty || busy || saved) && <span role="status" className="mr-auto text-xs text-muted-foreground">{busy ? "Saving…" : error ? "Not saved" : dirty ? "Waiting to save…" : "Saved"}</span>}{dirty && error && <><Button size="sm" variant="ghost" disabled={busy} onClick={discard}>Discard edit</Button><Button size="sm" disabled={busy} onClick={() => void save()}>Retry save</Button></>}{item.removed ? <Button size="sm" variant="outline" disabled={busy && !flight.current} onClick={() => void save({ removed: false })}>Restore to day</Button> : <Button size="sm" variant="ghost" disabled={busy && !flight.current} onClick={() => void save({ removed: true })}>Remove from day</Button>}</div>
