@@ -21,6 +21,15 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Source gateway retries in 0.5.78
+
+Source checks recognize HTTP statuses in transport-wrapped gateway error events,
+including SSE responses with a top-level `message` and `status`. Temporary
+502/503/504 failures now receive the existing bounded retries; 429 responses use
+the rate-limit backoff. Permanent 403/404 errors are not retried, and nested
+quota metadata does not determine retry behavior. If retries are exhausted, the
+check remains partial and preserves the unread interval.
+
 ## Reported work summaries in 0.5.77
 
 Day entries with reported time show an editable English work summary with autosave.

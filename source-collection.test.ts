@@ -358,3 +358,24 @@ it("cancels collection without launching a model and retains any returned export
   expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
   expect(store.checkpoints().gmail).toBeNull();
 });
+
+it.each([true, false])("retries an SSE gateway disconnect and preserves coverage when recovery is %s", async recover => {
+  let reads = 0;
+  const delays: Array<[number, boolean]> = [];
+  const failure = 'Streamable HTTP error: Error POSTing to endpoint: event: message\r\ndata: {"message":"upstream connect error or disconnect/reset before headers. reset reason: connection termination","status":503}\r\n\r\n';
+  const connections: SourceConnections = { gmail: { error: "Unavailable" }, slack: { error: "Unavailable" }, jira: {
+    close: async () => {}, async call(tool) {
+      if (tool === "searchJiraIssuesUsingJql") return { content: [{ type: "text", text: '{"issues":[{"key":"APP-7","fields":{"updated":"2026-09-10T10:00:00Z"}}],"isLast":true}' }] };
+      if (++reads === 1 || !recover) throw new Error(failure);
+      return { content: [{ type: "text", text: JSON.stringify({ key: "APP-7", fields: { comment: { comments: [], total: 0 } } }) }] };
+    },
+  } };
+  const bundle = await collectSources(sampleRun(), [], { connect: async () => connections,
+    retryDelayMs: (attempt, limited) => { delays.push([attempt, limited]); return 0; } });
+  expect(reads).toBe(recover ? 2 : 3);
+  expect(delays).toEqual(recover ? [[0, false]] : [[0, false], [1, false]]);
+  expect(bundle.reports.find(r => r.source === "jira")?.status).toBe(recover ? "complete" : "partial");
+  expect(bundle.documents).toHaveLength(recover ? 1 : 0);
+  if (recover) expect(bundle.calls.some(c => c.output.includes("connection termination"))).toBe(false);
+  else expect(bundle.reports.find(r => r.source === "jira")?.detail).toContain("HTTP 503:");
+});

@@ -25,3 +25,16 @@ it("preserves the permanent status in a transport-wrapped MCP error", () => {
   const raw = { result: { isError: true, content: [{ type: "text", text: JSON.stringify(payload) }] } };
   expect(sourceThrownFailure(new Error(`Streamable HTTP error\ndata: ${JSON.stringify(raw)}`))).toMatchObject({ message: "HTTP 404: Issue missing.", retryable: false, rateLimited: false });
 });
+
+it.each([502, 503, 504, 429, 403, 404])("recognizes gateway status %i inside an SSE transport exception", status => {
+  const message = "upstream connect error or disconnect/reset before headers. reset reason: connection termination";
+  const body = `Streamable HTTP error: Error POSTing to endpoint: event: message\r\ndata: ${JSON.stringify({ message, status })}\r\n\r\n`;
+  expect(sourceThrownFailure(new Error(body))).toMatchObject({
+    message: `HTTP ${status}: ${message}`, retryable: [429, 502, 503, 504].includes(status), rateLimited: status === 429,
+  });
+});
+
+it("reads a structured gateway statusCode without interpreting nested quota headers", () => {
+  const payload = { statusCode: "403", message: "Temporarily unavailable to this account.", headers: { status: 503 } };
+  expect(sourceThrownFailure(new Error(JSON.stringify(payload)))).toMatchObject({ retryable: false, rateLimited: false, message: `HTTP 403: ${payload.message}` });
+});

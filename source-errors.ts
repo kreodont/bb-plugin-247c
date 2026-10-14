@@ -50,6 +50,11 @@ export function sourceThrownFailure(cause: unknown): SourceRequestError {
     try {
       const parsed = JSON.parse(line.replace(/^data:\s*/, ""));
       const raw = parsed.result ?? parsed;
+      // The MCP gateway can throw an SSE event containing {message, status}
+      // instead of an MCP isError response. Use only its top-level status;
+      // nested headers and quota counters are not HTTP failure evidence.
+      const status = httpStatus(raw.statusCode) ?? httpStatus(raw.status);
+      if (status) return new SourceRequestError(diagnostic(raw), status);
       if (raw.isError) {
         const text = (raw.content ?? []).filter((part: Json) => part.type === "text").map((part: Json) => part.text).join("\n");
         let data: Json = { text };
