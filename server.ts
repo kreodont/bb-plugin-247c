@@ -15,6 +15,7 @@ import { readCalendar } from "./calendar-reader.js";
 import { calendarCommandSchema, readScriptCalendar } from "./calendar-script.js";
 import { connectCalendar } from "./source-connectors.js";
 import { randomUUID } from "node:crypto";
+import { dossierReadSchema, readDossierPage, DOSSIER_READ_GUIDE } from "./dossier-read.js";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import { compatibleMigrations } from "./migration-compatibility.js";
@@ -314,12 +315,14 @@ export default async function plugin(bb: BbPluginApi) {
     },
   });
   bb.agents.registerTool({
-    name: "c247_read", description: "Read a 247C task dossier, accepted projection, evidence, proposals, sessions and context brief. Session workers can read only their assigned task.",
-    parameters: z.object({ taskId: idSchema }).strict(),
-    execute({ taskId }, ctx) {
+    name: "c247_read", description: "Read a 247C dossier in bounded pages. Defaults to accepted context and evidence; select section for review/session history. Follow nextCursor until null. Small sections return data; large ones return lossless JSON fragments in content. Session workers can read only their assigned task.",
+    instructions: DOSSIER_READ_GUIDE,
+    parameters: dossierReadSchema,
+    execute(input, ctx) {
+      const { taskId } = input;
       const session = repo.forThread(ctx.threadId);
       if (session && session.taskId !== taskId) throw new PolicyError("A session can access only its own task dossier.");
-      return boundedJson(repo.detail(taskId));
+      return readDossierPage(repo.detail(taskId), input);
     },
   });
   bb.agents.registerTool({

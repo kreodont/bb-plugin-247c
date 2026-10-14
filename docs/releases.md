@@ -21,6 +21,17 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Paged agent dossier reads in 0.5.79
+
+`c247_read` returns accepted context separately from review and session history.
+Responses are bounded to 64 KiB. Oversized sections, including individual large
+records, are returned as lossless JSON fragments with continuation cursors.
+Agents follow `nextCursor` until null; a changed section requires a fresh read,
+so pages from different versions cannot be silently mixed. Task ownership checks
+apply to every page. Existing task data and the panel remain unchanged.
+
+See [Reading dossiers](dossier-reading.md) for the tool contract.
+
 ## Source gateway retries in 0.5.78
 
 Source checks recognize HTTP statuses in transport-wrapped gateway error events,
