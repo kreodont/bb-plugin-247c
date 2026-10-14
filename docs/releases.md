@@ -21,6 +21,19 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Automatic working-context compaction in 0.5.80
+
+Large agent dossier reads now start with the current accepted state, protected
+evidence and recent progress. Older progress and next-step records stay available
+through keyword search, fact IDs, fact kinds or a full accepted read. Compaction
+reports deferred history explicitly; it never rewrites facts, deletes records,
+invents a summary or starts an extra model call. Critical evidence is kept even
+when it exceeds the soft size target, with lossless paging as the fallback.
+Search filters survive continuation pages, and ownership checks apply to every
+read. No data or local settings migration is required.
+
+See [Reading dossiers](dossier-reading.md) for thresholds and retrieval rules.
+
 ## Paged agent dossier reads in 0.5.79
 
 `c247_read` returns accepted context separately from review and session history.

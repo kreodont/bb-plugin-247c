@@ -315,7 +315,7 @@ export default async function plugin(bb: BbPluginApi) {
     },
   });
   bb.agents.registerTool({
-    name: "c247_read", description: "Read a 247C dossier in bounded pages. Defaults to accepted context and evidence; select section for review/session history. Follow nextCursor until null. Small sections return data; large ones return lossless JSON fragments in content. Session workers can read only their assigned task.",
+    name: "c247_read", description: "Read a 247C dossier in bounded pages. Default context automatically compacts large dossiers using accepted fields and protected evidence. Use section=facts with query, factIds or kinds for older evidence; section=accepted returns everything accepted. Review/session history stays separate. Follow nextCursor until null; JSON fragments must be concatenated. Session workers can read only their assigned task.",
     instructions: DOSSIER_READ_GUIDE,
     parameters: dossierReadSchema,
     execute(input, ctx) {

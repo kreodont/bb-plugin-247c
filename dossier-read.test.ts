@@ -7,7 +7,7 @@ import type { Dossier } from "./contracts.js";
 const hosts: Awaited<ReturnType<typeof fixture>>[] = [];
 afterEach(async () => { for (const f of hosts.splice(0)) await f.harness.lifecycle.dispose(); });
 async function setup() { const f = await fixture(); hosts.push(f); const task = await f.create("Accepted context"); return { f, task }; }
-function allPages(dossier: Dossier, section?: "accepted" | "syncUpdates" | "proposals") {
+function allPages(dossier: Dossier, section: "accepted" | "syncUpdates" | "proposals" = "accepted") {
   let cursor: string | undefined, content = "", pages = 0;
   do {
     const raw = readDossierPage(dossier, { taskId: dossier.task.id, ...(cursor ? { cursor } : { section }) });
@@ -36,7 +36,7 @@ it("keeps the accepted read small even when review history exceeds the old limit
   expect(Buffer.byteLength(JSON.stringify(dossier, null, 2))).toBeGreaterThan(768 * 1024);
   const raw = await f.harness.behavior.callAgentTool("c247_read", { taskId: task.id }, { threadId: "reader", projectId: "proj_personal" });
   const page = JSON.parse(String(raw));
-  expect(page).toMatchObject({ section: "accepted", format: "json", nextCursor: null, data: { task: { id: task.id }, projection: { summary: null } } });
+  expect(page).toMatchObject({ section: "context", format: "json", nextCursor: null, data: { task: { id: task.id }, projection: { summary: null } } });
   expect(page.data.facts).toEqual(dossier.facts);
   expect(page.data.proposals).toBeUndefined();
   expect(String(raw)).not.toContain("Unaccepted");

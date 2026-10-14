@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeAll, expect, it, vi } from "vitest";
 import { fireEvent, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { loadPluginApp, renderSlot, type CapturedPluginApp, type RenderedSlot } from "@get-bb/plugin-sdk/testing/app";
 import { randomUUID } from "node:crypto";
 import { fixture } from "./test-support.js";
@@ -66,16 +67,18 @@ it("appears when the recorder finishes, opens the exact session and returns to i
 
 it("follows the remaining proposal in place after a partial acceptance and retains the accepted decision", async () => {
   const { f, task, session, page, finish } = await setup();
+  const user = userEvent.setup();
   const original = await finish(), p = page();
   const region = await within(p.container).findByRole("region", { name: "Session proposal" });
-  fireEvent.click(within(region).getByRole("checkbox", { name: "Select part: Record 1: Progress" }));
-  fireEvent.click(within(region).getByRole("button", { name: "Accept selected parts · 1" }));
+  // Allow mount effects and the selection update to settle before the next action.
+  await user.click(within(region).getByRole("checkbox", { name: "Select part: Record 1: Progress" }));
+  await user.click(await within(region).findByRole("button", { name: "Accept selected parts · 1" }));
   await waitFor(() => expect(f.repo.session(session.id).proposalId).not.toBe(original));
   const remaining = f.repo.session(session.id).proposalId!;
   await waitFor(() => expect(within(region).queryByRole("checkbox", { name: "Select part: Summary" })).toBeNull());
   expect(within(region).getByRole("checkbox", { name: "Select part: Record 1: Progress" })).toBeTruthy();
   expect(f.repo.kernel.getProposal(remaining).status).toBe("pending");
-  fireEvent.click(within(region).getByRole("button", { name: "Accept changes" }));
+  await user.click(within(region).getByRole("button", { name: "Accept changes" }));
   await waitFor(() => expect(f.repo.session(session.id).status).toBe("applied"));
   await within(region).findByText("Accepted");
   expect(within(region).queryByRole("button", { name: "Accept changes" })).toBeNull();
