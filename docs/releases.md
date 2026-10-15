@@ -21,6 +21,19 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Distinct chat header actions in 0.5.82
+
+Chat header buttons now use consistent role accents: blue for the task, purple
+for the terminal, cyan for reported time, amber for proposals and reviews, and
+green for finishing a session. Review failures retain a red warning. Source and
+pinned-file shortcuts use neutral surfaces. The colors follow BB's active theme;
+labels and distinct icons remain available so color is never the only cue.
+
+Buttons are slightly taller, with stronger labels and keyboard focus outlines.
+Reported time includes a clock icon on wide screens as well as compact screens.
+Navigation, review actions, time editing and local file handling are unchanged.
+No data or settings migration is needed.
+
 ## Thread terminal shortcut in 0.5.81
 
 The thread header's **Tasks** button is replaced by **ZSH**. It opens BB's

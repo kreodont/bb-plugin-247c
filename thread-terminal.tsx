@@ -3,7 +3,7 @@ import { useBbNavigate, useSdk, type PluginThreadHeaderActionProps } from "@get-
 import { toast } from "sonner";
 import { Button } from "./components/ui/button.js";
 import { Icon } from "./components/ui/icon.js";
-import { cn } from "./lib/utils.js";
+import { threadActionClass } from "./thread-action-style.js";
 import { UxScope } from "./ux-app.js";
 import { beginUxAction } from "./ux-client.js";
 
@@ -52,7 +52,7 @@ function ThreadTerminal({ threadId, isCompactViewport }: PluginThreadHeaderActio
   }
   return <UxScope page="thread" view={threadId}><span title="Open ZSH in this thread's workspace" className="inline-flex"><Button type="button" size="sm" variant="outline"
     data-c247-ux-action="thread-terminal" aria-label="Open ZSH terminal"
-    className={cn("h-7 shrink-0", isCompactViewport ? "w-7 px-0" : "px-2")} disabled={busy} onClick={() => void open()}>
+    className={threadActionClass("terminal", isCompactViewport)} disabled={busy} onClick={() => void open()}>
     <Icon name={busy ? "Loading" : "Terminal"} aria-hidden="true" />{!isCompactViewport && "ZSH"}
   </Button></span></UxScope>;
 }

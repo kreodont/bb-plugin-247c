@@ -6,6 +6,7 @@ import { Button } from "./components/ui/button.js";
 import { Input } from "./components/ui/input.js";
 import { Icon } from "./components/ui/icon.js";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "./components/ui/dialog.js";
+import { threadActionClass } from "./thread-action-style.js";
 
 export function PinnedFilesButton({ compact = false, threadId = null }: { compact?: boolean; threadId?: string | null }) {
   const rpc = useRpc<typeof rpcContract>(), navigate = useBbNavigate();
@@ -51,7 +52,7 @@ export function PinnedFilesButton({ compact = false, threadId = null }: { compac
     if (currentThread.current === origin) setError("Could not open the file panel. Use a thread with a workspace on the file's machine, or refresh the shortcut list.");
   }
   return <span data-c247-ux-private="" className="inline-flex" title="Pinned files">
-    <Button type="button" size="sm" variant="outline" className="h-7 gap-1.5 px-2 text-xs" aria-label="Pinned files" onClick={() => changeOpen(true)}>
+    <Button type="button" size="sm" variant="outline" className={threadId ? threadActionClass("neutral", compact) : "h-7 gap-1.5 px-2 text-xs"} aria-label="Pinned files" onClick={() => changeOpen(true)}>
       <Icon name="Folder" aria-hidden="true" />{!compact && "Pinned files"}
     </Button>
     <Dialog open={open} onOpenChange={changeOpen}><DialogContent data-c247-ux-private="" className="gap-3 p-4 sm:max-w-lg">

@@ -20,6 +20,7 @@ import { mountSidebarShortcut } from "./sidebar-shortcut.js";
 import { SidebarPluginLinks } from "./sidebar-plugin-links.js";
 import { TaskSwitcher, openTaskSwitcher } from "./task-switcher.js";
 import { ThreadTerminalAction } from "./thread-terminal.js";
+import { threadActionClass, threadActionTone } from "./thread-action-style.js";
 import { PagePinnedFiles, ThreadPinnedFiles } from "./pinned-files-ui.js";
 import { NavigationFrame } from "./navigation.js";
 import { deskRoute, taskDayPath, taskProposalPath, taskReviewPath, withThread } from "./desk-routes.js";
@@ -150,7 +151,7 @@ function ThreadSessionControl({ threadId, isCompactViewport, action }: PluginThr
     finally { await refresh(); finishing.current = false; setBusy(false); }
   }
   return <UxScope page="thread" view={threadId}><span title={label} className="inline-flex"><Button data-c247-ux-action={action === "task" ? "thread-task" : reviewing ? "thread-review" : "thread-finish"} type="button" size="sm" variant="outline"
-    className={cn("h-7 shrink-0", action === "finish" && failedReview && "border-destructive/40 text-destructive", isCompactViewport ? "w-7 px-0" : "px-2")}
+    className={threadActionClass(action === "task" ? "task" : failedReview ? "error" : reviewing ? "proposal" : "finish", isCompactViewport)}
     aria-label={label} aria-description={action === "task" ? "Open the linked 247C task dossier" : failedReview ? "Open the failed conversation review" : reviewing ? "Open the chat reviewing this conversation" : "Stop the current response and review the conversation"}
     disabled={action === "finish" && (busy || (reviewing && !reviewThreadId))} onClick={() => { if (action === "task") navigate.toPluginPanel("desk", { subPath: withThread(session.taskId, threadId) }); else if (failedReview) navigate.toPluginPanel("desk", { subPath: taskReviewPath(session.taskId, session.id, threadId) }); else if (reviewing) void openReview(); else if (error) void refresh(); else void finish(); }}>
     <Icon name={action === "task" ? "Target" : failedReview ? "AlertCircle" : reviewing ? reviewThreadId ? "MessageSquare" : "Loading" : "Check"} aria-hidden="true" />{!isCompactViewport && label}
@@ -177,7 +178,7 @@ function ThreadProposal({ threadId, isCompactViewport }: PluginThreadHeaderActio
   if (!session?.proposalId) return null;
   return <UxScope page="thread" view={threadId}><span title="Open this session's proposal" className="inline-flex"><Button type="button" size="sm" variant="outline"
     data-c247-ux-action="thread-proposal" aria-label="Proposal" aria-description="Open this session's proposal"
-    className={cn("h-7 shrink-0", session.status === "awaiting_approval" && "border-orange-500/40 text-orange-700 dark:text-orange-300", isCompactViewport ? "w-7 px-0" : "px-2")}
+    className={threadActionClass("proposal", isCompactViewport)}
     onClick={() => navigate.toPluginPanel("desk", { subPath: taskProposalPath(session.taskId, session.id, threadId) })}>
     <Icon name="ListTodo" aria-hidden="true" />{!isCompactViewport && "Proposal"}
   </Button></span></UxScope>;
@@ -193,7 +194,7 @@ function ThreadSource({ threadId, isCompactViewport }: PluginThreadHeaderActionP
   const { data, error } = useSnapshot(load);
   const source = data?.source;
   if (error || !source || !sourceUrl(source.url)) return null;
-  return <UxScope page="thread" view={threadId}><Button asChild size="sm" variant="outline" className={cn("h-7 shrink-0", isCompactViewport ? "w-7 px-0" : "px-2")}>
+  return <UxScope page="thread" view={threadId}><Button asChild size="sm" variant="outline" className={threadActionClass("neutral", isCompactViewport)}>
     <a data-c247-ux-action="thread-source" href={source.url} target="_blank" rel="noopener noreferrer" title={`Primary source · ${source.label}\n${source.url}`} aria-label={`Open primary source: ${source.label}`}>
       <Icon name="ExternalLink" aria-hidden="true" />{!isCompactViewport && "Source"}
     </a>
@@ -244,12 +245,12 @@ function ThreadReportedTime({ threadId, isCompactViewport }: PluginThreadHeaderA
   const value = error ? "unavailable" : formatMinutes(minutes);
   const label = `Reported today: ${value}${!error && estimated ? " (estimate)" : ""}`;
   const title = error ? `Could not refresh reported time: ${error}` : `${label} · ${date} · ${timeZone}${minutes === null ? " · No reported time entered" : ""}`;
-  return <UxScope page="thread" view={threadId}><span title={title} className="inline-flex items-center rounded-md border border-input">
-    <Button data-c247-ux-action="reported-open" type="button" size="sm" variant="ghost" className="h-7 shrink-0 gap-1.5 px-2 text-xs text-muted-foreground" aria-label={`${label}. Edit reported time`} onClick={() => setEditing(true)}>
-      {isCompactViewport ? <Icon name="Clock" aria-hidden="true" /> : <span>Reported today:</span>}
-      <output aria-label={label} className="font-medium tabular-nums text-foreground">{value}</output>{!error && estimated && <span>estimate</span>}
+  return <UxScope page="thread" view={threadId}><span title={title} className={cn("inline-flex items-center rounded-md border", threadActionTone("time"))}>
+    <Button data-c247-ux-action="reported-open" type="button" size="sm" variant="ghost" className={cn(threadActionClass("time"), "h-8 rounded-r-none bg-transparent font-medium")} aria-label={`${label}. Edit reported time`} onClick={() => setEditing(true)}>
+      <Icon name="Clock" aria-hidden="true" />{!isCompactViewport && <span>Reported today:</span>}
+      <output aria-label={label} className="font-semibold tabular-nums">{value}</output>{!error && estimated && <span>estimate</span>}
     </Button>
-    <Button data-c247-ux-action="reported-day" type="button" size="sm" variant="ghost" className="h-7 border-l border-input px-1.5" disabled={busy} aria-busy={busy} aria-label={`${label}. Open Day Plan`} aria-description="Open today's task row and edit Reported time; add the task if missing" onClick={() => void openDay()}><Icon name="ChevronRight" aria-hidden="true" /></Button>
+    <Button data-c247-ux-action="reported-day" type="button" size="sm" variant="ghost" className={cn(threadActionClass("time"), "h-8 rounded-l-none border-l bg-transparent px-1.5")} disabled={busy} aria-busy={busy} aria-label={`${label}. Open Day Plan`} aria-description="Open today's task row and edit Reported time; add the task if missing" onClick={() => void openDay()}><Icon name="ChevronRight" aria-hidden="true" /></Button>
   </span>{editing && <ReportedEditor taskId={data.session.taskId} threadId={threadId} close={() => setEditing(false)} saved={refresh} />}</UxScope>;
 }
 
