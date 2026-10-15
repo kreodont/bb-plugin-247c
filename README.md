@@ -45,7 +45,9 @@ If an accepted next step has been completed or canceled, a review can propose cl
 
 After an error, **Retry review** first revalidates saved responses from the same session against the current rules. A response can be recovered without new generation only when the transcript and accepted dossier are unchanged. Previously proposed or rejected responses are not reused. The result still awaits your acceptance. If no suitable response exists, or you explicitly selected a model, a new review starts.
 
-**Tasks** in a work chat's header, or **247C: Switch task** in BB's command palette (default shortcut Cmd+Shift+K, rebindable in BB), opens a task switcher. Open chats are listed first, most recently updated on top, followed by other open tasks. Type to filter by title or customer; arrow keys and Enter open the chat, and a task without one gets a new chat.
+**ZSH** in the chat header opens BB's terminal panel in that thread's workspace. It starts a login zsh on the thread's machine and reuses the same 247C terminal on subsequent clicks. Closing the terminal tab ends that terminal; the next click starts a new one. The machine needs zsh, and older BB clients without the terminal-panel API show an update message.
+
+**247C: Switch task** in BB's command palette (default shortcut Cmd+Shift+K, rebindable in BB) opens a task switcher. Open chats are listed first, most recently updated on top, followed by other open tasks. Type to filter by title or customer; arrow keys and Enter open the chat, and a task without one gets a new chat.
 
 Use **Sort by** above the task cards to choose **Recently updated** (default), **Oldest update**, or **Priority**. The choice is remembered in this browser and works with search, priority filters and completed tasks. Each card shows its last saved update time, including when it has a next step. Pending proposals and time-journal updates do not change the task's saved update timestamp.
 

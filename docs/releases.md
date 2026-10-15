@@ -21,6 +21,20 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Thread terminal shortcut in 0.5.81
+
+The thread header's **Tasks** button is replaced by **ZSH**. It opens BB's
+terminal panel with a login zsh on the thread's own machine and workspace.
+Repeated clicks reopen the existing 247C shell; an exited shell is replaced.
+Concurrent clicks share one creation request, and a late response cannot open
+a terminal in a different chat. Other terminals are never sent commands or
+restarted. The task switcher remains available through **247C: Switch task**
+and Cmd/Ctrl+Shift+K; the plugin's Tasks page is unchanged.
+
+This uses the public terminal-panel API in the current BB SDK. Older BB clients
+without that API show an update message before creating a terminal. The thread's
+machine must have zsh installed. No database or local-settings migration is needed.
+
 ## Automatic working-context compaction in 0.5.80
 
 Large agent dossier reads now start with the current accepted state, protected
