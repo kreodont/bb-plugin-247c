@@ -5,7 +5,13 @@ import { join } from "node:path";
 import { tmpdir, homedir } from "node:os";
 import { PinnedFilesSettings, PINNED_FILES_NAME } from "./local-settings.js";
 import { fixture } from "./test-support.js";
+import { resolvePinnedFilePath } from "./pinned-file-path.js";
+import { PINNED_FILE_ERRORS } from "./pinned-files-contracts.js";
 
+vi.mock("./pinned-file-path.js", async importOriginal => {
+  const original = await importOriginal<typeof import("./pinned-file-path.js")>();
+  return { resolvePinnedFilePath: vi.fn(original.resolvePinnedFilePath) };
+});
 vi.mock("node:fs", async importOriginal => {
   const original = await importOriginal<typeof import("node:fs")>();
   return { ...original, openSync: vi.fn(original.openSync), readFileSync: vi.fn(original.readFileSync) };
@@ -72,4 +78,27 @@ it("RPCs are task-independent, use an explicit machine and do not expose a file-
   expect(await f.harness.behavior.callRpc("pinnedFileTarget", { id: value.files[0].id, threadId: "thr_local" })).toMatchObject({ path: "/private/notes.md", hostId: "host_local" });
   expect(f.harness.inspection.sdk.callsTo("files.read")).toHaveLength(0);
   expect(await f.harness.behavior.callRpc("unpinFile", { id: value.files[0].id })).toEqual({ files: [] });
+});
+
+it("saves and opens the converted WSL path, deduplicates its Linux alias and leaves settings intact after conversion failure", async () => {
+  const f = await fixture(); hosts.push(f);
+  const initialLogs = [...f.harness.inspection.logEntries];
+  f.harness.inspection.sdk.stub("system.config", () => ({ primaryHostId: "host_local" }));
+  const windowsPath = String.raw`C:\Users\example\private-config.json`, linuxPath = "/windows/c/Users/example/private-config.json";
+  vi.mocked(resolvePinnedFilePath).mockResolvedValueOnce(linuxPath);
+  const first = await f.harness.behavior.callRpc("pinFile", { name: "Config", path: windowsPath }) as { files: { id: string }[] };
+  expect(resolvePinnedFilePath).toHaveBeenCalledWith(windowsPath);
+  expect(first).toMatchObject({ files: [{ hostId: "host_local", path: linuxPath }] });
+  const renamed = await f.harness.behavior.callRpc("pinFile", { name: "Private config", path: linuxPath });
+  expect(renamed).toEqual({ files: [{ id: first.files[0].id, name: "Private config", hostId: "host_local", path: linuxPath }] });
+  f.harness.inspection.sdk.stub("threads.get", () => ({ environmentId: "env_local" }));
+  f.harness.inspection.sdk.stub("environments.get", () => ({ hostId: "host_local" }));
+  expect(await f.harness.behavior.callRpc("pinnedFileTarget", { id: first.files[0].id, threadId: "thr_local" })).toMatchObject({ path: linuxPath });
+  vi.mocked(resolvePinnedFilePath).mockRejectedValueOnce(new Error(PINNED_FILE_ERRORS.wslPath));
+  await expect(f.harness.behavior.callRpc("pinFile", { name: "Other", path: "D:/other.json" })).rejects.toThrow(PINNED_FILE_ERRORS.wslPath);
+  expect(await f.harness.behavior.callRpc("pinnedFiles", {})).toEqual(renamed);
+  expect(f.harness.inspection.sdk.callsTo("files.read")).toHaveLength(0);
+  expect(fs.openSync).not.toHaveBeenCalledWith(windowsPath, expect.anything());
+  expect(fs.openSync).not.toHaveBeenCalledWith(linuxPath, expect.anything());
+  expect(f.harness.inspection.logEntries).toEqual(initialLogs);
 });

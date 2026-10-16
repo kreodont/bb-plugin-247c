@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { useBbNavigate, useRealtime, useRealtimeConnectionState, useRpc, type PluginThreadHeaderActionProps } from "@get-bb/plugin-sdk/app";
 import type { rpcContract } from "./contracts.js";
-import type { PinnedFile } from "./pinned-files-contracts.js";
+import { pinnedFileSaveError, type PinnedFile } from "./pinned-files-contracts.js";
 import { Button } from "./components/ui/button.js";
 import { Input } from "./components/ui/input.js";
 import { Icon } from "./components/ui/icon.js";
@@ -29,7 +29,7 @@ export function PinnedFilesButton({ compact = false, threadId = null }: { compac
     if (mutating.current) return;
     mutating.current = true; generation.current++; setBusy(true); setError(null);
     try { setFiles((await action()).files); setAdding(false); setName(""); setPath(""); }
-    catch { setError("Could not save pinned files. Use an absolute path and check the local settings file permissions. Up to 24 files can be pinned."); }
+    catch (error) { setError(pinnedFileSaveError(error)); }
     finally { mutating.current = false; setBusy(false); }
   }
   function pin(event: FormEvent) {
@@ -72,6 +72,7 @@ export function PinnedFilesButton({ compact = false, threadId = null }: { compac
       </ul>}
       {adding ? <form className="space-y-3 border-t border-border pt-3" onSubmit={pin}>
         <label className="block text-sm">File path<Input autoFocus required maxLength={4096} value={path} onChange={event => setPath(event.target.value)} placeholder="/path/to/notes.md" disabled={busy} autoComplete="off" spellCheck={false} /></label>
+        <p className="text-xs text-muted-foreground">Use a path on the machine running BB. Windows paths are converted automatically in WSL.</p>
         <label className="block text-sm">Name <span className="text-muted-foreground">(optional)</span><Input maxLength={120} value={name} onChange={event => setName(event.target.value)} disabled={busy} autoComplete="off" /></label>
         <div className="flex gap-2"><Button type="submit" size="sm" disabled={busy || !path.trim()}>{busy ? "Saving…" : "Pin file"}</Button><Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => { setAdding(false); setName(""); setPath(""); }}>Cancel</Button></div>
       </form> : <Button type="button" size="sm" variant="outline" disabled={busy || !files || files.length >= 24} onClick={() => setAdding(true)}>Pin a file</Button>}

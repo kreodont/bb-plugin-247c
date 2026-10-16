@@ -11,6 +11,8 @@ import { evaluateNativeUpdater } from "./native-updater-health.js";
 import { KnowledgeSearch } from "./knowledge-search.js";
 import { importSourceBundle } from "./source-import.js";
 import { applyLocalSettingsPatch, composerDefaultsSchema, PinnedFilesSettings } from "./local-settings.js";
+import { resolvePinnedFilePath } from "./pinned-file-path.js";
+import { PINNED_FILE_ERRORS } from "./pinned-files-contracts.js";
 import { defineSettings, settingDescriptors } from "./settings.js";
 import { applyLocalPatch, patchPath, readPatch, PATCH_FORMAT } from "./local-patch.js";
 import { parseSourceConfig } from "./source-config.js";
@@ -112,8 +114,9 @@ export default async function plugin(bb: BbPluginApi) {
     },
     pinFile: async input => {
       const { primaryHostId } = await bb.sdk.system.config();
-      if (!primaryHostId) throw new Error("The local machine is unavailable. Reconnect it before pinning a file.");
-      const result = pinnedFiles.add(input, primaryHostId);
+      if (!primaryHostId) throw new Error(PINNED_FILE_ERRORS.unavailable);
+      const path = await resolvePinnedFilePath(input.path);
+      const result = pinnedFiles.add({ ...input, path }, primaryHostId);
       bb.realtime.publish("pinned-files-changed", {});
       return result;
     },

@@ -36,6 +36,17 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Windows paths for pinned files in 0.5.87
+
+Pinned files now accepts Windows paths when BB runs inside WSL. The plugin
+converts the path through `wslpath`, honoring custom mount locations, and saves
+the Linux path for the file editor. Native Windows, Linux and macOS paths remain
+supported. Conversion uses no shell and does not read the target file.
+
+Save failures now distinguish invalid paths, failed WSL conversion and local
+settings errors, without displaying private subprocess output. Existing
+shortcuts and file contents are unchanged; no data migration is required.
+
 ## Direct chat shortcuts after approval in 0.5.86
 
 Each recently accepted task now has both **Open task** and **Open chat** actions.

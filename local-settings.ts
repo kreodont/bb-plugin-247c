@@ -4,7 +4,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import { constants, closeSync, fstatSync, fsyncSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { z } from "zod";
-import { pinnedFileInputSchema, pinnedFilesSchema, type PinnedFile } from "./pinned-files-contracts.js";
+import { PINNED_FILE_ERRORS, pinnedFileInputSchema, pinnedFilesSchema, type PinnedFile } from "./pinned-files-contracts.js";
 
 // Installation-only preferences. Kept outside SQLite, BB's exported settings,
 // and local.patch.json, which is included in recovery archives. Never open,
@@ -22,7 +22,7 @@ export class PinnedFilesSettings {
     try { fd = openSync(this.file, constants.O_RDONLY | constants.O_NOFOLLOW); }
     catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return { files: [] };
-      throw new Error("Could not read pinned-file settings. Check the local settings file permissions.");
+      throw new Error(PINNED_FILE_ERRORS.readSettings);
     }
     try {
       const stat = fstatSync(fd);
@@ -32,18 +32,18 @@ export class PinnedFilesSettings {
       const { files } = pinnedSettingsSchema.parse(JSON.parse(body.toString("utf8")));
       if (files.some(file => !isAbsolute(file.path)) || new Set(files.map(file => file.id)).size !== files.length) throw new Error();
       return { files };
-    } catch { throw new Error("Invalid pinned-file settings. The existing file has been left unchanged."); }
+    } catch { throw new Error(PINNED_FILE_ERRORS.invalidSettings); }
     finally { closeSync(fd); }
   }
   add(input: z.infer<typeof pinnedFileInputSchema>, hostId: string) {
     const value = pinnedFileInputSchema.parse(input);
     const expanded = value.path.startsWith("~/") ? join(homedir(), value.path.slice(2)) : value.path;
-    if (!isAbsolute(expanded)) throw new Error("Use an absolute file path or a path starting with ~/.");
+    if (!isAbsolute(expanded)) throw new Error(PINNED_FILE_ERRORS.absolutePath);
     const path = resolve(expanded), files = this.list().files;
     const match = files.find(file => file.hostId === hostId && (process.platform === "win32" ? file.path.toLowerCase() === path.toLowerCase() : file.path === path));
     if (match) match.name = value.name;
     else files.push({ id: randomUUID(), name: value.name, path, hostId });
-    if (files.length > 24) throw new Error("You can pin up to 24 files. Remove one before adding another.");
+    if (files.length > 24) throw new Error(PINNED_FILE_ERRORS.limit);
     return this.save(files);
   }
   remove(id: string) { return this.save(this.list().files.filter(file => file.id !== id)); }
@@ -56,7 +56,7 @@ export class PinnedFilesSettings {
       try { writeFileSync(fd, JSON.stringify(value, null, 2) + "\n"); fsyncSync(fd); }
       finally { closeSync(fd); }
       renameSync(temporary, this.file);
-    } catch { throw new Error("Could not save pinned-file settings. No file contents were changed."); }
+    } catch { throw new Error(PINNED_FILE_ERRORS.saveSettings); }
     finally { try { unlinkSync(temporary); } catch { /* Renamed or not created. */ } }
     return { files: value.files };
   }

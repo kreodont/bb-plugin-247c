@@ -76,6 +76,13 @@ references are added to 247C backup/export payloads. Do not put file contents or
 credentials in shortcut names. Adding and opening a shortcut never grants an
 agent access to the file. BB's file preview and File Editor own file access.
 
+Paths belong to the machine running BB. Windows installations accept native
+Windows paths; WSL installations convert Windows paths with `wslpath -u` before
+saving the shortcut. The stored Linux path is also passed to the file editor.
+Custom drive mount locations are supported. If conversion fails, supply the
+Linux path or check WSL's drive mount and `wslpath`; existing shortcuts stay
+unchanged. No target-file access is needed to add a shortcut.
+
 The referenced project's folder and environment, morning-planner automation, provider logins and read-permission allowlists remain in their native **local** BB/provider configuration. Plugin updates do not replace them. Browser preferences also remain local. Do not turn these into source-code edits or copy one computer's IDs to another. The setup agent must inspect the target installation and configure them there; see [the setup guide](setup-agent.md).
 
 ## Backups and another computer

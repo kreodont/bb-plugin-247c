@@ -177,6 +177,9 @@ When explicitly requested, documents can be copied through the `importKnowledge`
 
 **Pinned files** is available in every thread header and the 247C page header.
 Pin an existing file by absolute path (or `~/...`) and give it an optional name.
+When BB runs in WSL, Windows paths such as `C:\Users\example\notes.json` are
+converted with `wslpath` using that installation's mount configuration. You can
+also enter the Linux path directly. Pinning does not read the target file.
 In a thread, click a shortcut to open BB's side-panel preview; enable the installed **File
 Editor** plugin to edit supported files there. Unpinning removes only the
 shortcut. 247C never opens, reads, copies, indexes or attaches the target file.
