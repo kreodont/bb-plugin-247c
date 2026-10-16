@@ -93,7 +93,7 @@ An orange badge beside **247C** in the sidebar counts pending session and source
 
 **247C → Proposals** brings together new tasks, source updates and session outcomes. The count includes proposals that do not yet have a task. Expand all changes, inspect facts and quotes, select individual proposals or all eligible proposals, and accept them together. A new task is created only after acceptance. Bulk acceptance respects the part selection inside each expanded proposal, including after collapsing it. Stale proposals require individual attention; if a task has multiple alternatives, Select all skips it. One failed acceptance does not undo successful ones, and each result is retained.
 
-After acceptance, **Accepted recently** keeps direct links to the affected tasks on the Proposals page. It shows up to 50 distinct tasks approved in the last 24 hours, including partial approvals, and survives navigation, page reloads and BB restarts.
+After acceptance, **Accepted recently** keeps **Open task** and **Open chat** shortcuts for the affected tasks on the Proposals page. Open chat returns to the existing conversation or creates an empty one and opens it immediately. Completed and archived tasks keep their status when a new conversation opens. The list shows up to 50 distinct tasks approved in the last 24 hours, including partial approvals, and survives navigation, page reloads and BB restarts.
 
 Proposals are also available in **Updates** and the task's **Proposals** tab, with Before/After fields, facts, verbatim quotes and links. **Create task from proposal** creates a new task. All fields and records are selected by default. Accepting an update saves the selected fields and records with a single receipt; dossier history supports undoing fields.
 

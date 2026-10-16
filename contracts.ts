@@ -120,6 +120,7 @@ export const sessionSchema = z.object({
   id: idSchema, taskId: idSchema, baseRevision: revisionSchema, status: sessionStatusSchema, objective: z.string(), criteria: z.array(z.string()),
   mode: z.enum(["result", "conversation"]).default("result"), finishedAt: z.string().nullable().default(null),
   continuedFrom: idSchema.nullable().default(null),
+  closedTaskConversation: z.boolean().optional(),
   acceptedPartProposalIds: z.array(idSchema).max(400).optional(),
   discussionProposalId: idSchema.nullable().default(null),
   extraction: extractionSchema.nullable().default(null),

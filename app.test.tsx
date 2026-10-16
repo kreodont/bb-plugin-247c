@@ -266,6 +266,25 @@ it("reviews new tasks and existing task updates together and accepts the selecte
   expect(returned.slot.inspection.rpcCalls.filter(c => c.method === "acceptInbox")).toHaveLength(0);
 });
 
+it.each([false, true])("opens a recently accepted task's chat directly (existing: %s)", async existing => {
+  const f = await fixture(), task = await f.create();
+  await f.harness.behavior.setSettings({ workProvider: "claude-work", workModel: "claude-opus-5[1m]" });
+  const proposal = f.repo.propose({ taskId: task.id, revision: task.revision, requestId: randomUUID(), draft: { rationale: "Update context", confidence: 1, changes: { summary: { value: "Reviewed", evidenceRefs: [f.repo.detail(task.id).facts[0].id] } } } }, "test");
+  await f.harness.behavior.callRpc("accept", { proposalId: proposal.id, revision: task.revision });
+  if (existing) await f.harness.behavior.callRpc("openChat", { taskId: task.id, requestId: randomUUID() });
+  const { slot } = await setup("proposals", f);
+  const accepted = within(await slot.findByRole("region", { name: "Recently accepted tasks" }));
+  expect(accepted.getByRole("button", { name: `Open task: ${task.title}` })).toBeTruthy();
+  const chat = accepted.getByRole("button", { name: `Open chat: ${task.title}` });
+  fireEvent.click(chat); fireEvent.click(chat);
+  await waitFor(() => expect(slot.inspection.navigateCalls).toHaveLength(1));
+  const session = f.repo.sessions(task.id)[0];
+  expect(slot.inspection.navigateCalls).toEqual([{ method: "toThread", threadId: session.workerThreadId }]);
+  expect(f.repo.sessions(task.id)).toHaveLength(1);
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
+  expect(slot.inspection.rpcCalls.filter(c => c.method === "openChat")).toHaveLength(1);
+});
+
 it("preserves unchecked proposals across refreshes and filters and accepts only the visible selection", async () => {
   const f = await fixture(), task = await f.create();
   const { run } = await startSourceSync(f), { input } = await sourceData(f, run, task.id);

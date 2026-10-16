@@ -404,6 +404,26 @@ function SyncPage() {
   </div></div>;
 }
 
+function useTaskChat() {
+  const rpc = useUxRpc(), navigate = useBbNavigate();
+  const [openingTask, setOpeningTask] = useState<string | null>(null);
+  const opening = useRef(false), chatRequests = useRef(new Map<string, string>()), mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  async function openChat(taskId: string, existing: boolean) {
+    if (opening.current) return;
+    const finish = beginUxAction(existing ? "chat-open" : "chat-new");
+    opening.current = true; setOpeningTask(taskId);
+    const requestId = chatRequests.current.get(taskId) ?? crypto.randomUUID(); chatRequests.current.set(taskId, requestId);
+    try {
+      const session = await rpc.call("openChat", { taskId, requestId });
+      if (!session.workerThreadId) throw new Error(session.error || "The chat is still starting. Try again.");
+      if (mounted.current) { navigate.toThread(session.workerThreadId); finish("ok"); }
+    } catch (cause) { finish("error"); toast.error("Could not open the work chat", { description: cause instanceof Error ? cause.message : String(cause) }); }
+    finally { opening.current = false; if (mounted.current) setOpeningTask(null); }
+  }
+  return { openingTask, openChat };
+}
+
 function Desk() {
   const [customerFilter, setCustomerFilter] = useState("all");
   const rpc = useUxRpc();
@@ -424,21 +444,7 @@ function Desk() {
   }, []);
   const [creating, setCreating] = useState(false);
   const [layout, setLayout] = useState<"list" | "cards">(() => { try { return localStorage.getItem("247c-task-layout") === "cards" ? "cards" : "list"; } catch { return "list"; } });
-  const [openingTask, setOpeningTask] = useState<string | null>(null);
-  const opening = useRef(false), chatRequests = useRef(new Map<string, string>()), mounted = useRef(true);
-  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
-  async function openChat(taskId: string, existing: boolean) {
-    if (opening.current) return;
-    const finish = beginUxAction(existing ? "chat-open" : "chat-new");
-    opening.current = true; setOpeningTask(taskId);
-    const requestId = chatRequests.current.get(taskId) ?? crypto.randomUUID(); chatRequests.current.set(taskId, requestId);
-    try {
-      const session = await rpc.call("openChat", { taskId, requestId });
-      if (!session.workerThreadId) throw new Error(session.error || "The chat is still starting. Try again.");
-      if (mounted.current) { navigate.toThread(session.workerThreadId); finish("ok"); }
-    } catch (cause) { finish("error"); toast.error("Could not open the work chat", { description: cause instanceof Error ? cause.message : String(cause) }); }
-    finally { opening.current = false; if (mounted.current) setOpeningTask(null); }
-  }
+  const { openingTask, openChat } = useTaskChat();
   const load = useCallback(() => rpc.call("list", { history }), [rpc, history]);
   const { data, error, refresh } = useSnapshot(load);
   const tasks = data?.tasks ?? [];
@@ -798,6 +804,7 @@ const reviewTitle = (item: ReviewItem) => item.kind === "source" ? item.candidat
 const reviewGroup = (item: ReviewItem) => item.kind === "proposal" ? "dossier" : item.candidate.taskId ? "updates" : "new";
 const reviewSelection = (item: ReviewItem): ReviewSelection => ({ kind: item.kind, id: item.kind === "source" ? item.candidate.id : item.proposal.id, revision: item.kind === "source" ? item.candidate.baseRevision : item.proposal.baseRevision });
 function ProposalInboxPage() {
+  const { openingTask, openChat } = useTaskChat();
   const updater = useUpdaterHealth();
   const incompleteSources = Boolean(updater.error || updater.data?.alert);
   const rpc = useUxRpc(), navigate = useBbNavigate();
@@ -897,13 +904,16 @@ function ProposalInboxPage() {
     })}
     {data && !visible.length && <div className="rounded-xl border border-dashed border-border p-10 text-center"><Icon name={incompleteSources ? "AlertCircle" : "CircleCheck"} className="mx-auto mb-3 size-7 text-muted-foreground" /><h2 className="font-medium">{data.total ? "No proposals in this section" : incompleteSources ? "No proposals are ready" : "Everything reviewed"}</h2><p className="mt-2 text-sm text-muted-foreground">{data.total ? "Choose another proposal type or the next page." : incompleteSources ? "Source checks need attention. New work may not have reached this list." : "New proposals will appear after checking sources or finishing sessions."}</p></div>}
     {data && (offset > 0 || data.nextOffset !== null) && <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="outline" disabled={busy || !previousOffsets.length} onClick={() => { setOffset(previousOffsets.at(-1) ?? 0); setPreviousOffsets(previousOffsets.slice(0, -1)); }}>Previous page</Button><span className="text-xs text-muted-foreground">On this page {items.length} of {data.total}. The rest are on the next page.</span><Button variant="outline" disabled={busy || data.nextOffset === null} onClick={() => { if (data.nextOffset !== null) { setPreviousOffsets([...previousOffsets, offset]); setOffset(data.nextOffset); } }}>Next page</Button></div>}
-    {!!recentlyAccepted.length && <section aria-label="Recently accepted tasks" className="overflow-hidden rounded-xl border border-success/30 bg-card">
+    {!!recentlyAccepted.length && <section aria-label="Recently accepted tasks" className="scroll-mt-20 overflow-hidden rounded-xl border border-success/30 bg-card">
       <div className="border-b border-border bg-success/5 p-4"><h2 className="flex items-center gap-2 font-medium"><Icon name="CircleCheck" className="text-success" />Accepted recently · {recentlyAccepted.length}</h2><p className="mt-1 text-sm text-muted-foreground">Tasks changed by approvals in the last 24 hours. Up to 50 tasks, newest first.</p></div>
-      <ul className="divide-y divide-border">{recentlyAccepted.map(task => <li key={task.id}>
-        <button type="button" data-c247-ux-action="task-open" aria-label={`Open task: ${task.title}`} onClick={() => navigate.toPluginPanel("desk", { subPath: task.id })} className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
-          <div className="min-w-0 flex-1"><p className="break-words text-sm font-medium">{task.title}</p><p className="mt-1 text-xs text-muted-foreground">{taskStatusNames[task.status]} · Accepted <time dateTime={task.acceptedAt}>{date(task.acceptedAt)}</time></p></div>
-          <span className="flex shrink-0 items-center gap-1 text-sm text-primary">Open task<Icon name="ChevronRight" /></span>
+      <ul className="divide-y divide-border">{recentlyAccepted.map(task => <li key={task.id} className="flex flex-wrap items-center gap-3 p-4">
+        <button type="button" data-c247-ux-action="task-open" aria-label={`View task: ${task.title}`} onClick={() => navigate.toPluginPanel("desk", { subPath: task.id })} className="min-w-48 flex-1 rounded text-left hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <p className="break-words text-sm font-medium">{task.title}</p><p className="mt-1 text-xs text-muted-foreground">{taskStatusNames[task.status]} · Accepted <time dateTime={task.acceptedAt}>{date(task.acceptedAt)}</time></p>
         </button>
+        <div className="flex shrink-0 gap-2">
+          <Button data-c247-ux-action="task-open" size="sm" variant="outline" aria-label={`Open task: ${task.title}`} onClick={() => navigate.toPluginPanel("desk", { subPath: task.id })}><Icon name="Target" />Open task</Button>
+          <Button data-c247-ux-action="chat-open" size="sm" aria-label={`Open chat: ${task.title}`} disabled={!!openingTask} onClick={() => void openChat(task.id, true)}><Icon name="MessageSquare" />{openingTask === task.id ? "Opening…" : "Open chat"}</Button>
+        </div>
       </li>)}</ul>
     </section>}
   </div></div>;

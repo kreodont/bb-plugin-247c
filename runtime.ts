@@ -51,12 +51,16 @@ export class SessionRuntime {
   private readonly openingChats = new Map<string, Promise<Session>>();
   constructor(readonly bb: BbPluginApi, readonly repo: Repository, readonly settings: () => Promise<SettingsView>, readonly threadRouting = new ThreadRouting(bb, async () => "")) {}
 
+  private requiresOpenTask(session: Session) {
+    return !session.continuedFrom && !(session.mode === "conversation" && session.closedTaskConversation);
+  }
+
   private current(id: string): Session {
     const session = this.repo.session(id);
     if (this.disposed || !ACTIVE.has(session.status)) throw new PolicyError("The session has already stopped.");
     if (session.mode === "conversation" && ["starting", "working", "collecting"].includes(session.status) && !(session.status === "collecting" && session.extractionRepair)) {
-      if (!session.continuedFrom && !isLiveTask(this.repo.kernel.getTask(session.taskId).status)) throw new PolicyError("The task is already closed.");
-    } else this.repo.assertCurrent(session.taskId, session.baseRevision, !session.continuedFrom);
+      if (this.requiresOpenTask(session) && !isLiveTask(this.repo.kernel.getTask(session.taskId).status)) throw new PolicyError("The task is already closed.");
+    } else this.repo.assertCurrent(session.taskId, session.baseRevision, this.requiresOpenTask(session));
     return session;
   }
 
@@ -86,7 +90,7 @@ export class SessionRuntime {
     if (active) return this.readyChat(active);
     const create = async () => {
       const task = this.repo.kernel.getTask(input.taskId);
-      this.repo.assertCurrent(task.id, task.revision);
+      this.repo.assertCurrent(task.id, task.revision, false);
       const projectId = defaults.projectId || (await this.bb.sdk.projects.list({ includePersonal: true })).find(p => p.kind === "personal")?.id;
       if (!projectId) throw new PolicyError("No BB project is available for the chat.");
       const remembered = defaults.providerId && defaults.model ? null : await this.bb.sdk.projects.defaultExecutionOptions({ projectId });
@@ -155,7 +159,8 @@ export class SessionRuntime {
       if (original.startFingerprint !== digest(input)) throw new PolicyError("The launch key has already been used for a different assignment.");
       return this.repo.session(input.requestId);
     }
-    this.repo.assertCurrent(input.taskId, input.revision, !input.continueSessionId);
+    const task = this.repo.assertCurrent(input.taskId, input.revision, !input.continueSessionId && !emptyChat);
+    const closedTaskConversation = emptyChat && !isLiveTask(task.status);
     const discussion = this.discussionSource(input);
     if (this.repo.active().some((s) => s.taskId === input.taskId)) throw new PolicyError("This task already has a worker.");
     if (input.request.input.some((i) => i.type !== "text")) throw new PolicyError("This version requires text input. Reference any necessary files within the selected workspace in the task description.");
@@ -192,12 +197,13 @@ export class SessionRuntime {
       : "The selected worker model is unavailable.");
     const timestamp = new Date().toISOString();
     let session: Session = { id: input.requestId, taskId: input.taskId, baseRevision: input.revision, status: "starting", objective, criteria: input.criteria, mode, finishedAt: null, extraction: null, extractionRepair: null,
+      ...(closedTaskConversation ? { closedTaskConversation: true } : {}),
       continuedFrom: discussion?.session.id ?? null, discussionProposalId: discussion?.proposal?.id ?? null,
       workerThreadId: null, reviewerThreadId: null, environmentId: null, hostId: null, workerProvider: input.request.providerId, workerModel: input.request.model,
       reviewerProvider, reviewerModel, reviewerReasoning: input.request.reasoningLevel, round: 0, maximumRepairs: options.maximumRepairs, createdAt: timestamp, updatedAt: timestamp,
       deadlineAt: Date.now() + options.sessionMinutes * 60000, error: null, result: null, artifacts: [], review: null, proposalId: null };
     this.repo.store.transaction(() => {
-      this.repo.assertCurrent(input.taskId, input.revision, !input.continueSessionId);
+      this.repo.assertCurrent(input.taskId, input.revision, !input.continueSessionId && !closedTaskConversation);
       const latest = this.discussionSource(input);
       if (latest?.proposal?.id !== discussion?.proposal?.id || latest?.proposal?.status !== discussion?.proposal?.status) throw new PolicyError("The review changed. Refresh the dossier before discussing it.");
       if (this.repo.active().some((s) => s.taskId === input.taskId)) throw new PolicyError("This task already has a worker.");
@@ -451,7 +457,7 @@ export class SessionRuntime {
     if (this.repo.sessions(session.taskId).some((s) => s.continuedFrom === session.id && s.proposalId)) throw new PolicyError("This review was revised in a later session. Retry or discuss the latest review to preserve the corrections.");
     if (this.repo.active().some((s) => s.taskId === session.taskId)) throw new PolicyError("Finish this task's other open session first.");
     const task = this.repo.kernel.getTask(session.taskId);
-    this.repo.assertCurrent(task.id, task.revision, !session.continuedFrom);
+    this.repo.assertCurrent(task.id, task.revision, this.requiresOpenTask(session));
     this.processing.add(id);
     try {
       if (recorder === "auto" && session.status === "blocked" && !session.proposalId && await this.recoverExtraction(session)) return this.repo.session(id);
@@ -526,7 +532,7 @@ export class SessionRuntime {
       }
       const current = this.repo.session(session.id);
       if (this.disposed || current.status !== "blocked" || current.updatedAt !== session.updatedAt) throw new PolicyError("The session changed during revalidation.");
-      this.repo.assertCurrent(session.taskId, session.baseRevision, !session.continuedFrom);
+      this.repo.assertCurrent(session.taskId, session.baseRevision, this.requiresOpenTask(session));
       if (this.repo.active().some((s) => s.taskId === session.taskId)) throw new PolicyError("Finish this task's other open session first.");
       this.repo.store.transaction(() => {
         const recovered = this.repo.saveSession({ ...current, status: "reviewing", round: current.round + 1, reviewerThreadId: candidate.threadId,
@@ -592,7 +598,7 @@ export class SessionRuntime {
       if (!transcript) throw new PolicyError("Saved conversation not found.");
       this.current(session.id);
       const dossier = this.repo.detail(session.taskId);
-      this.repo.assertCurrent(session.taskId, session.baseRevision, !session.continuedFrom);
+      this.repo.assertCurrent(session.taskId, session.baseRevision, this.requiresOpenTask(session));
       let extraction: Extraction;
       let proposalInput: ReturnType<typeof extractionProposal>;
       try {
@@ -616,7 +622,7 @@ export class SessionRuntime {
     const options = await this.settings();
     const { selectionReason, ...selection } = await this.chooseRecorder({ ...session, status: "blocked" }, "auto", options);
     this.current(session.id);
-    this.repo.assertCurrent(session.taskId, session.baseRevision, !session.continuedFrom);
+    this.repo.assertCurrent(session.taskId, session.baseRevision, this.requiresOpenTask(session));
     const feedback = error.message.slice(0, 4000);
     // Reuse the frozen transcript and the existing deadline. A fresh round
     // avoids duplicate dispatch and retains every failed response in history.
@@ -645,7 +651,7 @@ export class SessionRuntime {
     if (!session.reportedTimeContext) session = this.repo.saveSession({ ...session, reportedTimeContext: this.repo.sessionTime.capture(session) });
     const env = await this.bindEnvironment(session);
     const dossier = this.repo.detail(session.taskId);
-    this.repo.assertCurrent(dossier.task.id, dossier.task.revision, !session.continuedFrom);
+    this.repo.assertCurrent(dossier.task.id, dossier.task.revision, this.requiresOpenTask(session));
     const route = await this.threadRouting.review(env.hostId!);
     this.current(session.id);
     session = this.repo.saveSession({ ...this.repo.session(session.id), status: "review_starting", baseRevision: dossier.task.revision });

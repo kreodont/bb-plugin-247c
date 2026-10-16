@@ -36,6 +36,18 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Direct chat shortcuts after approval in 0.5.86
+
+Each recently accepted task now has both **Open task** and **Open chat** actions.
+Open chat returns to an existing work conversation or creates an empty one using
+the saved defaults, then navigates directly to it. Duplicate clicks and uncertain
+responses reuse the same launch request.
+
+A user can also open a fresh conversation on a completed or archived task without
+changing its status. The chat and its subsequent review preserve that status;
+reopening the task still requires an explicit decision. No schema migration is
+needed, and existing work sessions keep their previous status checks.
+
 ## Accepted task shortcuts in 0.5.85
 
 The Proposals page keeps an **Accepted recently** list after approval, with a

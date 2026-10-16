@@ -50,6 +50,39 @@ it("keeps the task instructions and idempotent launch through reload and setting
   await expect(f.harness.behavior.callRpc("openChat", { taskId: another.id, requestId })).rejects.toThrow("different session");
 });
 
+it.each(["done", "archived"] as const)("opens and reviews a fresh conversation on a %s task without reopening it", async status => {
+  const { f, task, open } = await setup();
+  f.repo.status(task.id, status, task.revision);
+  const before = f.repo.kernel.getTask(task.id);
+  await expect(f.harness.behavior.callRpc("start", { ...f.startInput(task.id, before.revision), criteria: [] })).rejects.toThrow("closed");
+  let session = await open();
+  expect(session).toMatchObject({ closedTaskConversation: true, continuedFrom: null, status: "working" });
+  expect(f.repo.kernel.getTask(task.id)).toEqual(before);
+  await f.reload();
+  f.harness.inspection.sdk.stub("projects.get", () => ({ id: "proj_tasks", kind: "standard", sources: [{ type: "local_path", hostId: "host_test", path: "/work", isDefault: true }] }));
+  expect((await open()).id).toBe(session.id);
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
+  expect(f.threads.size).toBe(1);
+  // BB prepares the pending empty thread's environment on the first user turn.
+  const thread = { ...f.threads.get(session.workerThreadId!)!, environmentId: "env_test" };
+  f.threads.set(thread.id, thread);
+  expect(await f.harness.inspection.registrations.hooks["message.dispatch"]!(makeMessageDispatchHookContext({ thread, input: { blocks: [{ type: "text", text: "Explain the result", mentions: [] }] } }))).toEqual({ action: "proceed" });
+  f.message(thread.id, "user", "Explain the result without reopening the task.");
+  await f.idle(thread.id, "The saved report has been explained.");
+  await f.harness.behavior.callRpc("finish", { sessionId: session.id });
+  session = f.repo.session(session.id);
+  expect(session.error).toBeNull();
+  expect(session.status).toBe("reviewing");
+  const source = f.repo.transcript(session.id)!.messages.find(m => m.text === "The saved report has been explained.")!;
+  await f.idle(session.reviewerThreadId!, { rationale: "Record the explanation", facts: [{ kind: "progress", text: source.text, citations: [{ messageRef: source.ref, quote: source.text }] }], changes: null, knowledge: [] });
+  session = f.repo.session(session.id);
+  expect(session.error).toBeNull();
+  expect(session.status).toBe("awaiting_approval");
+  await f.harness.behavior.callRpc("accept", { proposalId: session.proposalId!, revision: session.baseRevision });
+  expect(f.repo.kernel.getTask(task.id).status).toBe(status);
+  expect(f.repo.session(session.id).status).toBe("applied");
+});
+
 it("uses remembered project execution choices when no local work model is configured", async () => {
   const { f, open } = await setup();
   await f.harness.behavior.setSettings({ composerDefaults: "{}" });
