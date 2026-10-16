@@ -1,3 +1,4 @@
+import { createFileEditorHandlers } from "./file-editor/server.js";
 import { reviewFailures } from "./review-failures.js";
 import { reviewActivity } from "./review-activity.js";
 import { migrateTaskStatuses } from "./task-status-migration.js";
@@ -37,7 +38,7 @@ import { AgentTimeRuntime, DAY_REVIEW_INSTRUCTIONS } from "./agent-time.js";
 import { hourlyUpdateSlot, quickSourceUpdate, scheduledSourceUpdate, UPDATE_CRON, UPDATE_SCHEDULE } from "./source-schedule.js";
 
 export { rpcContract } from "./contracts.js";
-export const DESCRIPTION = "Durable task dossiers, work conversations and a shared knowledge base.";
+export const DESCRIPTION = "Durable task dossiers, work conversations, a shared knowledge base and a built-in file editor.";
 
 function sleep(ms: number, signal: AbortSignal) {
   return new Promise<void>((resolve) => {
@@ -92,6 +93,7 @@ export default async function plugin(bb: BbPluginApi) {
   days.tick();
 
   bb.rpc.register(rpcContract, {
+    ...createFileEditorHandlers(bb),
     pinnedFiles: () => pinnedFiles.list(),
     pinnedFileTarget: async ({ id, threadId }) => {
       const file = pinnedFiles.list().files.find(file => file.id === id);

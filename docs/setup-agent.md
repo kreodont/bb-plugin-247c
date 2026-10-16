@@ -268,3 +268,13 @@ priority. Source updates and conversation reviews propose customer changes in
 the ordinary review inbox. Use explicit source fields or user instructions,
 preserve manual choices, and leave unknown customers unspecified. Existing tasks
 retain their data with an empty customer until edited or a proposal is accepted.
+
+## File editor
+
+The editor ships with 247C, including its syntax grammars and worker assets.
+Do not install a separate editor plugin. On an upgraded machine that already
+has `file-editor-save`, save open edits, update 247C, verify a synthetic text
+file opens and saves with **247C File Editor**, then disable the old plugin.
+If a client pinned the old opener, select **247C File Editor** in its file-opener
+preference. **Show in folder** opens the file manager on the file’s host and
+requires a desktop session there. Pinned paths remain installation-specific.

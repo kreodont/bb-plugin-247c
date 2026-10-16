@@ -1,6 +1,6 @@
 # Third-party notices
 
-The BB interface adapters and components adapted from get-bb/bb retain the following license. Package dependencies retain their respective licenses. This notice does not grant an additional license for the independently authored 247C code.
+The BB interface adapters, components and bundled file editor adapted from get-bb/bb retain the following license. Package dependencies retain their respective licenses. This notice does not grant an additional license for the independently authored 247C code.
 
 MIT License
 
@@ -23,3 +23,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+The Monaco Editor distribution is copyright Microsoft Corporation and licensed
+under MIT. Its license is shipped with the generated assets at
+`dist/monaco/LICENSE.txt`.

@@ -1,6 +1,6 @@
 {
   "name": "bb-plugin-247c",
-  "version": "0.5.82",
+  "version": "0.5.83",
   "type": "module",
   "engines": {
     "bb": ">=0.43.4",
@@ -8,13 +8,14 @@
   },
   "bb": {
     "name": "247C",
-    "description": "Durable task dossiers, work conversations and a shared knowledge base.",
+    "description": "Durable task dossiers, work conversations, a shared knowledge base and a built-in file editor.",
     "branding": {
       "icon": "Target"
     },
     "server": "./server.ts",
     "app": "./app.tsx",
-    "skills": []
+    "skills": [],
+    "host": "./file-editor/host.ts"
   },
   "dependencies": {
     "@hugeicons/core-free-icons": "^4.1.3",
@@ -56,7 +57,9 @@
     "tailwind-merge": "^3.4.0",
     "typescript": "^5.7.0",
     "vaul": "^1.1.2",
-    "vitest": "^5.0.0"
+    "vitest": "^5.0.0",
+    "monaco-editor": "0.56.0",
+    "esbuild": "^0.28.0"
   },
   "allowScripts": {
     "better-sqlite3@12.11.1": true
@@ -64,7 +67,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "build": "bb plugin build"
+    "build": "node scripts/build.mjs"
   },
   "repository": {
     "type": "git",

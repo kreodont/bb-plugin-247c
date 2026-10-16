@@ -233,8 +233,11 @@ describe("Bounded work and independent review", () => {
 });
 
 it("uses only public BB APIs", async () => {
-  const result = await experimental_scanPublicSdkOnly(import.meta.dirname, { allow: [/^@modelcontextprotocol\/sdk\//, /^@get-bb\/plugin-sdk\/testing$/, /^@hugeicons\//, /^@radix-ui\//, /^@testing-library\//, /^vitest$/, /^react(?:-dom)?(?:\/|$)/, /^sonner$/, /^better-sqlite3$/, /^class-variance-authority$/, /^clsx$/, /^tailwind-merge$/, /^cron-parser$/] });
-  expect(result.violations).toEqual([]);
+  const result = await experimental_scanPublicSdkOnly(import.meta.dirname, { allow: [/^@modelcontextprotocol\/sdk\//, /^@get-bb\/plugin-sdk\/testing$/, /^@hugeicons\//, /^@radix-ui\//, /^@testing-library\//, /^vitest$/, /^react(?:-dom)?(?:\/|$)/, /^sonner$/, /^better-sqlite3$/, /^class-variance-authority$/, /^clsx$/, /^tailwind-merge$/, /^cron-parser$/, /^monaco-editor(?:\/|$)/, /^esbuild$/] });
+  // The only computed import loads our shipped Monaco bundle through a BB preview lease.
+  const assetImport = { file: "file-editor/lib/monaco-loader.ts", reason: "dynamic-specifier", specifier: "/* @vite-ignore */ `${baseUrl}/editor.js`" };
+  expect(result.violations.filter(item => !(item.file === assetImport.file && item.reason === assetImport.reason && item.specifier === assetImport.specifier))).toEqual([]);
+  expect(result.violations.filter(item => item.reason === "dynamic-specifier")).toEqual([assetImport]);
   expect(result.privateDependencies).toEqual([]);
 });
 

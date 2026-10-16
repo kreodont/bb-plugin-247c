@@ -1,3 +1,18 @@
+## Built-in file editor in 0.5.83
+
+247C now ships the file editor and its lazy Monaco assets. Every new or updated
+installation can edit text files without the separate `file-editor-save`
+plugin. Save, auto-save, keyboard commands, syntax highlighting and guarded
+conflict handling are preserved.
+
+**Show in folder** opens the current file location on its actual machine in
+Finder, Explorer (including WSL), or a Linux file manager. It does not save or
+discard pending edits. A desktop session is required on that machine.
+
+Save open edits before updating and disable an existing standalone editor
+after verification. No database migrations or changes to source connections,
+settings, pinned paths or task data are required.
+
 # Release and recovery checks
 
 The production installation should use

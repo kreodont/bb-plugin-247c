@@ -10,8 +10,6 @@ When the entire task is complete, the review proposes completing it together wit
 
 Closing a task automatically archives its finished work and review chats in Threads. Conversations remain accessible from task history.
 
-Supports Codex, personal Claude and corporate Claude. Legacy sessions with acceptance criteria remain compatible.
-
 The knowledge base also accepts existing Markdown reference documents: full text, search, source-file links and updates by reimport without duplicates.
 
 Reviews can propose title, status, urgency and importance alongside other dossier fields. Each change is displayed separately with its evidence and requires acceptance. **Discuss review** starts a linked conversation with the earlier transcript and proposal; a new review includes later corrections.
@@ -22,7 +20,7 @@ Reviews can propose title, status, urgency and importance alongside other dossie
 
 **Source** in the thread header opens the task's primary message, issue or document. Set a source when creating a task, or choose **Make primary** beside an accepted source in its dossier. Source proposals select an original source when accepted; existing tasks also get the shortcut from their saved sources.
 
-Each computer has a separate database. Accounts and sources are configured locally. The backup utility captures a consistent SQLite snapshot, code, settings and related chat text. Recovery verifies checksums and writes a new directory. Requires Python 3.11 or newer.
+Each computer has a separate database. Accounts and sources are configured locally. The Python 3.11+ backup utility captures SQLite, code, settings and related chat text; recovery verifies checksums.
 
 Local collectors can feed Teams, Outlook and ClickUp findings into the same
 **Proposals** inbox, with quotes verified against their saved receipts. A local
@@ -31,4 +29,4 @@ configured automation. Each integration is optional and uses the installation's
 own accounts, scripts and schedule. A private settings patch reapplies project,
 model and integration preferences after plugin updates.
 
-**Pinned files** opens local shortcuts from any thread in BB’s file panel. Enable File Editor for editing. The local list survives updates; 247C does not read target contents or include them in its backups.
+**Pinned files** opens local shortcuts from any thread in BB’s file panel. 247C includes a file editor with syntax highlighting, Save, auto-save and conflict protection. **Show in folder** opens the file location on its machine. No separate editor plugin is required. The local list survives updates; 247C does not read target contents or include them in its backups.

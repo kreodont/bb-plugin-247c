@@ -258,3 +258,22 @@ Check that both `dist/server.meta.json` and `dist/app.meta.json` report
 before tagging the release. Keep runtime data and verification logs outside Git.
 
 Finishing a conversation can include an optional, evidence-backed reported-time estimate in its normal proposal. Each time part is reviewed independently and is applied only on acceptance. See [Session reported time](docs/session-reported-time.md).
+
+## Built-in file editor
+
+247C includes the file editor on every installation. Open a supported text file
+from a chat, workspace or pinned shortcut to edit it in BB. Auto-save is on by
+default; Save and Command/Ctrl+S are also available. Conflicting disk changes
+require Reload or an explicit Overwrite. **Show in folder** opens Finder, Windows
+Explorer (including WSL) or the Linux file manager on the file’s machine; that
+machine needs an active desktop session. Linux falls back to opening the parent
+folder when file selection is unavailable.
+
+Update 247C normally on each computer. If the separate `file-editor-save` plugin
+is installed, save open edits and disable it after updating. A client with an
+explicit file-opener preference can select **247C File Editor**. Files and pinned
+shortcuts remain on their original machines; installation does not sync them.
+
+Developers: run `npm ci --include=dev` and `npm run build`. The build packages the
+lazy Monaco editor and its worker into `dist/monaco`; installations use those
+shipped assets and do not need a separate editor or a build toolchain.

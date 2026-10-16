@@ -1,3 +1,4 @@
+import { editorRpcContract } from "./file-editor/contracts.js";
 import { reviewFailuresSchema } from "./review-failures-contracts.js";
 import { taskStatuses } from "./task-status.js";
 import { uxRpcContract } from "./ux-contracts.js";
@@ -246,6 +247,7 @@ export const syncStartSchema = z.object({ requestId: z.uuid(), since: z.iso.date
 export const syncImportSchema = z.object({ requestId: z.uuid(), path: z.string().min(1).max(4096), sha256: z.string().regex(/^[a-f0-9]{64}$/) }).strict();
 export const syncStateSchema = z.object({ runs: z.array(syncRunSchema), candidates: z.array(syncCandidateSchema), pending: z.number(), checkpoints: z.record(sourceKeySchema, z.string().nullable()), nextSince: z.record(sourceKeySchema, z.string()) });
 export const rpcContract = defineRpcContract({
+  ...editorRpcContract,
   ...pinnedFilesRpcContract,
   reviewFailures: { input: z.object({}).strict(), output: reviewFailuresSchema },
   ...uxRpcContract,

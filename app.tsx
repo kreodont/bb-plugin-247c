@@ -1,3 +1,4 @@
+import { registerFileEditor } from "./file-editor/app.js";
 import { ChatIndicator } from "./chat-indicator.js";
 import { createReviewActivityIndicator, ReviewActivityIcon, REVIEW_ACTIVITY_ICON } from "./review-activity-ui.js";
 import { useReviewFailures, ReviewFailureBadge, ReviewFailureNotification, ReviewFailuresPage } from "./review-failures-ui.js";
@@ -988,6 +989,7 @@ function SidebarCount() {
   </span>;
 }
 export default definePluginApp((app) => {
+  registerFileEditor(app);
   const reviewActivity = createReviewActivityIndicator();
   app.experimental_icons.register({ name: REVIEW_ACTIVITY_ICON, component: ReviewActivityIcon });
   app.contentScripts.register({ id: "review-activity", mount: reviewActivity.mount });
