@@ -254,6 +254,16 @@ it("reviews new tasks and existing task updates together and accepts the selecte
   expect(f.repo.list().total).toBe(2); expect(f.repo.pendingTotal()).toBe(0);
   expect(slot.inspection.rpcCalls.filter(c => c.method === "acceptInbox")).toHaveLength(1);
   expect(slot.inspection.navigateCalls).toHaveLength(0);
+  const accepted = within(await slot.findByRole("region", { name: "Recently accepted tasks" }));
+  expect(accepted.getAllByRole("listitem")).toHaveLength(2);
+  fireEvent.click(accepted.getByRole("button", { name: `Open task: ${task.title}` }));
+  expect(slot.inspection.navigateCalls).toEqual([{ method: "toPluginPanel", path: "desk", options: { subPath: task.id } }]);
+  slot.lifecycle.unmount();
+  const returned = await setup("proposals", f);
+  const retained = within(await returned.slot.findByRole("region", { name: "Recently accepted tasks" }));
+  expect(retained.getAllByRole("listitem")).toHaveLength(2);
+  expect(retained.getByRole("button", { name: `Open task: ${fresh.title}` })).toBeTruthy();
+  expect(returned.slot.inspection.rpcCalls.filter(c => c.method === "acceptInbox")).toHaveLength(0);
 });
 
 it("preserves unchecked proposals across refreshes and filters and accepts only the visible selection", async () => {
@@ -1179,6 +1189,9 @@ it("honors individual part choices in bulk acceptance, including after collapse 
   expect(f.repo.detail(task.id).projection.nextStep).toBeNull();
   const remaining = new SourceSyncStore(f.repo).pendingCandidates();
   expect(remaining).toHaveLength(1); expect(Object.keys(remaining[0].changes)).toEqual(["nextStep"]);
+  const accepted = within(await slot.findByRole("region", { name: "Recently accepted tasks" }));
+  expect(accepted.getAllByRole("listitem")).toHaveLength(1);
+  expect(accepted.getByRole("button", { name: `Open task: ${task.title}` })).toBeTruthy();
 });
 
 it("uses the installation's work model defaults instead of assuming a corporate account", async () => {

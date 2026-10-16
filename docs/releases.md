@@ -36,6 +36,18 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Accepted task shortcuts in 0.5.85
+
+The Proposals page keeps an **Accepted recently** list after approval, with a
+direct **Open task** action on each row. It shows up to 50 distinct tasks
+accepted in the last 24 hours, newest first, using their current titles and
+statuses. Repeated approvals of one task share a single row.
+
+The list comes from existing application receipts, so it survives page reloads,
+navigation and BB restarts. Bulk, individual and partial approvals are included;
+rejected, pending and failed proposals are excluded. No database or settings
+migration is needed.
+
 ## Visible script analysis conversations in 0.5.84
 
 External source updaters can launch their existing saved-batch analysis in a

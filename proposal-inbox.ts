@@ -47,7 +47,18 @@ export class ProposalInbox {
       items.push(item); bytes += size;
     }
     const total = this.repo.pendingTotal();
-    return { items, total, nextOffset: offset + items.length < total ? offset + items.length : null };
+    return { items, total, nextOffset: offset + items.length < total ? offset + items.length : null, recentlyAccepted: this.recentlyAccepted() };
+  }
+  recentlyAccepted() {
+    // Every successful acceptance, including source imports and partial reviews,
+    // has a receipt. Read those receipts so links survive refreshes and restarts
+    // without storing another copy of the task or treating failed reviews as saved.
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    return this.repo.db.prepare(`SELECT t.id,t.title,t.status,MAX(r.created_at) AS acceptedAt
+      FROM application_receipts r JOIN tasks t ON t.id=r.task_id
+      WHERE r.created_at>=? GROUP BY t.id ORDER BY acceptedAt DESC,t.id LIMIT 50`).all(since) as {
+        id: string; title: string; status: "open" | "waiting" | "done" | "archived"; acceptedAt: string;
+      }[];
   }
   async accept(items: ReviewSelection[]) {
     // A task revision can be approved once. Never arbitrarily pick the first of

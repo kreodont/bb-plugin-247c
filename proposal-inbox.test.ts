@@ -1,4 +1,4 @@
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { fixture } from "./test-support.js";
 import { sourceData, startSourceSync, submitSourceData } from "./source-sync-test-support.js";
@@ -6,7 +6,7 @@ import { rpcContract, type ReviewItem, type ReviewSelection } from "./contracts.
 import { SourceSyncStore } from "./source-sync.js";
 
 const hosts: Awaited<ReturnType<typeof fixture>>[] = [];
-afterEach(async () => { for (const f of hosts.splice(0)) await f.harness.lifecycle.dispose(); });
+afterEach(async () => { for (const f of hosts.splice(0)) await f.harness.lifecycle.dispose(); vi.useRealTimers(); });
 async function setup() { const f = await fixture(); hosts.push(f); return f; }
 const selection = (item: ReviewItem): ReviewSelection => ({ kind: item.kind, id: item.kind === "source" ? item.candidate.id : item.proposal.id, revision: item.kind === "source" ? item.candidate.baseRevision : item.proposal.baseRevision });
 async function inbox(f: Awaited<ReturnType<typeof fixture>>, offset = 0) { return rpcContract.proposalInbox.output.parse(await f.harness.behavior.callRpc("proposalInbox", { offset })); }
@@ -21,6 +21,7 @@ it("lists all proposal types, including new tasks with no existing dossier, with
   await submitSourceData(f, run, input);
   const before = f.repo.kernel.getDossier(task.id);
   const page = await inbox(f);
+  expect(page.recentlyAccepted).toEqual([]);
   expect(page.total).toBe(2); expect(page.items.map(i => i.kind).sort()).toEqual(["proposal", "source"]);
   expect(page.items.find(i => i.kind === "source")).toMatchObject({ candidate: { taskId: null }, currentTask: null, blockedReason: null });
   expect(f.repo.list().pendingTotal).toBe(2); expect(f.repo.list().tasks[0].pendingCount).toBe(1);
@@ -38,6 +39,10 @@ it("accepts new tasks and dossier changes through their existing receipt paths a
   const receipt = f.repo.kernel.getApplicationReceipt(proposal.id);
   await f.harness.behavior.callRpc("acceptInbox", { items });
   expect(f.repo.list().total).toBe(2); expect(f.repo.kernel.getApplicationReceipt(proposal.id)).toEqual(receipt);
+  const recent = (await inbox(f)).recentlyAccepted;
+  expect(recent.map(t => t.id).sort()).toEqual(result.applied.map(i => i.taskId).sort());
+  await f.reload();
+  expect((await inbox(f)).recentlyAccepted).toEqual(recent);
 });
 
 it("reports a stale proposal while accepting the other selected item without changing the stale task", async () => {
@@ -50,6 +55,57 @@ it("reports a stale proposal while accepting the other selected item without cha
   expect(result.applied).toHaveLength(1); expect(result.failed).toMatchObject([{ id: proposal.id }]);
   expect(f.repo.kernel.getDossier(task.id)).toEqual(before);
   expect((await inbox(f)).items[0].blockedReason).toContain("The dossier changed");
+  expect((await inbox(f)).recentlyAccepted.map(t => t.id)).toEqual([result.applied[0].taskId]);
+});
+
+it("retains partially accepted source and dossier tasks, excludes rejections, and deduplicates later approvals", async () => {
+  const f = await setup(); let task = await f.create();
+  const ref = f.repo.kernel.appendFact({ taskId: task.id, kind: "user_instruction", text: "Rename this task to Reviewed task", source: "human:test" }).id;
+  task = f.repo.kernel.getTask(task.id);
+  const proposal = f.repo.propose({ taskId: task.id, revision: task.revision, requestId: randomUUID(), draft: {
+    rationale: "Update the title and context", confidence: 1, changes: {
+      title: { value: "Reviewed task", evidenceRefs: [ref] }, summary: { value: "Updated context", evidenceRefs: [ref] },
+    },
+  } }, "test");
+  const { run } = await startSourceSync(f), { input } = await sourceData(f, run);
+  await submitSourceData(f, run, input);
+  const candidate = new SourceSyncStore(f.repo).candidates()[0];
+  await f.harness.behavior.callRpc("reviewParts", { kind: "proposal", id: proposal.id, revision: task.revision, decision: "accept", parts: ["field:title"], requestId: randomUUID() });
+  await f.harness.behavior.callRpc("reviewParts", { kind: "source", id: candidate.id, revision: null, decision: "accept", parts: ["field:summary"], requestId: randomUUID() });
+  const recent = (await inbox(f)).recentlyAccepted;
+  expect(recent).toHaveLength(2);
+  expect(recent.find(t => t.id === task.id)).toMatchObject({ title: "Reviewed task", status: "open" });
+  expect((await inbox(f)).total).toBe(2);
+  const items = (await inbox(f)).items;
+  for (const item of items) {
+    if (item.kind === "source") await f.harness.behavior.callRpc("syncReject", { candidateId: item.candidate.id });
+    else await f.harness.behavior.callRpc("accept", { proposalId: item.proposal.id, revision: item.proposal.baseRevision });
+  }
+  const rejectedTask = await f.create(), rejected = propose(f, rejectedTask.id);
+  f.repo.reject(rejected.id);
+  f.repo.status(task.id, "done", f.repo.kernel.getTask(task.id).revision);
+  const after = (await inbox(f)).recentlyAccepted;
+  expect(after).toHaveLength(2);
+  expect(after.find(t => t.id === task.id)).toMatchObject({ title: "Reviewed task", status: "done" });
+  expect(after.map(t => t.id).sort()).toEqual(recent.map(t => t.id).sort());
+});
+
+it("orders by approval time rather than task edits and expires links after 24 hours", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-10-15T12:00:00Z"));
+  const f = await setup(), first = await f.create(), second = await f.create();
+  const accept = async (taskId: string) => {
+    const proposal = propose(f, taskId);
+    await f.harness.behavior.callRpc("accept", { proposalId: proposal.id, revision: proposal.baseRevision });
+  };
+  await accept(first.id);
+  vi.setSystemTime(new Date("2026-10-15T13:00:00Z"));
+  await accept(second.id);
+  f.repo.status(first.id, "waiting", f.repo.kernel.getTask(first.id).revision);
+  expect((await inbox(f)).recentlyAccepted.map(t => t.id)).toEqual([second.id, first.id]);
+  vi.setSystemTime(new Date("2026-10-16T12:00:00.001Z"));
+  expect((await inbox(f)).recentlyAccepted.map(t => t.id)).toEqual([second.id]);
+  vi.setSystemTime(new Date("2026-10-16T14:00:00Z"));
+  expect((await inbox(f)).recentlyAccepted).toEqual([]);
 });
 
 it("rejects selecting multiple proposals for one task before applying any and preserves exact revision checks", async () => {

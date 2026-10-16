@@ -814,6 +814,7 @@ function ProposalInboxPage() {
   const load = useCallback(() => rpc.call("proposalInbox", { offset }), [rpc, offset]);
   const { data, error, refresh } = useSnapshot(load);
   const items = data?.items ?? [];
+  const recentlyAccepted = data?.recentlyAccepted ?? [];
   const visible = items.filter(item => filter === "all" || reviewGroup(item) === filter);
   const taskCounts = new Map<string, number>();
   for (const item of items) { const id = reviewTask(item); if (id && !item.blockedReason) taskCounts.set(id, (taskCounts.get(id) ?? 0) + 1); }
@@ -863,13 +864,14 @@ function ProposalInboxPage() {
   return <div className="h-full min-h-0 overflow-y-auto"><div className="mx-auto max-w-5xl space-y-5 p-5 md:p-8">
     <Button variant="ghost" size="sm" className="-ml-3" onClick={() => navigate.toPluginPanel("desk", { subPath: "tasks" })}><Icon name="ChevronLeft" /> All tasks</Button>
     <div className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-medium">Proposals{data ? ` · ${data.total}` : ""}</h1><p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">New tasks, updates and session outcomes in one place. Review the changes and accept the ones you need.</p></div><Button variant="outline" onClick={() => navigate.toPluginPanel("desk", { subPath: "updates" })}>Check sources</Button></div>
-    <div className="flex flex-wrap gap-2" aria-label="Proposal types">{([{ id: "all", name: "All" }, { id: "new", name: "New tasks" }, { id: "updates", name: "Task updates" }, { id: "dossier", name: "Dossiers and sessions" }]).map(group => <Button key={group.id} size="sm" variant={filter === group.id ? "default" : "outline"} aria-pressed={filter === group.id} disabled={busy} onClick={() => setFilter(group.id)}>{group.name} · {items.filter(item => group.id === "all" || reviewGroup(item) === group.id).length}</Button>)}</div>
+    {data?.total !== 0 && <><div className="flex flex-wrap gap-2" aria-label="Proposal types">{([{ id: "all", name: "All" }, { id: "new", name: "New tasks" }, { id: "updates", name: "Task updates" }, { id: "dossier", name: "Dossiers and sessions" }]).map(group => <Button key={group.id} size="sm" variant={filter === group.id ? "default" : "outline"} aria-pressed={filter === group.id} disabled={busy} onClick={() => setFilter(group.id)}>{group.name} · {items.filter(item => group.id === "all" || reviewGroup(item) === group.id).length}</Button>)}</div>
     <div className="sticky top-0 z-10 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-background p-3 shadow-sm">
       <label className="flex cursor-pointer items-center gap-2 text-sm"><input data-c247-ux-action="proposal-select-all" type="checkbox" aria-label={data?.nextOffset !== null && data?.nextOffset !== undefined || offset ? "Select all on this page" : "Select all"} checked={allSelected} disabled={busy || !eligible.length} onChange={selectAll} />{data?.nextOffset !== null && data?.nextOffset !== undefined || offset ? "Select all on page" : "Select all"}</label>
       <Button data-c247-ux-action="proposal-expand" size="sm" variant="ghost" disabled={!visible.length} onClick={() => setExpanded(previous => visible.every(item => previous.has(reviewKey(item))) ? new Set() : new Set(visible.map(reviewKey)))}>{visible.length > 0 && visible.every(item => expanded.has(reviewKey(item))) ? "Collapse all" : "Expand all"}</Button>
       <span className="mr-auto text-xs text-muted-foreground">Selected: {picked.length}{picked.some(item => reviewGroup(item) === "new") ? ` · new tasks: ${picked.filter(item => reviewGroup(item) === "new").length}` : ""}</span>
       <Button data-c247-ux-action="proposal-accept" size="sm" disabled={busy || !picked.length} onClick={acceptSelected}><Icon name="Check" />{busy ? "Saving…" : `Accept selected${picked.length ? ` · ${picked.length}` : ""}`}</Button>
     </div>
+    </>}
     {notice && <p role="status" className="rounded-lg bg-primary/5 p-3 text-sm">{notice}</p>}
     <ErrorNotice error={mutationError ?? error} retry={() => void refresh()} />
     {[...taskCounts.values()].some(count => count > 1) && <p className="text-sm text-muted-foreground">Some tasks have multiple proposals. Choose one manually; Select all skips those tasks.</p>}
@@ -895,6 +897,15 @@ function ProposalInboxPage() {
     })}
     {data && !visible.length && <div className="rounded-xl border border-dashed border-border p-10 text-center"><Icon name={incompleteSources ? "AlertCircle" : "CircleCheck"} className="mx-auto mb-3 size-7 text-muted-foreground" /><h2 className="font-medium">{data.total ? "No proposals in this section" : incompleteSources ? "No proposals are ready" : "Everything reviewed"}</h2><p className="mt-2 text-sm text-muted-foreground">{data.total ? "Choose another proposal type or the next page." : incompleteSources ? "Source checks need attention. New work may not have reached this list." : "New proposals will appear after checking sources or finishing sessions."}</p></div>}
     {data && (offset > 0 || data.nextOffset !== null) && <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="outline" disabled={busy || !previousOffsets.length} onClick={() => { setOffset(previousOffsets.at(-1) ?? 0); setPreviousOffsets(previousOffsets.slice(0, -1)); }}>Previous page</Button><span className="text-xs text-muted-foreground">On this page {items.length} of {data.total}. The rest are on the next page.</span><Button variant="outline" disabled={busy || data.nextOffset === null} onClick={() => { if (data.nextOffset !== null) { setPreviousOffsets([...previousOffsets, offset]); setOffset(data.nextOffset); } }}>Next page</Button></div>}
+    {!!recentlyAccepted.length && <section aria-label="Recently accepted tasks" className="overflow-hidden rounded-xl border border-success/30 bg-card">
+      <div className="border-b border-border bg-success/5 p-4"><h2 className="flex items-center gap-2 font-medium"><Icon name="CircleCheck" className="text-success" />Accepted recently · {recentlyAccepted.length}</h2><p className="mt-1 text-sm text-muted-foreground">Tasks changed by approvals in the last 24 hours. Up to 50 tasks, newest first.</p></div>
+      <ul className="divide-y divide-border">{recentlyAccepted.map(task => <li key={task.id}>
+        <button type="button" data-c247-ux-action="task-open" aria-label={`Open task: ${task.title}`} onClick={() => navigate.toPluginPanel("desk", { subPath: task.id })} className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+          <div className="min-w-0 flex-1"><p className="break-words text-sm font-medium">{task.title}</p><p className="mt-1 text-xs text-muted-foreground">{taskStatusNames[task.status]} · Accepted <time dateTime={task.acceptedAt}>{date(task.acceptedAt)}</time></p></div>
+          <span className="flex shrink-0 items-center gap-1 text-sm text-primary">Open task<Icon name="ChevronRight" /></span>
+        </button>
+      </li>)}</ul>
+    </section>}
   </div></div>;
 }
 
