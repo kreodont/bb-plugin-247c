@@ -43,11 +43,17 @@ function HealthDetails({ data }: { data: UpdaterHealthState }) {
 
 export function UpdaterHealthBanner({ showHealthy = false }: { showHealthy?: boolean }) {
   const { data, error } = useUpdaterHealth();
+  const navigate = useBbNavigate();
   if (error) return <div role="alert" className="m-4 rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm">{error}</div>;
   if (!data?.configured || (!data.alert && !showHealthy)) return null;
   return <section role={data.alert ? "alert" : "status"} aria-label="Source updater status" className={`m-4 max-h-48 shrink-0 overflow-auto rounded-lg border p-4 ${data.alert ? "border-destructive/40 bg-destructive/5" : "border-border"}`}>
     <p className={`font-medium ${data.alert ? "text-destructive" : ""}`}>{data.title}</p>
     <HealthDetails data={data} />
+    {showHealthy && Boolean(data.analysisThreads?.length) && <div className="mt-2">
+      <Button size="sm" variant="outline" onClick={() => navigate.toThread(data.analysisThreads![0].threadId)}>Analysis conversation</Button>
+      <span className="ml-2 text-xs">{data.analysisThreads![0].state} · {data.analysisThreads![0].model} · {data.analysisThreads![0].reasoningLevel}</span>
+      <details className="mt-2 text-xs"><summary>Analysis history · {data.analysisThreads!.length}</summary>{data.analysisThreads!.map(thread => <div key={thread.threadId} className="mt-1"><Button size="sm" variant="ghost" onClick={() => navigate.toThread(thread.threadId)}>{thread.title}</Button> · {thread.state}{thread.error && <p>{thread.error}</p>}</div>)}</details>
+    </div>}
     {(showHealthy || data.pendingRecords > 0) && data.nextRunAt && <p className="mt-2 text-xs text-muted-foreground">Next scheduled run: {timestamp(data.nextRunAt, data.timeZone)}</p>}
   </section>;
 }

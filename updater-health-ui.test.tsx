@@ -128,3 +128,20 @@ it("keeps native quick/custom checks available while showing a native partial-ch
     expect(started).toBe(1);
   } finally { await f.harness.lifecycle.dispose(); }
 });
+
+it("links the latest analysis and history without taking focus when status changes", async () => {
+  const { UpdaterHealthBanner } = await import("./updater-health-ui.js");
+  const state = { ...warning, alert: false, analysisThreads: [
+    { threadId: "thread_latest", title: "247C · Updates · 16 Oct 2026, 11:00:00", state: "analyzing", startedAt: 1, model: "test-model", reasoningLevel: "medium", error: null },
+    { threadId: "thread_previous", title: "247C · Updates · 16 Oct 2026, 10:00:00", state: "imported", startedAt: 0, model: "test-model", reasoningLevel: "medium", error: null },
+  ] };
+  const slot = renderSlot({ component: () => <UpdaterHealthBanner showHealthy /> }, {}, { rpc: { updaterHealth: () => state } }); mounts.push(slot);
+  const latest = await slot.findByRole("button", { name: "Analysis conversation" });
+  await slot.behavior.emitRealtime("updater-health-changed", {});
+  expect(slot.inspection.navigateCalls).toHaveLength(0);
+  fireEvent.click(latest);
+  expect(slot.inspection.navigateCalls).toEqual([{ method: "toThread", threadId: "thread_latest" }]);
+  fireEvent.click(slot.getByText("Analysis history · 2"));
+  fireEvent.click(slot.getByRole("button", { name: state.analysisThreads[1].title }));
+  expect(slot.inspection.navigateCalls).toContainEqual({ method: "toThread", threadId: "thread_previous" });
+});

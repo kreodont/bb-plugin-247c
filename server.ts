@@ -1,4 +1,6 @@
 import { createFileEditorHandlers } from "./file-editor/server.js";
+import { ExternalAnalysis } from "./external-analysis.js";
+import { scriptAnalysisResultSchema } from "./contracts.js";
 import { reviewFailures } from "./review-failures.js";
 import { reviewActivity } from "./review-activity.js";
 import { migrateTaskStatuses } from "./task-status-migration.js";
@@ -70,6 +72,8 @@ export default async function plugin(bb: BbPluginApi) {
   knowledge = new KnowledgeSearch(repo, () => configuration, message => bb.log.warn(message));
   const getSettings = async (): Promise<SettingsView> => settings.get();
   const threadRouting = new ThreadRouting(bb, async () => (await settings.get()).threadProjectId);
+  const externalAnalysis = new ExternalAnalysis(bb, join(dirname(db.name), "script-analysis"), threadRouting, () => configuration);
+  await externalAnalysis.load();
   const runtime = new SessionRuntime(bb, repo, getSettings, threadRouting);
   const days = new DayPlanning(repo, () => new Date(), () => configuration.timeZone, () => configuration.reportMeetingsWhenPlanned);
   const dayPlanner = new DayPlanner(bb, () => settings.get(), () => days.today());
@@ -138,7 +142,10 @@ export default async function plugin(bb: BbPluginApi) {
     proposalInbox: ({ offset }) => inbox.list(offset),
     acceptInbox: async ({ items }) => { const result = await inbox.accept(items); if (result.applied.length) await runtime.archiveFinishedThreads(); return result; },
     updaterStart: (input) => updaterHealth.start(input),
-    updaterHealth: ({ refresh }) => updaterHealth.state(refresh),
+    updaterHealth: async ({ refresh }) => ({ ...await updaterHealth.state(refresh), analysisThreads: externalAnalysis.history() }),
+    scriptAnalysisStart: input => externalAnalysis.start(input),
+    scriptAnalysisStatus: ({ key }) => externalAnalysis.status(key),
+    scriptAnalysisFinish: ({ key, error }) => externalAnalysis.finish(key, error),
     syncState: () => sync.store.state(),
     syncQuickStart: ({ requestId }) => {
       if (configuration.sourceUpdaterProjectId.trim() || configuration.sourceUpdaterAutomationId.trim())
@@ -344,7 +351,10 @@ export default async function plugin(bb: BbPluginApi) {
     parameters: resultSchema,
     execute(input, ctx) { return runtime.submit(ctx.threadId, input).then(boundedJson); },
   });
+  bb.agents.registerTool({ name: "c247_script_analysis_result", description: "Submit the complete saved-source analysis once. The existing updater validates and imports pending proposals; no task changes are applied.", parameters: scriptAnalysisResultSchema, execute: (input, ctx) => externalAnalysis.submit(ctx.threadId, input).then(boundedJson) });
   bb.agents.configure((context) => {
+    const external = externalAnalysis.configure(context);
+    if (external) return external;
     const own = context.origin.pluginId === bb.pluginId;
     const localInstructions = own || context.project.id === configuration.threadProjectId ? configuration.threadInstructions : "";
     const instructions = (base = "") => [base, localInstructions].filter(Boolean).join("\n\n");
@@ -379,6 +389,7 @@ export default async function plugin(bb: BbPluginApi) {
   bb.events.on("thread.created", async ({ thread }) => { await runtime.created(thread); await sync.created(thread); });
   for (const event of ["thread.idle", "thread.failed", "thread.deleted"] as const) {
     bb.events.on(event, async ({ thread }) => {
+      await externalAnalysis.ended(thread.id);
       const session = repo.forThread(thread.id);
       if (session && ACTIVE.has(session.status)) await runtime.tick(session.id);
       const run = sync.store.forThread(thread.id);

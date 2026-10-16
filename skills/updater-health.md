@@ -26,3 +26,25 @@ counts. It does not advance the last collection boundary, hide newer automation
 failures, clear unrelated collection failures, resume a paused automation, or
 make a missed schedule slot successful. Invalid or unreadable configured status
 files report unavailable health. Blank configuration retains history-only monitoring.
+
+## External analysis conversations
+
+An external updater may use `scriptAnalysisStart` with a stable 64-character
+hexadecimal key, its existing provider, model and reasoning level, analysis
+instructions and saved context. Configure `threadProjectId` first. The bridge
+creates one visible thread per key in that project's local folder and returns
+its ID without navigating. Reusing a key requires exactly the same input.
+An uncertain launch is recovered by its private metadata, never blindly retried.
+
+Poll `scriptAnalysisStatus` for the frozen result. The thread submits through
+`c247_script_analysis_result`; only its owning thread can submit, once. Keep
+source validation, event coverage, deduplication and pending-Proposal import in
+the existing updater. After import call `scriptAnalysisFinish` with `error: null`;
+on failure pass a diagnostic error, which stops an active analysis. Saved results
+remain available for import recovery without another model call. Do not call
+start when the updater has no selected records. Retain the updater's run lock,
+schedule, source settings, incremental checkpoints and empty-run skipping.
+
+Updates shows the latest conversation and recent history. Opening a link is an
+explicit user action. Follow-up discussion never changes the submitted result,
+recollects sources or applies proposals. These threads are retained for review.

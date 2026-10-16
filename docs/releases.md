@@ -36,6 +36,20 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Visible script analysis conversations in 0.5.84
+
+External source updaters can launch their existing saved-batch analysis in a
+visible conversation in the configured local 247C project. Updates links the
+latest analysis and its recent history. Threads keep the supplied provider,
+model and reasoning effort, receive a dated title and never open automatically.
+
+Durable launch keys prevent duplicate model runs after retries or lost responses.
+The result is frozen once submitted; the existing script still validates and
+imports it as pending Proposals. The conversation remains available for discussion.
+This adapter does not collect sources, schedule checks, select batches or start
+models for empty checks. Existing integrations opt in explicitly; no settings or
+database migration is required.
+
 ## Distinct chat header actions in 0.5.82
 
 Chat header buttons now use consistent role accents: blue for the task, purple

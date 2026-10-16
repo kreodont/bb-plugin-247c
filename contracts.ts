@@ -246,11 +246,22 @@ export const settingsViewSchema = z.object({ codexReviewer: z.string(), claudeRe
 export const syncStartSchema = z.object({ requestId: z.uuid(), since: z.iso.datetime({ offset: true }).nullable().default(null), request: requestSchema }).strict();
 export const syncImportSchema = z.object({ requestId: z.uuid(), path: z.string().min(1).max(4096), sha256: z.string().regex(/^[a-f0-9]{64}$/) }).strict();
 export const syncStateSchema = z.object({ runs: z.array(syncRunSchema), candidates: z.array(syncCandidateSchema), pending: z.number(), checkpoints: z.record(sourceKeySchema, z.string().nullable()), nextSince: z.record(sourceKeySchema, z.string()) });
+export const scriptAnalysisStartSchema = z.object({
+  key: z.string().regex(/^[a-f0-9]{64}$/), providerId: z.string().min(1), model: z.string().min(1),
+  reasoningLevel: z.enum(["low", "medium", "high", "xhigh", "max", "none", "ultra", "ultracode"]),
+  instructions: z.string().min(1).max(100000), context: z.string().min(1).max(1048576),
+}).strict();
+export const scriptAnalysisResultSchema = z.object({ suggestions: z.array(syncDraftSchema).max(100),
+  skipped: z.array(z.object({ eventId: z.string().min(1), reason: z.string().trim().min(1) }).strict()).max(2000) }).strict();
+
 export const rpcContract = defineRpcContract({
   ...editorRpcContract,
   ...pinnedFilesRpcContract,
   reviewFailures: { input: z.object({}).strict(), output: reviewFailuresSchema },
   ...uxRpcContract,
+  scriptAnalysisStart: { input: scriptAnalysisStartSchema, output: z.object({ threadId: idSchema, state: z.string(), reused: z.boolean() }) },
+  scriptAnalysisStatus: { input: z.object({ key: z.string().regex(/^[a-f0-9]{64}$/) }).strict(), output: z.object({ threadId: idSchema, state: z.string(), error: z.string().nullable(), result: scriptAnalysisResultSchema.nullable() }) },
+  scriptAnalysisFinish: { input: z.object({ key: z.string().regex(/^[a-f0-9]{64}$/), error: z.string().max(2000).nullable() }).strict(), output: z.object({ ok: z.boolean() }) },
   threadProject: { input: z.object({}).strict(), output: z.object({ projectId: idSchema.nullable(), providerId: z.string().nullable().default(null), model: z.string().nullable().default(null), timeZone: z.string().optional(), pendingTotal: z.number().optional(), sidebarPluginLinks: z.boolean().optional(), workProvider: z.string().optional(), workModel: z.string().optional(), syncProvider: z.string().optional(), syncModel: z.string().optional() }) },
   ...dayRpcContract,
   proposalInbox: { input: z.object({ offset: z.number().int().min(0).default(0) }).strict(), output: z.object({ items: z.array(reviewItemSchema), total: z.number(), nextOffset: z.number().nullable() }) },
