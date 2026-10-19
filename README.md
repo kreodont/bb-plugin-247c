@@ -21,6 +21,8 @@ no retention cutoff deletes old exports. See [storage compatibility](docs/releas
 
 Click **247C** in the sidebar to open **Proposals** when any proposals await a decision, or **Tasks** when none remain. The **Tasks** tab and **All tasks** links always open the task list. The proposal count remains a direct shortcut and also works with Enter or Space when focused; the panel options menu remains available to its right.
 
+The task dossier keeps **Open chat** or **New chat** in a sticky action bar, alongside **Review changes** when proposals await a decision and **Open review** while a recorder is running. Chat buttons go directly to the native BB thread. **Work** remains available for session history and advanced controls.
+
 In BB's icon-rail layout, enable **Show plugin links above chats** in 247C settings to restore text shortcuts above the chat list. The shortcuts follow the visible plugin panels and their order in **Customize rail**. The 247C row also shows proposal and task counts, reported time, and review/source warnings. This preference defaults to off and is preserved in the installation's local settings patch.
 
 Tasks with an open chat show a filled speech-bubble icon and a filled **Open chat** button in the list, cards and day plan. Priority colors stay visible. The marker means a chat is open; only a running agent uses the activity pulse.
@@ -92,6 +94,8 @@ Since 0.2.17, export pages are limited to 24 KB including JSON so models receive
 An orange badge beside **247C** in the sidebar counts pending session and source proposals. It appears first, followed by the open task count and today's reported time, so the notification stays visible in BB's narrow sidebar indicator. It updates automatically and disappears at zero. Counts above 9 display `9+`, with the exact number in the tooltip. BB hides extra sidebar indicators on compact screens; the proposal count remains available on the 247C home page.
 
 **247C → Proposals** brings together new tasks, source updates and session outcomes. The count includes proposals that do not yet have a task. Expand all changes, inspect facts and quotes, select individual proposals or all eligible proposals, and accept them together. A new task is created only after acceptance. Bulk acceptance respects the part selection inside each expanded proposal, including after collapsing it. Stale proposals require individual attention; if a task has multiple alternatives, Select all skips it. One failed acceptance does not undo successful ones, and each result is retained.
+
+After fully accepting a session proposal, **Changes accepted** offers **Choose next task**, **Open chat** for the same task and **All proposals**. The accepted details remain expandable below. Partial acceptance keeps remaining changes open for review. **Choose next task** also appears in an empty Proposals inbox; selecting a task opens its existing chat or creates an empty one.
 
 After acceptance, **Accepted recently** keeps **Open task** and **Open chat** shortcuts for the affected tasks on the Proposals page. Open chat returns to the existing conversation or creates an empty one and opens it immediately. Completed and archived tasks keep their status when a new conversation opens. The list shows up to 50 distinct tasks approved in the last 24 hours, including partial approvals, and survives navigation, page reloads and BB restarts.
 

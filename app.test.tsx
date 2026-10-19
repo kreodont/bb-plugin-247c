@@ -78,6 +78,56 @@ it.each(["list", "cards"])("creates an empty native thread directly from the %s 
   localStorage.removeItem("247c-task-layout");
 });
 
+it.each(["open", "done"] as const)("opens a chat directly from the %s task dossier and keeps the task status", async status => {
+  const f = await fixture({ settings: { workProvider: "claude-work", workModel: "claude-opus-5[1m]" } });
+  const task = await f.create();
+  if (status === "done") await f.harness.behavior.callRpc("status", { taskId: task.id, status, revision: task.revision });
+  const { slot } = await setup(task.id, f);
+  const actions = within(await slot.findByRole("region", { name: "Task actions" }));
+  const button = actions.getByRole("button", { name: "New chat" });
+  fireEvent.click(button); fireEvent.click(button);
+  await waitFor(() => expect(slot.inspection.navigateCalls).toHaveLength(1));
+  const session = f.repo.sessions(task.id)[0];
+  expect(slot.inspection.navigateCalls[0]).toEqual({ method: "toThread", threadId: session.workerThreadId });
+  expect(f.repo.kernel.getTask(task.id).status).toBe(status);
+  expect(slot.getByRole("tab", { name: "Dossier" }).getAttribute("aria-selected")).toBe("true");
+  expect(slot.queryByTestId("bb-new-thread-composer")).toBeNull();
+  await slot.behavior.emitRealtime("desk-changed", {});
+  fireEvent.click(await actions.findByRole("button", { name: "Open chat" }));
+  await waitFor(() => expect(slot.inspection.navigateCalls).toHaveLength(2));
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
+});
+
+it("opens an in-progress review from the dossier without starting a competing chat", async () => {
+  const f = await fixture(), task = await f.create();
+  await f.harness.behavior.callRpc("start", { ...f.startInput(task.id, task.revision), criteria: [] });
+  const session = f.repo.sessions(task.id)[0];
+  await f.idle(session.workerThreadId!, "Ready for review.");
+  await f.harness.behavior.callRpc("finish", { sessionId: session.id });
+  const { slot } = await setup(task.id, f);
+  const actions = within(await slot.findByRole("region", { name: "Task actions" }));
+  expect((actions.getByRole("button", { name: "Review in progress" }) as HTMLButtonElement).disabled).toBe(true);
+  const calls = f.harness.inspection.sdk.callsTo("threads.spawn").length;
+  fireEvent.click(actions.getByRole("button", { name: "Open review" }));
+  expect(slot.inspection.navigateCalls).toEqual([{ method: "toThread", threadId: f.repo.session(session.id).reviewerThreadId }]);
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(calls);
+});
+
+it("offers a next-task chooser after the inbox is cleared, without starting work until a task is chosen", async () => {
+  const f = await fixture({ settings: { workProvider: "claude-work", workModel: "claude-opus-5[1m]" } });
+  const task = await f.create();
+  const { slot } = await setup("proposals", f);
+  const rpc = Object.fromEntries(Object.keys(rpcContract).map(name => [name, (input: unknown) => f.harness.behavior.callRpc(name, input)]));
+  const overlay = renderSlot(app.appOverlays.find(s => s.id === "task-switcher")!, {}, { rpc }); mounts.push(overlay);
+  fireEvent.click(await slot.findByRole("button", { name: "Choose next task" }));
+  const list = await within(document.body).findByRole("listbox", { name: "Open tasks" });
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
+  fireEvent.click(await within(list).findByRole("option"));
+  await waitFor(() => expect(overlay.inspection.navigateCalls).toHaveLength(1));
+  expect(overlay.inspection.navigateCalls[0]).toEqual({ method: "toThread", threadId: f.repo.sessions(task.id)[0].workerThreadId });
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
+});
+
 it("retries an uncertain direct-chat response with the same key and opens the existing thread", async () => {
   const f = await fixture(), task = await f.create(); hosts.push(f);
   await f.harness.behavior.setSettings({ workProvider: "claude-work", workModel: "claude-opus-5[1m]" });

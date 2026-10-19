@@ -78,8 +78,12 @@ it("follows the remaining proposal in place after a partial acceptance and retai
   await waitFor(() => expect(within(region).queryByRole("checkbox", { name: "Select part: Summary" })).toBeNull());
   expect(within(region).getByRole("checkbox", { name: "Select part: Record 1: Progress" })).toBeTruthy();
   expect(f.repo.kernel.getProposal(remaining).status).toBe("pending");
+  expect(within(region).queryByRole("region", { name: "Review decision" })).toBeNull();
   await user.click(within(region).getByRole("button", { name: "Accept changes" }));
   await waitFor(() => expect(f.repo.session(session.id).status).toBe("applied"));
+  await within(region).findByRole("heading", { name: "Changes accepted" });
+  expect((within(region).getByText("Accepted changes").parentElement as HTMLDetailsElement).open).toBe(false);
+  await user.click(within(region).getByText("Accepted changes"));
   await within(region).findByText("Accepted");
   expect(within(region).queryByRole("button", { name: "Accept changes" })).toBeNull();
   expect(f.repo.kernel.getProposal(original).status).toBe("rejected");
@@ -109,8 +113,35 @@ it("opens a historical session beyond recent list limits with its records and re
   expect(detail.proposals.find(p => p.id === id)?.receipt).not.toBeNull();
   expect(detail.sessionUpdates.find(u => u.proposalId === id)).toEqual(update);
   const p = page(), region = within(await within(p.container).findByRole("region", { name: "Session proposal" }));
+  fireEvent.click(region.getByText("Accepted changes"));
   expect(region.getByText("Accepted")).toBeTruthy();
   expect(region.getByText("Dossier records · 1")).toBeTruthy();
   const other = await f.create();
   await expect(f.harness.behavior.callRpc("detail", { id: other.id, sessionId: session.id })).rejects.toThrow(/different task/);
+});
+
+it("keeps acceptance on screen and opens the next task chat only after a choice", async () => {
+  const { f, task, session, page, finish } = await setup();
+  const other = await f.create("Next task context");
+  const next = sessionSchema.parse(await f.harness.behavior.callRpc("start", { ...f.startInput(other.id, other.revision), criteria: [] }));
+  await finish();
+  const rpc = Object.fromEntries(Object.keys(rpcContract).map(name => [name, (input: unknown) => f.harness.behavior.callRpc(name, input)]));
+  const overlay = renderSlot(app.appOverlays.find(s => s.id === "task-switcher")!, {}, { rpc }); mounts.push(overlay);
+  const p = page(), user = userEvent.setup();
+  const region = within(await within(p.container).findByRole("region", { name: "Session proposal" }));
+  const calls = f.harness.inspection.sdk.callsTo("threads.spawn").length;
+  await user.click(region.getByRole("button", { name: "Accept changes" }));
+  const decision = within(await region.findByRole("region", { name: "Review decision" }));
+  expect(f.repo.session(session.id).status).toBe("applied");
+  expect(f.repo.detail(task.id).projection.summary).toBe("The configuration is ready.");
+  expect(p.inspection.navigateCalls).toEqual([]);
+  await user.click(decision.getByRole("button", { name: "Choose next task" }));
+  const list = await within(document.body).findByRole("listbox", { name: "Open tasks" });
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(calls);
+  const choices = await within(list).findAllByRole("option");
+  await user.click(choices[0]); // The existing chat is listed before tasks without a chat.
+  await waitFor(() => expect(overlay.inspection.navigateCalls).toEqual([{ method: "toThread", threadId: next.workerThreadId }]));
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(calls);
+  await user.click(decision.getByRole("button", { name: "All proposals" }));
+  expect(p.inspection.navigateCalls).toEqual([{ method: "toPluginPanel", path: "desk", options: { subPath: "proposals" } }]);
 });

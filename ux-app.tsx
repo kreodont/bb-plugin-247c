@@ -9,7 +9,7 @@ export function UxScope({ page, view = "", children, className }: { page: UxPage
   useEffect(() => { uxViewChanged(); return () => { queueMicrotask(uxViewChanged); }; }, [page, view]);
   return <div data-c247-ux-page={page} data-c247-ux-view={view} className={className}>{children}</div>;
 }
-const mutations: Record<string, UxAction> = { dayAdd: "day-add", dayEdit: "day-edit", dayCarry: "day-carry", dayReorder: "day-reorder", dayConfig: "day-config", create: "task-create", classify: "priority", status: "task-status", start: "session-start", finish: "thread-finish", accept: "proposal-accept", syncAccept: "proposal-accept", acceptInbox: "proposal-accept", reviewParts: "proposal-accept", reject: "proposal-reject", syncReject: "proposal-reject", syncQuickStart: "source-check", syncStart: "source-check", updaterStart: "source-check" };
+const mutations: Record<string, UxAction> = { dayAdd: "day-add", dayEdit: "day-edit", dayCarry: "day-carry", dayReorder: "day-reorder", dayConfig: "day-config", create: "task-create", note: "task-note", classify: "priority", status: "task-status", start: "session-start", finish: "thread-finish", accept: "proposal-accept", syncAccept: "proposal-accept", acceptInbox: "proposal-accept", reviewParts: "proposal-accept", reject: "proposal-reject", syncReject: "proposal-reject", syncQuickStart: "source-check", syncStart: "source-check", updaterStart: "source-check" };
 export function useUxRpc(context?: "reported") {
   const rpc = useRpc<typeof rpcContract>();
   return useMemo(() => {

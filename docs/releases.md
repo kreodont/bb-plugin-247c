@@ -36,6 +36,23 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Direct task and review navigation in 0.5.88
+
+Task dossiers now keep **Open chat** or **New chat** in a sticky action bar,
+with shortcuts to an in-progress review and pending changes. Opening a chat
+navigates directly to its native BB thread without visiting the Work tab.
+
+After a session proposal is fully accepted, the page shows a compact saved
+confirmation with **Choose next task**, **Open chat** and **All proposals**.
+Accepted details remain available in an expandable section. Partial acceptance
+keeps the remaining proposal expanded. The cleared Proposals inbox also offers
+**Choose next task**: selection opens the existing conversation or creates an
+empty one using the saved defaults. No task is selected automatically.
+
+Local UX recording now distinguishes task sections, context actions and these
+navigation shortcuts using fixed action names. No task text or identifiers are
+added to recording payloads. No database migration or settings changes are needed.
+
 ## Windows paths for pinned files in 0.5.87
 
 Pinned files now accepts Windows paths when BB runs inside WSL. The plugin
