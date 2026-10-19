@@ -2,6 +2,7 @@ import { afterEach, expect, it } from "vitest";
 import { makePluginAgentConfigurationContext } from "@get-bb/plugin-sdk/testing";
 import { fixture } from "./test-support.js";
 import { startSourceSync } from "./source-sync-test-support.js";
+import { replyVerificationGuide } from "./prompts.js";
 import { SourceSyncStore } from "./source-sync.js";
 
 const hosts: Awaited<ReturnType<typeof fixture>>[] = [];
@@ -36,7 +37,12 @@ it("preserves worker permissions and the recorder JSON contract when adding loca
   const worker = await f.harness.behavior.resolveAgentConfiguration(makePluginAgentConfigurationContext({
     origin: { pluginId: "247c" }, thread: { id: session.workerThreadId! },
   }));
-  expect(worker.instructions).toBe(guidance);
+  expect(worker.instructions).toContain(guidance);
+  expect(worker.instructions).toContain(replyVerificationGuide);
+  const initial = await f.harness.behavior.resolveAgentConfiguration(makePluginAgentConfigurationContext({
+    origin: { pluginId: "247c" }, thread: { id: "before_binding", title: `247C · worker · ${session.id}` },
+  }));
+  expect(initial.instructions).toContain(replyVerificationGuide);
   expect(worker.tools.map(tool => tool.name)).toContain("c247_read");
   expect(worker.tools.map(tool => tool.name)).not.toContain("c247_create");
   const reviewer = await f.harness.behavior.resolveAgentConfiguration(makePluginAgentConfigurationContext({
@@ -60,6 +66,37 @@ it("keeps full analyst restrictions and maximum-length local instructions within
   }));
   expect(config.instructions).toContain("Do not call external connectors, shell, web or agents");
   expect(config.instructions).toContain("c247_sync_submit");
+  expect(config.instructions).not.toContain(replyVerificationGuide);
   expect(config.instructions).toContain(text);
   expect(config.instructions!.length).toBeLessThanOrEqual(4096);
+});
+
+it.each(["codex", "claude-code", "claude-work"])("injects sent-reply verification into existing %s workers after reload, but not reviewers or unrelated threads", async providerId => {
+  const f = await setup(), task = await f.create();
+  const input = f.startInput(task.id, task.revision);
+  await f.harness.behavior.setSettings({ threadProjectId: "" });
+  input.request.providerId = providerId;
+  input.request.model = providerId === "codex" ? "gpt-5.6-sol" : "claude-opus-5[1m]";
+  await f.harness.behavior.callRpc("start", { ...input, criteria: [] });
+  const session = f.repo.sessions(task.id)[0];
+  await f.harness.behavior.setSettings({ threadProjectId: "proj_work" });
+  for (const reload of [false, true]) {
+    if (reload) await f.reload();
+    const worker = await f.harness.behavior.resolveAgentConfiguration(makePluginAgentConfigurationContext({
+      origin: { pluginId: "247c" }, provider: { id: providerId }, thread: { id: session.workerThreadId!, title: "Renamed work chat" },
+    }));
+    expect(worker.instructions).toContain(replyVerificationGuide);
+    expect(worker.instructions).toContain(guidance);
+    expect(worker.tools.map(t => t.name)).not.toContain("c247_propose");
+    const reviewer = await f.harness.behavior.resolveAgentConfiguration(makePluginAgentConfigurationContext({
+      origin: { pluginId: "247c" }, thread: { title: `247C · review 0 · ${session.id}` },
+    }));
+    expect(reviewer.instructions).not.toContain(replyVerificationGuide);
+    expect(reviewer.tools).toEqual([]);
+    const unrelated = await f.harness.behavior.resolveAgentConfiguration(makePluginAgentConfigurationContext({
+      origin: { pluginId: null }, project: { id: "proj_work" },
+    }));
+    expect(unrelated.instructions).toBe(guidance);
+  }
+  expect(f.harness.inspection.sdk.callsTo("threads.send")).toHaveLength(0);
 });

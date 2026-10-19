@@ -2,6 +2,7 @@ import { afterEach, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { makeMessageDispatchHookContext, makePluginAgentConfigurationContext } from "@get-bb/plugin-sdk/testing";
 import { fixture } from "./test-support.js";
+import { replyVerificationGuide } from "./prompts.js";
 import { sessionSchema } from "./contracts.js";
 
 const hosts: Awaited<ReturnType<typeof fixture>>[] = [];
@@ -46,8 +47,23 @@ it("keeps the task instructions and idempotent launch through reload and setting
   expect(config.tools.some(t => t.name === "c247_read")).toBe(true);
   expect(config.instructions!.length).toBeLessThanOrEqual(4096);
   expect(config.instructions).toContain("LOCAL_INSTRUCTIONS_END");
+  expect(config.instructions).toContain(replyVerificationGuide);
   const another = await f.create();
   await expect(f.harness.behavior.callRpc("openChat", { taskId: another.id, requestId })).rejects.toThrow("different session");
+});
+
+it("fits reply verification, dossier guidance and maximum local instructions within BB's configuration limit", async () => {
+  const { f } = await setup();
+  await f.harness.behavior.setSettings({ threadInstructions: "x".repeat(1500) });
+  const task = await f.harness.behavior.callRpc("create", { title: '"'.repeat(200), description: "Context ".repeat(1400), requestId: randomUUID() }) as { id: string };
+  const session = sessionSchema.parse(await f.harness.behavior.callRpc("openChat", { taskId: task.id, requestId: randomUUID() }));
+  const config = await f.harness.behavior.resolveAgentConfiguration(makePluginAgentConfigurationContext({
+    origin: { pluginId: "247c" }, thread: { id: session.workerThreadId! },
+  }));
+  expect(config.instructions).toContain(replyVerificationGuide);
+  expect(config.instructions).toContain("x".repeat(1500));
+  expect(config.instructions).toContain("Follow nextCursor to null");
+  expect(config.instructions!.length).toBeLessThanOrEqual(4096);
 });
 
 it.each(["done", "archived"] as const)("opens and reviews a fresh conversation on a %s task without reopening it", async status => {

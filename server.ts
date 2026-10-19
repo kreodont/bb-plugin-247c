@@ -31,7 +31,7 @@ import { proposalRefreshPreview, refreshProposal } from "./proposal-refresh.js";
 import { ACTIVE, EXTRA_SCHEMA, Repository } from "./repository.js";
 import { SessionRuntime } from "./runtime.js";
 import { ThreadRouting } from "./thread-routing.js";
-import { managementGuide, emptyChatInstructions } from "./prompts.js";
+import { managementGuide, emptyChatInstructions, replyVerificationGuide } from "./prompts.js";
 import { SourceSyncRuntime, SYNC_ACTIVE } from "./source-sync.js";
 import { ProposalInbox } from "./proposal-inbox.js";
 import { DayPlanning } from "./day-planning.js";
@@ -385,7 +385,7 @@ export default async function plugin(bb: BbPluginApi) {
     const emptyChat = worker && session && (repo.sessionRequest(session.id) as { emptyChat?: boolean }).emptyChat;
     const timeTools = ["c247_day", "c247_plan_add", "c247_time_edit", "c247_plan_move", "c247_time_report"];
     return { skills: [], tools: reviewer ? [] : worker ? ["c247_read", "c247_knowledge", ...timeTools, ...(conversation ? [] : ["c247_submit_result"])] : ["c247_tasks", "c247_read", "c247_knowledge", "c247_create", "c247_propose", "c247_sync_status", "c247_sync_start", ...timeTools],
-      ...(reviewer || localInstructions || emptyChat ? { instructions: instructions(reviewer ? "This is a separate 247C recording/review session. Use only the supplied snapshots. Do not invoke tools or delegate. Return the requested JSON." : emptyChat ? emptyChatInstructions(session!, repo.detail(session!.taskId)) : "") } : {}) };
+      ...(reviewer || worker || localInstructions ? { instructions: instructions(reviewer ? "This is a separate 247C recording/review session. Use only the supplied snapshots. Do not invoke tools or delegate. Return the requested JSON." : worker ? [emptyChat ? emptyChatInstructions(session!, repo.detail(session!.taskId)) : "", replyVerificationGuide].filter(Boolean).join("\n\n") : "") } : {}) };
   });
 
   bb.experimental_hooks.on("message.dispatch", (context) => runtime.bootstrapDispatch(context) ?? runtime.dispatch(context.thread.id));

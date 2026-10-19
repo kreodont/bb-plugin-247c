@@ -36,6 +36,22 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Sent-reply verification in 0.5.90
+
+Work agents now receive a shared rule to check the source when a user says they
+replied or sent a message. Checks use targeted read-only access, verify the actual
+message and destination, and compare substantive content with the agreed answer.
+Agents should cite the source and suggest corrections when needed, while keeping
+missing access and unverified delivery explicit. The rule does not authorize
+external sends or edits, and sending a reply does not by itself complete a task.
+
+The rule is injected for empty chats, ordinary conversations and criterion-based
+workers, including resumed sessions. Source analysts and snapshot-only reviewers
+do not receive a conflicting instruction to fetch sources. Recorders preserve the
+distinction between a user's report and the worker's reported source check.
+Empty-chat context stays within BB's instruction limit even with maximum local
+instructions. No database migration or local settings change is required.
+
 ## Unobtrusive UX recording in 0.5.89
 
 Removed the floating recording banner. The collector remains mounted and keeps
