@@ -166,3 +166,52 @@ it("uses native message IDs rather than timeline starts and retains them when sn
   f.repo.saveTranscript(session.id, await readConversation(f.bb, session)); index.syncLocal();
   expect(query("Exactmessagetarget").hits[0].sequence).toBe(1276);
 });
+
+it.each([
+  Object.assign(new Error("Thread unavailable"), { code: "thread_not_found" }),
+  new Error("HTTP 404: Thread not found"),
+  new Error("BbHttpError: HTTP 404: Thread not found"),
+])("retires a missing chat without warnings or retries, preserving saved text and canonical data (%s)", async error => {
+  const { f, index, query, refresh } = await setup(), task = await f.create(), session = await f.start(task.id, task.revision);
+  f.message(session.workerThreadId!, "user", "Retainedconversation");
+  f.repo.saveTranscript(session.id, await readConversation(f.bb, session));
+  const before = { dossier: f.repo.kernel.getDossier(task.id), transcript: f.repo.transcript(session.id) };
+  f.harness.inspection.sdk.stub("threads.timeline", () => { throw error; });
+  await refresh();
+  expect(query("Retainedconversation").total).toBe(1);
+  expect(index.state()).toMatchObject({ threads: 0, indexedThreads: 0, pending: 0, unavailableThreads: 0 });
+  const calls = f.harness.inspection.sdk.callsTo("threads.timeline").length;
+  index.retry(); await refresh();
+  expect(f.harness.inspection.sdk.callsTo("threads.timeline")).toHaveLength(calls);
+  await f.reload();
+  f.harness.inspection.sdk.stub("threads.timeline", () => { throw error; });
+  const reloaded = new TaskSearch(f.repo, f.bb, () => {});
+  reloaded.retry(); await reloaded.refresh(new AbortController().signal);
+  expect(f.harness.inspection.sdk.callsTo("threads.timeline")).toHaveLength(0);
+  expect({ dossier: f.repo.kernel.getDossier(task.id), transcript: f.repo.transcript(session.id) }).toEqual(before);
+  // A host event can rediscover a restored chat without resetting its history.
+  f.harness.inspection.sdk.stub("threads.timeline", () => ({ rows: f.conversations.get(session.workerThreadId!)!, maxSeq: 2, timelinePage: { hasOlderRows: false, olderCursor: null, kind: "latest", returnedSegmentCount: 1, segmentLimit: 100 } }));
+  reloaded.dirtyThread(session.workerThreadId!); await reloaded.refresh(new AbortController().signal);
+  expect(reloaded.state()).toMatchObject({ threads: 1, indexedThreads: 1, unavailableThreads: 0 });
+});
+
+it.each(["HTTP 404: Not found", "HTTP 403: Thread not found", "HTTP 503: Service unavailable", "Request timed out"])("keeps temporary and ambiguous errors visible and retryable (%s)", async message => {
+  const { f, index, refresh } = await setup(), task = await f.create();
+  await f.start(task.id, task.revision);
+  f.harness.inspection.sdk.stub("threads.timeline", () => { throw new Error(message); });
+  await refresh();
+  expect(index.state()).toMatchObject({ threads: 1, unavailableThreads: 1 });
+  const calls = f.harness.inspection.sdk.callsTo("threads.timeline").length;
+  index.retry(); await refresh();
+  expect(f.harness.inspection.sdk.callsTo("threads.timeline")).toHaveLength(calls + 1);
+});
+
+it("removes a formerly indexed chat from coverage totals without deleting its indexed text", async () => {
+  const { f, index, query, refresh } = await setup(), task = await f.create(), session = await f.start(task.id, task.revision);
+  f.message(session.workerThreadId!, "assistant", "Cachedconversation");
+  await refresh(); expect(index.state()).toMatchObject({ threads: 1, indexedThreads: 1 });
+  f.harness.inspection.sdk.stub("threads.timeline", () => { throw new Error("HTTP 404: Thread not found"); });
+  index.dirtyThread(session.workerThreadId!); await refresh();
+  expect(query("Cachedconversation").total).toBe(1);
+  expect(index.state()).toMatchObject({ threads: 0, indexedThreads: 0, pending: 0, unavailableThreads: 0 });
+});

@@ -8,12 +8,13 @@ import { DayPlanning } from "./day-planning.js";
 import { randomUUID } from "node:crypto";
 
 const current = [CORE_SCHEMA, ...EXTRA_SCHEMA];
-it.each(["fresh", "pre-sources", "retired-time", "sources"])("preserves the %s database history across upgrade and reload", async history => {
+it.each(["fresh", "pre-sources", "retired-time", "sources", "search", "search-message-sequence"])("preserves the %s database history across upgrade and reload", async history => {
   const { bb, harness } = createFakePluginHost({ pluginId: "migration-test" });
   const db = bb.storage.database();
   try {
     const previous = history === "fresh" ? [] : history === "pre-sources" ? current.slice(0, 33)
-      : history === "retired-time" ? [...current.slice(0, 33), RETIRED_TIME_MIGRATION] : current.slice(0, 34);
+      : history === "retired-time" ? [...current.slice(0, 33), RETIRED_TIME_MIGRATION]
+        : history === "search" ? current.slice(0, -2) : history === "search-message-sequence" ? current.slice(0, -1) : current.slice(0, 34);
     bb.storage.migrate(db, previous);
     const before = db.prepare("SELECT * FROM _bb_migrations ORDER BY id").all();
     const repo = new Repository(db, () => {}), days = new DayPlanning(repo);

@@ -10,6 +10,15 @@ type Document = { key: string; task: string; kind: SearchHit["kind"]; label: str
 const clean = (value: string) => value.replace(/[\u0000-\u0002]/g, " ");
 const PAGE_SIZE = 30;
 
+function threadNotFound(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const value = error as { code?: unknown; message?: unknown };
+  // Some SDK transports expose the code, others only the HTTP error message.
+  // A generic 404, permission error or network failure is not proof of deletion.
+  return value.code === "thread_not_found" || typeof value.message === "string"
+    && /^(?:BbHttpError: )?HTTP 404: Thread not found$/.test(value.message);
+}
+
 // FTS operators are never accepted from free text. Quotes mean a phrase;
 // identifiers stay exact, while ordinary unquoted words support a prefix.
 export function searchExpression(query: string): string {
@@ -86,21 +95,21 @@ export class TaskSearch {
   }
   dirtyThread(threadId: string) {
     this.discover();
-    this.db.prepare("UPDATE search_threads SET due_at=0 WHERE thread_id=?").run(threadId);
+    this.db.prepare("UPDATE search_threads SET missing=0,due_at=0 WHERE thread_id=?").run(threadId);
   }
   retry() {
     this.discover();
-    this.db.exec("UPDATE search_threads SET due_at=0 WHERE error IS NOT NULL OR complete=0");
+    this.db.exec("UPDATE search_threads SET due_at=0 WHERE missing=0 AND (error IS NOT NULL OR complete=0)");
     return this.state();
   }
   state(): SearchResult["state"] {
     const count = (sql: string) => (this.db.prepare(sql).get() as { n: number }).n;
     return {
       documents: count("SELECT count(*) AS n FROM search_documents"),
-      pending: count("SELECT count(*) AS n FROM search_dirty") + count("SELECT count(*) AS n FROM search_threads WHERE complete=0 AND error IS NULL"),
-      threads: count("SELECT count(*) AS n FROM search_threads"),
-      indexedThreads: count("SELECT count(*) AS n FROM search_threads WHERE complete=1"),
-      unavailableThreads: count("SELECT count(*) AS n FROM search_threads WHERE error IS NOT NULL"),
+      pending: count("SELECT count(*) AS n FROM search_dirty") + count("SELECT count(*) AS n FROM search_threads WHERE missing=0 AND complete=0 AND error IS NULL"),
+      threads: count("SELECT count(*) AS n FROM search_threads WHERE missing=0"),
+      indexedThreads: count("SELECT count(*) AS n FROM search_threads WHERE missing=0 AND complete=1"),
+      unavailableThreads: count("SELECT count(*) AS n FROM search_threads WHERE missing=0 AND error IS NOT NULL"),
       lastIndexedAt: (this.db.prepare("SELECT max(indexed_at) AS at FROM search_threads").get() as { at: string | null }).at,
     };
   }
@@ -130,14 +139,18 @@ export class TaskSearch {
     if (signal.aborted || this.disposed) return;
     const local = this.syncLocal();
     this.discover();
-    const threads = this.db.prepare("SELECT * FROM search_threads WHERE due_at<=? ORDER BY complete,due_at,thread_id LIMIT 8").all(Date.now()) as IndexedThread[];
+    const threads = this.db.prepare("SELECT * FROM search_threads WHERE missing=0 AND due_at<=? ORDER BY complete,due_at,thread_id LIMIT 8").all(Date.now()) as IndexedThread[];
     for (const thread of threads) {
       if (signal.aborted || this.disposed) break;
       try { await this.readPage(thread, signal); }
-      catch {
+      catch (error) {
         if (signal.aborted || this.disposed) break;
+        if (threadNotFound(error)) {
+          this.db.prepare("UPDATE search_threads SET missing=1,error=NULL WHERE thread_id=?").run(thread.thread_id);
+          continue;
+        }
         // Never log message text, RPC payloads, or provider error bodies.
-        this.db.prepare("UPDATE search_threads SET error='Could not read this chat. Saved text remains searchable.',due_at=? WHERE thread_id=?")
+        this.db.prepare("UPDATE search_threads SET error='Could not read this chat.',due_at=? WHERE thread_id=?")
           .run(Date.now() + 5 * 60_000, thread.thread_id);
       }
     }

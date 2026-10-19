@@ -36,6 +36,17 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Missing chats in 0.5.93
+
+Search no longer warns or repeatedly retries when BB explicitly reports that a
+chat does not exist. Missing chats are excluded from coverage totals; accepted
+tasks, dossiers and any indexed or saved conversation text remain intact. A
+future host event can make a restored chat eligible for indexing again.
+
+Temporary failures, permission errors and ambiguous HTTP errors remain visible
+and retryable. An append-only migration records missing chats in the derived
+search index and rechecks previously failed reads once.
+
 ## Message navigation in 0.5.92
 
 Search results now use **Open message** to navigate through BB's thread routing

@@ -42,3 +42,18 @@ it("opens global search from the task filter without putting search text in navi
   expect(slot.inspection.navigateCalls).toContainEqual({ method: "toPluginPanel", path: "desk", options: { subPath: "search" } });
   expect(JSON.stringify(localStorage)).not.toContain("private query");
 });
+
+it("shows temporary failures but removes the warning and retry control for a confirmed missing chat", async () => {
+  const { f, slot } = await setup();
+  const task = await f.create(); await f.start(task.id, task.revision);
+  const index = new TaskSearch(f.repo, f.bb, () => {});
+  f.harness.inspection.sdk.stub("threads.timeline", () => { throw new Error("Request timed out"); });
+  await index.refresh(new AbortController().signal); await slot.behavior.emitRealtime("search-changed", {});
+  expect(await slot.findByText(/1 chat could not be read/)).toBeTruthy();
+  expect(slot.getByRole("button", { name: "Retry indexing" })).toBeTruthy();
+  f.harness.inspection.sdk.stub("threads.timeline", () => { throw new Error("HTTP 404: Thread not found"); });
+  index.retry(); await index.refresh(new AbortController().signal); await slot.behavior.emitRealtime("search-changed", {});
+  await waitFor(() => expect(slot.queryByText(/could not be read/)).toBeNull());
+  expect(slot.queryByRole("button", { name: "Retry indexing" })).toBeNull();
+  expect(slot.getByText(/0\/0 chats checked/)).toBeTruthy();
+});

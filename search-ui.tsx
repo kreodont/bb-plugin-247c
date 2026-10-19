@@ -57,7 +57,7 @@ export function SearchPage({ threadId }: { threadId?: string }) {
     {data && <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground" aria-label="Search index status">
       <span>{data.state.documents.toLocaleString()} indexed records · {data.state.indexedThreads}/{data.state.threads} chats checked</span>
       {data.state.pending > 0 && <span role="status">Indexing continues in the background. More results may appear.</span>}
-      {data.state.unavailableThreads > 0 && <span role="status" className="text-amber-600">{data.state.unavailableThreads} chats could not be read. Saved text remains searchable. <Button variant="ghost" size="sm" onClick={async () => { try { await rpc.call("searchRetry", {}); await refresh(); } catch { setError("Could not retry indexing. Try again."); } }}>Retry indexing</Button></span>}
+      {data.state.unavailableThreads > 0 && <span role="status" className="text-amber-600">{data.state.unavailableThreads} {data.state.unavailableThreads === 1 ? "chat" : "chats"} could not be read. Any saved text remains searchable. <Button variant="ghost" size="sm" onClick={async () => { try { await rpc.call("searchRetry", {}); await refresh(); } catch { setError("Could not retry indexing. Try again."); } }}>Retry indexing</Button></span>}
     </div>}
     {busy && !data && <p role="status" className="text-sm text-muted-foreground">Searching…</p>}
     {data && query.trim() && <p aria-live="polite" className="text-sm text-muted-foreground">{data.total} matches{busy ? " · Updating…" : ""}</p>}

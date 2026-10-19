@@ -198,6 +198,8 @@ Bound BB chats are paged independently of review-size limits. Persistent cursors
 resume interrupted indexing, active chats refresh automatically, and events queue
 finished chats for another read. The page shows indexing progress and unreadable
 chats instead of claiming complete coverage; **Retry indexing** retries failures.
+Chats explicitly reported as missing by BB are excluded from coverage totals and
+do not produce warnings or repeated retries. Temporary read errors remain visible.
 Saved conversation text remains searchable when its original chat is unavailable.
 Review outputs remain discussion history and do not become accepted task fields.
 
