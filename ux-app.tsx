@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useBbContext, useBbNavigate, useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
+import { useBbContext, useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract } from "./contracts.js";
 import { UxCollector, beginUxAction, markUxFeedback, uxViewChanged } from "./ux-client.js";
 import type { UxAction, UxPage, UxReport, UxState } from "./ux-contracts.js";
@@ -22,33 +22,35 @@ export function useUxRpc(context?: "reported") {
     return { call };
   }, [rpc, context]);
 }
-export function UxOverlay() {
-  const rpc = useRpc<typeof rpcContract>(), navigate = useBbNavigate(), context = useBbContext();
-  const [state, setState] = useState<UxState>(), [error, setError] = useState<string | null>(null), [shown, setShown] = useState(false), [note, setNote] = useState(""), [feedback, setFeedback] = useState(false), [saved, setSaved] = useState(false);
+// Keep the app-wide collector mounted without placing controls over task content.
+export function UxRecorder() {
+  const rpc = useRpc<typeof rpcContract>(), context = useBbContext();
   const collector = useRef<UxCollector | null>(null);
-  const refresh = useCallback(async () => { try { const value = await rpc.call("uxState", {}); collector.current?.update(value); setState(value); if (!value.enabled) setError(null); } catch { setError("Recording status unavailable"); } }, [rpc]);
+  const refresh = useCallback(async () => {
+    try { collector.current?.update(await rpc.call("uxState", {})); }
+    catch { /* Keep the last known state and retry on the next refresh. */ }
+  }, [rpc]);
   useRealtime("ux-changed", refresh);
   useEffect(() => {
-    const c = new UxCollector(batch => rpc.call("uxRecord", batch), setError); collector.current = c;
-    const check = () => setShown(Boolean(document.querySelector("[data-c247-ux-page]")));
-    window.addEventListener("c247-ux-view", check);
+    const c = new UxCollector(batch => rpc.call("uxRecord", batch), () => {}); collector.current = c;
     window.addEventListener("c247-ux-refresh", refresh);
-    const timer = setInterval(() => { check(); void refresh(); }, 15000);
-    check(); void refresh();
-    return () => { clearInterval(timer); window.removeEventListener("c247-ux-view", check); window.removeEventListener("c247-ux-refresh", refresh); c.dispose(); collector.current = null; };
+    const timer = setInterval(() => { void refresh(); }, 15000);
+    void refresh();
+    return () => { clearInterval(timer); window.removeEventListener("c247-ux-refresh", refresh); c.dispose(); collector.current = null; };
   }, [rpc, refresh]);
-  useEffect(() => { const timer = setTimeout(() => { setShown(Boolean(document.querySelector("[data-c247-ux-page]"))); collector.current?.view(); }, 0); return () => clearTimeout(timer); }, [context.threadId, context.projectId]);
-  if (!shown || !state && !error || state && !state.recordingId && !state.bytes && !state.controls?.length && state.storageAvailable && !error) return null;
-  const warning = error || state?.storageAvailable === false;
-  const label = warning ? "UX recording needs attention" : state?.enabled ? "UX recording" : state?.status === "expired" ? "UX recording expired" : "UX recording paused";
-  return <aside data-c247-ux-private="" aria-label="UX recording" className="fixed bottom-3 right-3 z-40 max-w-[min(24rem,calc(100vw-1.5rem))] rounded-lg border border-border bg-background p-2 text-xs shadow-lg">
-    <div className="flex flex-wrap items-center gap-2"><span className={warning ? "text-destructive" : state?.enabled ? "text-emerald-600" : "text-amber-600"} aria-hidden="true">●</span><span role="status">{label}</span>{state?.enabled && <Button size="sm" variant="ghost" onClick={() => { setFeedback(v => !v); setSaved(false); }}>Something feels awkward</Button>}<Button size="sm" variant="ghost" aria-label="Review UX recording" onClick={() => navigate.toPluginPanel("desk", { subPath: "ux" })}>Review</Button></div>
-    {state?.lastSavedAt && <p className="px-1 text-muted-foreground">Last saved {new Date(state.lastSavedAt).toLocaleString()}</p>}
-    {state?.storageAvailable === false && <p role="alert" className="mt-1 text-destructive">Storage is unavailable. Retrying automatically.</p>}
-    {feedback && <form className="mt-2 space-y-2" onSubmit={e => { e.preventDefault(); if (markUxFeedback(note)) { setSaved(true); setFeedback(false); setNote(""); } }}><label className="block">What felt awkward? <span className="text-muted-foreground">Optional, saved locally</span><textarea autoFocus maxLength={500} value={note} onChange={e => setNote(e.target.value)} className="mt-1 min-h-16 w-full rounded border border-input bg-background p-2" /></label><Button size="sm" type="submit">Mark this moment</Button></form>}
-    {saved && <p role="status">Moment marked.</p>}{error && <p role="alert" className="mt-1 text-destructive">{error}</p>}
-  </aside>;
+  useEffect(() => { const timer = setTimeout(() => collector.current?.view(), 0); return () => clearTimeout(timer); }, [context.threadId, context.projectId]);
+  return null;
 }
+
+function UxFeedback() {
+  const [note, setNote] = useState(""), [feedback, setFeedback] = useState(false), [saved, setSaved] = useState(false);
+  return <div className="space-y-2">
+    <Button variant="outline" onClick={() => { setFeedback(v => !v); setSaved(false); }}>Something feels awkward</Button>
+    {feedback && <form className="space-y-2" onSubmit={e => { e.preventDefault(); if (markUxFeedback(note)) { setSaved(true); setFeedback(false); setNote(""); } }}><label className="block text-sm">What felt awkward? <span className="text-muted-foreground">Optional, saved locally</span><textarea autoFocus maxLength={500} value={note} onChange={e => setNote(e.target.value)} className="mt-1 min-h-16 w-full rounded border border-input bg-background p-2" /></label><Button size="sm" type="submit">Mark this moment</Button></form>}
+    {saved && <p role="status" className="text-sm">Moment marked.</p>}
+  </div>;
+}
+
 export function UxPageView() {
   const rpc = useRpc<typeof rpcContract>();
   const [report, setReport] = useState<UxReport>(), [error, setError] = useState<string | null>(null), [busy, setBusy] = useState(false), [deleting, setDeleting] = useState(false), [pausing, setPausing] = useState(false);
@@ -59,6 +61,7 @@ export function UxPageView() {
   return <div data-c247-ux-private="" className="h-full overflow-y-auto p-5"><div className="mx-auto max-w-4xl space-y-5">
     <h1 className="text-xl font-medium">UX recording</h1><p className="text-sm text-muted-foreground">Local interaction events from 247C and its thread controls. No chat text, field values, keystrokes, screenshots or model calls. Only feedback you submit includes text. Recording continues until you pause it, including after plugin updates and BB restarts. Raw events expire within 7 days or rotate at 16 MB. Daily counts are retained for 90 days. Recording runs while BB is open; it does not observe other apps.</p>
     <div className="flex flex-wrap items-center gap-2"><strong>{report?.state.status === "unavailable" ? "Storage unavailable · retrying" : report?.state.enabled ? "Recording" : report?.state.status === "expired" ? "Previous study expired" : "Paused"}</strong>{report?.state.enabled && <span className="text-xs">{report.state.endsAt ? `Stops ${new Date(report.state.endsAt).toLocaleString()}` : "Until you pause"}</span>}<Button disabled={busy || !report?.state.storageAvailable} onClick={() => report?.state.enabled ? setPausing(true) : void control("start")}>{report?.state.enabled ? "Pause recording" : "Start continuous recording"}</Button><Button variant="outline" onClick={() => void load()}>Refresh report</Button><Button variant="ghost" onClick={() => setDeleting(true)}>Delete recording</Button></div>
+    {report?.state.enabled && <UxFeedback />}
     {report?.state.lastSavedAt && <p className="text-xs text-muted-foreground">Last saved {new Date(report.state.lastSavedAt).toLocaleString()}. Idle periods do not generate interactions.</p>}
     {pausing && <div className="rounded border border-border p-3 text-sm">Pause recording until you start it again?<div className="mt-2 flex gap-2"><Button disabled={busy} onClick={() => void control("pause")}>Confirm pause</Button><Button variant="ghost" onClick={() => setPausing(false)}>Keep recording</Button></div></div>}
     {deleting && <div className="rounded border border-border p-3 text-sm">Delete the local interaction history and stop recording?<div className="mt-2 flex gap-2"><Button disabled={busy} onClick={() => void control("clear")}>Delete and stop</Button><Button variant="ghost" onClick={() => setDeleting(false)}>Keep recording</Button></div></div>}

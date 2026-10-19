@@ -36,6 +36,13 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Unobtrusive UX recording in 0.5.89
+
+Removed the floating recording banner. The collector remains mounted and keeps
+recording across navigation and reloads. Status, last saved time, feedback and
+pause controls are available under **More → UX recording** and in settings.
+Existing consent, recording history and retention rules are unchanged.
+
 ## Direct task and review navigation in 0.5.88
 
 Task dossiers now keep **Open chat** or **New chat** in a sticky action bar,

@@ -5,7 +5,7 @@ import { useReviewFailures, ReviewFailureBadge, ReviewFailureNotification, Revie
 import { isLiveTask, statusNeedsStoppedSession, taskStatusNames } from "./task-status.js";
 import { WaitingStatus } from "./waiting-age.js";
 import { ReportedEditor } from "./reported-editor.js";
-import { UxScope, UxOverlay, UxPageView } from "./ux-app.js";
+import { UxScope, UxRecorder, UxPageView } from "./ux-app.js";
 import { beginUxAction } from "./ux-client.js";
 import { useUxRpc } from "./ux-app.js";
 import { CustomerEditor, customerChoices, customerKey } from "./customer-ui.js";
@@ -1049,7 +1049,7 @@ export default definePluginApp((app) => {
   app.experimental_icons.register({ name: REVIEW_ACTIVITY_ICON, component: ReviewActivityIcon });
   app.contentScripts.register({ id: "review-activity", mount: reviewActivity.mount });
   app.slots.experimental_appOverlay({ id: "review-activity", component: reviewActivity.Overlay });
-  app.slots.experimental_appOverlay({ id: "ux-recording", component: UxOverlay });
+  app.slots.experimental_appOverlay({ id: "ux-recording", component: UxRecorder });
   app.slots.settingsSection({ id: "ux-recording", title: "UX recording", component: UxPageView });
   app.slots.experimental_appOverlay({ id: "review-failure-notification", component: ReviewFailureNotification });
   app.slots.experimental_appOverlay({ id: "updater-health-notification", component: UpdaterHealthNotification });
