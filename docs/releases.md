@@ -36,6 +36,13 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Message navigation in 0.5.92
+
+Search results now use **Open message** to navigate through BB's thread routing
+and its native message fragment. Native message IDs can differ from timeline
+range starts; existing chat index entries are refreshed to correct that metadata.
+The follow-up migration updates only the derived search checkpoint table.
+
 ## Full-text search in 0.5.91
 
 Added **Search** to persistent navigation and **Search all** to the task filter.

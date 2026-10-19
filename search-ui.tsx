@@ -1,5 +1,7 @@
+import { openSearchMessage } from "./search-navigation.js";
+import { toast } from "sonner";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Markdown, useBbNavigate, useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
+import { useBbNavigate, useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract } from "./contracts.js";
 import type { SearchInput, SearchResult } from "./search-contracts.js";
 import { Button } from "./components/ui/button.js";
@@ -66,7 +68,7 @@ export function SearchPage({ threadId }: { threadId?: string }) {
       <div className="mt-1 text-xs text-muted-foreground">{hit.label}{hit.at ? ` · ${new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(hit.at))}` : ""}</div>
       <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed"><SearchHighlight text={hit.snippet} /></p>
       <div className="mt-3 flex flex-wrap items-center gap-3"><Button variant="outline" size="sm" data-c247-ux-action="task-open" onClick={() => navigate.toPluginPanel("desk", { subPath: withThread(hit.taskId, threadId) })}>Open task</Button>
-        {hit.threadId && <><Button variant="outline" size="sm" data-c247-ux-action="chat-open" onClick={() => navigate.toThread(hit.threadId!)}>Open chat</Button>{hit.sequence !== null && <div className="min-w-0 text-xs" aria-label="Open matching message"><Markdown content={`@thread:${hit.threadId}#msg=${hit.sequence}`} /></div>}</>}
+        {hit.threadId && <><Button variant="outline" size="sm" data-c247-ux-action="chat-open" onClick={() => navigate.toThread(hit.threadId!)}>Open chat</Button>{hit.sequence !== null && <Button variant="outline" size="sm" onClick={() => void openSearchMessage(hit.threadId!, hit.sequence!, navigate).catch(error => toast.error(error.message))}>Open message</Button>}</>}
       </div>
     </article>)}</div>
     {data && (offset > 0 || data.nextOffset !== null) && <div className="flex items-center justify-between"><Button variant="outline" disabled={busy || offset === 0} onClick={() => setOffset(Math.max(0, offset - 30))}>Previous</Button><span className="text-xs text-muted-foreground">{offset + 1}–{offset + data.hits.length} of {data.total}</span><Button variant="outline" disabled={busy || data.nextOffset === null} onClick={() => setOffset(data.nextOffset!)}>Next</Button></div>}

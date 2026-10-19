@@ -37,3 +37,7 @@ CREATE TRIGGER search_fact_update AFTER UPDATE ON task_facts BEGIN INSERT OR IGN
 CREATE TRIGGER search_fact_delete AFTER DELETE ON task_facts BEGIN INSERT OR IGNORE INTO search_dirty VALUES('task',old.task_id); END;
 CREATE TRIGGER search_transcript_insert AFTER INSERT ON session_transcripts BEGIN INSERT OR IGNORE INTO search_dirty VALUES('transcript',new.session_id); END;
 `;
+
+// Revisit cached chats to replace timeline range starts with native message IDs.
+export const SEARCH_MESSAGE_SEQUENCE_MIGRATION = `UPDATE search_documents SET sequence=NULL WHERE kind IN ('message','review');
+UPDATE search_threads SET max_seq=0,cursor_json=NULL,target_seq=0,complete=0,due_at=0,error=NULL`;

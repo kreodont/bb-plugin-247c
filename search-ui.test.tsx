@@ -27,7 +27,7 @@ it("searches old conversation text, highlights safely and offers task, chat and 
   expect(slot.container.querySelector('article')?.textContent).toContain('<img src=x onerror="danger()">');
   expect(slot.container.querySelector("img")).toBeNull();
   expect(slot.container.querySelector("mark")?.textContent).toBe("Malachite");
-  expect(article.getByLabelText("Open matching message").textContent).toContain(`@thread:${session.workerThreadId}#msg=2`);
+  expect(article.getByRole("button", { name: "Open message" })).toBeTruthy();
   fireEvent.click(article.getByRole("button", { name: "Open task" }));
   fireEvent.click(article.getByRole("button", { name: "Open chat" }));
   expect(slot.inspection.navigateCalls).toContainEqual({ method: "toPluginPanel", path: "desk", options: { subPath: `${task.id}/thread/thr_origin` } });

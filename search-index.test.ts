@@ -60,6 +60,7 @@ it("indexes saved conversation snapshots immediately, deduplicates continuations
   transcript.messages.push({ role: "context", ref: "private-context", text: "Hiddencontext", sequence: 999 });
   f.repo.saveTranscript(session.id, transcript);
   expect(query("renewal", { scope: "messages" }).total).toBe(2);
+  expect(query("renewal").hits.every(h => h.sequence === null)).toBe(true);
   expect(query("Hiddencontext").total).toBe(0);
   const second = await f.create(), continued = await f.start(second.id, second.revision);
   // A combined discussion snapshot repeats original messages with their source.
@@ -155,4 +156,13 @@ it("discards a timeline response if disposal happens while it is being read", as
   f.harness.inspection.sdk.stub("threads.timeline", () => new Promise(resolve => { release = () => resolve({ rows: [row], maxSeq: 2, timelinePage: { hasOlderRows: false, olderCursor: null, kind: "latest", returnedSegmentCount: 1, segmentLimit: 100 } }); }));
   const pending = refresh(); index.dispose(); release(); await pending;
   expect(query("Latereply").total).toBe(0);
+});
+
+it("uses native message IDs rather than timeline starts and retains them when snapshots repeat", async () => {
+  const { f, index, query, refresh } = await setup(), task = await f.create(), session = await f.start(task.id, task.revision), id = session.workerThreadId!;
+  const row = f.message(id, "assistant", "Exactmessagetarget");
+  if (row.kind === "conversation") row.messageSeq = 1276;
+  await refresh(); expect(query("Exactmessagetarget").hits[0].sequence).toBe(1276);
+  f.repo.saveTranscript(session.id, await readConversation(f.bb, session)); index.syncLocal();
+  expect(query("Exactmessagetarget").hits[0].sequence).toBe(1276);
 });

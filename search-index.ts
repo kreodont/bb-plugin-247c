@@ -36,8 +36,8 @@ export class TaskSearch {
     this.db.prepare(`INSERT INTO search_documents(key,task_id,kind,label,title,body,at,thread_id,sequence,session_id)
       VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(key) DO UPDATE SET
       task_id=excluded.task_id,kind=excluded.kind,label=excluded.label,title=excluded.title,body=excluded.body,
-      at=COALESCE(excluded.at,search_documents.at),thread_id=excluded.thread_id,sequence=excluded.sequence,session_id=excluded.session_id
-      WHERE search_documents.body<>excluded.body OR search_documents.title<>excluded.title OR search_documents.label<>excluded.label OR (search_documents.at IS NULL AND excluded.at IS NOT NULL)`)
+      at=COALESCE(excluded.at,search_documents.at),thread_id=excluded.thread_id,sequence=CASE WHEN excluded.at IS NOT NULL OR search_documents.at IS NULL THEN excluded.sequence ELSE search_documents.sequence END,session_id=excluded.session_id
+      WHERE search_documents.body<>excluded.body OR search_documents.title<>excluded.title OR search_documents.label<>excluded.label OR (search_documents.at IS NULL AND excluded.at IS NOT NULL) OR (excluded.at IS NOT NULL AND search_documents.sequence IS NOT excluded.sequence)`)
       .run(doc.key, doc.task, doc.kind, doc.label, clean(doc.title ?? ""), clean(doc.body), doc.at ?? null, doc.thread ?? null, doc.sequence ?? null, doc.session ?? null);
   }
 
@@ -62,7 +62,9 @@ export class TaskSearch {
           if (transcript && session) for (const m of transcript.messages) {
             if (m.role === "context") continue;
             const thread = m.source?.threadId ?? transcript.threadId, ref = m.source?.messageRef ?? m.ref;
-            const sequence = Number(/^message:(\d+):/.exec(ref)?.[1] ?? m.sequence);
+            // Older snapshots contain timeline range starts, not native message IDs.
+            // Offer a message jump only after reading its live timeline metadata.
+            const sequence = null;
             const original = this.repo.forThread(thread);
             this.put({ key: `message:${thread}:${ref}`, task: original?.taskId ?? session.task_id, kind: "message", label: m.role === "user" ? "You · conversation" : "Assistant · conversation",
               body: m.text, thread, sequence, session: original?.id ?? item.id });
@@ -154,7 +156,7 @@ export class TaskSearch {
       const ref = `message:${row.sourceSeqStart}:${createHash("sha256").update(JSON.stringify(row.id)).digest("hex").slice(0, 12)}${suffix}`;
       docs.push({ key: `message:${thread.thread_id}:${ref}`, task: thread.task_id, kind: thread.role === "reviewer" ? "review" : "message",
         label: thread.role === "reviewer" ? "Review output · not accepted task data" : role === "user" ? "You · conversation" : "Assistant · conversation",
-        body: text, at: new Date(row.createdAt).toISOString(), thread: thread.thread_id, sequence: row.sourceSeqStart, session: thread.session_id });
+        body: text, at: new Date(row.createdAt).toISOString(), thread: thread.thread_id, sequence: row.kind === "conversation" ? row.messageSeq ?? row.sourceSeqStart : null, session: thread.session_id });
     };
     const visit = (row: TimelineRow) => {
       oldest = Math.min(oldest, row.sourceSeqStart);
