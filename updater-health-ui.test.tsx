@@ -145,3 +145,26 @@ it("links the latest analysis and history without taking focus when status chang
   fireEvent.click(slot.getByRole("button", { name: state.analysisThreads[1].title }));
   expect(slot.inspection.navigateCalls).toContainEqual({ method: "toThread", threadId: "thread_previous" });
 });
+
+it("shows a queued analysis as a yellow status without the urgent badge or popup", async () => {
+  const { UpdaterHealthBanner, UpdaterHealthBadge, UpdaterHealthNotification } = await import("./updater-health-ui.js");
+  const state = { ...warning, status: "waiting" as const, title: "Source updates are waiting for analysis", pendingRecords: 15 };
+  const slot = renderSlot({ component: () => <><UpdaterHealthBanner /><UpdaterHealthBadge /><UpdaterHealthNotification /></> }, {},
+    { rpc: { updaterHealth: () => state } }); mounts.push(slot);
+  const banner = await slot.findByRole("status", { name: "Source updater status" });
+  expect(banner.className).toContain("border-amber-");
+  expect(banner.className).not.toContain("destructive");
+  expect(banner.textContent).toContain("Records awaiting analysis: 15");
+  expect(slot.queryByRole("alert")).toBeNull();
+  expect(slot.queryByRole("button", { name: state.title })).toBeNull();
+});
+
+it("keeps an import failure red even when records are also queued", async () => {
+  const { UpdaterHealthBanner, UpdaterHealthBadge } = await import("./updater-health-ui.js");
+  const state = { ...warning, status: "attention" as const, title: "Source updates need attention", pendingRecords: 15, attentionBatches: 1 };
+  const slot = renderSlot({ component: () => <><UpdaterHealthBanner /><UpdaterHealthBadge /></> }, {},
+    { rpc: { updaterHealth: () => state } }); mounts.push(slot);
+  const banner = await slot.findByRole("alert", { name: "Source updater status" });
+  expect(banner.className).toContain("border-destructive");
+  expect(slot.getByRole("button", { name: state.title }).textContent).toBe("!");
+});

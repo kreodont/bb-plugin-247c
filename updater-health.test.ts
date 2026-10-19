@@ -32,7 +32,7 @@ it("keeps saved invalid batches and queued work visible even when the script exi
   const attention = { ...failed, status: "succeeded", output: JSON.stringify({ status: "attention_required", pendingRecords: 7, attentionBatches: ["batch_saved"], analysisError: null }) };
   expect(evaluateUpdater(automation, [attention, success], now + 3600000)).toMatchObject({ status: "attention", alert: true, attentionBatches: 1, pendingRecords: 7, lastSuccessAt: success.finishedAt });
   const waiting = { ...attention, output: JSON.stringify({ status: "complete", pendingRecords: 4, attentionBatches: [] }) };
-  expect(evaluateUpdater(automation, [waiting, success], now + 3600000)).toMatchObject({ status: "attention", alert: true, pendingRecords: 4, lastSuccessAt: success.finishedAt });
+  expect(evaluateUpdater(automation, [waiting, success], now + 3600000)).toMatchObject({ status: "waiting", alert: true, pendingRecords: 4, lastSuccessAt: success.finishedAt });
 });
 
 it("uses actual scheduled slots, including nights and weekends, and gives a 20-minute grace", () => {
@@ -104,7 +104,7 @@ it("clears a recovered batch error while keeping unrelated queued records visibl
   const snapshot = { version: 1 as const, operation: "analysis" as const, status: "complete" as const,
     finishedAt: failed.finishedAt + 1000, collectedAt: failed.startedAt, pendingRecords: 47, pendingBatches: 0, attentionBatches: [], analysisError: null };
   const state = evaluateUpdater(automation, [broken, success], snapshot.finishedAt, snapshot);
-  expect(state).toMatchObject({ status: "attention", alert: true, pendingRecords: 47, attentionBatches: 0, lastSuccessAt: snapshot.finishedAt });
+  expect(state).toMatchObject({ status: "waiting", alert: true, pendingRecords: 47, attentionBatches: 0, lastSuccessAt: snapshot.finishedAt });
   expect(state.detail).toContain("previous analysis error has been resolved");
   expect(state.detail).toContain("No manual action is required");
   expect(state.detail).not.toContain("Invalid citation");

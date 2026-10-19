@@ -88,8 +88,9 @@ export function evaluateUpdater(automation: Automation, input: Run[], now: numbe
     `${base.attentionBatches} saved batch(es) need analysis or import recovery. New work may be missing from Proposals. ${errorText(latestReport?.analysisError?.error)}`.trim());
   if ((terminal?.status === "failed" && !recovered) || latestReport?.status === "analysis_failed") return problem("failed", "Source check failed",
     errorText(latestReport?.analysisError?.error) || errorText(terminal?.error) || "The latest check did not finish. New work may be missing from 247C.");
-  if (latestReport?.status === "analysis_deferred") return problem("attention", "Source analysis is waiting", "Source collection is saved, but analysis has been deferred. New work may be waiting in the queue.");
-  if (base.pendingRecords) return problem("attention", "Source updates are waiting for analysis",
+  const queueStatus = active || automation.nextRunAt ? "waiting" : "attention";
+  if (latestReport?.status === "analysis_deferred") return problem(queueStatus, "Source analysis is waiting", "Source collection is saved, but analysis has been deferred. New work may be waiting in the queue.");
+  if (base.pendingRecords) return problem(queueStatus, "Source updates are waiting for analysis",
     `${recovered ? "The previous analysis error has been resolved. " : ""}${active
       ? "A check is running. Saved records will be analyzed in batches."
       : automation.nextRunAt ? "Saved records are queued for the next scheduled analysis. No manual action is required."

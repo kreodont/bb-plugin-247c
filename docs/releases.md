@@ -506,3 +506,10 @@ Opening a pinned file requires a thread on the file’s machine. Before opening,
 247C checks only the shortcut and thread/environment metadata. This prevents
 File Editor from resolving a path on a different machine or without an
 environment. The 247C page still supports managing the shared shortcut list.
+
+## Queued analysis status in 0.5.94
+
+Saved records waiting for an active or scheduled analysis now appear in a yellow
+status banner. Normal queueing no longer shows the red exclamation badge or an
+urgent popup. Paused checks, failures, import recovery and queues without a next
+run keep their error presentation. No database migration or settings changes.
