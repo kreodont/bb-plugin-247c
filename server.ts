@@ -1,3 +1,4 @@
+import { TaskSearch } from "./search-index.js";
 import { createFileEditorHandlers } from "./file-editor/server.js";
 import { ExternalAnalysis } from "./external-analysis.js";
 import { scriptAnalysisResultSchema } from "./contracts.js";
@@ -72,6 +73,7 @@ export default async function plugin(bb: BbPluginApi) {
   const changed = () => { bb.realtime.publish("desk-changed", { at: Date.now() }); knowledge?.schedule(); };
   const repo = new Repository(db, changed, () => configuration.timeZone);
   knowledge = new KnowledgeSearch(repo, () => configuration, message => bb.log.warn(message));
+  const search = new TaskSearch(repo, bb, () => bb.realtime.publish("search-changed", {}));
   const getSettings = async (): Promise<SettingsView> => settings.get();
   const threadRouting = new ThreadRouting(bb, async () => (await settings.get()).threadProjectId);
   const externalAnalysis = new ExternalAnalysis(bb, join(dirname(db.name), "script-analysis"), threadRouting, () => configuration);
@@ -100,6 +102,8 @@ export default async function plugin(bb: BbPluginApi) {
 
   bb.rpc.register(rpcContract, {
     ...createFileEditorHandlers(bb),
+    search: input => search.search(input),
+    searchRetry: () => search.retry(),
     pinnedFiles: () => pinnedFiles.list(),
     pinnedFileTarget: async ({ id, threadId }) => {
       const file = pinnedFiles.list().files.find(file => file.id === id);
@@ -399,6 +403,19 @@ export default async function plugin(bb: BbPluginApi) {
       if (run) await sync.tick(run.id);
     });
   }
+  for (const event of ["thread.created", "thread.active", "thread.idle", "thread.failed", "thread.deleted"] as const) {
+    bb.events.on(event, ({ thread }) => { search.dirtyThread(thread.id); });
+  }
+  bb.background.service("task-search", {
+    async start(signal) {
+      while (!signal.aborted) {
+        try { await search.refresh(signal); }
+        catch { if (!signal.aborted) bb.log.warn("Task search indexing failed; it will retry automatically."); }
+        if (signal.aborted) break;
+        await sleep(search.state().pending ? 1000 : 5000, signal);
+      }
+    },
+  });
   bb.background.service("source-storage", {
     async start(signal) {
       while (!signal.aborted) {
@@ -460,7 +477,7 @@ export default async function plugin(bb: BbPluginApi) {
     if (runId) bb.log.info(`Scheduled 247C source check: ${runId}`);
   });
   settings.onChange(changed);
-  bb.onDispose(async () => { updaterHealth.dispose(); calendar.dispose(); sync.dispose(); await agentTime.dispose(); await runtime.dispose(); await knowledge!.dispose(); });
+  bb.onDispose(async () => { search.dispose(); updaterHealth.dispose(); calendar.dispose(); sync.dispose(); await agentTime.dispose(); await runtime.dispose(); await knowledge!.dispose(); });
 
   const usage = `247C — durable tasks, conversations and knowledge
 

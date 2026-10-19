@@ -1,3 +1,4 @@
+import { searchRpcContract } from "./search-contracts.js";
 import { editorRpcContract } from "./file-editor/contracts.js";
 import { reviewFailuresSchema } from "./review-failures-contracts.js";
 import { taskStatuses } from "./task-status.js";
@@ -256,6 +257,7 @@ export const scriptAnalysisResultSchema = z.object({ suggestions: z.array(syncDr
   skipped: z.array(z.object({ eventId: z.string().min(1), reason: z.string().trim().min(1) }).strict()).max(2000) }).strict();
 
 export const rpcContract = defineRpcContract({
+  ...searchRpcContract,
   ...editorRpcContract,
   ...pinnedFilesRpcContract,
   reviewFailures: { input: z.object({}).strict(), output: reviewFailuresSchema },

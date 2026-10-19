@@ -36,6 +36,21 @@ artifact hashes with the published revision; check plugin status, saved settings
 database integrity, tasks and manual time. A successful build or matching package
 version alone does not establish that the live installation was updated.
 
+## Full-text search in 0.5.91
+
+Added **Search** to persistent navigation and **Search all** to the task filter.
+Search covers accepted task fields, complete dossier history, saved conversations
+and bound BB work/review chats, including closed tasks. Excerpts highlight matches;
+results link to the task, chat and source message and distinguish current accepted
+data from conversation history. Filters narrow the record type and task status.
+
+An append-only migration adds derived FTS5 tables, a durable change queue and chat
+pagination checkpoints. Existing task data, transcripts, source connections,
+settings and manual time are unchanged. Backfill resumes after reload, active chats
+refresh without model calls, and unavailable chats remain visible as incomplete
+coverage. Search reads no pinned files, attachments or tool payloads. Queries and
+result text are excluded from plugin logs and UX recording.
+
 ## Sent-reply verification in 0.5.90
 
 Work agents now receive a shared rule to check the source when a user says they

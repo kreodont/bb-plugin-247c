@@ -179,6 +179,34 @@ The **Knowledge base** stores accepted conversation knowledge and imported Markd
 
 When explicitly requested, documents can be copied through the `importKnowledge` RPC. Full text is preserved with its source path, modification time and SHA-256. Reimporting the same path updates its copy without duplicates. Later source-file changes do not sync automatically. Import creates no tasks or sessions and does not approve conversation proposals. [Import format and verification](skills/knowledge-import.md).
 
+## Full-text task and conversation search
+
+**Search** in the navigation searches all tasks, including closed and archived
+ones, current accepted fields, the complete dossier history, work-chat messages
+and reviewer outputs. **Search all** beside the task filter (or Enter in that
+filter) carries its query to the same page. Results distinguish current task
+fields from historical records and conversation text, with highlighted excerpts,
+status filters and links to the task, chat and matching message.
+
+Search is local SQLite FTS5; it starts no models and uses no provider tokens.
+Words are combined with AND, ordinary words support prefixes, quoted phrases
+preserve word order, and identifiers such as `BK-812` remain exact. This is a
+word search, not semantic search or language-specific stemming.
+
+Existing accepted records and saved conversations are indexed in the background.
+Bound BB chats are paged independently of review-size limits. Persistent cursors
+resume interrupted indexing, active chats refresh automatically, and events queue
+finished chats for another read. The page shows indexing progress and unreadable
+chats instead of claiming complete coverage; **Retry indexing** retries failures.
+Saved conversation text remains searchable when its original chat is unavailable.
+Review outputs remain discussion history and do not become accepted task fields.
+
+The derived index lives in the local plugin database. It does not read pinned
+files, attachments, arbitrary workspace files, tool arguments/results, or the full
+source-export archive. Reviewer snapshot prompts and agent-only context are
+excluded. The plugin does not log search queries or result text, and the current
+query stays only in window memory, outside routes and UX recording payloads.
+
 ## Navigation and local UX recording
 
 **Pinned files** is available in every thread header and the 247C page header.
@@ -195,7 +223,7 @@ survives updates but is excluded from 247C backups, source exports and UX
 recording. Configure shortcuts separately on each computer. The 247C page manages the
 list; opening requires a thread with a workspace on the file’s machine.
 
-The persistent **Today · Tasks · Updates** navigation keeps daily work within reach. **More** contains Proposals, Failed reviews, Knowledge base and UX recording. Opening 247C from the sidebar still goes straight to Proposals while proposals await a decision, and to Tasks otherwise. Navigation waits for pending day edits and stays on the page if saving fails. Tasks default to a compact list; **Cards** restores the wider view. The display choice stays in browser-local storage. Both layouts offer **New chat** for open tasks without an active session. One click creates an empty native BB thread in the configured project and opens it immediately, using the saved work account and model (or BB project defaults). Write the first message in that thread; no starter message or task action is sent on your behalf. The task binding and instructions survive restarts, and the assistant reads the accepted dossier before task work. **Open chat** continues an existing active task conversation without starting a session. Day Plan has the same chat shortcuts beside each open task; they save pending time edits before navigating and keep the draft visible if saving fails. Chats created from the task’s **Work** tab also open their thread automatically after submission. Day Plan places entries first, with planning, calendar and measurement controls in a collapsed section below.
+The persistent **Today · Tasks · Updates · Search** navigation keeps daily work within reach. **More** contains Proposals, Failed reviews, Knowledge base and UX recording. Opening 247C from the sidebar still goes straight to Proposals while proposals await a decision, and to Tasks otherwise. Navigation waits for pending day edits and stays on the page if saving fails. Tasks default to a compact list; **Cards** restores the wider view. The display choice stays in browser-local storage. Both layouts offer **New chat** for open tasks without an active session. One click creates an empty native BB thread in the configured project and opens it immediately, using the saved work account and model (or BB project defaults). Write the first message in that thread; no starter message or task action is sent on your behalf. The task binding and instructions survive restarts, and the assistant reads the accepted dossier before task work. **Open chat** continues an existing active task conversation without starting a session. Day Plan has the same chat shortcuts beside each open task; they save pending time edits before navigating and keep the draft visible if saving fails. Chats created from the task’s **Work** tab also open their thread automatically after submission. Day Plan places entries first, with planning, calendar and measurement controls in a collapsed section below.
 
 **More → UX recording** (also available in the plugin's settings) provides a local, optional usability recorder. It is off by default. **Start continuous recording** records until an explicit pause, across plugin updates and BB restarts. Existing timed studies keep their original deadline until you explicitly start continuous recording. Recording runs without a floating banner. Status, last saved time and **Something feels awkward** feedback are available on the recording page. Pause requires confirmation on the recording page. Control and recovery history shows when recording was started, paused, cleared or interrupted by storage errors. **Delete recording** stops recording and clears raw events and daily counts.
 
