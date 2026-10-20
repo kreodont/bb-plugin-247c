@@ -1,3 +1,16 @@
+## Source analysis coverage in 0.5.95
+
+Visible source analysis threads now validate event coverage before saving a
+result. Unknown or repeated skip IDs and omitted selected events return an
+actionable tool error, allowing correction in the same conversation. Invalid
+submissions remain unsaved; no replacement thread or automatic model retry is
+started. A compact event ledger survives plugin reloads without storing source
+bodies in KV. Older jobs and collectors without event identities retain their
+existing import validation.
+
+Source collection, schedules, model selection and human proposal approval are
+unchanged. No database migration is required.
+
 ## Built-in file editor in 0.5.83
 
 247C now ships the file editor and its lazy Monaco assets. Every new or updated

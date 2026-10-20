@@ -358,7 +358,7 @@ export default async function plugin(bb: BbPluginApi) {
     parameters: resultSchema,
     execute(input, ctx) { return runtime.submit(ctx.threadId, input).then(boundedJson); },
   });
-  bb.agents.registerTool({ name: "c247_script_analysis_result", description: "Submit the complete saved-source analysis once. The existing updater validates and imports pending proposals; no task changes are applied.", parameters: scriptAnalysisResultSchema, execute: (input, ctx) => externalAnalysis.submit(ctx.threadId, input).then(boundedJson) });
+  bb.agents.registerTool({ name: "c247_script_analysis_result", description: "Submit the complete saved-source analysis. Correct any validation errors and resubmit until saved successfully. The existing updater then validates and imports pending proposals; no task changes are applied.", parameters: scriptAnalysisResultSchema, execute: (input, ctx) => externalAnalysis.submit(ctx.threadId, input).then(boundedJson) });
   bb.agents.configure((context) => {
     const external = externalAnalysis.configure(context);
     if (external) return external;
