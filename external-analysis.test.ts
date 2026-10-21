@@ -15,6 +15,24 @@ const input = { key: "a".repeat(64), providerId: "codex", model: "gpt-6-sol", re
   { eventId: "history", newOrChanged: false, callRef: "read-2", id: "message-2" },
 ] }) };
 const result = { suggestions: [], skipped: [{ eventId: "e", reason: "No new work." }] };
+it("rejects a nonliteral quote before freezing and accepts correction in the same thread after reload", async () => {
+  const f = await setup();
+  const context = JSON.parse(input.context);
+  context.sourceDocuments[0].response = { content: "Yeah, maybe. Maybe someone can review it." };
+  const job = await f.harness.behavior.callRpc("scriptAnalysisStart", { ...input, context: JSON.stringify(context) }) as any;
+  await f.reload();
+  const output = { suggestions: [{ taskId: null, title: "Review", rationale: "Meeting request.", confidence: 1,
+    changes: { summary: { value: "Review requested.", evidenceRefs: ["fact:0"] } },
+    facts: [{ kind: "decision", text: "Review requested.", citations: [{ callRef: "read-1", messageId: "message-1", source: "clickup",
+      url: "https://example.com/page", occurredAt: "2026-10-21T07:00:00Z", quote: "Yeah, maybe someone can review it." }] }],
+  }], skipped: [] };
+  await expect(f.harness.behavior.callAgentTool("c247_script_analysis_result", output, { threadId: job.threadId })).rejects.toThrow(/Quote is absent/);
+  expect(await f.harness.behavior.callRpc("scriptAnalysisStatus", { key: input.key })).toMatchObject({ state: "analyzing", result: null });
+  output.suggestions[0].facts[0].citations[0].quote = context.sourceDocuments[0].response.content;
+  await f.harness.behavior.callAgentTool("c247_script_analysis_result", output, { threadId: job.threadId });
+  expect(await f.harness.behavior.callRpc("scriptAnalysisStatus", { key: input.key })).toMatchObject({ state: "ready", result: output });
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
+});
 it("rejects invalid event coverage before freezing and accepts correction in the same thread after reload", async () => {
   const f = await setup();
   const job = await f.harness.behavior.callRpc("scriptAnalysisStart", input) as any;

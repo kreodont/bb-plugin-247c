@@ -12,6 +12,17 @@ the same rules using their retained receipts, without rewriting saved runs,
 exports, tasks or checkpoints and without starting a model. Missing messages
 are tried again in future checks, so restored messages are not permanently lost.
 
+## Source quote validation in 0.5.97
+
+Visible source analysis threads now check citation text against its supplied
+record before freezing a result. Rewritten speech, joined passages and quotations
+from another record return a tool error in the same conversation, so the model
+can correct its response without a replacement analysis run. Saved source bodies
+remain private and survive plugin reloads. Existing jobs retain their original
+validation contract. The importer still validates against the full source receipts.
+
+No source, schedule, model or database migration changes are required.
+
 ## Source analysis coverage in 0.5.95
 
 Visible source analysis threads now validate event coverage before saving a
