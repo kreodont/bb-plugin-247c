@@ -1,3 +1,17 @@
+## Missing Slack messages in 0.5.96
+
+An explicit `thread_not_found` response no longer makes a source check incomplete
+when another successful read in the same channel confirms access. When needed,
+the collector performs one small channel access check. It retains the missing
+message receipt and records a neutral skipped-message note; the failed read
+cannot substantiate a proposal. Normal source checkpoints can advance.
+
+Timeouts, rate limits, permission failures, inaccessible channels and incomplete
+pagination still produce warnings. Existing native checks are displayed under
+the same rules using their retained receipts, without rewriting saved runs,
+exports, tasks or checkpoints and without starting a model. Missing messages
+are tried again in future checks, so restored messages are not permanently lost.
+
 ## Source analysis coverage in 0.5.95
 
 Visible source analysis threads now validate event coverage before saving a

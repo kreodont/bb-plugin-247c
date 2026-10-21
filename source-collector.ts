@@ -8,6 +8,7 @@ import type { TaskDossier } from "./core/types.js";
 import type { SourceCall } from "./source-sync.js";
 import { connectSources, sourceError, type SourceConnections } from "./source-connectors.js";
 import { sourceResponseFailure, sourceThrownFailure } from "./source-errors.js";
+import { missingSlackThread, readableSlackChannel, normalizeMissingSlackReport } from "./source-slack-missing.js";
 
 type Json = Record<string, any>;
 export type SourceDocument = { ref: string; source: SyncSource; tool: string; args: Record<string, unknown>; content: string };
@@ -404,6 +405,19 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
       const unread = [...pending[source].keys()].filter(id => !read[source].has(id));
       if (unread.length) error(source, `Linked references were not read: ${unread.slice(0, 10).join(", ")}${unread.length > 10 ? "…" : ""}.`);
     }
+    // A missing message is normal, but lost channel access is not. Usually a
+    // different linked thread already proves access; otherwise probe once.
+    const checkedChannels = new Set<string>();
+    for (const missing of calls.filter(missingSlackThread)) {
+      if (recoveredCalls.has(missing.ref)) continue;
+      const channel = (missing.args as Json).channel_id as string;
+      if (checkedChannels.has(channel) || calls.some(c => readableSlackChannel(c, channel))) continue;
+      checkedChannels.add(channel);
+      const first = calls.length;
+      await call("slack", "slack_read_channel", { channel_id: channel, limit: 1, latest: String(Date.parse(run.until) / 1000) });
+      const probe = calls[first];
+      if (probe?.tool === "slack.slack_read_channel" && (probe.args as Json).channel_id === channel) probe.purpose = "slack-channel-access";
+    }
   } catch (cause) {
     for (const source of SOURCES) error(source, sourceError(cause));
   } finally {
@@ -412,11 +426,11 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
   const reports = SOURCES.map(source => {
     const receipts = calls.filter(c => c.source === source && !recoveredCalls.has(c.ref)), good = receipts.filter(c => c.completed);
     const issues = problems[source];
-    return { source, status: (!good.length ? "unavailable" : issues.length ? "partial" : "complete") as SyncSubmit["reports"][number]["status"],
+    return normalizeMissingSlackReport({ source, status: (!good.length ? "unavailable" : issues.length ? "partial" : "complete") as SyncSubmit["reports"][number]["status"],
       detail: issues.length ? issues.join("\n").slice(0, 3800) : `Loaded by script: ${good.filter(c => c.read).length} full threads/messages/issues.`,
       callRefs: receipts.map(c => c.ref), paginationComplete: !issues.length, linkedTasksChecked: !issues.length,
       scanned: scanned[source], threadsRead: good.filter(c => c.read).length,
-    };
+    }, receipts);
   });
   return { version: 1, runId: run.id, startedAt: new Date(start).toISOString(), finishedAt: new Date().toISOString(), elapsedMs: Date.now() - start, calls, documents, reports };
 }

@@ -1,4 +1,5 @@
 import { SourceStorage, packSourceRequest } from "./source-storage.js";
+import { normalizeMissingSlackReport, skippedSlackCalls, slackAccessProbe } from "./source-slack-missing.js";
 import { isLiveTask } from "./task-status.js";
 import { slackCitationMatches, slackPermalink, verifiedSlackTarget, type SlackTarget } from "./source-slack-evidence.js";
 import { DAY_TIME_ZONE } from "./day-contracts.js";
@@ -24,7 +25,7 @@ export const SYNC_SOURCES: SyncSource[] = ["gmail", "slack", "jira"];
 export const SYNC_ACTIVE = new Set<SyncRun["status"]>(["starting", "working"]);
 type Row = Record<string, unknown>;
 type RunRequest = { input?: SyncStart; externalImport?: { path: string; sha256: string }; snapshots: TaskDossier[]; pendingCandidates?: SyncCandidate[]; jiraProjects?: string[]; submittedFingerprint?: string; submittedFingerprints?: string[]; submittedBatches?: string[]; dataPagesRead?: number[]; dayItemsRead?: string[]; incremental?: boolean; analysis?: SourceAnalysis };
-export type SourceCall = { ref: string; source: SyncSource; tool: string; args: unknown; output: string; completed: boolean; truncated: boolean; read: boolean };
+export type SourceCall = { ref: string; source: SyncSource; tool: string; args: unknown; output: string; completed: boolean; truncated: boolean; read: boolean; purpose?: "slack-channel-access" };
 // Threaded replies omit task IDs. Prove their task URL through a successful
 // parent-comment listing, matching structured IDs rather than quoted message text.
 function replyBelongsToTask(call: SourceCall, calls: SourceCall[], taskId: string): boolean {
@@ -235,13 +236,16 @@ function hasUnfetchedPage(call: SourceCall, selected: SourceCall[]): boolean {
 
 export function validateSyncReports(reports: SyncSubmit["reports"], calls: SourceCall[], snapshots: TaskDossier[] = [], pending: SyncCandidate[] = [], jiraProjects: readonly string[] = []): SyncSubmit["reports"] {
   const byRef = new Map(calls.map((call) => [call.ref, call]));
-  return reports.map((report) => {
+  return reports.map((original) => {
+    const report = normalizeMissingSlackReport(original, calls);
     const selected = [...new Set(report.callRefs)].map((ref) => {
       const call = byRef.get(ref);
       if (!call || call.source !== report.source) throw new PolicyError("The source status references an unknown call.");
       return call;
     });
     const live = selected.filter((call) => call.completed);
+    const skipped = skippedSlackCalls(selected);
+    const covered = selected.filter(call => call.completed || skipped.has(call.ref));
     const queries = live.filter((call) => /search|list|filter_tasks/i.test(call.tool));
     const problems: string[] = [];
     if (report.status === "complete") {
@@ -249,10 +253,10 @@ export function validateSyncReports(reports: SyncSubmit["reports"], calls: Sourc
       if (report.source === "gmail" && (queries.length < 2 || !queries.some((call) => /is:unread/.test(JSON.stringify(call.args))))) problems.push("both Gmail searches were not confirmed");
       if (!report.paginationComplete) problems.push("pagination is incomplete");
       if (!report.linkedTasksChecked) problems.push("open task links were not checked");
-      if (report.scanned > 0 && !live.some((call) => call.read)) problems.push("no thread or Jira comment reads");
-      if (selected.some((call) => !call.completed || call.truncated)) problems.push("an error or truncated response is present");
-      if (selected.some((call) => hasUnfetchedPage(call, selected))) problems.push("the next source page was not read");
-      const missing = requiredSourceReads(snapshots, report.source, pending, live, jiraProjects).filter((id) => !live.some((call) => call.read && `${JSON.stringify(call.args)}\n${call.output}`.includes(id)));
+      if (report.scanned > 0 && !covered.some((call) => call.read)) problems.push("no thread or Jira comment reads");
+      if (selected.some((call) => (!call.completed && !skipped.has(call.ref)) || call.truncated)) problems.push("an error or truncated response is present");
+      if (selected.some((call) => !slackAccessProbe(call) && hasUnfetchedPage(call, selected))) problems.push("the next source page was not read");
+      const missing = requiredSourceReads(snapshots, report.source, pending, live, jiraProjects).filter((id) => !covered.some((call) => call.read && `${JSON.stringify(call.args)}\n${call.output}`.includes(id)));
       if (missing.length) problems.push(`linked threads/issues were not read: ${missing.slice(0, 10).join(", ")}${missing.length > 10 ? "…" : ""}`);
     }
     return { ...report, callRefs: selected.map((call) => call.ref), threadsRead: live.filter((call) => call.read).length,
@@ -263,11 +267,25 @@ Incomplete check: ${problems.join("; ")}.`.slice(0, 4000) } : {}) };
 
 export class SourceSyncStore {
   readonly storage: SourceStorage;
+  private readonly missingSlackViews = new Map<string, { raw: string; run: SyncRun }>();
   constructor(readonly repo: Repository) { this.storage = new SourceStorage(repo.db); }
   run(id: string): SyncRun {
     const row = this.repo.db.prepare("SELECT value_json FROM source_sync_runs WHERE id=?").get(id) as Row | undefined;
     if (!row) throw new PolicyError("Update check not found.");
-    return syncRunSchema.parse(JSON.parse(String(row.value_json)));
+    const raw = String(row.value_json), run = syncRunSchema.parse(JSON.parse(raw));
+    if (run.status !== "partial" || !run.collection || !run.reports.some(r => r.source === "slack" && r.detail.includes("thread_not_found"))) return run;
+    const cached = this.missingSlackViews.get(id);
+    if (cached?.raw === raw) return cached.run;
+    const bundle = this.export(id);
+    if (!bundle || !skippedSlackCalls(bundle.calls).size) return run;
+    const request = this.request(id);
+    const reports = validateSyncReports(run.reports, bundle.calls, request.snapshots, request.pendingCandidates, request.jiraProjects);
+    const view = { ...run, reports, status: reports.every(r => r.status === "complete") ? "completed" as const : "partial" as const };
+    if (this.missingSlackViews.size >= 100) this.missingSlackViews.clear();
+    this.missingSlackViews.set(id, { raw, run: view });
+    // Reclassify the display using retained receipts. Stored runs, exports,
+    // task data and checkpoints stay untouched; the next check covers the gap.
+    return view;
   }
   request(id: string): RunRequest { return this.storage.request<RunRequest>(id); }
   saveRequest(id: string, request: RunRequest) { this.storage.saveRequest(id, request); }
