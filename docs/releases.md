@@ -1,3 +1,17 @@
+## Source connection recovery in 0.5.98
+
+The built-in collector retries a transient connection setup failure once with
+a fresh MCP session. Failed sessions are closed before retrying; permission
+errors, incompatible tool catalogs and cancellation are not retried. A shared
+45-second setup budget bounds initialization and tool discovery, including the
+retry delay. Existing per-request and collection limits remain in effect.
+
+Connection warnings identify the failed stage and make clear that no source
+data was read. Persistent provider failures remain visible and preserve unread
+intervals. This improves recovery from brief interruptions; it does not repair
+an unavailable remote connector or replace its account. No migration or local
+configuration change is required.
+
 ## Missing Slack messages in 0.5.96
 
 An explicit `thread_not_found` response no longer makes a source check incomplete

@@ -1,4 +1,4 @@
-import { sourceError } from "./source-connectors.js";
+import { sourceError } from "./source-error-text.js";
 
 type Json = Record<string, any>;
 const RATE_LIMITED = /\b(?:rate[ _-]+limit(?:ed|ing)?(?:[ _-]+exceeded)?|ratelimited|too many requests)\b/i;

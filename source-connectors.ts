@@ -8,6 +8,9 @@ import { promisify } from "node:util";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { NativeSyncSource as SyncSource } from "./contracts.js";
+import { establishSourceConnection } from "./source-connection.js";
+import { sourceError } from "./source-error-text.js";
+export { sourceError } from "./source-error-text.js";
 
 const execute = promisify(execFile);
 export const READ_TOOLS: Record<SyncSource, readonly string[]> = {
@@ -21,10 +24,6 @@ export interface SourceConnector {
 }
 export type SourceConnections = Record<SyncSource, SourceConnector | { error: string }>;
 export const WORK_CALENDAR = "primary";
-export function sourceError(error: unknown): string {
-  return String(error instanceof Error ? error.message : error)
-    .replace(/Bearer\s+[^\s"'<>]+/gi, "Bearer [redacted]").replace(/sk-ant-[A-Za-z0-9_-]+/g, "[redacted]").slice(0, 1000);
-}
 
 type Credential = { accessToken?: string; expiresAt?: number; scopes?: string[] };
 async function credential(profile: string): Promise<Credential> {
@@ -82,14 +81,18 @@ export async function connectSources(signal: AbortSignal, config: SourceConfig =
   return Object.fromEntries(await Promise.all((Object.keys(names) as SyncSource[]).map(async source => {
     const server = catalog.find(s => s.display_name === names[source]);
     if (!server || server.eligible === false || !/^mcpsrv_[A-Za-z0-9]+$/.test(server.id)) return [source, { error: `Connector ${names[source]} is unavailable in the configured Claude profile.` }];
-    const client = new Client({ name: "247c-source-reader", version: "1.0.0" }, { capabilities: {} });
-    const transport = new StreamableHTTPClientTransport(new URL(`https://mcp-proxy.anthropic.com/v1/mcp/${server.id}`), {
-      requestInit: { redirect: "error", headers: { Authorization: `Bearer ${token}`, "anthropic-beta": "mcp-servers-2025-12-04", "anthropic-version": "2023-06-01", "X-Mcp-Client-Session-Id": randomUUID() } },
-    });
     try {
-      await client.connect(transport, { signal, timeout: 20000 });
-      const tools = await client.listTools({}, { signal, timeout: 20000 });
-      if (!READ_TOOLS[source].every(name => tools.tools.some(t => t.name === name))) throw new Error(`The tool set changed for ${names[source]}; the collector needs updating.`);
+      const { client } = await establishSourceConnection(() => {
+        const client = new Client({ name: "247c-source-reader", version: "1.0.0" }, { capabilities: {} });
+        const transport = new StreamableHTTPClientTransport(new URL(`https://mcp-proxy.anthropic.com/v1/mcp/${server.id}`), {
+          requestInit: { redirect: "error", headers: { Authorization: `Bearer ${token}`, "anthropic-beta": "mcp-servers-2025-12-04", "anthropic-version": "2023-06-01", "X-Mcp-Client-Session-Id": randomUUID() } },
+        });
+        return { client,
+          connect: (signal: AbortSignal) => client.connect(transport, { signal, timeout: 20000 }),
+          listTools: async (signal: AbortSignal) => (await client.listTools({}, { signal, timeout: 20000 })).tools.map(t => t.name),
+          close: () => client.close(),
+        };
+      }, READ_TOOLS[source], signal);
       return [source, {
         async call(tool: string, args: Record<string, unknown>, signal: AbortSignal) {
           if (!READ_TOOLS[source].includes(tool)) throw new Error("The collector allows only predefined read operations.");
@@ -98,7 +101,7 @@ export async function connectSources(signal: AbortSignal, config: SourceConfig =
         },
         close: () => client.close(),
       } satisfies SourceConnector];
-    } catch (error) { await client.close().catch(() => {}); return [source, { error: sourceError(error) }]; }
+    } catch (error) { return [source, { error: sourceError(error) }]; }
   }))) as SourceConnections;
 }
 
