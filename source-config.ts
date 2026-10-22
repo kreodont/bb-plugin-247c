@@ -6,6 +6,11 @@ import { resolve } from "node:path";
 export const sourceConfigSchema = z.object({
   profilePath: z.string().default(""),
   expectedEmail: z.union([z.email(), z.literal("")]).default(""),
+  accountPool: z.object({
+    pluginId: z.string().regex(/^[a-z0-9][a-z0-9-]*$/),
+    accountId: z.string().uuid(),
+    organizationUuid: z.string().uuid(),
+  }).strict().nullable().default(null),
   calendarId: z.string().min(1).default("primary"),
   jiraSite: z.string().regex(/^(?:[a-z0-9-]+\.atlassian\.net)?$/).default(""),
   jiraScope: z.string().min(1).max(4000).default("assignee = currentUser() OR reporter = currentUser()"),

@@ -10,6 +10,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import type { NativeSyncSource as SyncSource } from "./contracts.js";
 import { establishSourceConnection } from "./source-connection.js";
 import { sourceError } from "./source-error-text.js";
+import { poolAccessToken } from "./source-pool-auth.js";
 export { sourceError } from "./source-error-text.js";
 
 const execute = promisify(execFile);
@@ -40,8 +41,12 @@ async function credential(profile: string): Promise<Credential> {
   catch { throw new Error("Could not read configured Claude login data."); }
 }
 
-async function accessToken(profile: string, signal: AbortSignal, expectedEmail: string): Promise<string> {
+async function accessToken(config: SourceConfig, signal: AbortSignal): Promise<string> {
+  const expectedEmail = config.expectedEmail;
   if (!expectedEmail) throw new Error("Set expectedEmail in the sources setting before connecting sources.");
+  // An explicitly configured owner has no fallback to a native login or Keychain.
+  if (config.accountPool) return poolAccessToken(config.accountPool, expectedEmail, signal);
+  const profile = sourceProfile(config);
   // Stay on the configured account identity. The token never leaves this module,
   // its issuing service and the issuer's MCP proxy; it is never given to a model.
   const identity = JSON.parse(await readFile(join(profile, ".claude.json"), "utf8")).oauthAccount?.emailAddress;
@@ -67,7 +72,7 @@ export async function connectSources(signal: AbortSignal, config: SourceConfig =
   let catalog: { id: string; display_name: string; eligible?: boolean; eligibility_reason?: string }[];
   try {
     if (!config.expectedEmail) throw new Error("Set expectedEmail in the sources setting before connecting sources.");
-    token = await accessToken(sourceProfile(config), signal, config.expectedEmail);
+    token = await accessToken(config, signal);
     const response = await fetch("https://api.anthropic.com/v1/mcp_servers?limit=1000", {
       headers: { Authorization: `Bearer ${token}`, "anthropic-version": "2023-06-01", "anthropic-beta": "mcp-servers-2025-12-04" },
       signal: AbortSignal.any([signal, AbortSignal.timeout(20000)]), redirect: "error",
@@ -106,7 +111,7 @@ export async function connectSources(signal: AbortSignal, config: SourceConfig =
 }
 
 export async function connectCalendar(signal: AbortSignal, config: SourceConfig = defaultSourceConfig): Promise<SourceConnector> {
-  const token = await accessToken(sourceProfile(config), signal, config.expectedEmail);
+  const token = await accessToken(config, signal);
   const response = await fetch("https://api.anthropic.com/v1/mcp_servers?limit=1000", {
     headers: { Authorization: `Bearer ${token}`, "anthropic-version": "2023-06-01", "anthropic-beta": "mcp-servers-2025-12-04" },
     signal: AbortSignal.any([signal, AbortSignal.timeout(20000)]), redirect: "error",

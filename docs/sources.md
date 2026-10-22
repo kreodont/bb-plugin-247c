@@ -87,3 +87,22 @@ Day-plan analysis is also incremental: new measured work, changed evidence and e
 Cancelled, blocked and unfinished analyses do not establish a baseline. Successful partial runs can retain their analyzed documents while keeping incomplete source intervals open. State survives plugin reloads in the local database. A manual check remains a full analysis, including custom focus instructions; it does not replace the general hourly baseline. Source-policy changes invalidate reuse, and analysis-rule changes must bump the cache version in `source-analysis.ts`.
 
 Slack thread comparison ignores the moving upper time bound of a read. The thread identity and its content still determine whether it needs analysis: new replies, edits and read-scope changes are not suppressed. Existing completed analyses are reindexed from their saved exports so an upgrade does not require a full model pass. Raw receipts and source coverage checks are unchanged.
+
+## Independent account-pool login
+
+An installation may configure `accountPool` in its local `sources` setting instead of reading a native Claude profile:
+
+```json
+{
+  "expectedEmail": "owner@example.com",
+  "accountPool": {
+    "pluginId": "example-account-pool",
+    "accountId": "11111111-1111-4111-8111-111111111111",
+    "organizationUuid": "22222222-2222-4222-8222-222222222222"
+  }
+}
+```
+
+The installed pool must implement `source-auth.v1.prepare`, accepting `accountId`, `expectedEmail` and `organizationUuid`. It validates an enabled independently authorized OAuth account and refreshes it when needed. Its response contains `credentialFile` (an absolute private file path), `accountEmail`, `organizationUuid` and `expiresAt` (epoch milliseconds). The file contains `kind: "oauth"`, `accessToken` and `expiresAt`. Tokens must never appear in the RPC response.
+
+247C reads the credential in memory without copying or refreshing it. The pool remains its sole refresh owner. Both source collection and calendar imports use this setting. An unavailable pool or mismatched identity fails the check without falling back to Keychain, another organization or a personal account. The selected organization is independent of the pool's inference failover. Keep real identifiers and paths in local settings; never commit them. Without `accountPool`, existing profile-based installations retain their behavior.
