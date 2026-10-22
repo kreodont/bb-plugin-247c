@@ -667,7 +667,12 @@ export class SourceSyncRuntime {
       const config = await this.sourceConfiguration();
       this.store.storage.patchMetadata(id, metadata => ({ ...metadata, jiraProjects: [...config.jiraProjects] }));
       const context = this.store.request(id);
-      const bundle = await collectSources(initial, context.snapshots, { config, pendingCandidates: context.pendingCandidates, resolveSlackLink: this.store.slackLinkResolver(), signal: controller.signal, onProgress: p => {
+      const bundle = await collectSources(initial, context.snapshots, { config, pendingCandidates: context.pendingCandidates, resolveSlackLink: this.store.slackLinkResolver(), signal: controller.signal,
+        onConnectionAttempt: attempt => {
+          if (this.disposed) return;
+          const run = this.store.run(id);
+          this.store.save({ ...run, connectionAttempts: [...(run.connectionAttempts ?? []), attempt] });
+        }, onProgress: p => {
         if (this.disposed || controller.signal.aborted) return;
         progress.set(p.source, p);
         const run = this.store.run(id);

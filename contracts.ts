@@ -1,4 +1,5 @@
 import { searchRpcContract } from "./search-contracts.js";
+import { connectionAttemptSchema } from "./source-diagnostics.js";
 import { editorRpcContract } from "./file-editor/contracts.js";
 import { reviewFailuresSchema } from "./review-failures-contracts.js";
 import { taskStatuses } from "./task-status.js";
@@ -176,6 +177,7 @@ export const syncRunSchema = z.object({
   suggestions: z.number(), duplicates: z.number(), fingerprint: z.string(),
   analysis: z.object({ documents: z.number().int().min(0), reusedDocuments: z.number().int().min(0), modelSkipped: z.boolean() }).optional(),
   collection: z.object({ phase: z.enum(["collecting", "analyzing"]), calls: z.number().int().min(0), reads: z.number().int().min(0), elapsedMs: z.number().min(0) }).optional(),
+  connectionAttempts: z.array(connectionAttemptSchema).max(20).optional(),
 });
 export const syncCandidateSchema = syncDraftSchema.extend({
   // Only human-created partial reviews can have records without field changes.

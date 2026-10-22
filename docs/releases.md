@@ -565,3 +565,12 @@ Saved records waiting for an active or scheduled analysis now appear in a yellow
 status banner. Normal queueing no longer shows the red exclamation badge or an
 urgent popup. Paused checks, failures, import recovery and queues without a next
 run keep their error presentation. No database migration or settings changes.
+
+## Independent source collection in 0.5.100
+
+Gmail, Slack and Jira start reading independently and have separate time, request
+and receipt-size budgets. A slow Jira handshake no longer spends Gmail's reading
+time. Completed connection attempts are saved immediately and shown in Updates
+and Check history, with transport status and Retry-After where available. Failed
+source checkpoints remain unchanged. Account selection and authentication are
+unchanged; no database migration or local settings change is required.

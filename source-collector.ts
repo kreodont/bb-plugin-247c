@@ -6,7 +6,9 @@ import { randomUUID } from "node:crypto";
 import type { SyncCandidate, SyncRun, NativeSyncSource as SyncSource, SyncSubmit } from "./contracts.js";
 import type { TaskDossier } from "./core/types.js";
 import type { SourceCall } from "./source-sync.js";
-import { connectSources, sourceError, type SourceConnections } from "./source-connectors.js";
+import { connectSources, sourceError, type SourceConnections, type SourceReady } from "./source-connectors.js";
+import { SourceBudget } from "./source-budget.js";
+import type { ConnectionAttempt } from "./source-diagnostics.js";
 import { sourceResponseFailure, sourceThrownFailure } from "./source-errors.js";
 import { missingSlackThread, readableSlackChannel, normalizeMissingSlackReport } from "./source-slack-missing.js";
 
@@ -15,13 +17,16 @@ export type SourceDocument = { ref: string; source: SyncSource; tool: string; ar
 export type SourceExport = {
   version: 1; runId: string; startedAt: string; finishedAt: string; elapsedMs: number;
   calls: SourceCall[]; documents: SourceDocument[]; reports: SyncSubmit["reports"];
+  connectionAttempts?: ConnectionAttempt[];
 };
 export type CollectionProgress = { source: SyncSource; calls: number; reads: number; detail: string };
 export type CollectionOptions = {
   config?: SourceConfig;
   pendingCandidates?: SyncCandidate[];
-  signal?: AbortSignal; connect?: (signal: AbortSignal) => Promise<SourceConnections>;
+  signal?: AbortSignal; connect?: (signal: AbortSignal, onReady: SourceReady, onAttempt: (attempt: ConnectionAttempt) => void) => Promise<SourceConnections>;
   onProgress?: (progress: CollectionProgress) => void;
+  onConnectionAttempt?: (attempt: ConnectionAttempt) => void;
+  // Limits are independent for each source. Setup and idle time do not spend the read budget.
   timeoutMs?: number; maxCalls?: number;
   retryDelayMs?: (attempt: number, rateLimited: boolean) => number;
   resolveSlackLink?: (target: SlackTarget) => SlackTarget | null;
@@ -122,7 +127,10 @@ function documentContent(source: SyncSource, data: Json, until: number): string 
 export async function collectSources(run: SyncRun, dossiers: TaskDossier[], options: CollectionOptions = {}): Promise<SourceExport> {
   const config = options.config ?? defaultSourceConfig;
   const start = Date.now();
-  const signal = AbortSignal.any([options.signal ?? new AbortController().signal, AbortSignal.timeout(options.timeoutMs ?? 180000)]);
+  const signal = options.signal ?? new AbortController().signal;
+  const budgets = Object.fromEntries(SOURCES.map(s => [s, new SourceBudget(signal, options.timeoutMs ?? 180000)])) as Record<SyncSource, SourceBudget>;
+  const connectionAttempts: ConnectionAttempt[] = [];
+  const onAttempt = (attempt: ConnectionAttempt) => { connectionAttempts.push(attempt); options.onConnectionAttempt?.(attempt); };
   const calls: SourceCall[] = [], documents: SourceDocument[] = [];
   const recoveredCalls = new Set<string>();
   const callProblems = new Map<string, string>();
@@ -161,8 +169,8 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
   const knownPullRequests = new Set(pullRequestReferences(JSON.stringify(dossiers)));
   const pendingPullRequests = new Set(pullRequestReferences(JSON.stringify(options.pendingCandidates ?? [])).filter(url => !knownPullRequests.has(url)));
   const searchedPullRequests = new Set<string>();
-  let connections: SourceConnections;
-  let bytes = 0, count = 0;
+  const connections = {} as SourceConnections;
+  const bytes = { gmail: 0, slack: 0, jira: 0 }, count = { gmail: 0, slack: 0, jira: 0 };
   const error = (source: SyncSource, message: string) => { if (!problems[source].includes(message)) problems[source].push(message); };
   const progress = (source: SyncSource, detail: string) => options.onProgress?.({ source, detail, calls: calls.filter(c => c.source === source).length, reads: calls.filter(c => c.source === source && c.read && c.completed).length });
   const addLinks = (text: string) => {
@@ -172,10 +180,20 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
     found.slack.forEach(s => pending.slack.set(`${s.channel}:${s.ts}`, s));
   };
   async function call(source: SyncSource, tool: string, args: Json, full = false, expectedThreadId?: string): Promise<Json | null> {
-    if (signal.aborted || count >= (options.maxCalls ?? 600) || bytes > 28 * 1024 * 1024) { error(source, "The export limit was reached; the unchecked interval is preserved."); return null; }
+    const leave = budgets[source].enter();
+    try { return await callWithinBudget(source, tool, args, full, expectedThreadId); }
+    finally { leave(); }
+  }
+  function stoppedMessage(source: SyncSource) {
+    return signal.aborted ? "The check was canceled." : `${source} read time budget exhausted (${(options.timeoutMs ?? 180000) / 1000}s); the unchecked interval is preserved.`;
+  }
+  async function callWithinBudget(source: SyncSource, tool: string, args: Json, full = false, expectedThreadId?: string): Promise<Json | null> {
+    const signal = budgets[source].signal;
+    if (signal.aborted) { error(source, stoppedMessage(source)); return null; }
+    if (count[source] >= (options.maxCalls ?? 600) || bytes[source] > 28 * 1024 * 1024) { error(source, `${source} export limit was reached (${count[source]} calls, ${bytes[source]} bytes); the unchecked interval is preserved.`); return null; }
     const connection = connections[source];
     if ("error" in connection) { error(source, connection.error); return null; }
-    count++;
+    count[source]++;
     const ref = `export:${run.id}:${randomUUID()}`;
     const target = args.threadId ?? args.messageId ?? args.issueIdOrKey ?? (args.channel_id && args.message_ts ? `${args.channel_id}:${args.message_ts}` : args.channel_id);
     try {
@@ -206,9 +224,9 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
         : !full || (source === "gmail" ? Array.isArray(data.messages) : source === "jira" ? Boolean(data.key && data.fields) : typeof data.messages === "string");
       const completed = !failure && shapeOk;
       const size = Buffer.byteLength(output);
-      const truncated = size > 3 * 1024 * 1024 || bytes + size > 32 * 1024 * 1024;
+      const truncated = size > 3 * 1024 * 1024 || bytes[source] + size > 32 * 1024 * 1024;
       const savedOutput = truncated ? output.slice(0, 1000) : output;
-      bytes += Buffer.byteLength(savedOutput);
+      bytes[source] += Buffer.byteLength(savedOutput);
       calls.push({ ref, source, tool: `${source}.${tool}`, args, output: savedOutput, completed: completed && !truncated, truncated, read: full });
       if (completed && source === "gmail" && tool === "get_thread" && full && size > 3 * 1024 * 1024) {
         await readLargeGmailThread(data, String(args.threadId), ref);
@@ -235,7 +253,7 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
       progress(source, full ? "Reading full threads and linked issues" : "Loading the list of changes");
       return data;
     } catch (cause) {
-      const message = signal.aborted ? "The export timed out or was canceled." : sourceError(cause);
+      const message = signal.aborted ? stoppedMessage(source) : sourceError(cause);
       calls.push({ ref, source, tool: `${source}.${tool}`, args, output: message, completed: false, truncated: false, read: full });
       const detail = `${tool}${target ? ` (${target})` : ""}: ${message}`;
       callProblems.set(ref, detail); error(source, detail); progress(source, "Some data is unavailable"); return null;
@@ -250,7 +268,7 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
     for (const message of messages) {
       const result = await call("gmail", "get_message", { messageId: message.id, messageFormat: "PLAIN_TEXT" }, true, threadId);
       if (result) loaded++;
-      if (signal.aborted || count >= (options.maxCalls ?? 600) || bytes > 28 * 1024 * 1024) break;
+      if (budgets.gmail.signal.aborted || count.gmail >= (options.maxCalls ?? 600) || bytes.gmail > 28 * 1024 * 1024) break;
     }
     if (valid && loaded === messages.length) recoveredCalls.add(ref);
     else error("gmail", `get_thread (${threadId}): oversized thread recovery incomplete (${loaded}/${messages.length} messages read${valid ? "" : "; invalid message metadata"}).`);
@@ -390,9 +408,22 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
     });
   }
   try {
-    connections = await (options.connect ?? ((s) => connectSources(s, config)))(signal);
-    for (const source of SOURCES) if ("error" in connections[source]) error(source, (connections[source] as { error: string }).error);
-    await Promise.all([gmail(), slack(), jira()]);
+    const ready = {} as Record<SyncSource, () => void>;
+    const waiting = Object.fromEntries(SOURCES.map(source => [source, new Promise<void>(resolve => { ready[source] = resolve; })])) as Record<SyncSource, Promise<void>>;
+    const onReady: SourceReady = (source, connection) => {
+      if (connections[source]) return;
+      connections[source] = connection;
+      if ("error" in connection) error(source, connection.error);
+      ready[source]();
+    };
+    const connecting = (options.connect ?? ((s, ready, attempt) => connectSources(s, config, ready, attempt)))(signal, onReady, onAttempt)
+      .then(all => { for (const source of SOURCES) onReady(source, all[source]); })
+      .catch(cause => { for (const source of SOURCES) onReady(source, { error: sourceError(cause) }); });
+    const initial = { gmail, slack, jira };
+    await Promise.all([connecting, ...SOURCES.map(async source => {
+      await waiting[source];
+      try { await initial[source](); } catch (cause) { error(source, sourceError(cause)); }
+    })]);
     // Drain newly discovered links under the existing request, time and byte
     // limits. A fixed hop count can leave real linked issues unread.
     while (!signal.aborted) {
@@ -421,6 +452,7 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
   } catch (cause) {
     for (const source of SOURCES) error(source, sourceError(cause));
   } finally {
+    for (const source of SOURCES) budgets[source].dispose();
     await Promise.all(SOURCES.map(async source => { const c = connections?.[source]; if (c && !("error" in c)) await c.close().catch(() => {}); }));
   }
   const reports = SOURCES.map(source => {
@@ -432,5 +464,5 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
       scanned: scanned[source], threadsRead: good.filter(c => c.read).length,
     }, receipts);
   });
-  return { version: 1, runId: run.id, startedAt: new Date(start).toISOString(), finishedAt: new Date().toISOString(), elapsedMs: Date.now() - start, calls, documents, reports };
+  return { version: 1, runId: run.id, startedAt: new Date(start).toISOString(), finishedAt: new Date().toISOString(), elapsedMs: Date.now() - start, calls, documents, reports, connectionAttempts };
 }

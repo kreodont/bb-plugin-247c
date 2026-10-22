@@ -106,3 +106,28 @@ An installation may configure `accountPool` in its local `sources` setting inste
 The installed pool must implement `source-auth.v1.prepare`, accepting `accountId`, `expectedEmail` and `organizationUuid`. It validates an enabled independently authorized OAuth account and refreshes it when needed. Its response contains `credentialFile` (an absolute private file path), `accountEmail`, `organizationUuid` and `expiresAt` (epoch milliseconds). The file contains `kind: "oauth"`, `accessToken` and `expiresAt`. Tokens must never appear in the RPC response.
 
 247C reads the credential in memory without copying or refreshing it. The pool remains its sole refresh owner. Both source collection and calendar imports use this setting. An unavailable pool or mismatched identity fails the check without falling back to Keychain, another organization or a personal account. The selected organization is independent of the pool's inference failover. Keep real identifiers and paths in local settings; never commit them. Without `accountPool`, existing profile-based installations retain their behavior.
+
+## Independent source budgets and connection diagnostics
+
+Native Gmail, Slack and Jira reads start as soon as their own connection is
+ready. Each source gets 180 seconds of active reading time, including retries,
+with up to 600 operations and a 32 MiB receipt ceiling. Concurrent reads share
+that source's clock. Connection setup and idle waits for links from other
+sources do not consume it. The existing 45-second setup budget and two-attempt
+limit apply separately to each connector. Shared account authentication and
+catalog discovery still precede those connections.
+
+A timeout or exhausted allowance keeps that source incomplete and preserves its
+checkpoint. Other sources can finish and advance their own checkpoints. Stopping
+a check cancels all sources. More independent work can make a check take longer
+than the former shared three-minute deadline; it remains bounded by each
+source's allowance.
+
+**Connection diagnostics** appears on Updates and in Check history. Each attempt
+is saved immediately, including failed attempts followed by success. Records
+include time, duration, setup stage, outcome, failure category, HTTP statuses,
+parsed Retry-After and an allowlisted rate-limit reason when supplied by the
+transport. HTTP 200 alone does not prove that MCP initialization or tool discovery
+completed, and a timeout alone does not establish a rate limit. Diagnostics omit
+request URLs, credentials, arbitrary headers, response bodies and source content.
+Existing checks have no retroactive diagnostics. No database migration is needed.

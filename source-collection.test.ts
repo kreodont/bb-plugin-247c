@@ -5,6 +5,7 @@ import * as collector from "./source-collector.js";
 import { collectSources, pageState, sourceRetryDelay, responseData, sourceExportPage, sourceLinks, type SourceExport } from "./source-collector.js";
 import { syncStartSchema, type SyncRun } from "./contracts.js";
 import type { SourceConnections } from "./source-connectors.js";
+import type { ConnectionAttempt } from "./source-diagnostics.js";
 import { SourceSyncStore, requiredSourceReads, syncRanges, validateSyncReports } from "./source-sync.js";
 import { fixture } from "./test-support.js";
 import { reportsFor } from "./source-sync-test-support.js";
@@ -27,6 +28,31 @@ function bundleFor(run: SyncRun, large = false): SourceExport {
   return { version: 1, runId: run.id, startedAt: run.startedAt, finishedAt: run.until, elapsedMs: 1234, calls, reports,
     documents: large ? [{ ref: calls[0].ref, source: "gmail", tool: "get_thread", args: {}, content: "Контекст. ".repeat(60000) }] : [] };
 }
+
+it("persists connection attempts before collection finishes and retains them through cancellation and reload", async () => {
+  const attempt: ConnectionAttempt = { source: "jira", attempt: 1, startedAt: "2026-10-20T12:00:00Z", elapsedMs: 20000,
+    stage: "initialization", outcome: "failed", rateLimited: false, retryable: true, failure: "request_timeout", http: [{ stage: "initialization", elapsedMs: 10, status: 200 }] };
+  let release!: () => void;
+  const waiting = new Promise<void>(resolve => { release = resolve; });
+  vi.spyOn(collector, "collectSources").mockImplementation(async (run, _dossiers, options) => {
+    options?.onConnectionAttempt?.(attempt);
+    await waiting;
+    return { ...bundleFor(run), connectionAttempts: [attempt] };
+  });
+  const f = await fixture(); hosts.push(f);
+  const input = syncStartSchema.parse({ requestId: randomUUID(), since: null, request: f.startInput("unused", 0).request });
+  const initial = await f.harness.behavior.callRpc("syncStart", input) as SyncRun;
+  const store = new SourceSyncStore(f.repo);
+  await vi.waitFor(() => expect(store.run(initial.id).connectionAttempts).toEqual([attempt]));
+  expect(store.export(initial.id)).toBeNull();
+  await f.harness.behavior.callRpc("syncCancel", { runId: initial.id }); release();
+  await vi.waitFor(() => expect(store.export(initial.id)?.connectionAttempts).toEqual([attempt]));
+  await f.reload();
+  const reloaded = new SourceSyncStore(f.repo);
+  expect(reloaded.run(initial.id)).toMatchObject({ status: "cancelled", connectionAttempts: [attempt] });
+  expect(reloaded.export(initial.id)?.connectionAttempts).toEqual([attempt]);
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
+});
 
 it("uses Jira's response body rather than the unrelated UI graph", () => {
   expect(responseData({ content: [{ type: "text", text: '{"issues":[],"isLast":true}' }], structuredContent: { issues: { nodes: [] }, context: {} } })).toEqual({ issues: [], isLast: true });

@@ -25,11 +25,13 @@ function diagnostic(value: unknown, depth = 0): string {
 }
 
 export class SourceRequestError extends Error {
+  readonly status?: number;
   readonly rateLimited: boolean;
   readonly retryable: boolean;
   constructor(message: string, status?: number) {
     status ??= httpStatus(/(?:^|\b(?:HTTP(?:\s+error)?|status(?:\s+code)?))\s*[:=]?\s*(\d{3})\b/i.exec(message)?.[1]);
     super(sourceError(`${status && !new RegExp(`^HTTP ${status}\\b`, "i").test(message) ? `HTTP ${status}: ` : ""}${message || "The source request failed."}`));
+    this.status = status;
     this.rateLimited = status ? status === 429 : RATE_LIMITED.test(message);
     this.retryable = status ? [429, 502, 503, 504].includes(status) : this.rateLimited || TRANSIENT.test(message);
   }

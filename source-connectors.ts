@@ -11,6 +11,8 @@ import type { NativeSyncSource as SyncSource } from "./contracts.js";
 import { establishSourceConnection } from "./source-connection.js";
 import { sourceError } from "./source-error-text.js";
 import { poolAccessToken } from "./source-pool-auth.js";
+import { sourceThrownFailure } from "./source-errors.js";
+import { connectionFetch, connectionFailure, type ConnectionAttempt, type ConnectionHttp } from "./source-diagnostics.js";
 export { sourceError } from "./source-error-text.js";
 
 const execute = promisify(execFile);
@@ -24,6 +26,7 @@ export interface SourceConnector {
   close(): Promise<void>;
 }
 export type SourceConnections = Record<SyncSource, SourceConnector | { error: string }>;
+export type SourceReady = (source: SyncSource, connection: SourceConnections[SyncSource]) => void;
 export const WORK_CALENDAR = "primary";
 
 type Credential = { accessToken?: string; expiresAt?: number; scopes?: string[] };
@@ -66,14 +69,28 @@ async function accessToken(config: SourceConfig, signal: AbortSignal): Promise<s
   return auth.accessToken;
 }
 
-export async function connectSources(signal: AbortSignal, config: SourceConfig = defaultSourceConfig): Promise<SourceConnections> {
+export async function connectSources(signal: AbortSignal, config: SourceConfig = defaultSourceConfig, onReady?: SourceReady,
+  onAttempt?: (attempt: ConnectionAttempt) => void): Promise<SourceConnections> {
   const unavailable = (error: unknown): SourceConnections => Object.fromEntries(["gmail", "slack", "jira"].map(s => [s, { error: sourceError(error) }])) as SourceConnections;
   let token: string;
   let catalog: { id: string; display_name: string; eligible?: boolean; eligibility_reason?: string }[];
+  let phase: ConnectionAttempt["stage"] = "authentication";
+  let startedAt = new Date().toISOString(), started = performance.now();
+  const http: ConnectionHttp[] = [];
+  const sharedReport = (cause?: unknown) => {
+    const failure = cause === undefined ? null : sourceThrownFailure(cause);
+    onAttempt?.({ source: "shared", attempt: 1, startedAt, elapsedMs: Math.round(performance.now() - started), stage: phase,
+      outcome: signal.aborted ? "cancelled" : failure ? "failed" : "connected", http: http.map(h => ({ ...h })),
+      rateLimited: failure?.rateLimited ?? false, retryable: failure?.retryable ?? false, ...(failure?.status ? { status: failure.status } : {}),
+      ...(failure ? { failure: connectionFailure(failure) } : {}),
+    });
+  };
   try {
     if (!config.expectedEmail) throw new Error("Set expectedEmail in the sources setting before connecting sources.");
     token = await accessToken(config, signal);
-    const response = await fetch("https://api.anthropic.com/v1/mcp_servers?limit=1000", {
+    sharedReport();
+    phase = "catalog"; startedAt = new Date().toISOString(); started = performance.now();
+    const response = await connectionFetch(() => phase, event => { if (http.length < 32) http.push(event); })("https://api.anthropic.com/v1/mcp_servers?limit=1000", {
       headers: { Authorization: `Bearer ${token}`, "anthropic-version": "2023-06-01", "anthropic-beta": "mcp-servers-2025-12-04" },
       signal: AbortSignal.any([signal, AbortSignal.timeout(20000)]), redirect: "error",
     });
@@ -81,32 +98,40 @@ export async function connectSources(signal: AbortSignal, config: SourceConfig =
     const data = await response.json() as { data?: typeof catalog };
     if (!Array.isArray(data.data)) throw new Error("The connector catalog returned an unrecognized format.");
     catalog = data.data;
-  } catch (error) { return unavailable(error); }
+    sharedReport();
+  } catch (error) { sharedReport(error); return unavailable(error); }
   const names: Record<SyncSource, string> = { gmail: "Gmail", slack: "Slack", jira: "Atlassian" };
   return Object.fromEntries(await Promise.all((Object.keys(names) as SyncSource[]).map(async source => {
+    const ready = (connection: SourceConnections[SyncSource]) => { onReady?.(source, connection); return [source, connection] as const; };
     const server = catalog.find(s => s.display_name === names[source]);
-    if (!server || server.eligible === false || !/^mcpsrv_[A-Za-z0-9]+$/.test(server.id)) return [source, { error: `Connector ${names[source]} is unavailable in the configured Claude profile.` }];
+    if (!server || server.eligible === false || !/^mcpsrv_[A-Za-z0-9]+$/.test(server.id)) {
+      onAttempt?.({ source, attempt: 1, startedAt: new Date().toISOString(), elapsedMs: 0, stage: "availability", outcome: "failed", http: [], rateLimited: false, retryable: false });
+      return ready({ error: `Connector ${names[source]} is unavailable in the configured Claude profile.` });
+    }
     try {
       const { client } = await establishSourceConnection(() => {
+        const http: ConnectionHttp[] = [];
+        let phase: ConnectionHttp["stage"] = "initialization", recording = true;
         const client = new Client({ name: "247c-source-reader", version: "1.0.0" }, { capabilities: {} });
         const transport = new StreamableHTTPClientTransport(new URL(`https://mcp-proxy.anthropic.com/v1/mcp/${server.id}`), {
           requestInit: { redirect: "error", headers: { Authorization: `Bearer ${token}`, "anthropic-beta": "mcp-servers-2025-12-04", "anthropic-version": "2023-06-01", "X-Mcp-Client-Session-Id": randomUUID() } },
+          fetch: connectionFetch(() => phase, event => { if (recording && http.length < 32) http.push(event); }),
         });
-        return { client,
+        return { client, http, stopDiagnostics: () => { recording = false; },
           connect: (signal: AbortSignal) => client.connect(transport, { signal, timeout: 20000 }),
-          listTools: async (signal: AbortSignal) => (await client.listTools({}, { signal, timeout: 20000 })).tools.map(t => t.name),
+          listTools: async (signal: AbortSignal) => { phase = "tool discovery"; return (await client.listTools({}, { signal, timeout: 20000 })).tools.map(t => t.name); },
           close: () => client.close(),
         };
-      }, READ_TOOLS[source], signal);
-      return [source, {
+      }, READ_TOOLS[source], signal, { onAttempt: attempt => onAttempt?.({ source, ...attempt }) });
+      return ready({
         async call(tool: string, args: Record<string, unknown>, signal: AbortSignal) {
           if (!READ_TOOLS[source].includes(tool)) throw new Error("The collector allows only predefined read operations.");
           if (source === "jira" && (!config.jiraSite || args.cloudId !== config.jiraSite || args.updateHistory === true)) throw new Error("Only reads from the configured Jira site without history changes are allowed.");
           return client.callTool({ name: tool, arguments: args }, undefined, { signal, timeout: 20000 });
         },
         close: () => client.close(),
-      } satisfies SourceConnector];
-    } catch (error) { return [source, { error: sourceError(error) }]; }
+      } satisfies SourceConnector);
+    } catch (error) { return ready({ error: sourceError(error) }); }
   }))) as SourceConnections;
 }
 
