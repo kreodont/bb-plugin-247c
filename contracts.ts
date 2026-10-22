@@ -123,6 +123,8 @@ export const sessionSchema = z.object({
   mode: z.enum(["result", "conversation"]).default("result"), finishedAt: z.string().nullable().default(null),
   continuedFrom: idSchema.nullable().default(null),
   closedTaskConversation: z.boolean().optional(),
+  // Instructions installed in the worker runtime, not proof of a dossier read.
+  workerContext: z.object({ version: z.literal(1), taskRevision: revisionSchema, sourceRevision: revisionSchema }).optional(),
   acceptedPartProposalIds: z.array(idSchema).max(400).optional(),
   discussionProposalId: idSchema.nullable().default(null),
   extraction: extractionSchema.nullable().default(null),

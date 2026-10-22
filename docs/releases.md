@@ -1,3 +1,16 @@
+## Work chat context refresh in 0.5.101
+
+Long-running task conversations now receive the current accepted dossier version
+before continuing after a task update. The worker is instructed to reread changed
+context, including primary-source changes, while preserving the same chat and
+history. Active turns finish before refresh; the user's next message stays queued
+until the idle runtime is ready to resume. Existing chats are upgraded on their
+next continuation. No additional model turn is launched for synchronization.
+
+Pending proposals remain unaccepted, unchanged dossiers are not repeatedly
+reloaded, and recorder snapshots keep their existing semantics. No database
+migration, account change or local configuration update is required.
+
 ## Source connection recovery in 0.5.98
 
 The built-in collector retries a transient connection setup failure once with

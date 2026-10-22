@@ -15,6 +15,7 @@ import { parseExcludedReviewModels } from "./settings.js";
 import { allowedRecorder, selectRecorder } from "./recorder.js";
 import { readSavedRecorder } from "./recorder-recovery.js";
 import { ThreadRouting } from "./thread-routing.js";
+import { acceptedWorkerContext, sameWorkerContext } from "./worker-context.js";
 
 const FAILED = new Set(["error", "failed", "archived", "deleted"]);
 const forbiddenPath = new Set([".git", ".bb", ".codex", ".claude", ".agents", ".ssh", ".env", ".npmrc", "node_modules", ".247c"]);
@@ -49,6 +50,8 @@ export class SessionRuntime {
   private readonly unavailableMonitors = new Set<string>();
   private disposed = false;
   private readonly openingChats = new Map<string, Promise<Session>>();
+  private readonly refreshingWorkers = new Map<string, Promise<void>>();
+  private readonly refreshRetryAt = new Map<string, number>();
   constructor(readonly bb: BbPluginApi, readonly repo: Repository, readonly settings: () => Promise<SettingsView>, readonly threadRouting = new ThreadRouting(bb, async () => "")) {}
 
   private requiresOpenTask(session: Session) {
@@ -197,6 +200,7 @@ export class SessionRuntime {
       : "The selected worker model is unavailable.");
     const timestamp = new Date().toISOString();
     let session: Session = { id: input.requestId, taskId: input.taskId, baseRevision: input.revision, status: "starting", objective, criteria: input.criteria, mode, finishedAt: null, extraction: null, extractionRepair: null,
+      ...(mode === "conversation" ? { workerContext: acceptedWorkerContext(this.repo, input.taskId) } : {}),
       ...(closedTaskConversation ? { closedTaskConversation: true } : {}),
       continuedFrom: discussion?.session.id ?? null, discussionProposalId: discussion?.proposal?.id ?? null,
       workerThreadId: null, reviewerThreadId: null, environmentId: null, hostId: null, workerProvider: input.request.providerId, workerModel: input.request.model,
@@ -851,6 +855,55 @@ export class SessionRuntime {
       if (threadId !== session.workerThreadId && threadId !== session.reviewerThreadId) throw new PolicyError("This check has already finished.");
       return { action: "proceed" as const };
     } catch (error) { return { action: "reject" as const, message: error instanceof Error ? error.message : String(error) }; }
+  }
+
+  prepareDispatch(context: MessageDispatchHookContext) {
+    const bootstrap = this.bootstrapDispatch(context);
+    if (bootstrap) return bootstrap;
+    const decision = this.dispatch(context.thread.id);
+    if (decision.action !== "proceed") return decision;
+    const session = this.repo.forThread(context.thread.id);
+    if (!session || session.mode !== "conversation" || session.workerThreadId !== context.thread.id) return decision;
+    const wait = (reason: string, sendAt = Date.now() + 1000) => ({ action: "wait" as const, reason, sendAt });
+    if (this.refreshingWorkers.has(context.thread.id)) return wait("Refreshing the accepted 247C task context.");
+    if (sameWorkerContext(session.workerContext, acceptedWorkerContext(this.repo, session.taskId))) return decision;
+    if (context.attempt === "join-turn" || ["active", "starting", "stopping"].includes(context.thread.status)) {
+      return wait("The task changed. Context will refresh after the current turn finishes.");
+    }
+    const retryAt = this.refreshRetryAt.get(context.thread.id) ?? 0;
+    if (retryAt > Date.now()) return wait("The task context could not be refreshed yet. Retrying automatically.", retryAt);
+    // Queue the original message while releasing the idle runtime. Keeping this
+    // outside the hook's awaited decision avoids BB's short hook timeout. No
+    // extra prompt is sent, and the existing provider conversation is resumed.
+    const refresh = this.refreshWorker(session).catch(() => {
+      if (!this.disposed) {
+        this.refreshRetryAt.set(context.thread.id, Date.now() + 30000);
+        this.bb.log.warn(`Could not refresh the accepted task context for ${context.thread.id}; the message remains queued for retry.`);
+      }
+    }).finally(() => { this.refreshingWorkers.delete(context.thread.id); });
+    this.refreshingWorkers.set(context.thread.id, refresh);
+    return wait("Refreshing the accepted 247C task context.");
+  }
+
+  private async refreshWorker(session: Session) {
+    const threadId = session.workerThreadId!;
+    const thread = await this.bb.sdk.threads.get({ threadId });
+    if (this.disposed || !["idle", "error", "pending"].includes(thread.status)) return;
+    const stillChatting = () => {
+      if (this.disposed) return false;
+      const current = this.repo.session(session.id);
+      return current.workerThreadId === threadId && current.mode === "conversation" && ["starting", "working"].includes(current.status);
+    };
+    if (!stillChatting()) return;
+    // A pending empty chat has no resident runtime. Stopping it would cancel
+    // initial provisioning; its first start already receives fresh instructions.
+    if (thread.status !== "pending") await this.stopRuntime(threadId, () => {
+      if (!stillChatting()) throw new PolicyError("The conversation ended during context refresh.");
+    });
+    if (!stillChatting()) return;
+    const current = this.repo.session(session.id);
+    this.repo.saveSession({ ...current, workerContext: acceptedWorkerContext(this.repo, current.taskId) });
+    this.refreshRetryAt.delete(threadId);
   }
   async dispose() {
     this.disposed = true;

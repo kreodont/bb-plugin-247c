@@ -1,5 +1,19 @@
 # Reading dossiers
 
+Open work chats compare the accepted task and primary-source revisions before
+continuing. When either changes, the next user message waits briefly while the
+idle provider runtime is released, then resumes the same conversation with a
+current version marker and instructions to read `c247_read` before task-specific
+work. Existing chats adopt this behavior on their next message. Active turns
+are allowed to finish first; queued input and conversation history are preserved.
+
+This does not launch an extra model turn or automatically send a message.
+Unchanged revisions require no additional dossier read. Pending or rejected
+proposals do not trigger a refresh or become accepted context. Recorder snapshots
+and legacy criterion-based contracts remain fixed. The session's optional
+`workerContext` records the runtime instruction version, not proof of a model read;
+it does not change the original `baseRevision` or require a database migration.
+
 `c247_read({taskId})` reads the current working context. Small dossiers include
 all accepted evidence. Above 48 KiB of serialized accepted data, the default
 view automatically defers older progress and next-step records. Current task
