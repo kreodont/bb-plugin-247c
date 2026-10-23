@@ -32,7 +32,22 @@ it("keeps saved invalid batches and queued work visible even when the script exi
   const attention = { ...failed, status: "succeeded", output: JSON.stringify({ status: "attention_required", pendingRecords: 7, attentionBatches: ["batch_saved"], analysisError: null }) };
   expect(evaluateUpdater(automation, [attention, success], now + 3600000)).toMatchObject({ status: "attention", alert: true, attentionBatches: 1, pendingRecords: 7, lastSuccessAt: success.finishedAt });
   const waiting = { ...attention, output: JSON.stringify({ status: "complete", pendingRecords: 4, attentionBatches: [] }) };
-  expect(evaluateUpdater(automation, [waiting, success], now + 3600000)).toMatchObject({ status: "waiting", alert: true, pendingRecords: 4, lastSuccessAt: success.finishedAt });
+  expect(evaluateUpdater(automation, [waiting, success], now + 3600000)).toMatchObject({ status: "waiting", alert: true, pendingRecords: 4, lastSuccessAt: waiting.finishedAt });
+});
+
+it("advances the successful-run time while the queue remains nonempty", () => {
+  const queued = { ...failed, status: "succeeded", error: null,
+    output: JSON.stringify({ status: "complete", pendingRecords: 31, attentionBatches: [], analysisError: null }) };
+  const state = evaluateUpdater(automation, [queued, success], queued.finishedAt);
+  expect(state).toMatchObject({ status: "waiting", pendingRecords: 31, lastSuccessAt: queued.finishedAt });
+  expect(state.detail).toContain("The latest check completed successfully");
+  for (const output of [
+    { status: "analysis_deferred", pendingRecords: 31, attentionBatches: [] },
+    { status: "analysis_failed", pendingRecords: 31, attentionBatches: [], analysisError: { error: "Failed" } },
+    { status: "complete", pendingRecords: 31, attentionBatches: [], analysisError: { error: "Unresolved error" } },
+  ]) {
+    expect(evaluateUpdater(automation, [{ ...queued, output: JSON.stringify(output) }, success], queued.finishedAt).lastSuccessAt).toBe(success.finishedAt);
+  }
 });
 
 it("uses actual scheduled slots, including nights and weekends, and gives a 20-minute grace", () => {

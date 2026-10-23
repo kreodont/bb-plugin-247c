@@ -66,7 +66,13 @@ export function evaluateUpdater(automation: Automation, input: Run[], now: numbe
   const active = runs.find(run => run.status === "running");
   const terminal = runs.find(run => run.status !== "running" && run.status !== "skipped");
   const historicalReport = runs.map(run => ({ run, report: report(run) })).find(row => row.report)?.report;
-  const successful = runs.find(run => run.status === "succeeded" && (!report(run) || report(run)?.status === "complete") && !(report(run)?.attentionBatches.length) && !(report(run)?.pendingRecords));
+  // A completed batch is a successful run even when more records are queued.
+  // Queue depth is reported independently; it must not freeze this timestamp.
+  const successful = runs.find(run => {
+    const value = report(run);
+    return run.status === "succeeded" && (!value || value.status === "complete")
+      && !value?.attentionBatches.length && !value?.analysisError;
+  });
   // A manual analysis can recover an old batch without creating an automation run.
   // New unassigned records do not invalidate recovery of a failed batch.
   // It cannot clear a newer failure, a collection failure, or a missed schedule slot.
@@ -93,7 +99,7 @@ export function evaluateUpdater(automation: Automation, input: Run[], now: numbe
   if (base.pendingRecords) return problem(queueStatus, "Source updates are waiting for analysis",
     `${recovered ? "The previous analysis error has been resolved. " : ""}${active
       ? "A check is running. Saved records will be analyzed in batches."
-      : automation.nextRunAt ? "Saved records are queued for the next scheduled analysis. No manual action is required."
+      : automation.nextRunAt ? `${successful === terminal ? "The latest check completed successfully. " : ""}Saved records are queued for the next scheduled analysis. No manual action is required.`
       : "Saved records still need analysis. No next run is scheduled; check the automation schedule."}`);
   const unavailable = base.sourceCoverage?.filter(source => source.status === "unavailable") ?? [];
   const sourceOutage = unavailable.length ? problem("attention", "Some work sources are unavailable",

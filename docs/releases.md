@@ -1,3 +1,7 @@
+## Successful updater runs with queued work in 0.5.103
+
+The Updates panel now advances Last successful run after a successful check even when records remain queued for analysis. Queue depth stays visible separately, and the waiting message confirms that the latest check completed. Deferred analysis, failed runs and unresolved import errors do not advance the successful-run timestamp.
+
 ## Accepted task snapshots in 0.5.102
 
 Work chats now receive the actual accepted task fields alongside the revision
