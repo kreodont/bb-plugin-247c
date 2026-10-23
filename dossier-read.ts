@@ -72,7 +72,7 @@ export function readDossierPage(dossier: Dossier, input: z.infer<typeof dossierR
   if (offset >= text.length || offset > 0 && /[\uDC00-\uDFFF]/.test(text[offset]) && /[\uD800-\uDBFF]/.test(text[offset - 1])) {
     throw new PolicyError("Invalid dossier page position. Read the section again without a cursor.");
   }
-  const metadata = { taskId: input.taskId, revision: dossier.task.revision, section, snapshot,
+  const metadata = { taskId: input.taskId, revision: dossier.task.revision, sourceRevision: dossier.sourceRevision, section, snapshot,
     availableSections: sections, instructions: DOSSIER_READ_GUIDE,
     historyWindow: { proposals: 200, sessions: 100, events: 100, sessionUpdates: 200, syncUpdates: 200 },
   };

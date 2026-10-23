@@ -33,7 +33,7 @@ import { ACTIVE, EXTRA_SCHEMA, Repository } from "./repository.js";
 import { SessionRuntime } from "./runtime.js";
 import { ThreadRouting } from "./thread-routing.js";
 import { managementGuide, emptyChatInstructions, replyVerificationGuide, currentTaskInstructions } from "./prompts.js";
-import { acceptedWorkerContext } from "./worker-context.js";
+import { acceptedWorkerContext, workerContextBrief } from "./worker-context.js";
 import { SourceSyncRuntime, SYNC_ACTIVE } from "./source-sync.js";
 import { ProposalInbox } from "./proposal-inbox.js";
 import { DayPlanning } from "./day-planning.js";
@@ -339,7 +339,9 @@ export default async function plugin(bb: BbPluginApi) {
       const { taskId } = input;
       const session = repo.forThread(ctx.threadId);
       if (session && session.taskId !== taskId) throw new PolicyError("A session can access only its own task dossier.");
-      return readDossierPage(repo.detail(taskId), input);
+      const response = readDossierPage(repo.detail(taskId), input);
+      runtime.recordDossierRead(ctx.threadId, input.cursor, response);
+      return response;
     },
   });
   bb.agents.registerTool({
@@ -360,6 +362,18 @@ export default async function plugin(bb: BbPluginApi) {
     execute(input, ctx) { return runtime.submit(ctx.threadId, input).then(boundedJson); },
   });
   bb.agents.registerTool({ name: "c247_script_analysis_result", description: "Submit the complete saved-source analysis. Correct any validation errors and resubmit until saved successfully. The existing updater then validates and imports pending proposals; no task changes are applied.", parameters: scriptAnalysisResultSchema, execute: (input, ctx) => externalAnalysis.submit(ctx.threadId, input).then(boundedJson) });
+  const workerBriefs = new Map<string, { key: string; text: string }>();
+  bb.agents.contributeInstructions(({ threadId }) => {
+    const session = repo.forThread(threadId);
+    if (!session || session.workerThreadId !== threadId || session.mode !== "conversation" || !["starting", "working"].includes(session.status)) return null;
+    const key = JSON.stringify(acceptedWorkerContext(repo, session.taskId));
+    const cached = workerBriefs.get(session.taskId);
+    if (cached?.key === key) return cached.text;
+    const text = workerContextBrief(repo.detail(session.taskId));
+    if (workerBriefs.size >= 128) workerBriefs.delete(workerBriefs.keys().next().value!);
+    workerBriefs.set(session.taskId, { key, text });
+    return text;
+  });
   bb.agents.configure((context) => {
     const external = externalAnalysis.configure(context);
     if (external) return external;
@@ -482,7 +496,7 @@ export default async function plugin(bb: BbPluginApi) {
     if (runId) bb.log.info(`Scheduled 247C source check: ${runId}`);
   });
   settings.onChange(changed);
-  bb.onDispose(async () => { search.dispose(); updaterHealth.dispose(); calendar.dispose(); sync.dispose(); await agentTime.dispose(); await runtime.dispose(); await knowledge!.dispose(); });
+  bb.onDispose(async () => { workerBriefs.clear(); search.dispose(); updaterHealth.dispose(); calendar.dispose(); sync.dispose(); await agentTime.dispose(); await runtime.dispose(); await knowledge!.dispose(); });
 
   const usage = `247C — durable tasks, conversations and knowledge
 

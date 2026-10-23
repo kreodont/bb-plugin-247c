@@ -3,8 +3,9 @@
 Open work chats compare the accepted task and primary-source revisions before
 continuing. When either changes, the next user message waits briefly while the
 idle provider runtime is released, then resumes the same conversation with a
-current version marker and instructions to read `c247_read` before task-specific
-work. Existing chats adopt this behavior on their next message. Active turns
+current version marker, a bounded snapshot of accepted task fields, and
+instructions to read `c247_read` before task-specific work. Existing chats adopt
+this behavior on their next message. Active turns
 are allowed to finish first; queued input and conversation history are preserved.
 
 This does not launch an extra model turn or automatically send a message.
@@ -13,6 +14,20 @@ proposals do not trigger a refresh or become accepted context. Recorder snapshot
 and legacy criterion-based contracts remain fixed. The session's optional
 `workerContext` records the runtime instruction version, not proof of a model read;
 it does not change the original `baseRevision` or require a database migration.
+
+The accepted snapshot has its own 4096-character instruction contribution,
+separate from local instructions and worker rules. It includes whole field
+values where they fit and explicitly lists omitted fields and facts. It never
+silently cuts a summary or presents omitted questions as an empty list. Accepted
+fields take precedence over older conversation state. Snapshots are cached by
+accepted task/source revision; pending proposals do not invalidate this cache.
+
+`workerDossierRead` separately records the version returned by a complete
+`c247_read` context/accepted read. Merely refreshing a runtime never creates this
+receipt. Fragmented reads require every page in order; facts/history reads and
+skipped pages do not count. A reload during paging conservatively leaves the
+receipt unchanged until a fresh complete read. The receipt confirms tool output,
+not that the model understood or followed it.
 
 `c247_read({taskId})` reads the current working context. Small dossiers include
 all accepted evidence. Above 48 KiB of serialized accepted data, the default

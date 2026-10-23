@@ -1,3 +1,15 @@
+## Accepted task snapshots in 0.5.102
+
+Work chats now receive the actual accepted task fields alongside the revision
+marker. A version-only reminder could leave a resumed worker answering from an
+old dossier. The bounded snapshot supplies the current summary and next step,
+lists any omitted fields explicitly, and preserves existing conversation history.
+Existing marker-only runtimes refresh on the next continuation.
+
+Complete dossier reads now have a separate version receipt. Refreshing the
+runtime or reading only part of a paged dossier does not count as a complete
+read. No extra model turn, account change or database migration is required.
+
 ## Work chat context refresh in 0.5.101
 
 Long-running task conversations now receive the current accepted dossier version

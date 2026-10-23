@@ -52,6 +52,7 @@ export class SessionRuntime {
   private readonly openingChats = new Map<string, Promise<Session>>();
   private readonly refreshingWorkers = new Map<string, Promise<void>>();
   private readonly refreshRetryAt = new Map<string, number>();
+  private readonly pendingWorkerReads = new Map<string, { snapshot: string; nextCursor: string }>();
   constructor(readonly bb: BbPluginApi, readonly repo: Repository, readonly settings: () => Promise<SettingsView>, readonly threadRouting = new ThreadRouting(bb, async () => "")) {}
 
   private requiresOpenTask(session: Session) {
@@ -905,9 +906,30 @@ export class SessionRuntime {
     this.repo.saveSession({ ...current, workerContext: acceptedWorkerContext(this.repo, current.taskId) });
     this.refreshRetryAt.delete(threadId);
   }
+
+  recordDossierRead(threadId: string, inputCursor: string | undefined, response: string) {
+    const session = this.repo.forThread(threadId);
+    if (!session || session.workerThreadId !== threadId || session.mode !== "conversation" || !["starting", "working"].includes(session.status)) return;
+    const page = JSON.parse(response) as { section: string; format: string; snapshot: string; nextCursor: string | null; offset?: number; revision: number; sourceRevision: number };
+    if (!["context", "accepted"].includes(page.section)) return;
+    const pending = this.pendingWorkerReads.get(threadId);
+    const sequential = inputCursor === undefined
+      ? page.format === "json" || page.offset === 0
+      : pending?.snapshot === page.snapshot && pending.nextCursor === inputCursor;
+    this.pendingWorkerReads.delete(threadId);
+    if (!sequential) return;
+    if (page.nextCursor !== null) {
+      this.pendingWorkerReads.set(threadId, { snapshot: page.snapshot, nextCursor: page.nextCursor });
+      return;
+    }
+    this.repo.saveSession({ ...session, workerDossierRead: {
+      taskRevision: page.revision, sourceRevision: page.sourceRevision, readAt: new Date().toISOString(),
+    } });
+  }
   async dispose() {
     this.disposed = true;
     this.unavailableMonitors.clear();
+    this.pendingWorkerReads.clear();
     for (const session of this.repo.active()) {
       if (session.mode === "conversation" && ["starting", "working"].includes(session.status)) continue;
       if (session.mode === "conversation") {

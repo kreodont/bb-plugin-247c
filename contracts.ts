@@ -124,7 +124,8 @@ export const sessionSchema = z.object({
   continuedFrom: idSchema.nullable().default(null),
   closedTaskConversation: z.boolean().optional(),
   // Instructions installed in the worker runtime, not proof of a dossier read.
-  workerContext: z.object({ version: z.literal(1), taskRevision: revisionSchema, sourceRevision: revisionSchema }).optional(),
+  workerContext: z.object({ version: z.literal(1), taskRevision: revisionSchema, sourceRevision: revisionSchema, briefVersion: z.literal(1).optional() }).optional(),
+  workerDossierRead: z.object({ taskRevision: revisionSchema, sourceRevision: revisionSchema, readAt: z.iso.datetime() }).optional(),
   acceptedPartProposalIds: z.array(idSchema).max(400).optional(),
   discussionProposalId: idSchema.nullable().default(null),
   extraction: extractionSchema.nullable().default(null),

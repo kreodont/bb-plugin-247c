@@ -3,7 +3,8 @@ import { afterEach, expect, it, vi } from "vitest";
 import { makeMessageDispatchHookContext, makePluginAgentConfigurationContext } from "@get-bb/plugin-sdk/testing";
 import { fixture } from "./test-support.js";
 import { sessionSchema, type Session } from "./contracts.js";
-import { acceptedWorkerContext } from "./worker-context.js";
+import { acceptedWorkerContext, workerContextBrief } from "./worker-context.js";
+import { readDossierPage } from "./dossier-read.js";
 
 type Fixture = Awaited<ReturnType<typeof fixture>>;
 const hosts: Fixture[] = [];
@@ -27,6 +28,10 @@ function dispatch(f: Fixture, session: Session, attempt: "start-turn" | "join-tu
 async function configured(f: Fixture, threadId: string) {
   return f.harness.behavior.resolveAgentConfiguration(makePluginAgentConfigurationContext({ origin: { pluginId: "247c" }, thread: { id: threadId, title: "Renamed chat" } }));
 }
+function brief(f: Fixture, threadId: string) {
+  return f.harness.inspection.registrations.instructionProvider!({ threadId, projectId: "proj_personal" });
+}
+function briefData(text: string) { return JSON.parse(text.slice(text.indexOf("\n") + 1)); }
 async function refreshed(f: Fixture, session: Session) {
   await vi.waitFor(() => expect(f.repo.session(session.id).workerContext).toEqual(acceptedWorkerContext(f.repo, session.taskId)));
   await vi.waitFor(async () => expect(await dispatch(f, session)).toEqual({ action: "proceed" }));
@@ -54,9 +59,14 @@ it("refreshes accepted updates once before continuing the same conversation, wit
   const config = await configured(f, session.workerThreadId!);
   expect(config.instructions).toContain(`revision=${f.repo.kernel.getTask(task.id).revision}`);
   expect(config.instructions).toContain("If missing or different, call c247_read now");
+  // A version number/re-read instruction alone did not update a real resumed
+  // worker. Actual accepted fields must be present before it calls any tool.
+  expect(briefData(brief(f, session.workerThreadId!)!).fields.summary).toBe("Accepted revised summary");
+  expect(f.repo.session(session.id).workerDossierRead).toBeUndefined();
   const read = JSON.parse(String(await f.harness.behavior.callAgentTool("c247_read", { taskId: task.id }, { threadId: session.workerThreadId!, projectId: "proj_personal" })));
   expect(read.data.projection.summary).toBe("Accepted revised summary");
   expect(read.data.facts.some((fact: { text: string }) => fact.text.includes("предыдущие цифры устарели"))).toBe(true);
+  expect(f.repo.session(session.id).workerDossierRead).toMatchObject({ taskRevision: read.revision, sourceRevision: read.sourceRevision });
   expect(await dispatch(f, session)).toEqual({ action: "proceed" });
   expect(f.harness.inspection.sdk.callsTo("threads.stop")).toHaveLength(1);
 });
@@ -71,6 +81,7 @@ it("leaves pending/rejected proposals and view markers out of refreshes", async 
   f.repo.markSeen(task.id, task.revision);
   expect(await dispatch(f, session)).toEqual({ action: "proceed" });
   expect((await configured(f, session.workerThreadId!)).instructions).not.toContain("UNACCEPTED_SECRET_CONTEXT");
+  expect(brief(f, session.workerThreadId!)).not.toContain("UNACCEPTED_SECRET_CONTEXT");
   await f.harness.behavior.callRpc("reject", { proposalId: proposal.id });
   expect(await dispatch(f, session)).toEqual({ action: "proceed" });
   expect(f.harness.inspection.sdk.callsTo("threads.stop")).toHaveLength(0);
@@ -187,5 +198,104 @@ it("preserves fixed result contracts and keeps fresh context out of recorder ins
   expect(config.instructions).toContain("Use only the supplied snapshots");
   expect(config.instructions).not.toContain("Current accepted 247C task");
   expect(config.tools).toHaveLength(0);
+  expect(brief(f, reviewer)).toBeNull();
+  expect(brief(result.f, result.session.workerThreadId!)).toBeNull();
   expect(await dispatch(f, session)).toMatchObject({ action: "reject" });
+});
+
+it("upgrades a marker-only runtime even when the accepted version did not change", async () => {
+  const { f, session } = await setup();
+  await f.idle(session.workerThreadId!, "Ready.");
+  const marker = acceptedWorkerContext(f.repo, session.taskId);
+  delete marker.briefVersion;
+  f.repo.saveSession({ ...f.repo.session(session.id), workerContext: marker });
+  expect(await dispatch(f, session)).toMatchObject({ action: "wait" });
+  await refreshed(f, session);
+  expect(f.repo.session(session.id).workerContext?.briefVersion).toBe(1);
+  expect(f.repo.session(session.id).workerDossierRead).toBeUndefined();
+  expect(f.harness.inspection.sdk.callsTo("threads.send")).toHaveLength(0);
+});
+
+it("refreshes cached accepted fields and retains the whole latest next step in the prompt", async () => {
+  const { f, task, session } = await setup();
+  const first = brief(f, session.workerThreadId!)!;
+  expect(briefData(first).fields.summary).toBeNull();
+  const instruction = f.repo.kernel.appendFact({ taskId: task.id, kind: "user_instruction", text: "Check the historical classification before deciding on payment." });
+  const revision = f.repo.kernel.getTask(task.id).revision;
+  const proposal = f.repo.propose({ taskId: task.id, revision, requestId: randomUUID(), draft: {
+    rationale: "Use the accepted clarification", confidence: 1, changes: {
+      summary: { value: "The classification changed after payroll. Payment is not yet established.", evidenceRefs: [instruction.id] },
+      nextStep: { value: instruction.text, evidenceRefs: [instruction.id] },
+    },
+  } }, "test");
+  await f.harness.behavior.callRpc("accept", { proposalId: proposal.id, revision });
+  const second = brief(f, session.workerThreadId!)!;
+  expect(second).not.toBe(first);
+  expect(briefData(second).fields).toMatchObject({ summary: "The classification changed after payroll. Payment is not yet established.", nextStep: instruction.text });
+  expect(second.length).toBeLessThanOrEqual(4096);
+  await f.reload();
+  expect(brief(f, session.workerThreadId!)).toBe(second);
+  expect(brief(f, "unrelated-thread")).toBeNull();
+});
+
+it("bounds large snapshots without cutting fields, hiding omissions or including unaccepted history", async () => {
+  const { f, task } = await setup();
+  const dossier = f.repo.detail(task.id);
+  dossier.task.title = '"'.repeat(200);
+  dossier.projection.summary = "Long accepted summary 😀\n".repeat(1000);
+  dossier.projection.nextStep = "Keep this exact current step.";
+  dossier.projection.openQuestions = ["Large unresolved question ".repeat(1000)];
+  dossier.facts[0].text = "Very large accepted evidence ".repeat(1000);
+  const text = workerContextBrief(dossier), packet = briefData(text);
+  expect(text.length).toBeLessThanOrEqual(4096);
+  expect(Buffer.from(text).toString("utf8")).toBe(text);
+  expect(packet.task.title).toBe(dossier.task.title);
+  expect(packet.fields.nextStep).toBe(dossier.projection.nextStep);
+  expect(packet.fields).not.toHaveProperty("summary");
+  expect(packet.fields).not.toHaveProperty("openQuestions");
+  expect(packet.omittedFields).toEqual(expect.arrayContaining(["summary", "openQuestions"]));
+  expect(packet.omittedFactCount).toBe(dossier.facts.length);
+});
+
+it("records a read only after every context page, and preserves the receipt through reload", async () => {
+  const { f, task, session } = await setup();
+  f.repo.kernel.appendFact({ taskId: task.id, kind: "constraint", text: "Keep every constraint. ".repeat(10000) });
+  const ctx = { threadId: session.workerThreadId!, projectId: "proj_personal" };
+  await f.harness.behavior.callAgentTool("c247_read", { taskId: task.id, section: "facts", query: "report" }, ctx);
+  expect(f.repo.session(session.id).workerDossierRead).toBeUndefined();
+  let cursor: string | undefined;
+  do {
+    const page = JSON.parse(String(await f.harness.behavior.callAgentTool("c247_read", { taskId: task.id, ...(cursor ? { cursor } : {}) }, ctx)));
+    cursor = page.nextCursor ?? undefined;
+    if (cursor) expect(f.repo.session(session.id).workerDossierRead).toBeUndefined();
+  } while (cursor);
+  const receipt = f.repo.session(session.id).workerDossierRead!;
+  expect(receipt).toMatchObject({ taskRevision: f.repo.kernel.getTask(task.id).revision, sourceRevision: 0 });
+  await f.reload();
+  expect(f.repo.session(session.id).workerDossierRead).toEqual(receipt);
+  changed(f, session);
+  expect(f.repo.session(session.id).workerDossierRead?.taskRevision).toBeLessThan(f.repo.kernel.getTask(task.id).revision);
+});
+
+it("does not acknowledge skipped pages or page sequences interrupted by reload", async () => {
+  const { f, task, session } = await setup();
+  f.repo.kernel.appendFact({ taskId: task.id, kind: "constraint", text: "Keep every constraint. ".repeat(10000) });
+  const ctx = { threadId: session.workerThreadId!, projectId: "proj_personal" };
+  const first = JSON.parse(String(await f.harness.behavior.callAgentTool("c247_read", { taskId: task.id }, ctx)));
+  const middle = JSON.parse(readDossierPage(f.repo.detail(task.id), { taskId: task.id, cursor: first.nextCursor }));
+  expect(middle.nextCursor).toBeTruthy();
+  let cursor: string | undefined = middle.nextCursor;
+  while (cursor) {
+    const page = JSON.parse(String(await f.harness.behavior.callAgentTool("c247_read", { taskId: task.id, cursor }, ctx)));
+    cursor = page.nextCursor ?? undefined;
+  }
+  expect(f.repo.session(session.id).workerDossierRead).toBeUndefined();
+  const restart = JSON.parse(String(await f.harness.behavior.callAgentTool("c247_read", { taskId: task.id }, ctx)));
+  await f.reload();
+  cursor = restart.nextCursor;
+  while (cursor) {
+    const page = JSON.parse(String(await f.harness.behavior.callAgentTool("c247_read", { taskId: task.id, cursor }, ctx)));
+    cursor = page.nextCursor ?? undefined;
+  }
+  expect(f.repo.session(session.id).workerDossierRead).toBeUndefined();
 });
