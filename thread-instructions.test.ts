@@ -9,7 +9,7 @@ const hosts: Awaited<ReturnType<typeof fixture>>[] = [];
 const guidance = "Write the deliverable as concise paragraphs. Preserve required JSON and exact quotations.";
 async function setup() {
   const f = await fixture(); hosts.push(f);
-  await f.harness.behavior.setSettings({ threadProjectId: "proj_work", threadInstructions: guidance });
+  await f.harness.behavior.setSettings({ threadProjectId: "proj_work", threadInstructions: guidance, scopeAgentsToProject: true });
   return f;
 }
 afterEach(async () => { for (const f of hosts.splice(0)) await f.harness.lifecycle.dispose(); });
@@ -24,10 +24,40 @@ it.each(["codex", "claude-code", "claude-work"])("scopes local instructions to 2
       origin: { pluginId }, project: { id: projectId }, provider: { id: providerId },
     }));
     expect((config.instructions ?? "").includes(guidance)).toBe(included);
+    if (included) expect(config.tools.map(tool => tool.name)).toContain("c247_read");
+    else expect(config.tools).toEqual([]);
   }
   await f.harness.behavior.setSettings({ threadInstructions: "" });
   const empty = await f.harness.behavior.resolveAgentConfiguration(makePluginAgentConfigurationContext({ origin: { pluginId: "247c" } }));
   expect(empty.instructions ?? "").toBe("");
+});
+
+it("keeps global tool access by default and persists project scoping across reloads", async () => {
+  const f = await fixture(); hosts.push(f);
+  const other = makePluginAgentConfigurationContext({ origin: { pluginId: null }, project: { id: "proj_personal" } });
+  expect((await f.harness.behavior.resolveAgentConfiguration(other)).tools.map(tool => tool.name)).toContain("c247_create");
+  await f.harness.behavior.setSettings({ scopeAgentsToProject: true, threadProjectId: "proj_work" });
+  for (const reload of [false, true]) {
+    if (reload) await f.reload();
+    const config = await f.harness.behavior.resolveAgentConfiguration(other);
+    expect(config.tools).toEqual([]);
+    expect(config.instructions ?? "").toBe("");
+    expect(config.skills).toEqual([]);
+  }
+  await f.harness.behavior.setSettings({ scopeAgentsToProject: false });
+  expect((await f.harness.behavior.resolveAgentConfiguration(other)).tools.map(tool => tool.name)).toContain("c247_create");
+});
+
+it("never exposes project-scoped tools to unrelated or side chats when the project is unset", async () => {
+  const f = await setup();
+  await f.harness.behavior.setSettings({ threadProjectId: "" });
+  for (const pluginId of [null, "side-chat", "another-plugin"]) {
+    const config = await f.harness.behavior.resolveAgentConfiguration(makePluginAgentConfigurationContext({
+      origin: { pluginId }, project: { id: "proj_other" },
+    }));
+    expect(config.tools).toEqual([]);
+    expect(config.instructions ?? "").toBe("");
+  }
 });
 
 it("preserves worker permissions and the recorder JSON contract when adding local guidance", async () => {

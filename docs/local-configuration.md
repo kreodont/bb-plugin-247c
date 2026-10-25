@@ -64,7 +64,23 @@ the current value; a running session retains its existing instructions until BB
 constructs it again. The setting is saved in the active local patch like other
 preferences, and the published default is empty.
 
+`scopeAgentsToProject` limits 247C agent tools and their attached instructions to
+the configured `threadProjectId` and conversations created by 247C, including
+older workers, reviews and source analysts in other projects. Unrelated projects
+receive no 247C agent tools or instructions. The panel and CLI remain available.
+The default is false for compatibility. With the setting enabled and no project
+selected, only 247C-created conversations receive the agent tools. This local
+preference survives updates through the settings patch. BB applies it when the
+provider session is next constructed; existing conversation text is not erased.
+
 ## Settings owned by BB and providers
+
+Keep workspace-specific operating rules in `<workspace>/.bb/AGENTS.md`, rather
+than the global `<BB data directory>/AGENTS.md`. BB loads that exact workspace
+file for all providers; it does not search parent directories or use the project
+name to locate it. Check the actual workspace of existing conversations before
+moving instructions. Personal paths and account details belong only in local
+files, outside the shared plugin repository.
 
 **Pinned files** uses a separate local-settings store managed by
 `local-settings.ts`: `<BB data directory>/plugins/247c/pinned-files.local.json`.

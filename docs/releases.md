@@ -1,3 +1,11 @@
+## Optional project scope for agent context in 0.5.104
+
+The local `scopeAgentsToProject` setting limits 247C tools and their instructions
+to the configured thread project and 247C-created conversations. Other projects
+keep access to the panel and CLI without receiving task-management context.
+Existing worker, reviewer and analyst restrictions are preserved. The default
+remains unrestricted, and the preference survives plugin updates.
+
 ## Successful updater runs with queued work in 0.5.103
 
 The Updates panel now advances Last successful run after a successful check even when records remain queued for analysis. Queue depth stays visible separately, and the waiting message confirms that the latest check completed. Deferred analysis, failed runs and unresolved import errors do not advance the successful-run timestamp.

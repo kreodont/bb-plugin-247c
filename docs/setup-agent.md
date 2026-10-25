@@ -24,6 +24,13 @@ the local folder requested by the user. Set its project ID in the plugin's
 bb plugin config 247c set threadProjectId proj_example
 ```
 
+To keep task tools and their instructions out of unrelated personal projects,
+enable `scopeAgentsToProject` after selecting the project. The panel and CLI stay
+available everywhere, and older 247C-created conversations keep their tools.
+Save workspace-specific instructions in that folder's `.bb/AGENTS.md`; keep only
+cross-project preferences in the global BB instructions. The setting and actual
+project ID belong in the local settings patch, not in this repository.
+
 New work conversations, review discussions, recorders, verification threads and
 manual or scheduled source checks all use that project's default local folder.
 The native composer opens with the configured project selected. The setting
