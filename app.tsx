@@ -2,7 +2,7 @@ import { SearchPage, prepareSearch } from "./search-ui.js";
 import { SourceConnectionDiagnostics } from "./source-diagnostics-ui.js";
 import { registerFileEditor } from "./file-editor/app.js";
 import { ChatIndicator } from "./chat-indicator.js";
-import { createReviewActivityIndicator, ReviewActivityIcon, REVIEW_ACTIVITY_ICON } from "./review-activity-ui.js";
+import { createReviewActivityIndicator, ReviewActivityIcon, ReviewReadyIcon, REVIEW_ACTIVITY_ICON, REVIEW_READY_ICON } from "./review-activity-ui.js";
 import { useReviewFailures, ReviewFailureBadge, ReviewFailureNotification, ReviewFailuresPage } from "./review-failures-ui.js";
 import { isLiveTask, statusNeedsStoppedSession, taskStatusNames } from "./task-status.js";
 import { WaitingStatus } from "./waiting-age.js";
@@ -1051,6 +1051,7 @@ export default definePluginApp((app) => {
   registerFileEditor(app);
   const reviewActivity = createReviewActivityIndicator();
   app.experimental_icons.register({ name: REVIEW_ACTIVITY_ICON, component: ReviewActivityIcon });
+  app.experimental_icons.register({ name: REVIEW_READY_ICON, component: ReviewReadyIcon });
   app.contentScripts.register({ id: "review-activity", mount: reviewActivity.mount });
   app.slots.experimental_appOverlay({ id: "review-activity", component: reviewActivity.Overlay });
   app.slots.experimental_appOverlay({ id: "ux-recording", component: UxRecorder });

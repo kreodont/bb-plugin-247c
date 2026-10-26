@@ -43,6 +43,27 @@ it("handles either mount order and removes indicators on overlay or script dispo
   expect(replacement.inspection.getThreadRowStatus("main-chat")).toBeNull();
 });
 
+it("replaces the review spinner with a persistent ready badge on the original chat and clears it after the decision", async () => {
+  let data = active;
+  const script = await mount(), slot = render(() => data);
+  await waitFor(() => expect(script.inspection.getThreadRowStatus("main-chat")?.tone).toBe("running"));
+  data = { threads: [{ threadId: "main-chat", status: "awaiting_approval" }] };
+  await slot.behavior.emitRealtime("desk-changed", {});
+  await waitFor(() => expect(script.inspection.getThreadRowStatus("main-chat")).toEqual({
+    icon: "247c-review-ready", tone: "default", label: "Proposal ready to review",
+  }));
+  expect(script.inspection.getThreadRowStatus("review-chat")).toBeNull();
+  // Opening the chat or accepting only part emits refreshes, not acknowledgments.
+  await slot.behavior.emitRealtime("desk-changed", {});
+  expect(script.inspection.getThreadRowStatus("main-chat")?.icon).toBe("247c-review-ready");
+  slot.lifecycle.unmount();
+  const restored = render(() => data);
+  await waitFor(() => expect(script.inspection.getThreadRowStatus("main-chat")?.icon).toBe("247c-review-ready"));
+  data = idle;
+  await restored.behavior.emitRealtime("desk-changed", {});
+  await waitFor(() => expect(script.inspection.getThreadRowStatus("main-chat")).toBeNull());
+});
+
 it("clears unavailable status and restores it after reconnect without running an agent", async () => {
   let fail = false;
   const script = await mount(), slot = render(() => { if (fail) throw new Error("Offline"); return active; });

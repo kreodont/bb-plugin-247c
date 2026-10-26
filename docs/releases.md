@@ -1,3 +1,11 @@
+# 0.5.107
+
+The original work chat now shows an amber proposal indicator in the thread list
+when its review produces changes awaiting approval. It replaces the review spinner
+and remains visible after opening the chat, partial decisions and BB restarts.
+Accepting or rejecting the remaining changes clears it; reviews with no changes
+leave no indicator. The existing Proposal button opens the exact session result.
+
 # 0.5.106
 
 Opt-in daily storage maintenance protects task history, pending proposals and unread intervals. Old source payloads retain cited receipts; local backups keep three verified recovery points with crash-safe BB snapshot bookkeeping. Drive archives use daily, weekly and monthly tiers. Only registered development caches and diagnostic logs expire.
