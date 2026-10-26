@@ -23,6 +23,8 @@ import { analysisExport, needsDayAnalysis, planSourceAnalysis, rekeyAnalysisDocu
 
 export const SYNC_SOURCES: SyncSource[] = ["gmail", "slack", "jira"];
 export const SYNC_ACTIVE = new Set<SyncRun["status"]>(["starting", "working"]);
+const ANALYST_STOP_GRACE_MS = 30_000;
+const STOPPED_ANALYST = new Set(["idle", "error", "failed"]);
 type Row = Record<string, unknown>;
 type RunRequest = { input?: SyncStart; externalImport?: { path: string; sha256: string }; snapshots: TaskDossier[]; pendingCandidates?: SyncCandidate[]; jiraProjects?: string[]; submittedFingerprint?: string; submittedFingerprints?: string[]; submittedBatches?: string[]; dataPagesRead?: number[]; dayItemsRead?: string[]; incremental?: boolean; analysis?: SourceAnalysis };
 export type SourceCall = { ref: string; source: SyncSource; tool: string; args: unknown; output: string; completed: boolean; truncated: boolean; read: boolean; purpose?: "slack-channel-access" };
@@ -609,6 +611,7 @@ export class SourceSyncRuntime {
   readonly store: SourceSyncStore;
   private disposed = false;
   private processing = new Set<string>();
+  private stoppedSince = new Map<string, number>();
   private collectors = new Map<string, AbortController>();
   private companions = new Map<string, AbortController>();
   constructor(readonly bb: BbPluginApi, readonly repo: Repository, readonly onStart?: (signal: AbortSignal) => Promise<unknown>, readonly sourceConfiguration: () => Promise<SourceConfig> = async () => defaultSourceConfig, readonly threadRouting = new ThreadRouting(bb, async () => ""), readonly timeZone: () => string = () => DAY_TIME_ZONE,
@@ -792,6 +795,7 @@ export class SourceSyncRuntime {
     const run = this.store.run(id);
     if (!SYNC_ACTIVE.has(run.status)) return run;
     const cancelled = this.store.save({ ...run, status: "cancelled", finishedAt: now() });
+    this.stoppedSince.delete(id);
     this.collectors.get(id)?.abort();
     this.companions.get(id)?.abort();
     if (run.threadId) await this.bb.sdk.threads.stop({ threadId: run.threadId });
@@ -802,18 +806,49 @@ export class SourceSyncRuntime {
     this.processing.add(id);
     try {
       let run = this.store.run(id);
-      if (!SYNC_ACTIVE.has(run.status)) return;
+      if (!SYNC_ACTIVE.has(run.status)) { this.stoppedSince.delete(id); return; }
       if (!run.threadId) { await this.findThread(run); run = this.store.run(id); }
       if (!run.threadId) throw new PolicyError("The check launch was interrupted before the chat was created. Start a new check.");
       const thread = await this.bb.sdk.threads.get({ threadId: run.threadId });
       if (this.disposed || !SYNC_ACTIVE.has(this.store.run(id).status)) return;
-      if (["idle", "error", "failed", "archived", "deleted"].includes(thread.status)) throw new PolicyError("The collector stopped without a confirmed result. Open the check chat; source checkpoints are preserved.");
+      if (thread.archivedAt || thread.deletedAt || ["archived", "deleted"].includes(thread.status)) throw new PolicyError("The check chat was archived or deleted before completion. Source checkpoints are preserved.");
       if (Date.now() - Date.parse(run.startedAt) > 45 * 60000) { await this.cancel(id); return; }
+      if (STOPPED_ANALYST.has(thread.status)) {
+        // thread.failed can arrive before provider-retry has queued its retry.
+        // Keep the same run, export and tool access alive across that gap and
+        // while a durable retry is pending. The existing run deadline still applies.
+        let queued: Awaited<ReturnType<BbPluginApi["sdk"]["threads"]["queuedMessages"]["list"]>>;
+        try { queued = await this.bb.sdk.threads.queuedMessages.list({ threadId: thread.id }); }
+        catch (error) {
+          this.bb.log.warn(`Could not inspect the check chat retry queue; keeping the check open: ${String(error)}`);
+          return;
+        }
+        if (this.disposed || !SYNC_ACTIVE.has(this.store.run(id).status)) return;
+        if (queued.some(entry => entry.payload?.kind === "retry" &&
+          ("state" in entry ? entry.state !== "failed_exhausted" : !entry.failureReason))) {
+          this.stoppedSince.delete(id);
+          return;
+        }
+        const stoppedAt = this.stoppedSince.get(id) ?? Date.now();
+        this.stoppedSince.set(id, stoppedAt);
+        if (Date.now() - stoppedAt < ANALYST_STOP_GRACE_MS) return;
+        let detail = "";
+        try {
+          const [event] = await this.bb.sdk.threads.events.list({ threadId: thread.id, types: ["turn/completed"], order: "desc", limit: "1" });
+          if (event?.type === "turn/completed" && event.data.status === "failed") detail = event.data.error?.message?.slice(0, 600) ?? "";
+        } catch { /* Keep the missing-result diagnostic when history is unavailable. */ }
+        // A retry may have been claimed while the inspection was in flight.
+        const current = await this.bb.sdk.threads.get({ threadId: thread.id });
+        if (this.disposed || !SYNC_ACTIVE.has(this.store.run(id).status)) return;
+        if (!STOPPED_ANALYST.has(current.status)) { this.stoppedSince.delete(id); return; }
+        throw new PolicyError(`The check chat stopped without a confirmed result.${detail ? ` ${detail}` : ""} Open the check chat; source checkpoints are preserved.`);
+      }
+      this.stoppedSince.delete(id);
       if (run.status === "starting") this.store.save({ ...run, status: "working" });
       await this.nameThread(run, thread);
     } catch (error) {
       if (!this.disposed && SYNC_ACTIVE.has(this.store.run(id).status)) this.store.save({ ...this.store.run(id), status: "blocked", finishedAt: now(), error: error instanceof Error ? error.message : String(error) });
-    } finally { this.processing.delete(id); }
+    } finally { this.processing.delete(id); if (!this.disposed && !SYNC_ACTIVE.has(this.store.run(id).status)) this.stoppedSince.delete(id); }
   }
-  dispose() { this.disposed = true; for (const c of [...this.collectors.values(), ...this.companions.values()]) c.abort(); this.collectors.clear(); this.companions.clear(); }
+  dispose() { this.disposed = true; for (const c of [...this.collectors.values(), ...this.companions.values()]) c.abort(); this.collectors.clear(); this.companions.clear(); this.stoppedSince.clear(); }
 }

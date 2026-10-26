@@ -53,7 +53,7 @@ Only one run operates at a time. The panel shows collection immediately; the mod
 
 Source authentication is read locally from macOS Keychain, or the configured profile file on other systems, and is used only with Anthropic's connector catalog and MCP proxy. The standard `claude mcp get` command refreshes expired login state without model generation. Account identity is checked against `sources.expectedEmail`. The adapter follows the installed Claude Code connector protocol and may need updating if that protocol changes. These credentials are not passed to the analysis model's account.
 
-Reloads resume monitoring an existing chat. Interrupted collection becomes blocked without an automatic new run. Analysis failures or an exit without submission preserve checkpoints and the export. Cancellation aborts requests and stops the chat; late results are rejected. The total run limit is 45 minutes, 500 tasks and 1 MiB of proposals. History and exports remain in the plugin's SQLite database.
+Reloads resume monitoring an existing chat. Interrupted collection becomes blocked without an automatic new run. When BB schedules an automatic provider retry, the same analysis run stays open with its export, saved proposal batches and analyst tools available. A 30-second grace period allows the retry to enter the queue after the failure event. Exhausted retries and exits without submission remain failures; the diagnostic includes the provider error when available. Cancellation, archived/deleted chats and the 45-minute total run deadline still end the run, preserving checkpoints and the export. Late results cannot reopen it. Runs remain limited to 500 tasks and 1 MiB of proposals. History and exports remain in the plugin's SQLite database.
 
 ## Hourly schedule
 
