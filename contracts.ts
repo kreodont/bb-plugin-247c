@@ -174,6 +174,7 @@ export const syncSubmitToolSchema = z.object({
 export const syncRunSchema = z.object({
   id: idSchema, status: z.enum(["starting", "working", "completed", "partial", "blocked", "cancelled"]),
   threadId: idSchema.nullable(), provider: z.string(), model: z.string(),
+  payloadRetiredAt: z.string().optional(),
   startedAt: z.string(), finishedAt: z.string().nullable(), until: z.string(), manualSince: z.string().nullable(),
   ranges: z.record(sourceKeySchema, z.object({ since: z.string(), previous: z.string().nullable() })),
   reports: z.array(syncReportSchema), error: z.string().nullable(),
@@ -276,6 +277,7 @@ export const rpcContract = defineRpcContract({
     recentlyAccepted: z.array(taskSchema.pick({ id: true, title: true, status: true }).extend({ acceptedAt: z.string() })).default([]) }) },
   acceptInbox: { input: z.object({ items: z.array(reviewSelectionSchema).min(1).max(50) }).strict(), output: z.object({ applied: z.array(z.object({ kind: z.enum(["source", "proposal"]), id: idSchema, taskId: idSchema })), failed: z.array(z.object({ kind: z.enum(["source", "proposal"]), id: idSchema, message: z.string() })) }) },
   syncState: { input: z.object({}).strict(), output: syncStateSchema },
+  sourceRetention: { input: z.object({ days: z.number().int().min(1).max(3650), apply: z.boolean().default(false) }).strict(), output: z.object({ eligibleRuns: z.number(), protectedRuns: z.number(), bytesBefore: z.number(), bytesAfter: z.number(), citedCallsKept: z.number(), applied: z.boolean(), busy: z.boolean() }) },
   syncStart: { input: syncStartSchema, output: syncRunSchema },
   syncQuickStart: { input: z.object({ requestId: z.uuid() }).strict(), output: z.object({ run: syncRunSchema, alreadyRunning: z.boolean() }) },
   syncImport: { input: syncImportSchema, output: syncRunSchema },

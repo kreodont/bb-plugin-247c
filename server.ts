@@ -1,3 +1,4 @@
+import { retainSourcePayloads } from "./source-retention.js";
 import { TaskSearch } from "./search-index.js";
 import { createFileEditorHandlers } from "./file-editor/server.js";
 import { ExternalAnalysis } from "./external-analysis.js";
@@ -127,6 +128,7 @@ export default async function plugin(bb: BbPluginApi) {
     },
     unpinFile: ({ id }) => { const result = pinnedFiles.remove(id); bb.realtime.publish("pinned-files-changed", {}); return result; },
     reviewFailures: () => reviewFailures(repo),
+    sourceRetention: ({ days, apply }) => retainSourcePayloads(repo.db, days, apply),
     uxState: () => ux.state(),
     uxControl: ({ action }) => { const state = ux.control(action); bb.realtime.publish("ux-changed", {}); return state; },
     uxRecord: input => ux.record(input),

@@ -1,3 +1,7 @@
+# 0.5.106
+
+Opt-in daily storage maintenance protects task history, pending proposals and unread intervals. Old source payloads retain cited receipts; local backups keep three verified recovery points with crash-safe BB snapshot bookkeeping. Drive archives use daily, weekly and monthly tiers. Only registered development caches and diagnostic logs expire.
+
 ## Optional project scope for agent context in 0.5.104
 
 The local `scopeAgentsToProject` setting limits 247C tools and their instructions

@@ -1,4 +1,4 @@
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { makePluginAgentConfigurationContext } from "@get-bb/plugin-sdk/testing";
 import { fixture } from "./test-support.js";
@@ -8,7 +8,7 @@ import { connectorCall, reportsFor, sourceData, startSourceSync, submitSourceDat
 
 const hosts: Awaited<ReturnType<typeof fixture>>[] = [];
 async function setup() { const f = await fixture(); hosts.push(f); return f; }
-afterEach(async () => { for (const f of hosts.splice(0)) await f.harness.lifecycle.dispose(); });
+afterEach(async () => { for (const f of hosts.splice(0)) await f.harness.lifecycle.dispose(); vi.useRealTimers(); });
 
 it("retains a legacy collector's chosen account, idempotency and read-only task tools", async () => {
   const f = await setup();
@@ -204,8 +204,12 @@ it("deduplicates a replay, including a new-task finding subsequently matched to 
 });
 
 it("keeps failed and cancelled runs durable without creating task sessions or moving checkpoints", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
   const f = await setup(); const { run } = await startSourceSync(f);
   await f.reload(); expect(new SourceSyncStore(f.repo).active()[0].id).toBe(run.id);
+  await f.idle(run.threadId!, "Не удалось подключиться к источникам.");
+  expect(new SourceSyncStore(f.repo).run(run.id).status).toBe("working");
+  vi.setSystemTime(Date.now() + 30_000);
   await f.idle(run.threadId!, "Не удалось подключиться к источникам.");
   expect(new SourceSyncStore(f.repo).run(run.id).status).toBe("blocked");
   expect(new SourceSyncStore(f.repo).checkpoints().gmail).toBeNull();

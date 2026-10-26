@@ -69,6 +69,12 @@ def copy_database(source, destination):
     return check_db(destination)
 
 
+class BbReadError(RuntimeError):
+    def __init__(self, message, code=None):
+        super().__init__(message)
+        self.code = code
+
+
 def run_bb(binary, *args):
     env = os.environ.copy()
     # Read-only exports should not inherit agent/thread orchestration routing.
@@ -76,7 +82,11 @@ def run_bb(binary, *args):
         env.pop(key, None)
     result = subprocess.run([binary, *args], capture_output=True, timeout=90, env=env)
     if result.returncode:
-        raise RuntimeError(f"bb {' '.join(args[:3])} failed (exit {result.returncode})")
+        try:
+            code = json.loads(result.stdout).get("error", {}).get("code")
+        except (ValueError, AttributeError):
+            code = None
+        raise BbReadError(f"bb {' '.join(args[:3])} failed (exit {result.returncode})", code)
     return json.loads(result.stdout)
 
 
@@ -184,6 +194,8 @@ def create_snapshot(binary, data_dir, destination, machine):
                 dump(root / "threads" / f"{thread_id}.json", events)
                 return {"id": thread_id, "status": "saved"}
             except Exception as e:
+                if isinstance(e, BbReadError) and e.code == "thread_not_found":
+                    return {"id": thread_id, "status": "deleted", "detail": "BB confirms this thread no longer exists. No live history was omitted."}
                 return {"id": thread_id, "status": "unavailable", "error": str(e)}
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
@@ -227,7 +239,7 @@ def create_snapshot(binary, data_dir, destination, machine):
             os.replace(pending, destination / filename)
         finally:
             pending.unlink(missing_ok=True)
-        result = {"archive": str(destination / filename), "sha256": digest(archive), "bytes": archive.stat().st_size, "createdAt": manifest["createdAt"], "tables": counts, "threadsSaved": sum(h["status"] == "saved" for h in history), "threadsUnavailable": [h["id"] for h in history if h["status"] != "saved"], "cloudUploadVerified": False}
+        result = {"archive": str(destination / filename), "sha256": digest(archive), "bytes": archive.stat().st_size, "createdAt": manifest["createdAt"], "tables": counts, "threadsSaved": sum(h["status"] == "saved" for h in history), "threadsUnavailable": [h["id"] for h in history if h["status"] not in ("saved", "deleted")], "cloudUploadVerified": False}
         result["cloudUploadStatus"] = verify_drive_upload(destination / filename)
         result["cloudUploadVerified"] = result["cloudUploadStatus"]["verified"]
         dump(destination / f"latest-{machine}.json", result)
@@ -318,26 +330,73 @@ def restore_to_new(path, destination):
     return {"restoredTo": str(destination), "verified": True, "sessionsPaused": recovered}
 
 
-def retain(destination, machine, hourly_days=7, daily_days=90):
-    """Keep manual snapshots for seven days, then one per day up to ninety days."""
-    now = datetime.now(timezone.utc)
-    daily = set()
-    removed = 0
+def retention_candidates(destination, machine, now=None):
+    """Keep seven daily, four older weekly, and three older monthly snapshots."""
+    now = now or datetime.now(timezone.utc)
     prefix = f"247c-{machine}-"
-    for p in sorted(Path(destination).glob(prefix + "*.zip"), reverse=True):
+    parsed = []
+    for p in Path(destination).glob(prefix + "*.zip"):
+        if p.is_symlink() or not p.is_file():
+            continue
         try:
             when = datetime.strptime(p.name[len(prefix):-4], "%Y%m%dT%H%M%S%fZ").replace(tzinfo=timezone.utc)
         except ValueError:
             continue
-        if now - when < timedelta(days=hourly_days):
-            continue
-        day = when.date()
-        if now - when < timedelta(days=daily_days) and day not in daily:
-            daily.add(day)
-            continue
+        parsed.append((when, p))
+    parsed.sort(reverse=True)
+    kept = {p for when, p in parsed if when > now}
+    remaining = [(when, p) for when, p in parsed if when <= now]
+    for limit, key in [(7, lambda d: d.date()), (4, lambda d: d.isocalendar()[:2]), (3, lambda d: (d.year, d.month))]:
+        selected = set()
+        for when, path in remaining:
+            bucket = key(when)
+            if bucket not in selected and len(selected) < limit:
+                selected.add(bucket)
+                kept.add(path)
+        if not selected:
+            break
+        oldest = min(selected)
+        remaining = [(when, p) for when, p in remaining if key(when) < oldest]
+    # Never delete the newest available archive, regardless of its age.
+    if parsed:
+        kept.add(parsed[0][1])
+    return [p for _, p in parsed if p not in kept]
+
+
+def retain(destination, machine):
+    removed = 0
+    for p in retention_candidates(destination, machine):
         p.unlink()
         removed += 1
     return removed
+
+
+def retention_safe(result):
+    if result.get("threadsUnavailable"):
+        return False
+    path = Path(result["archive"])
+    is_drive = any(part.startswith("GoogleDrive-") for part in path.parts)
+    return not is_drive or result.get("cloudUploadVerified") is True
+
+
+def prune_verified(destination, machine):
+    destination = Path(destination)
+    marker = destination / f"latest-{machine}.json"
+    last = json.loads(marker.read_text())
+    archive = Path(last['archive'])
+    if last.get('threadsUnavailable'):
+        return {'retentionDeferred': 'The latest backup is incomplete'}
+    if archive.parent != destination or archive.is_symlink() or not archive.name.startswith(f'247c-{machine}-') or archive.suffix != '.zip':
+        raise ValueError('The backup marker does not identify a local recovery archive')
+    if digest(archive) != last['sha256']:
+        raise ValueError('The latest archive checksum changed; no backups were removed')
+    verify_archive(archive)
+    last['cloudUploadStatus'] = verify_drive_upload(archive)
+    last['cloudUploadVerified'] = last['cloudUploadStatus']['verified']
+    dump(marker, last)
+    if not retention_safe(last):
+        return {'retentionDeferred': 'Cloud upload has not been confirmed'}
+    return {'expiredSnapshotsRemoved': retain(destination, machine)}
 
 
 def main():
@@ -349,11 +408,14 @@ def main():
     create.add_argument("--data-dir", required=True)
     create.add_argument("--destination", required=True)
     create.add_argument("--machine", required=True)
-    create.add_argument("--retention", action="store_true", help="Keep 90 days of daily snapshots after a successful creation")
+    create.add_argument("--retention", action="store_true", help="Keep 7 daily, 4 weekly and 3 monthly snapshots after a verified complete backup")
     create.add_argument("--daily", action="store_true", help="Skip if this machine already has a successful snapshot today")
     create.add_argument("--timezone", default="Europe/Athens")
     verify = sub.add_parser("verify")
     verify.add_argument("archive")
+    prune = sub.add_parser("prune", help="Retry retention after a complete archive has uploaded")
+    prune.add_argument("--destination", required=True)
+    prune.add_argument("--machine", required=True)
     restore = sub.add_parser("restore")
     restore.add_argument("archive")
     restore.add_argument("--destination", required=True)
@@ -365,11 +427,23 @@ def main():
                 last = json.loads(marker.read_text())
                 zone = ZoneInfo(args.timezone)
                 if datetime.fromisoformat(last["createdAt"]).astimezone(zone).date() == datetime.now(zone).date() and not last.get("threadsUnavailable") and Path(last["archive"]).is_file():
-                    print(json.dumps({"skipped": "A complete snapshot already exists for today"}))
+                    result = {"skipped": "A complete snapshot already exists for today"}
+                    if args.retention:
+                        last["cloudUploadVerified"] = verify_drive_upload(last["archive"])["verified"]
+                        if retention_safe(last):
+                            result["expiredSnapshotsRemoved"] = retain(args.destination, args.machine)
+                        else:
+                            result["retentionDeferred"] = "Cloud upload has not been confirmed"
+                    print(json.dumps(result))
                     return
             result = create_snapshot(args.bb, args.data_dir, args.destination, args.machine)
-            if args.retention and not result["threadsUnavailable"]:
-                result["expiredSnapshotsRemoved"] = retain(args.destination, args.machine)
+            if args.retention:
+                if retention_safe(result):
+                    result["expiredSnapshotsRemoved"] = retain(args.destination, args.machine)
+                else:
+                    result["retentionDeferred"] = "A complete, uploaded snapshot is required"
+        elif args.command == "prune":
+            result = prune_verified(args.destination, args.machine)
         elif args.command == "verify":
             m = verify_archive(args.archive)
             result = {"verified": True, "pluginVersion": m["pluginVersion"], "createdAt": m["createdAt"], "tables": m["tables"]}

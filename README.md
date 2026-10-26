@@ -17,7 +17,7 @@ The package includes source code and a ready build. It contains no author tasks,
 Saved source exports and check snapshots use lossless compression. Existing
 history is converted in the background and database space is reclaimed when
 checks and reviews are idle. Task records, evidence and recovery remain available;
-no retention cutoff deletes old exports. See [storage compatibility](docs/releases.md).
+optional source retention retires old unreferenced payloads while preserving pending proposals, unread intervals, cited evidence and the incremental baseline. Retention is disabled until scheduled explicitly. See [storage compatibility](docs/releases.md).
 
 Click **247C** in the sidebar to open **Proposals** when any proposals await a decision, or **Tasks** when none remain. The **Tasks** tab and **All tasks** links always open the task list. The proposal count remains a direct shortcut and also works with Enter or Space when focused; the panel options menu remains available to its right.
 
@@ -34,6 +34,7 @@ Tasks with an open chat show a filled speech-bubble icon and a filled **Open cha
 - [Setup-agent guide and local read permissions](docs/setup-agent.md)
 - [Windows installation with WSL2](docs/windows.md)
 - [Backups, Google Drive and recovery](docs/recovery.md)
+- [Storage retention and daily maintenance](docs/storage-retention.md)
 - [Third-party notices](THIRD_PARTY_NOTICES.md)
 
 To update an installation tracking `main`, run `bb plugin update 247c`. The local settings patch is automatically reapplied when the updated plugin loads. Make a backup before changing versions. Each release tag identifies one immutable code version.
