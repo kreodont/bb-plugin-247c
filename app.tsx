@@ -1064,7 +1064,7 @@ export default definePluginApp((app) => {
   app.slots.experimental_appOverlay({ id: "task-switcher", component: TaskSwitcherOverlay });
   app.commands.register({ id: "switch-task", title: "247C: Switch task", defaultShortcut: { key: "k", mod: true, shift: true }, run: openTaskSwitcher });
   app.slots.experimental_threadHeaderAction({ id: "task", title: "247C task", component: ThreadTaskAction });
-  app.slots.experimental_threadHeaderAction({ id: "terminal", title: "247C ZSH terminal", component: ThreadTerminalAction });
+  app.slots.experimental_threadHeaderAction({ id: "terminal", title: "247C terminal", component: ThreadTerminalAction });
   app.slots.experimental_threadHeaderAction({ id: "pinned-files", title: "Pinned files", component: ThreadPinnedFiles });
   app.slots.experimental_threadHeaderAction({ id: "proposal", title: "247C proposal", component: ThreadProposalAction });
   app.slots.experimental_threadHeaderAction({ id: "source", title: "247C primary source", component: ThreadSourceAction });

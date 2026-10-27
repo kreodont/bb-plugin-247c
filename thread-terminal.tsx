@@ -7,7 +7,7 @@ import { threadActionClass } from "./thread-action-style.js";
 import { UxScope } from "./ux-app.js";
 import { beginUxAction } from "./ux-client.js";
 
-const TERMINAL_TITLE = "247C · ZSH";
+const TERMINAL_TITLE = "247C · Terminal";
 const pending = new Map<string, Promise<string>>();
 
 function terminalForThread(sdk: ReturnType<typeof useSdk>, threadId: string): Promise<string> {
@@ -22,7 +22,7 @@ function terminalForThread(sdk: ReturnType<typeof useSdk>, threadId: string): Pr
     // Let BB resolve the thread's machine and workspace. Do not send a command
     // into an existing terminal, which might be running unrelated work.
     return (await sdk.terminals.create({ scope, title: TERMINAL_TITLE, cols: 100, rows: 30,
-      start: { mode: "command", command: "exec zsh -l" } })).id;
+      start: { mode: "shell" } })).id;
   })();
   pending.set(threadId, request);
   void request.finally(() => { if (pending.get(threadId) === request) pending.delete(threadId); }).catch(() => {});
@@ -43,17 +43,17 @@ function ThreadTerminal({ threadId, isCompactViewport }: PluginThreadHeaderActio
       const terminalId = await terminalForThread(sdk, threadId);
       // A late reply must not open the old thread's terminal in another chat.
       if (!mounted.current) return;
-      if (!await navigate.experimental_openTerminal({ terminalId })) throw new Error("The terminal could not be shown. Check that this thread has an available workspace and zsh is installed on its machine, then try again.");
+      if (!await navigate.experimental_openTerminal({ terminalId })) throw new Error("The terminal could not be shown. Check that this thread has an available workspace and its default shell is available, then try again.");
       finish("ok");
     } catch (error) {
       finish("error");
-      if (mounted.current) toast.error("Could not open ZSH", { description: error instanceof Error ? error.message : "Try again." });
+      if (mounted.current) toast.error("Could not open terminal", { description: error instanceof Error ? error.message : "Try again." });
     } finally { opening.current = false; if (mounted.current) setBusy(false); }
   }
-  return <UxScope page="thread" view={threadId}><span title="Open ZSH in this thread's workspace" className="inline-flex"><Button type="button" size="sm" variant="outline"
-    data-c247-ux-action="thread-terminal" aria-label="Open ZSH terminal"
+  return <UxScope page="thread" view={threadId}><span title="Open terminal in this thread's workspace" className="inline-flex"><Button type="button" size="sm" variant="outline"
+    data-c247-ux-action="thread-terminal" aria-label="Open terminal"
     className={threadActionClass("terminal", isCompactViewport)} disabled={busy} onClick={() => void open()}>
-    <Icon name={busy ? "Loading" : "Terminal"} aria-hidden="true" />{!isCompactViewport && "ZSH"}
+    <Icon name={busy ? "Loading" : "Terminal"} aria-hidden="true" />{!isCompactViewport && "Terminal"}
   </Button></span></UxScope>;
 }
 

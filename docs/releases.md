@@ -1,3 +1,9 @@
+# 0.5.109
+
+The thread header Terminal button starts the default shell selected by BB, including
+PowerShell on Windows, instead of requiring ZSH. It keeps terminal reuse and the
+thread workspace scope.
+
 # 0.5.108
 
 Knowledge export works in native Windows without administrator privileges or
