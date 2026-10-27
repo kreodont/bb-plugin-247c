@@ -1,3 +1,12 @@
+# 0.5.112
+
+Session recorders receive message timestamps and evidence grouped by the planning
+time zone, so a multi-day conversation can support a reported-time estimate for
+the target day. Timestamps identify dates, never work durations. Legacy retries
+and review discussions recover dates only from matching original messages without
+rewriting frozen transcripts. Unknown dates stay unknown. Existing totals, manual
+corrections, approval requirements and duplicate-time protection are preserved.
+
 # 0.5.111
 
 Finishing and retrying a session accept native Windows workspaces as well as

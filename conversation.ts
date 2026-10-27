@@ -4,6 +4,7 @@ import type { ProposalEvidence } from "./core/types.js";
 import { PolicyError } from "./core/errors.js";
 import { parseProposalDraft, validateEvidence } from "./core/validation.js";
 import { digest } from "./repository.js";
+import { localDay } from "./day-contracts.js";
 
 const normalize = (text: string) => text.trim().replace(/\s+/g, " ").toLocaleLowerCase();
 // Formatting differences around an explicitly labelled next step do not change
@@ -11,18 +12,19 @@ const normalize = (text: string) => text.trim().replace(/\s+/g, " ").toLocaleLow
 const instructionWords = (text: string) => normalize(text).replace(/^(?:next step|следующий шаг)\s*[:—-]\s*/u, "").replace(/[.!?…]+$/u, "");
 type TimelineRow = Awaited<ReturnType<BbPluginApi["sdk"]["threads"]["timeline"]>>["rows"][number];
 
-export async function readConversation(bb: BbPluginApi, session: Session): Promise<Transcript> {
+export async function readConversation(bb: BbPluginApi, session: Pick<Session, "workerThreadId">): Promise<Transcript> {
   if (!session.workerThreadId) throw new PolicyError("The session chat has not been created yet.");
   const messages = new Map<string, Transcript["messages"][number]>();
   const warnings = new Set<string>();
   let bytes = 0;
-  function add(row: TimelineRow, role: "user" | "assistant" | "context", text: string, suffix = "") {
+  function add(row: TimelineRow, role: "user" | "assistant" | "context", text: string, suffix = "", timestamp: number | null = row.createdAt) {
     if (!text.trim()) return;
     const ref = `message:${row.sourceSeqStart}:${digest(row.id).slice(0, 12)}${suffix}`;
     if (messages.has(ref)) return;
     bytes += Buffer.byteLength(text);
     if (bytes > 512 * 1024 || messages.size >= 4000) throw new PolicyError("The conversation exceeds the review limit of 512 KiB. The transcript is preserved in the chat; automatic review does not truncate it.");
-    messages.set(ref, { ref, role, text, sequence: row.sourceSeqStart });
+    const createdAt = timestamp !== null && Number.isFinite(timestamp) && timestamp >= 0 && timestamp <= 8.64e15 ? new Date(timestamp).toISOString() : undefined;
+    messages.set(ref, { ref, role, text, sequence: row.sourceSeqStart, ...(createdAt ? { createdAt } : {}) });
   }
   function visit(row: TimelineRow) {
     if (row.kind === "turn") {
@@ -37,7 +39,8 @@ export async function readConversation(bb: BbPluginApi, session: Session): Promi
       row.questions.forEach((question, index) => {
         add(row, "assistant", question.prompt, `:q${index}`);
         const answer = row.answers?.[question.id];
-        if (answer) add(row, "user", [...answer.selected.map((value) => question.options?.find((o) => o.value === value)?.label ?? value), answer.freeText ?? ""].filter(Boolean).join("\n"), `:a${index}`);
+        // The question creation time does not establish when its answer was given.
+        if (answer) add(row, "user", [...answer.selected.map((value) => question.options?.find((o) => o.value === value)?.label ?? value), answer.freeText ?? ""].filter(Boolean).join("\n"), `:a${index}`, null);
       });
     }
   }
@@ -69,6 +72,45 @@ export function acceptedEvidence(dossier: Pick<Dossier, "projection" | "task">):
     }
   }
   return evidence;
+}
+
+/** Recover metadata for exact frozen messages only. Never replace source text,
+ * include later messages, or rewrite a saved transcript during retry/discussion. */
+export async function withTranscriptDates(bb: BbPluginApi, transcript: Transcript): Promise<Transcript> {
+  const sources = new Map<string, Map<string, Transcript["messages"][number]>>();
+  const warnings = new Set(transcript.warnings);
+  for (const message of transcript.messages) {
+    if (message.createdAt) continue;
+    const threadId = message.source?.threadId ?? transcript.threadId;
+    if (sources.has(threadId)) continue;
+    try {
+      const current = await readConversation(bb, { workerThreadId: threadId });
+      sources.set(threadId, new Map(current.messages.map(m => [m.ref, m])));
+    } catch {
+      sources.set(threadId, new Map());
+      warnings.add("Some original message dates could not be recovered. Do not infer dates from review time or message order.");
+    }
+  }
+  return { ...transcript, warnings: [...warnings], messages: transcript.messages.map(message => {
+    if (message.createdAt) return message;
+    const source = message.source ?? { threadId: transcript.threadId, messageRef: message.ref };
+    const current = sources.get(source.threadId)?.get(source.messageRef);
+    return current?.createdAt && current.text === message.text && current.role === message.role
+      ? { ...message, createdAt: current.createdAt } : message;
+  }) };
+}
+
+export function reportedTimeEvidence(transcript: Transcript, context: Session["reportedTimeContext"]) {
+  if (!context?.timeZone) return null;
+  const days: Record<string, string[]> = {};
+  const undatedMessageRefs: string[] = [];
+  for (const message of transcript.messages) {
+    if (!message.createdAt) { undatedMessageRefs.push(message.ref); continue; }
+    const date = localDay(new Date(message.createdAt), context.timeZone);
+    (days[date] ??= []).push(message.ref);
+  }
+  return { date: context.date, timeZone: context.timeZone, targetDateMessageRefs: days[context.date] ?? [],
+    messageRefsByDate: days, undatedMessageRefs };
 }
 
 export function validateExtraction(value: unknown, transcript: Transcript, timeContext?: Session["reportedTimeContext"], taskStatus?: Dossier["task"]["status"]): Extraction {

@@ -9,7 +9,7 @@ import { ACTIVE, Repository, digest } from "./repository.js";
 import { PolicyError } from "./core/errors.js";
 import type { ProposalEvidence, StewardChanges, TaskRecord } from "./core/types.js";
 import { workerInstructions, reviewInstructions, repairInstructions, extractionInstructions } from "./prompts.js";
-import { continueTranscript, extractionProposal, readConversation, validateExtraction } from "./conversation.js";
+import { continueTranscript, extractionProposal, readConversation, withTranscriptDates, validateExtraction } from "./conversation.js";
 import { parseExcludedReviewModels } from "./settings.js";
 import { allowedRecorder, selectRecorder } from "./recorder.js";
 import { readSavedRecorder } from "./recorder-recovery.js";
@@ -650,6 +650,10 @@ export class SessionRuntime {
     this.current(session.id);
     this.repo.saveTranscript(session.id, transcript);
     if (!session.reportedTimeContext) session = this.repo.saveSession({ ...session, reportedTimeContext: this.repo.sessionTime.capture(session) });
+    // Supplement legacy dates for this review without replacing its frozen transcript.
+    transcript = await withTranscriptDates(this.bb, transcript);
+    session = this.current(session.id);
+    if (session.reportedTimeContext && !session.reportedTimeContext.timeZone) session = this.repo.saveSession({ ...session, reportedTimeContext: { ...session.reportedTimeContext, timeZone: this.repo.sessionTime.days.timeZone } });
     const env = await this.bindEnvironment(session);
     const dossier = this.repo.detail(session.taskId);
     this.repo.assertCurrent(dossier.task.id, dossier.task.revision, this.requiresOpenTask(session));

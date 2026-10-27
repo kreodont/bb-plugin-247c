@@ -58,7 +58,7 @@ export class SessionTime {
     const sourceSessionId = root.reportedTimeContext?.sourceSessionId ?? root.id;
     const date = root.reportedTimeContext?.date ?? localDay(new Date(root.finishedAt ?? session.finishedAt ?? this.days.now()), this.days.timeZone);
     const { item, fingerprint, sequence } = this.baseline(session.taskId, date);
-    return { sourceSessionId, date, beforeMinutes: item?.reportedMinutes ?? null, fingerprint,
+    return { sourceSessionId, date, timeZone: root.reportedTimeContext?.timeZone ?? this.days.timeZone, beforeMinutes: item?.reportedMinutes ?? null, fingerprint,
       reportedEventSequence: sequence, alreadyReported: this.applied(sourceSessionId) };
   }
   private omissionReason(context: NonNullable<Session["reportedTimeContext"]>, taskId: string): NonNullable<SessionUpdate["omittedReportedTime"]>["reason"] | null {

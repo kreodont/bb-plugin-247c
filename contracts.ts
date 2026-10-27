@@ -72,6 +72,7 @@ export const knowledgeDraftSchema = z.object({
 }).strict();
 export const sessionTimeContextSchema = z.object({
   sourceSessionId: idSchema, date: dayDateSchema, beforeMinutes: dayMinutesSchema,
+  timeZone: z.string().optional(),
   fingerprint: z.string().min(1), alreadyReported: z.boolean(),
   reportedEventSequence: z.number().int().nonnegative().optional(),
 }).strict();
@@ -87,7 +88,7 @@ export const extractionSchema = z.object({
 }).strict();
 export const transcriptSchema = z.object({
   capturedAt: z.string(), threadId: idSchema,
-  messages: z.array(z.object({ ref: idSchema, role: z.enum(["user", "assistant", "context"]), text: z.string(), sequence: z.number(), source: z.object({ threadId: idSchema, messageRef: idSchema }).optional() })),
+  messages: z.array(z.object({ ref: idSchema, role: z.enum(["user", "assistant", "context"]), text: z.string(), sequence: z.number(), createdAt: z.iso.datetime().optional(), source: z.object({ threadId: idSchema, messageRef: idSchema }).optional() })),
   warnings: z.array(z.string()),
 });
 const conversationKnowledgeEntrySchema = knowledgeDraftSchema.extend({
