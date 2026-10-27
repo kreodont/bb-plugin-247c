@@ -109,7 +109,7 @@ describe("Conversations and their recorder", () => {
     expect(f.harness.inspection.sdk.callsTo("threads.update")).toHaveLength(updates);
   });
 
-  it.each(["finish", "retry"] as const)("resolves a workspace assigned after spawn on %s, including after reload", async (action) => {
+  it.each((["finish", "retry"] as const).flatMap(action => ["/ready/work", "C:/ready/work", String.raw`C:\ready\work`, String.raw`\\server\share\work`].map(path => ({ action, path }))))("resolves a workspace assigned after spawn on $action at $path, including after reload", async ({ action, path }) => {
     const { f, task, session } = await conversation("claude-work", { deferEnvironment: true });
     expect(session.environmentId).toBeNull();
     const before = await f.detail(task.id);
@@ -122,7 +122,7 @@ describe("Conversations and their recorder", () => {
     // No new created/idle event: finishing must query the current worker itself.
     f.threads.set(session.workerThreadId!, { ...f.threads.get(session.workerThreadId!)!, status: "idle", environmentId: "env_ready" });
     await f.reload();
-    f.harness.inspection.sdk.stub("environments.get", ({ environmentId }) => ({ id: environmentId, hostId: "host_ready", path: "/ready/work", status: "ready" }));
+    f.harness.inspection.sdk.stub("environments.get", ({ environmentId }) => ({ id: environmentId, hostId: "host_ready", path, status: "ready" }));
     const current = sessionSchema.parse(await f.harness.behavior.callRpc(action, { sessionId: session.id }));
     expect(current).toMatchObject({ status: "reviewing", workerThreadId: session.workerThreadId, environmentId: "env_ready", hostId: "host_ready", error: null, round: action === "retry" ? 1 : 0 });
     expect(f.repo.transcript(session.id)?.messages).toEqual(transcript.messages);

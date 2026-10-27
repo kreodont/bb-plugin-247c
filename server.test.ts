@@ -8,6 +8,16 @@ const hosts: Awaited<ReturnType<typeof fixture>>[] = [];
 async function setup() { const f = await fixture(); hosts.push(f); return f; }
 afterEach(async () => { for (const f of hosts.splice(0)) await f.harness.lifecycle.dispose(); });
 
+it.each(["C:/work", String.raw`\\server\share\work`])("reads verification artifacts from a Windows host at %s", async root => {
+  const f = await setup();
+  f.harness.inspection.sdk.stub("environments.get", () => ({ id: "env_test", path: root, hostId: "host_windows" }));
+  f.harness.inspection.sdk.stub("files.read", () => ({ content: "Ready", contentEncoding: "utf8", sizeBytes: 5, sha256: "a".repeat(64) }));
+  const task = await f.create(), session = await f.start(task.id, task.revision);
+  await f.idle(session.workerThreadId!, { summary: "Ready", artifacts: [{ path: String.raw`docs\report.md`, label: "Report" }] });
+  expect(f.repo.session(session.id)).toMatchObject({ status: "reviewing", hostId: "host_windows", error: null });
+  expect(f.harness.inspection.sdk.callsTo("files.read")[0][0]).toEqual({ hostId: "host_windows", rootPath: root, path: root.replace(/\//g, "\\") + String.raw`\docs\report.md` });
+});
+
 describe("Dossier kernel behind BB RPC", () => {
   it("records exactly one task per request, and rejects reusing that request for another title", async () => {
     const f = await setup();
@@ -234,6 +244,7 @@ describe("Bounded work and independent review", () => {
 
 it("uses only public BB APIs", async () => {
   const result = await experimental_scanPublicSdkOnly(import.meta.dirname, { allow: [/^@modelcontextprotocol\/sdk\//, /^@get-bb\/plugin-sdk\/testing$/, /^@hugeicons\//, /^@radix-ui\//, /^@testing-library\//, /^vitest$/, /^react(?:-dom)?(?:\/|$)/, /^sonner$/, /^better-sqlite3$/, /^class-variance-authority$/, /^clsx$/, /^tailwind-merge$/, /^cron-parser$/, /^monaco-editor(?:\/|$)/, /^esbuild$/] });
+  result.violations = result.violations.map(item => ({ ...item, file: item.file.replace(/\\/g, "/") }));
   // The only computed import loads our shipped Monaco bundle through a BB preview lease.
   const assetImport = { file: "file-editor/lib/monaco-loader.ts", reason: "dynamic-specifier", specifier: "/* @vite-ignore */ `${baseUrl}/editor.js`" };
   expect(result.violations.filter(item => !(item.file === assetImport.file && item.reason === assetImport.reason && item.specifier === assetImport.specifier))).toEqual([]);

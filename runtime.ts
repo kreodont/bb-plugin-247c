@@ -1,7 +1,6 @@
 import { isLiveTask } from "./task-status.js";
 import { randomUUID } from "node:crypto";
-import { posix } from "node:path";
-import { pathToFileURL } from "node:url";
+import { workspacePaths, resolveWorkspaceArtifact, workspaceFileUrl } from "./workspace-path.js";
 import { setTimeout as delay } from "node:timers/promises";
 import { ZodError } from "zod";
 import type { BbPluginApi, MessageDispatchHookContext } from "@get-bb/plugin-sdk";
@@ -295,7 +294,7 @@ export class SessionRuntime {
     const environmentId = worker ? worker.environmentId : session.environmentId;
     if (!environmentId) throw new PolicyError("BB has not prepared the session workspace yet. Retry finishing when the chat is ready.");
     const env = await this.bb.sdk.environments.get({ environmentId });
-    if (!env.hostId || !env.path || !env.path.startsWith("/")) throw new PolicyError("An available macOS or Linux workspace is required.");
+    if (!env.hostId || !env.path || !workspacePaths(env.path)) throw new PolicyError("An available workspace with an absolute path is required.");
     this.repo.saveSession({ ...this.repo.session(session.id), environmentId, hostId: env.hostId });
     return env;
   }
@@ -317,13 +316,10 @@ export class SessionRuntime {
     let total = 0;
     const seen = new Set<string>();
     for (const item of session.result?.artifacts ?? []) {
-      if (item.path.includes("\\") || item.path.includes("\0")) throw new PolicyError("Invalid artifact path.");
-      const path = posix.resolve(root, item.path);
-      const relative = posix.relative(root, path);
-      if (!relative || relative.startsWith("../") || relative === ".." || posix.isAbsolute(relative)) throw new PolicyError("The artifact is outside the session workspace.");
+      const { path, relative, identity } = resolveWorkspaceArtifact(root, item.path);
       if (relative.split("/").some((part) => forbiddenPath.has(part) || part.startsWith(".env.") || /\.(pem|key|p12|pfx)$/i.test(part))) throw new PolicyError("This file is not suitable for verification.");
-      if (seen.has(path)) throw new PolicyError("The artifact is listed twice.");
-      seen.add(path);
+      if (seen.has(identity)) throw new PolicyError("The artifact is listed twice.");
+      seen.add(identity);
       const file = await this.bb.sdk.files.read({ hostId: env.hostId, rootPath: root, path });
       total += file.sizeBytes;
       if (file.contentEncoding !== "utf8" || file.content.includes("\0")) throw new PolicyError("This version verifies text files and code. This artifact requires a separate visual check.");
@@ -733,10 +729,10 @@ export class SessionRuntime {
     if (session.artifacts.length) {
       const dossier = this.repo.kernel.getDossier(session.taskId);
       const merged = new Map(dossier.projection.artifacts.map((a) => [a.uri, a]));
-      for (const a of session.artifacts) merged.set(pathToFileURL(a.path).href, { label: a.label, uri: pathToFileURL(a.path).href });
+      for (const a of session.artifacts) merged.set(workspaceFileUrl(a.path), { label: a.label, uri: workspaceFileUrl(a.path) });
       const allArtifacts = [...merged.values()];
       if (allArtifacts.length > 20) throw new PolicyError("The dossier contains too many artifacts for one proposal. The summary needs manual review.");
-      for (const [i, a] of allArtifacts.entries()) additionalEvidence.push({ ref: `session:${session.id}:artifact:${i}`, kind: "artifact", text: a.label, source: session.artifacts.some((x) => pathToFileURL(x.path).href === a.uri) ? `host-observation:${session.id}` : "previously-accepted-projection", sourceRef: a.uri });
+      for (const [i, a] of allArtifacts.entries()) additionalEvidence.push({ ref: `session:${session.id}:artifact:${i}`, kind: "artifact", text: a.label, source: session.artifacts.some((x) => workspaceFileUrl(x.path) === a.uri) ? `host-observation:${session.id}` : "previously-accepted-projection", sourceRef: a.uri });
       changes.artifacts = { value: allArtifacts, evidenceRefs: additionalEvidence.filter((e) => e.kind === "artifact").map((e) => e.ref) };
     }
     this.repo.store.transaction(() => {

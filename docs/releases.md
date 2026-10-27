@@ -1,3 +1,10 @@
+# 0.5.111
+
+Finishing and retrying a session accept native Windows workspaces as well as
+macOS and Linux paths. Artifact verification uses the workspace path format,
+preserving containment checks across drives and UNC shares. Windows file paths
+are compared without case sensitivity to prevent duplicate artifact entries.
+
 # 0.5.110
 
 The chat header Proposal button opens the session review in a modal over the chat.
