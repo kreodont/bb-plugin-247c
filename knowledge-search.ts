@@ -1,10 +1,11 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import * as fs from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
 import type { KnowledgeEntry } from "./contracts.js";
 import type { Repository } from "./repository.js";
+import { publishKnowledgePointer } from "./knowledge-pointer.js";
 
 export const knowledgePathSchema = z.string().trim().max(4096).refine(value => !value || path.isAbsolute(value) && !value.includes("\0"), "Use an absolute local path or leave blank.");
 export type KnowledgeSettings = { knowledgeDirectory: string; openKnowledgeExecutable: string };
@@ -137,12 +138,7 @@ export class KnowledgeSearch {
       const file = path.join(directory, filename), info = await fs.lstat(file);
       if (!info.isFile() || info.isSymbolicLink() || await fs.readFile(file, "utf8") !== content) throw new Error("Generated knowledge was modified. Restore the export before using OpenKnowledge.");
     }
-    const current = path.join(root, "current");
-    try { if (!(await fs.lstat(current)).isSymbolicLink()) throw new Error("The knowledge current pointer is not an export symlink."); }
-    catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
-    const pointer = path.join(root, `.current-${randomUUID()}`);
-    try { await fs.symlink(path.join("generations", revision), pointer, "dir"); await fs.rename(pointer, current); }
-    finally { await fs.rm(pointer, { force: true }); }
+    await publishKnowledgePointer(root, directory);
     this.state = { enabled: true, directory, revision, documents: documents.length, error: null };
     return { directory, revision, documents };
   }

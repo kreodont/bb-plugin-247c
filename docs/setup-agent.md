@@ -5,8 +5,9 @@ installation. Each computer has an independent database. Configure source
 connections using [Source configuration](sources.md); restore existing data only
 when requested, using [Backup and recovery](recovery.md).
 
-On Windows, follow [the WSL2 installation guide](windows.md). BB and the model
-provider CLIs run inside the same Linux distribution.
+On Windows, follow [the Windows installation guide](windows.md). Choose the native
+desktop alpha or WSL2 and configure provider CLIs and local integrations for that
+runtime. A native desktop installation must not depend on Linux executable paths.
 
 ## Local configuration patch
 

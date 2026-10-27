@@ -1,3 +1,11 @@
+# 0.5.108
+
+Knowledge export works in native Windows without administrator privileges or
+Developer Mode. It uses directory junctions and restores the previous pointer if
+publishing a replacement fails. Unchanged generations keep their existing pointer;
+accepted content and previous generations are preserved. The Windows setup guide
+now distinguishes the native BB desktop alpha from WSL2.
+
 # 0.5.107
 
 The original work chat now shows an amber proposal indicator in the thread list

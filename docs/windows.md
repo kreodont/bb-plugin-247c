@@ -1,16 +1,32 @@
-# Install 247C on Windows with WSL2
+# Install 247C on Windows
 
 This installs the plugin with a new, independent database. It does not copy or
 synchronize another computer's tasks, conversations or accounts.
 
-BB's supported Windows route is [Ubuntu on WSL2](https://github.com/get-bb/bb/blob/main/docs/platform-support.md).
-BB, Git, Node.js and the model provider CLIs all run in that Linux distribution.
-The browser can run on Windows. Native PowerShell and CMD are not BB runtime
-environments. 247C 0.5.2 supports the SDK 0.4.47 bundled with stable BB 0.42.1.
-Installation and startup have been confirmed by user testing on Windows with
-Ubuntu/WSL. The stable npm runtime was also verified in an isolated macOS instance.
-Verify model workflows, source integrations and backups on each installation
-using the setup checks below.
+## Native Windows
+
+[BB 0.47.1](https://github.com/get-bb/bb/releases/tag/desktop-v0.47.1) includes a
+native Windows x64 desktop alpha. Install 247C from its managed Git source in that
+application. Provider executables, login profiles, project folders and optional
+source/calendar commands must all refer to Windows paths and Windows programs.
+Keep these values in the local settings patch, outside the plugin repository.
+
+Knowledge export uses Windows directory junctions, which do not require
+administrator privileges or Developer Mode. 247C searches immutable generation
+directories directly. External readers of the `current` alias may need to retry
+while Windows replaces the junction; a failed replacement restores the previous
+alias. Existing generations are retained.
+
+BB 0.47.1's automated `server move` does not accept Windows as its destination.
+A migration from WSL needs a separately verified export/import and transfer of
+working files, with native path and automation configuration. Do not run both
+copies' scheduled checks. Verify tasks, time, knowledge, providers and source
+checkpoints before switching the working installation.
+
+## WSL2 installation
+
+The following alternative runs BB, Git, Node.js and provider CLIs in one Linux
+distribution. Its commands run in Ubuntu, not native PowerShell or CMD.
 
 ## 1. Prepare WSL and BB
 
