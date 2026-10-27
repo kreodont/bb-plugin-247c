@@ -1,3 +1,12 @@
+# 0.5.110
+
+The chat header Proposal button opens the session review in a modal over the chat.
+Full and partial acceptance, rejection, stale-proposal recovery, evidence and
+discussion use the existing review controls. Decisions and errors stay visible
+without a page change; closing returns focus to the chat's Proposal button.
+The full-page view remains available. No database migration or settings change
+is required.
+
 # 0.5.109
 
 The thread header Terminal button starts the default shell selected by BB, including

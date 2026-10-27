@@ -152,6 +152,15 @@ When finished, click **Finish session** in the **Work** tab or on the right side
 
 While the recorder is running, **Open review** in the original work chat opens its current review chat directly. Before that chat is ready, the disabled button says **Starting review…**. Automatic repairs and retries update the destination; the link is checked again when clicked. Once review finishes, **Proposal** opens the prepared changes, or **Review failed** opens a failed attempt. Opening the review does not send a message or start another agent.
 
+**Proposal** opens a modal over the current chat. Review the same fields, records,
+quotes and time estimates, then accept or reject all changes or selected parts.
+Partial decisions keep the remaining proposal in the modal; successful acceptance
+shows its receipt without navigating away. **Back to chat**, Escape or the close
+button dismisses the modal without making a decision. Saving temporarily disables
+dismissal and repeat submissions, and errors remain visible for retry. **Discuss
+review** opens the discussion composer in the modal; only sending a message starts
+the discussion. **Open full page** keeps the existing standalone view available.
+
 If BB reports `HTTP 502: Runtime shutting down` while stopping the original chat, 247C retries that stop at most twice, after brief delays. It confirms that the chat has settled before saving the transcript and starting one recorder. This recovery does not resend messages, change the selected review model or repeat model work. Other errors and persistent shutdown failures still produce the review-failure notification. An uncertain recorder launch is never automatically repeated.
 
 The review model is selected automatically from those available in BB: Codex Sol after any Claude model (Sonnet, Opus or Fable), and personal Sonnet after Codex. Spark, Luna, Haiku, mini/nano and unknown models are excluded, including as fallbacks or prior manual choices. Selection uses the model active when the conversation finishes; changing an account, alias or context window does not count as changing the model. Sol and Sonnet remain preferred on retries, even when that uses the worker's model family. Terra is the first fallback, followed by Fable, Opus or Astra. Models outside this explicit list are never substituted automatically. Reasoning is set to low when supported. The selected model appears in the review tab and the selection reason in task history.

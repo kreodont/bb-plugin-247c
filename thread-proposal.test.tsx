@@ -35,10 +35,10 @@ async function setup() {
     await f.idle(f.repo.session(session.id).reviewerThreadId!, extraction);
     return f.repo.session(session.id).proposalId!;
   }
-  return { f, task, session, header, page, finish };
+  return { f, task, session, header, page, finish, rpc };
 }
 
-it("appears when the recorder finishes, opens the exact session and returns to its thread without accepting or running work", async () => {
+it("opens the exact session in a modal and returns focus to the chat without accepting, navigating or running work", async () => {
   const { f, task, session, header, page, finish } = await setup();
   const h = header(), unrelated = header("unrelated");
   await h.behavior.emitRealtime("desk-changed", {});
@@ -48,7 +48,13 @@ it("appears when the recorder finishes, opens the exact session and returns to i
   const proposalId = await finish(), calls = f.harness.inspection.sdk.callsTo("threads.spawn").length;
   await h.behavior.emitRealtime("desk-changed", {});
   fireEvent.click(await within(h.container).findByRole("button", { name: "Proposal" }));
-  expect(h.inspection.navigateCalls).toEqual([{ method: "toPluginPanel", path: "desk", options: { subPath: taskProposalPath(task.id, session.id, session.workerThreadId!) } }]);
+  expect(h.inspection.navigateCalls).toEqual([]);
+  const dialog = within(await within(document.body).findByRole("dialog", { name: "Review changes" }));
+  expect(await dialog.findByText("Record the completed check")).toBeTruthy();
+  expect(dialog.getByRole("button", { name: "Accept changes" })).toBeTruthy();
+  fireEvent.click(dialog.getByRole("button", { name: "Back to chat" }));
+  await waitFor(() => expect(within(document.body).queryByRole("dialog")).toBeNull());
+  await waitFor(() => expect(document.activeElement).toBe(within(h.container).getByRole("button", { name: "Proposal" })));
   const p = page(), review = within(await within(p.container).findByRole("region", { name: "Session proposal" }));
   expect(review.getByText("Record the completed check")).toBeTruthy();
   expect(review.getByRole("button", { name: "Accept changes" })).toBeTruthy();
@@ -62,14 +68,18 @@ it("appears when the recorder finishes, opens the exact session and returns to i
   const button = await within(compact.container).findByRole("button", { name: "Proposal" });
   expect(button.textContent).toBe("");
   fireEvent.click(button);
+  const compactDialog = within(await within(document.body).findByRole("dialog", { name: "Review changes" }));
+  fireEvent.click(compactDialog.getByRole("button", { name: "Open full page" }));
   expect(JSON.stringify(compact.inspection.navigateCalls)).toContain(`/thread/${f.repo.session(session.id).reviewerThreadId}`);
 });
 
 it("follows the remaining proposal in place after a partial acceptance and retains the accepted decision", async () => {
-  const { f, task, session, page, finish } = await setup();
+  const { f, task, session, header, finish } = await setup();
   const user = userEvent.setup();
-  const original = await finish(), p = page();
-  const region = await within(p.container).findByRole("region", { name: "Session proposal" });
+  const original = await finish(), h = header();
+  await user.click(await within(h.container).findByRole("button", { name: "Proposal" }));
+  const dialog = await within(document.body).findByRole("dialog", { name: "Review changes" });
+  const region = await within(dialog).findByRole("region", { name: "Session proposal" });
   // Allow mount effects and the selection update to settle before the next action.
   await user.click(within(region).getByRole("checkbox", { name: "Select part: Record 1: Progress" }));
   await user.click(await within(region).findByRole("button", { name: "Accept selected parts · 1" }));
@@ -88,6 +98,94 @@ it("follows the remaining proposal in place after a partial acceptance and retai
   expect(within(region).queryByRole("button", { name: "Accept changes" })).toBeNull();
   expect(f.repo.kernel.getProposal(original).status).toBe("rejected");
   expect(f.repo.detail(task.id).projection.summary).toBe("The configuration is ready.");
+  expect(h.inspection.navigateCalls).toEqual([]);
+  expect(within(document.body).getByRole("dialog", { name: "Review changes" })).toBe(dialog);
+});
+
+it("rejects in the modal without changing the task, and Escape returns to the same chat", async () => {
+  const { f, task, header, finish } = await setup();
+  const id = await finish(), h = header(), user = userEvent.setup();
+  await user.click(await within(h.container).findByRole("button", { name: "Proposal" }));
+  const dialog = within(await within(document.body).findByRole("dialog"));
+  await user.click(await dialog.findByRole("button", { name: "Reject" }));
+  await dialog.findByText("Rejected", { exact: true });
+  expect(f.repo.kernel.getProposal(id).status).toBe("rejected");
+  expect(f.repo.kernel.getTask(task.id).revision).toBe(task.revision);
+  await user.keyboard("{Escape}");
+  await waitFor(() => expect(within(document.body).queryByRole("dialog")).toBeNull());
+  expect(h.inspection.navigateCalls).toEqual([]);
+});
+
+it("keeps failed decisions visible and blocks duplicate submission and dismissal while saving", async () => {
+  const { f, header, finish, rpc } = await setup();
+  const id = await finish();
+  let fail!: (cause: Error) => void;
+  const accept = vi.fn(() => new Promise<never>((_resolve, reject) => { fail = reject; }));
+  rpc.accept = accept;
+  const h = header(), user = userEvent.setup();
+  await user.click(await within(h.container).findByRole("button", { name: "Proposal" }));
+  const dialog = within(await within(document.body).findByRole("dialog"));
+  const button = await dialog.findByRole("button", { name: "Accept changes" });
+  await user.click(button);
+  await user.click(button);
+  await user.keyboard("{Escape}");
+  expect(accept).toHaveBeenCalledTimes(1);
+  expect(within(document.body).getByRole("dialog")).toBeTruthy();
+  expect((dialog.getByRole("button", { name: "Saving…" }) as HTMLButtonElement).disabled).toBe(true);
+  fail(new Error("The saved task changed. Review it again."));
+  await dialog.findByText("The saved task changed. Review it again.");
+  await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false));
+  expect(f.repo.kernel.getProposal(id).status).toBe("pending");
+  expect(h.inspection.navigateCalls).toEqual([]);
+  await user.click(dialog.getByRole("button", { name: "Back to chat" }));
+});
+
+it("retries loading errors in place and reopens with the current saved decision", async () => {
+  const { f, header, finish, rpc } = await setup();
+  const id = await finish(), detail = rpc.detail;
+  rpc.detail = vi.fn().mockRejectedValueOnce(new Error("Connection unavailable")).mockImplementation(detail);
+  const h = header(), user = userEvent.setup();
+  await user.click(await within(h.container).findByRole("button", { name: "Proposal" }));
+  let dialog = within(await within(document.body).findByRole("dialog"));
+  await dialog.findByText("Connection unavailable");
+  expect(dialog.queryByRole("button", { name: "Accept changes" })).toBeNull();
+  await user.click(dialog.getByRole("button", { name: "Refresh" }));
+  await dialog.findByRole("button", { name: "Accept changes" });
+  await user.click(dialog.getByRole("button", { name: "Back to chat" }));
+  f.repo.reject(id);
+  await user.click(within(h.container).getByRole("button", { name: "Proposal" }));
+  dialog = within(await within(document.body).findByRole("dialog"));
+  await dialog.findByText("Rejected", { exact: true });
+  expect(dialog.queryByRole("button", { name: "Accept changes" })).toBeNull();
+});
+
+it("opens the discussion composer inside the modal without starting work until a message is sent", async () => {
+  const { f, header, finish } = await setup();
+  await finish();
+  const h = header(), user = userEvent.setup(), calls = f.harness.inspection.sdk.callsTo("threads.spawn").length;
+  await user.click(await within(h.container).findByRole("button", { name: "Proposal" }));
+  const dialog = within(await within(document.body).findByRole("dialog"));
+  await user.click(await dialog.findByRole("button", { name: "Discuss review" }));
+  await dialog.findByRole("button", { name: "Back to proposal" });
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(calls);
+  expect(h.inspection.navigateCalls).toEqual([]);
+  await user.click(dialog.getByRole("button", { name: "Back to proposal" }));
+  await dialog.findByRole("button", { name: "Accept changes" });
+});
+
+it("closes the accepted modal before opening the next-task picker", async () => {
+  const { f, header, finish, rpc } = await setup();
+  await finish();
+  const overlay = renderSlot(app.appOverlays.find(s => s.id === "task-switcher")!, {}, { rpc }); mounts.push(overlay);
+  const h = header(), user = userEvent.setup(), calls = f.harness.inspection.sdk.callsTo("threads.spawn").length;
+  await user.click(await within(h.container).findByRole("button", { name: "Proposal" }));
+  const dialog = within(await within(document.body).findByRole("dialog", { name: "Review changes" }));
+  await user.click(await dialog.findByRole("button", { name: "Accept changes" }));
+  await user.click(await dialog.findByRole("button", { name: "Choose next task" }));
+  await within(document.body).findByRole("dialog", { name: "Switch task" });
+  expect(within(document.body).queryByRole("dialog", { name: "Review changes" })).toBeNull();
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(calls);
+  expect(h.inspection.navigateCalls).toEqual([]);
 });
 
 it("opens a historical session beyond recent list limits with its records and receipt and rejects mismatched task links", async () => {

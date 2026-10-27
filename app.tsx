@@ -34,6 +34,7 @@ import type { NewThreadRequest, PluginNavPanelProps, PluginThreadHeaderActionPro
 import { toast } from "sonner";
 import type { rpcContract, TaskCard, Dossier, Session, StartInput, KnowledgeEntry, SyncCandidate, SyncSource, SyncRun, ReviewDossier, ReviewItem, ReviewSelection } from "./contracts.js";
 import { Button } from "./components/ui/button.js";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "./components/ui/dialog.js";
 import { Input } from "./components/ui/input.js";
 import { Icon } from "./components/ui/icon.js";
 import { cn } from "./lib/utils.js";
@@ -174,17 +175,55 @@ function TaskSwitcherOverlay() {
 }
 
 function ThreadProposal({ threadId, isCompactViewport }: PluginThreadHeaderActionProps) {
-  const rpc = useUxRpc(), navigate = useBbNavigate();
+  const rpc = useUxRpc();
+  const [target, setTarget] = useState<{ taskId: string; sessionId: string } | null>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
   const load = useCallback(() => rpc.call("threadSession", { threadId }), [rpc, threadId]);
   const { data } = useSnapshot(load);
   const session = data?.session;
-  if (!session?.proposalId) return null;
-  return <UxScope page="thread" view={threadId}><span title="Open this session's proposal" className="inline-flex"><Button type="button" size="sm" variant="outline"
+  return <><UxScope page="thread" view={threadId}>{session?.proposalId && <span title="Review changes in this chat" className="inline-flex"><Button ref={trigger} type="button" size="sm" variant="outline"
     data-c247-ux-action="thread-proposal" aria-label="Proposal" aria-description="Open this session's proposal"
     className={threadActionClass("proposal", isCompactViewport)}
-    onClick={() => navigate.toPluginPanel("desk", { subPath: taskProposalPath(session.taskId, session.id, threadId) })}>
+    onClick={() => setTarget({ taskId: session.taskId, sessionId: session.id })}>
     <Icon name="ListTodo" aria-hidden="true" />{!isCompactViewport && "Proposal"}
-  </Button></span></UxScope>;
+  </Button></span>}</UxScope>{target && <ThreadProposalDialog {...target} threadId={threadId}
+    close={() => setTarget(null)} restoreFocus={() => trigger.current?.focus()} />}</>;
+}
+
+function ThreadProposalDialog({ taskId, sessionId, threadId, close, restoreFocus }: { taskId: string; sessionId: string; threadId: string; close: () => void; restoreFocus: () => void }) {
+  const rpc = useUxRpc(), navigate = useBbNavigate();
+  const load = useCallback(() => rpc.call("detail", { id: taskId, sessionId }), [rpc, taskId, sessionId]);
+  const { data: dossier, error, refresh } = useSnapshot(load);
+  const [busy, setBusy] = useState(false), [mutationError, setMutationError] = useState<string | null>(null);
+  const [discussion, setDiscussion] = useState(false);
+  const inFlight = useRef(false);
+  async function action(fn: () => Promise<unknown>): Promise<boolean> {
+    if (inFlight.current) return false;
+    inFlight.current = true; setBusy(true); setMutationError(null);
+    try { await fn(); await refresh(); return true; }
+    catch (cause) { setMutationError(cause instanceof Error ? cause.message : String(cause)); await refresh(); return false; }
+    finally { inFlight.current = false; setBusy(false); }
+  }
+  return <Dialog open onOpenChange={open => { if (!open && !inFlight.current) close(); }}>
+    <DialogContent className="flex max-h-[85dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl" hideCloseButton={busy}
+      onCloseAutoFocus={event => { event.preventDefault(); restoreFocus(); }}>
+      <div className="shrink-0 border-b border-border px-5 py-4 pr-12">
+        <DialogTitle className="text-base">Review changes</DialogTitle>
+        <DialogDescription className="mt-1 break-words text-sm">{dossier?.task.title ?? "Review the proposed changes from this conversation."}</DialogDescription>
+      </div>
+      <UxScope page="proposals" view={sessionId} className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
+        <ErrorNotice error={mutationError ?? error} retry={busy ? undefined : () => void refresh()} />
+        {!dossier && !error && <p role="status" className="text-sm text-muted-foreground">Loading proposal…</p>}
+        {dossier && (discussion ? <><Button variant="ghost" size="sm" onClick={() => setDiscussion(false)}><Icon name="ChevronLeft" />Back to proposal</Button>
+          <Work dossier={dossier} initialSessionId={sessionId} discussionId={sessionId} refresh={refresh} showProposals={() => setDiscussion(false)} />
+        </> : <SessionProposal dossier={dossier} sessionId={sessionId} busy={busy} action={action} discuss={() => setDiscussion(true)} onLeave={close} />)}
+      </UxScope>
+      <div className="flex shrink-0 flex-wrap justify-between gap-2 border-t border-border px-5 py-3">
+        <Button variant="ghost" size="sm" disabled={busy} onClick={() => { close(); navigate.toPluginPanel("desk", { subPath: taskProposalPath(taskId, sessionId, threadId) }); }}>Open full page<Icon name="ExternalLink" /></Button>
+        <Button variant="outline" size="sm" disabled={busy} onClick={close}>{busy ? "Saving…" : "Back to chat"}</Button>
+      </div>
+    </DialogContent>
+  </Dialog>;
 }
 
 function ThreadProposalAction(props: PluginThreadHeaderActionProps) {
@@ -496,7 +535,7 @@ function DisplayValue({ value }: { value: unknown }) {
   return <span className="whitespace-pre-wrap break-words">{String(value)}</span>;
 }
 
-function ProposalCard({ proposal, dossier, action, busy, discuss, partSelection, onPartSelection }: { partSelection?: string[]; onPartSelection?: (parts: string[] | undefined) => void; discuss?: (sessionId: string) => void; proposal: Dossier["proposals"][number]; dossier: ReviewDossier; action: (fn: () => Promise<unknown>) => Promise<boolean>; busy: boolean }) {
+function ProposalCard({ proposal, dossier, action, busy, discuss, partSelection, onPartSelection, inChat }: { partSelection?: string[]; onPartSelection?: (parts: string[] | undefined) => void; discuss?: (sessionId: string) => void; inChat?: { leave: () => void }; proposal: Dossier["proposals"][number]; dossier: ReviewDossier; action: (fn: () => Promise<unknown>) => Promise<boolean>; busy: boolean }) {
   const rpc = useUxRpc();
   const navigate = useBbNavigate();
   const update = dossier.sessionUpdates.find((u) => u.proposalId === proposal.id);
@@ -529,7 +568,7 @@ function ProposalCard({ proposal, dossier, action, busy, discuss, partSelection,
       {update.extraction.facts.length > 0 && <section><h3 className="mb-3 text-sm font-medium">Dossier records · {update.extraction.facts.length}</h3><div className="space-y-3">{update.extraction.facts.map((fact, i) => <div key={i} className="rounded-lg bg-muted/30 p-3"><div className="text-xs text-muted-foreground">{pending ? selection.checkbox(`fact:${i}`, `Record ${i + 1}: ${factNames[fact.kind]}`) : factNames[fact.kind] + partOutcome(proposal.partReview, `fact:${i}`)}</div><p className="mt-1 whitespace-pre-wrap break-words text-sm">{fact.text}</p><details className="mt-2"><summary className="cursor-pointer text-xs text-muted-foreground">Conversation quotes</summary>{fact.citations.map((citation, j) => <blockquote key={j} className="mt-2 border-l-2 border-border pl-3 text-sm"><p className="mb-1 text-xs text-muted-foreground">{update.speakers[citation.messageRef] === "user" ? "You" : update.speakers[citation.messageRef] === "assistant" ? "Assistant" : "Context"}</p><p className="whitespace-pre-wrap break-words">{citation.quote}</p>{update.sources[citation.messageRef] && update.sources[citation.messageRef].threadId !== update.threadId && <Button variant="ghost" size="sm" onClick={() => navigate.toThread(update.sources[citation.messageRef].threadId)}>From the previous conversation</Button>}</blockquote>)}</details></div>)}</div></section>}
       {update.extraction.knowledge.length > 0 && <section><h3 className="mb-3 text-sm font-medium">Knowledge to save · {update.extraction.knowledge.length}</h3><div className="space-y-3">{update.extraction.knowledge.map((entry, i) => <article key={i} className="rounded-lg border border-primary/20 bg-primary/5 p-3"><div className="text-sm font-medium">{pending ? selection.checkbox(`knowledge:${i}`, `Knowledge: ${entry.title}`) : entry.title + partOutcome(proposal.partReview, `knowledge:${i}`)}</div><p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed">{entry.body}</p>{entry.tags.length > 0 && <p className="mt-2 text-xs text-muted-foreground">{entry.tags.join(" · ")}</p>}</article>)}</div></section>}
       {update.warnings.map((warning) => <p key={warning} className="text-xs text-muted-foreground">{warning}</p>)}
-      <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => navigate.toThread(update.threadId)}>Open source conversation</Button>{discuss && <Button size="sm" variant="outline" disabled={busy || dossier.sessions.some((s) => ACTIVE.has(s.status))} onClick={() => discuss(update.sessionId)}>Discuss review</Button>}</div>
+      <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" disabled={busy} onClick={() => { inChat?.leave(); navigate.toThread(update.threadId); }}>Open source conversation</Button>{discuss && <Button size="sm" variant="outline" disabled={busy || dossier.sessions.some((s) => ACTIVE.has(s.status))} onClick={() => discuss(update.sessionId)}>Discuss review</Button>}</div>
       {pending && <p className="text-xs text-muted-foreground">{completing ? "Accepting the selected parts also marks the task as done." : "Accepting saves only the selected fields, records, knowledge and reported time."}</p>}
     </div>}
     <details className="border-t border-border px-4 py-3"><summary className="cursor-pointer text-xs text-muted-foreground">Supporting evidence · {used.size}</summary><ul className="mt-3 space-y-2">{allEvidence.filter((e) => used.has(e.ref)).map((e) => <li key={e.ref} className="whitespace-pre-wrap break-words rounded-lg bg-muted/40 p-3 text-sm leading-relaxed">{e.text}</li>)}</ul><p className="mt-3 break-words text-xs text-muted-foreground">{proposal.model}</p></details>
@@ -733,7 +772,7 @@ function Work({ dossier, refresh, showProposals, discussionId, initialSessionId 
   </div>;
 }
 
-function SessionProposal({ dossier, sessionId, ...props }: { dossier: Dossier; sessionId: string } & Pick<ComponentProps<typeof ProposalCard>, "action" | "busy" | "discuss">) {
+function SessionProposal({ dossier, sessionId, onLeave, ...props }: { dossier: Dossier; sessionId: string; onLeave?: () => void } & Pick<ComponentProps<typeof ProposalCard>, "action" | "busy" | "discuss">) {
   const navigate = useBbNavigate();
   const { openingTask, openChat } = useTaskChat();
   const session = dossier.sessions.find(s => s.id === sessionId);
@@ -750,15 +789,15 @@ function SessionProposal({ dossier, sessionId, ...props }: { dossier: Dossier; s
     {accepted && <div aria-label="Review decision" role="region" className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-5">
       <p className="text-sm">The reviewed changes are saved. Choose a task to open its chat, or continue this task.</p>
       <div className="mt-4 flex flex-wrap gap-2">
-        <Button data-c247-ux-action="task-next" disabled={props.busy || Boolean(openingTask)} onClick={openTaskSwitcher}>Choose next task<Icon name="ChevronRight" /></Button>
+        <Button data-c247-ux-action="task-next" disabled={props.busy || Boolean(openingTask)} onClick={() => { onLeave?.(); openTaskSwitcher(); }}>Choose next task<Icon name="ChevronRight" /></Button>
         <Button data-c247-ux-action="chat-open" variant="outline" disabled={props.busy || Boolean(openingTask) || Boolean(active && active.status !== "working")} onClick={() => void openChat(dossier.task.id, active?.status === "working")}><Icon name="MessageSquare" />{openingTask ? "Opening…" : "Open chat"}</Button>
-        <Button data-c247-ux-action="nav-proposals" variant="ghost" disabled={props.busy} onClick={() => navigate.toPluginPanel("desk", { subPath: "proposals" })}>All proposals</Button>
+        <Button data-c247-ux-action="nav-proposals" variant="ghost" disabled={props.busy} onClick={() => { onLeave?.(); navigate.toPluginPanel("desk", { subPath: "proposals" }); }}>All proposals</Button>
       </div>
     </div>}
     {proposal ? accepted ? <details className="rounded-xl border border-border p-4">
       <summary data-c247-ux-action="review-details" className="cursor-pointer text-sm font-medium">Accepted changes</summary>
-      <div className="mt-4"><ProposalCard key={proposal.id} proposal={proposal} dossier={dossier} {...props} /></div>
-    </details> : <ProposalCard key={proposal.id} proposal={proposal} dossier={dossier} {...props} />
+      <div className="mt-4"><ProposalCard key={proposal.id} proposal={proposal} dossier={dossier} inChat={onLeave ? { leave: onLeave } : undefined} {...props} /></div>
+    </details> : <ProposalCard key={proposal.id} proposal={proposal} dossier={dossier} inChat={onLeave ? { leave: onLeave } : undefined} {...props} />
       : <p className="rounded-lg border border-border p-4 text-sm text-muted-foreground">This session has no proposal yet. Its review status is available in Work.</p>}
   </section>;
 }
