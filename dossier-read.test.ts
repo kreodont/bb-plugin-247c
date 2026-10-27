@@ -1,5 +1,6 @@
 import { afterEach, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
+import { deflateRawSync } from "node:zlib";
 import { fixture } from "./test-support.js";
 import { DOSSIER_PAGE_BYTES, readDossierPage } from "./dossier-read.js";
 import type { Dossier } from "./contracts.js";
@@ -19,7 +20,7 @@ function allPages(dossier: Dossier, section: "accepted" | "syncUpdates" | "propo
     expect(page.content.isWellFormed()).toBe(true);
     content += page.content;
     cursor = page.nextCursor ?? undefined;
-    expect(pages).toBeLessThan(200);
+    expect(pages).toBeLessThan(1000);
   } while (cursor);
   return { data: JSON.parse(content), pages };
 }
@@ -42,6 +43,25 @@ it("keeps the accepted read small even when review history exceeds the old limit
   expect(String(raw)).not.toContain("Unaccepted");
   expect(f.repo.list().tasks[0].unseen).toBe("new");
   expect(allPages(dossier, "proposals").data).toEqual(dossier.proposals);
+});
+
+it("pages a formerly single-response dossier below the provider spill threshold", async () => {
+  const { f, task } = await setup(), dossier = f.repo.detail(task.id);
+  dossier.facts[0].text = "Existing invoice work; do not treat it as a new request. ".repeat(700);
+  const first = readDossierPage(dossier, { taskId: task.id, section: "accepted" });
+  expect(DOSSIER_PAGE_BYTES).toBeLessThanOrEqual(12 * 1024);
+  expect(Buffer.byteLength(first)).toBeLessThanOrEqual(12 * 1024);
+  expect(JSON.parse(first).nextCursor).toBeTruthy();
+  const read = allPages(dossier);
+  expect(read.pages).toBeGreaterThan(1);
+  expect(read.data.facts).toEqual(dossier.facts);
+});
+
+it("rejects corrupt and over-expanded compressed cursors", async () => {
+  const { f, task } = await setup(), dossier = f.repo.detail(task.id);
+  for (const cursor of ["z.invalid", `z.${deflateRawSync("x".repeat(100_000)).toString("base64url")}`]) {
+    expect(() => readDossierPage(dossier, { taskId: task.id, cursor })).toThrow(/Invalid dossier cursor/);
+  }
 });
 
 it("reads every accepted fact losslessly, including a single oversized Unicode record", async () => {

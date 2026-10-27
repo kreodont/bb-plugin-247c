@@ -211,7 +211,7 @@ it("upgrades a marker-only runtime even when the accepted version did not change
   f.repo.saveSession({ ...f.repo.session(session.id), workerContext: marker });
   expect(await dispatch(f, session)).toMatchObject({ action: "wait" });
   await refreshed(f, session);
-  expect(f.repo.session(session.id).workerContext?.briefVersion).toBe(1);
+  expect(f.repo.session(session.id).workerContext?.briefVersion).toBe(2);
   expect(f.repo.session(session.id).workerDossierRead).toBeUndefined();
   expect(f.harness.inspection.sdk.callsTo("threads.send")).toHaveLength(0);
 });
@@ -254,7 +254,50 @@ it("bounds large snapshots without cutting fields, hiding omissions or including
   expect(packet.fields).not.toHaveProperty("summary");
   expect(packet.fields).not.toHaveProperty("openQuestions");
   expect(packet.omittedFields).toEqual(expect.arrayContaining(["summary", "openQuestions"]));
-  expect(packet.omittedFactCount).toBe(dossier.facts.length);
+  expect(packet.fieldExcerpts.summary.truncated).toBe(true);
+  expect(dossier.projection.summary.startsWith(packet.fieldExcerpts.summary.text)).toBe(true);
+  expect(packet.recentAcceptedFacts[0].truncated).toBe(true);
+  expect(packet.omittedFactCount).toBe(dossier.facts.length - packet.recentAcceptedFacts.length);
+});
+
+it("supplies accepted work and source links before the first empty-chat answer without a tool call", async () => {
+  const f = await fixture({ settings: { composerDefaults: JSON.stringify({ providerId: "codex", model: "gpt-5.6-sol" }) } }); hosts.push(f);
+  const task = await f.create("Invoice generation already works. Billable expenses have a separate task.");
+  const fact = f.repo.detail(task.id).facts[0];
+  const question = f.repo.kernel.appendFact({ taskId: task.id, kind: "open_question", text: "A long historical question. ".repeat(80) });
+  const revision = f.repo.kernel.getTask(task.id).revision;
+  const proposal = f.repo.propose({ taskId: task.id, revision, requestId: randomUUID(), draft: {
+    rationale: "Preserve the accepted handover", confidence: 1, changes: {
+      summary: { value: "Invoice generation is ready for testing. Billable expenses are tracked separately.", evidenceRefs: [fact.id] },
+      openQuestions: { value: [question.text], evidenceRefs: [question.id] },
+    },
+  } }, "test");
+  await f.harness.behavior.callRpc("accept", { proposalId: proposal.id, revision });
+  f.repo.kernel.appendFact({ taskId: task.id, kind: "progress", text: "The separate billable-expense task is already created.", source: "imported", sourceRef: "https://example.com/tasks/invoice" });
+  const session = sessionSchema.parse(await f.harness.behavior.callRpc("openChat", { taskId: task.id, requestId: randomUUID() }));
+  const text = brief(f, session.workerThreadId!)!, packet = briefData(text);
+  expect(packet.fields.summary).toContain("tracked separately");
+  expect(packet.sources).toContainEqual(expect.objectContaining({ url: "https://example.com/tasks/invoice" }));
+  expect(packet.recentAcceptedFacts.some((fact: { text: string }) => fact.text.includes("already created"))).toBe(true);
+  expect(text.length).toBeLessThanOrEqual(4096);
+  expect(f.repo.session(session.id).workerDossierRead).toBeUndefined();
+  expect(f.conversations.get(session.workerThreadId!) ?? []).toHaveLength(0);
+  expect(f.harness.inspection.sdk.callsTo("threads.send")).toHaveLength(0);
+  const instructions = (await configured(f, session.workerThreadId!)).instructions!;
+  expect(instructions).toContain("Before the first task-specific answer or source search");
+  expect(instructions).toContain("Check known sources before asking the user to paste them");
+});
+
+it("refreshes existing version-one snapshots without losing the conversation", async () => {
+  const { f, session } = await setup();
+  await f.idle(session.workerThreadId!, "Keep this history.");
+  f.repo.saveSession({ ...f.repo.session(session.id), workerContext: { ...acceptedWorkerContext(f.repo, session.taskId), briefVersion: 1 } });
+  const history = structuredClone(f.conversations.get(session.workerThreadId!));
+  expect(await dispatch(f, session)).toMatchObject({ action: "wait" });
+  await refreshed(f, session);
+  expect(f.repo.session(session.id).workerContext?.briefVersion).toBe(2);
+  expect(f.conversations.get(session.workerThreadId!)).toEqual(history);
+  expect(f.harness.inspection.sdk.callsTo("threads.send")).toHaveLength(0);
 });
 
 it("records a read only after every context page, and preserves the receipt through reload", async () => {

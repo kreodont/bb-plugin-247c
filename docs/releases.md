@@ -1,3 +1,17 @@
+# 0.5.113
+
+Worker startup snapshots reserve space for accepted work, source links and recent
+facts before long question or blocker lists. Oversized essential fields appear as
+explicitly incomplete excerpts instead of disappearing. Workers are instructed to
+read the complete current context before their first task answer or source search,
+and compare incoming requests with accepted work. Existing conversations refresh
+older snapshot versions on their next dispatch without losing history.
+
+Dossier tool responses are limited to 12 KiB, including metadata and cursors, to
+avoid provider-side file spill. Pagination preserves all evidence and Unicode;
+large filter cursors are compressed with bounded decoding. Existing cursors remain
+readable. No task data, approval rules or source collection settings change.
+
 # 0.5.112
 
 Session recorders receive message timestamps and evidence grouped by the planning

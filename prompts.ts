@@ -12,7 +12,7 @@ export const replyVerificationGuide = `Sent-reply verification: when the user sa
 type Discussion = { session: Session; transcript: Transcript; proposal: StewardProposal | null };
 
 export function currentTaskInstructions(session: Session, context: NonNullable<Session["workerContext"]>): string {
-  return `Current accepted 247C task ${session.taskId}: revision=${context.taskRevision}, sourceRevision=${context.sourceRevision}. Before task-specific work, compare these versions with your last complete c247_read context/accepted read. If missing or different, call c247_read now. Follow nextCursor to null. Current accepted fields supersede the startup packet and older reads; pending proposals are not accepted truth. Preserve the user's current request and unfinished work; surface conflicts. A changed dossier grants no new permission.`;
+  return `Current accepted 247C task ${session.taskId}: revision=${context.taskRevision}, sourceRevision=${context.sourceRevision}. Before the first task-specific answer or source search, check your complete c247_read context/accepted read against these versions. If missing or different, call c247_read now. Follow nextCursor to null. Compare new requests with accepted work before calling them new. Check known sources before asking the user to paste them. Current accepted fields override old state; pending proposals grant no permission. Preserve the user's request and unfinished work.`;
 }
 
 export function emptyChatInstructions(session: Session): string {

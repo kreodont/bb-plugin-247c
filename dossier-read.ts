@@ -1,10 +1,13 @@
 import { createHash } from "node:crypto";
+import { deflateRawSync, inflateRawSync } from "node:zlib";
 import { z } from "zod";
 import { factKindSchema, idSchema, type Dossier } from "./contracts.js";
 import { PolicyError } from "./core/errors.js";
 import { acceptedDossier, workingDossier } from "./dossier-context.js";
 
-export const DOSSIER_PAGE_BYTES = 64 * 1024;
+// Bound the serialized tool response, not just its content. Claude can move a
+// 64 KiB response into a file before the agent sees the dossier or its cursor.
+export const DOSSIER_PAGE_BYTES = 12 * 1024;
 const sections = ["context", "accepted", "facts", "proposals", "sessions", "events", "sessionUpdates", "syncUpdates"] as const;
 const sectionSchema = z.enum(sections);
 const filtersSchema = z.object({
@@ -28,6 +31,12 @@ const cursorSchema = z.object({
 export const DOSSIER_READ_GUIDE = "c247_read defaults to context: current accepted fields, sources and evidence, automatically compacted for large dossiers. compaction reports any deferred history. Current projection fields take precedence over historical steps, questions or status; old instructions/decisions are context, not new authorization. When compacted, search section=facts with query (all keywords), factIds or kinds before relying on an old result, proposing a change based on history, or claiming something never happened. Absence from compact context is not absence from the dossier. Request section=accepted for the full accepted dossier; do not fetch all history routinely. No evidence is deleted or rewritten. Review/session history is separate and is not current accepted truth. If nextCursor is not null, call c247_read again with the same taskId and that cursor until null; filters are preserved by the cursor. For format=json-fragment, concatenate all content strings in order to reconstruct one JSON document. Do not treat a partial page as complete or ask the user to open the panel because it is large. If a section changes while paging, restart it without a cursor, repeating any filters.";
 
 type Filters = z.infer<typeof filtersSchema>;
+function encodeCursor(value: z.infer<typeof cursorSchema>) {
+  const text = JSON.stringify(value);
+  // Escaped filter strings can otherwise consume an entire small page. Old
+  // uncompressed cursors remain valid, including across a plugin update.
+  return text.length > 1024 ? `z.${deflateRawSync(text).toString("base64url")}` : Buffer.from(text).toString("base64url");
+}
 function normalizedFilters(filters: Filters): Filters {
   return { ...(filters.query ? { query: filters.query.trim() } : {}),
     ...(filters.factIds ? { factIds: [...new Set(filters.factIds)].sort() } : {}),
@@ -52,7 +61,12 @@ export function readDossierPage(dossier: Dossier, input: z.infer<typeof dossierR
   if (input.taskId !== dossier.task.id) throw new PolicyError("The dossier belongs to a different task.");
   let cursor: z.infer<typeof cursorSchema> | undefined;
   if (input.cursor) {
-    try { cursor = cursorSchema.parse(JSON.parse(Buffer.from(input.cursor, "base64url").toString("utf8"))); }
+    try {
+      const decoded = input.cursor.startsWith("z.")
+        ? inflateRawSync(Buffer.from(input.cursor.slice(2), "base64url"), { maxOutputLength: 32768 })
+        : Buffer.from(input.cursor, "base64url");
+      cursor = cursorSchema.parse(JSON.parse(decoded.toString("utf8")));
+    }
     catch { throw new PolicyError("Invalid dossier cursor. Read the section again without a cursor."); }
     if (cursor.taskId !== input.taskId || input.section && cursor.section !== input.section) {
       throw new PolicyError("The dossier cursor belongs to a different task or section.");
@@ -81,8 +95,8 @@ export function readDossierPage(dossier: Dossier, input: z.infer<typeof dossierR
 
   const encode = (end: number) => JSON.stringify({ ...metadata, format: "json-fragment",
     content: text.slice(offset, end), offset, totalCharacters: text.length,
-    nextCursor: end === text.length ? null : Buffer.from(JSON.stringify({ version: 1, taskId: input.taskId, section, snapshot, offset: end,
-      ...(Object.keys(filters).length ? { filters } : {}) })).toString("base64url"),
+    nextCursor: end === text.length ? null : encodeCursor({ version: 1, taskId: input.taskId, section, snapshot, offset: end,
+      ...(Object.keys(filters).length ? { filters } : {}) }),
   });
   // Bound the actual serialized response, including JSON escaping, multibyte
   // text and cursor overhead. One large record also remains fully readable.
