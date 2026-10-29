@@ -1,3 +1,10 @@
+# 0.5.120
+
+The local Slack browser preference now also covers message links inside BB chats,
+including existing replies. Normal, keyboard, modified and middle clicks use the
+web route through BB's browser preference. Message text and source URLs remain
+unchanged, and disabling the preference restores normal link handling.
+
 # 0.5.119
 
 Accepting all remaining changes in a chat review now closes the modal and returns

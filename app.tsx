@@ -19,6 +19,7 @@ import { usePartSelection, PartReviewNote, partOutcome } from "./review-parts-ui
 import { TaskViewMarker } from "./task-view-marker.js";
 import { TaskSources } from "./task-sources-ui.js";
 import { sourceHref, sourceUrl } from "./task-sources.js";
+import { SlackBrowserLinks } from "./slack-browser-links.js";
 import { mountSidebarShortcut } from "./sidebar-shortcut.js";
 import { SidebarPluginLinks } from "./sidebar-plugin-links.js";
 import { TaskSwitcher, openTaskSwitcher } from "./task-switcher.js";
@@ -1121,6 +1122,7 @@ export default definePluginApp((app) => {
   app.slots.experimental_appOverlay({ id: "updater-health-notification", component: UpdaterHealthNotification });
   app.contentScripts.register({ id: "sidebar-proposals-shortcut", mount: mountSidebarShortcut });
   app.slots.experimental_appOverlay({ id: "sidebar-plugin-links", component: SidebarPluginLinksOverlay });
+  app.slots.experimental_appOverlay({ id: "slack-browser-links", component: SlackBrowserLinks });
   app.slots.navPanel({ id: "desk", title: "247C", icon: "Target", path: "desk", component: Page, experimental_sidebarAccessory: SidebarCount, headerContent: PagePinnedFiles });
   app.slots.experimental_appOverlay({ id: "task-switcher", component: TaskSwitcherOverlay });
   app.commands.register({ id: "switch-task", title: "247C: Switch task", defaultShortcut: { key: "k", mod: true, shift: true }, run: openTaskSwitcher });
