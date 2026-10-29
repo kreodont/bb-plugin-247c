@@ -73,7 +73,7 @@ it("opens the exact session in a modal and returns focus to the chat without acc
   expect(JSON.stringify(compact.inspection.navigateCalls)).toContain(`/thread/${f.repo.session(session.id).reviewerThreadId}`);
 });
 
-it("follows the remaining proposal in place after a partial acceptance and retains the accepted decision", async () => {
+it("keeps partial review open, closes after the last acceptance and preserves the receipt for reopening", async () => {
   const { f, task, session, header, finish } = await setup();
   const user = userEvent.setup();
   const original = await finish(), h = header();
@@ -91,15 +91,18 @@ it("follows the remaining proposal in place after a partial acceptance and retai
   expect(within(region).queryByRole("region", { name: "Review decision" })).toBeNull();
   await user.click(within(region).getByRole("button", { name: "Accept changes" }));
   await waitFor(() => expect(f.repo.session(session.id).status).toBe("applied"));
-  await within(region).findByRole("heading", { name: "Changes accepted" });
-  expect((within(region).getByText("Accepted changes").parentElement as HTMLDetailsElement).open).toBe(false);
-  await user.click(within(region).getByText("Accepted changes"));
-  await within(region).findByText("Accepted");
-  expect(within(region).queryByRole("button", { name: "Accept changes" })).toBeNull();
+  await waitFor(() => expect(within(document.body).queryByRole("dialog", { name: "Review changes" })).toBeNull());
+  await waitFor(() => expect(document.activeElement).toBe(within(h.container).getByRole("button", { name: "Proposal" })));
   expect(f.repo.kernel.getProposal(original).status).toBe("rejected");
   expect(f.repo.detail(task.id).projection.summary).toBe("The configuration is ready.");
   expect(h.inspection.navigateCalls).toEqual([]);
-  expect(within(document.body).getByRole("dialog", { name: "Review changes" })).toBe(dialog);
+  await user.click(within(h.container).getByRole("button", { name: "Proposal" }));
+  const history = within(await within(document.body).findByRole("dialog", { name: "Review changes" }));
+  await history.findByRole("heading", { name: "Changes accepted" });
+  expect((history.getByText("Accepted changes").parentElement as HTMLDetailsElement).open).toBe(false);
+  await user.click(history.getByText("Accepted changes"));
+  await history.findByText("Accepted", { exact: true });
+  expect(history.queryByRole("button", { name: "Accept changes" })).toBeNull();
 });
 
 it("rejects in the modal without changing the task, and Escape returns to the same chat", async () => {
@@ -173,7 +176,7 @@ it("opens the discussion composer inside the modal without starting work until a
   await dialog.findByRole("button", { name: "Accept changes" });
 });
 
-it("closes the accepted modal before opening the next-task picker", async () => {
+it("closes the modal automatically after full acceptance without opening another task or picker", async () => {
   const { f, header, finish, rpc } = await setup();
   await finish();
   const overlay = renderSlot(app.appOverlays.find(s => s.id === "task-switcher")!, {}, { rpc }); mounts.push(overlay);
@@ -181,9 +184,8 @@ it("closes the accepted modal before opening the next-task picker", async () => 
   await user.click(await within(h.container).findByRole("button", { name: "Proposal" }));
   const dialog = within(await within(document.body).findByRole("dialog", { name: "Review changes" }));
   await user.click(await dialog.findByRole("button", { name: "Accept changes" }));
-  await user.click(await dialog.findByRole("button", { name: "Choose next task" }));
-  await within(document.body).findByRole("dialog", { name: "Switch task" });
-  expect(within(document.body).queryByRole("dialog", { name: "Review changes" })).toBeNull();
+  await waitFor(() => expect(within(document.body).queryByRole("dialog", { name: "Review changes" })).toBeNull());
+  expect(within(document.body).queryByRole("dialog", { name: "Switch task" })).toBeNull();
   expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(calls);
   expect(h.inspection.navigateCalls).toEqual([]);
 });

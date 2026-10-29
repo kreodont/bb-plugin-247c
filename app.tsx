@@ -196,11 +196,17 @@ function ThreadProposalDialog({ taskId, sessionId, threadId, close, restoreFocus
   const { data: dossier, error, refresh } = useSnapshot(load);
   const [busy, setBusy] = useState(false), [mutationError, setMutationError] = useState<string | null>(null);
   const [discussion, setDiscussion] = useState(false);
+  const [decisionSaved, setDecisionSaved] = useState(false);
   const inFlight = useRef(false);
+  const proposalId = dossier?.sessions.find(session => session.id === sessionId)?.proposalId;
+  const proposal = dossier?.proposals.find(proposal => proposal.id === proposalId);
+  useEffect(() => {
+    if (decisionSaved && !busy && !error && !mutationError && proposal?.status === "applied") close();
+  }, [decisionSaved, busy, error, mutationError, proposal?.status, close]);
   async function action(fn: () => Promise<unknown>): Promise<boolean> {
     if (inFlight.current) return false;
-    inFlight.current = true; setBusy(true); setMutationError(null);
-    try { await fn(); await refresh(); return true; }
+    inFlight.current = true; setBusy(true); setMutationError(null); setDecisionSaved(false);
+    try { await fn(); setDecisionSaved(proposal?.status === "pending" || proposal?.status === "approved"); await refresh(); return true; }
     catch (cause) { setMutationError(cause instanceof Error ? cause.message : String(cause)); await refresh(); return false; }
     finally { inFlight.current = false; setBusy(false); }
   }

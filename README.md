@@ -96,7 +96,7 @@ An orange badge beside **247C** in the sidebar counts pending session and source
 
 **247C → Proposals** brings together new tasks, source updates and session outcomes. The count includes proposals that do not yet have a task. Expand all changes, inspect facts and quotes, select individual proposals or all eligible proposals, and accept them together. A new task is created only after acceptance. Bulk acceptance respects the part selection inside each expanded proposal, including after collapsing it. Stale proposals require individual attention; if a task has multiple alternatives, Select all skips it. One failed acceptance does not undo successful ones, and each result is retained.
 
-After fully accepting a session proposal, **Changes accepted** offers **Choose next task**, **Open chat** for the same task and **All proposals**. The accepted details remain expandable below. Partial acceptance keeps remaining changes open for review. **Choose next task** also appears in an empty Proposals inbox; selecting a task opens its existing chat or creates an empty one.
+After fully accepting a session proposal in the chat modal, the modal closes and focus returns to the chat. Partial acceptance keeps remaining changes open for review. On the standalone proposal page, **Changes accepted** offers **Choose next task**, **Open chat** for the same task and **All proposals**, with expandable accepted details. Saved receipts can also be reopened from the chat. **Choose next task** also appears in an empty Proposals inbox; selecting a task opens its existing chat or creates an empty one.
 
 After acceptance, **Accepted recently** keeps **Open task** and **Open chat** shortcuts for the affected tasks on the Proposals page. Open chat returns to the existing conversation or creates an empty one and opens it immediately. Completed and archived tasks keep their status when a new conversation opens. The list shows up to 50 distinct tasks approved in the last 24 hours, including partial approvals, and survives navigation, page reloads and BB restarts.
 
@@ -154,8 +154,8 @@ While the recorder is running, **Open review** in the original work chat opens i
 
 **Proposal** opens a modal over the current chat. Review the same fields, records,
 quotes and time estimates, then accept or reject all changes or selected parts.
-Partial decisions keep the remaining proposal in the modal; successful acceptance
-shows its receipt without navigating away. **Back to chat**, Escape or the close
+Partial decisions keep the remaining proposal in the modal; full acceptance
+closes it automatically and restores focus to the chat. **Back to chat**, Escape or the close
 button dismisses the modal without making a decision. Saving temporarily disables
 dismissal and repeat submissions, and errors remain visible for retry. **Discuss
 review** opens the discussion composer in the modal; only sending a message starts

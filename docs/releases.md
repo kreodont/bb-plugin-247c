@@ -1,3 +1,9 @@
+# 0.5.119
+
+Accepting all remaining changes in a chat review now closes the modal and returns
+focus to the chat, without an extra confirmation screen. Partial reviews and
+failed saves stay open. Accepted receipts remain available when reopened.
+
 # 0.5.118
 
 Work chats now identify where to send each reply draft: the service, recipient or
