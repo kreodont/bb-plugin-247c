@@ -1,6 +1,6 @@
 import { statusNeedsStoppedSession } from "./task-status.js";
 import { randomUUID } from "node:crypto";
-import { reviewDossierSchema, type ReviewItem, type ReviewSelection } from "./contracts.js";
+import { reviewDossierSchema, sourceChatDeliverySchema, type ReviewItem, type ReviewSelection } from "./contracts.js";
 import { ACTIVE, Repository } from "./repository.js";
 import { SourceSyncStore } from "./source-sync.js";
 import { ConflictError, PolicyError } from "./core/errors.js";
@@ -54,11 +54,17 @@ export class ProposalInbox {
     // has a receipt. Read those receipts so links survive refreshes and restarts
     // without storing another copy of the task or treating failed reviews as saved.
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    return this.repo.db.prepare(`SELECT t.id,t.title,t.status,MAX(r.created_at) AS acceptedAt
+    const tasks = this.repo.db.prepare(`SELECT t.id,t.title,t.status,MAX(r.created_at) AS acceptedAt
       FROM application_receipts r JOIN tasks t ON t.id=r.task_id
       WHERE r.created_at>=? GROUP BY t.id ORDER BY acceptedAt DESC,t.id LIMIT 50`).all(since) as {
         id: string; title: string; status: "open" | "waiting" | "done" | "archived"; acceptedAt: string;
       }[];
+    return tasks.map(task => {
+      const row = this.repo.db.prepare(`SELECT json_extract(value_json,'$.chatDelivery') AS delivery FROM source_sync_candidates
+        WHERE status='applied' AND task_id=? AND json_extract(value_json,'$.chatDelivery') IS NOT NULL
+        ORDER BY json_extract(value_json,'$.resolvedAt') DESC,id DESC LIMIT 1`).get(task.id) as { delivery: string } | undefined;
+      return { ...task, ...(row ? { chatDelivery: sourceChatDeliverySchema.omit({ message: true, requestId: true }).parse(JSON.parse(row.delivery)) } : {}) };
+    });
   }
   async accept(items: ReviewSelection[]) {
     // A task revision can be approved once. Never arbitrarily pick the first of

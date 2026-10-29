@@ -1223,6 +1223,24 @@ it("selects every source part by default and leaves unchecked parts pending afte
   expect(f.repo.detail(task.id).projection.nextStep).toBe(input.suggestions[0].changes.nextStep!.value);
 });
 
+it("preselects independent waiting actions and accepts task changes without the unchecked chat action", async () => {
+  const f = await fixture(), task = await f.create("Waiting report");
+  f.repo.status(task.id, "waiting", task.revision);
+  const { run } = await startSourceSync(f), { input } = await sourceData(f, run, task.id);
+  await submitSourceData(f, run, input);
+  const { slot } = await setup("updates", f);
+  const reopen = await slot.findByRole("checkbox", { name: "Select part: Reopen task" });
+  const chat = slot.getByRole("checkbox", { name: "Select part: Open chat with update" });
+  expect((reopen as HTMLInputElement).checked).toBe(true);
+  expect((chat as HTMLInputElement).checked).toBe(true);
+  fireEvent.click(chat);
+  fireEvent.click(slot.getByRole("button", { name: "Accept selected parts · 6" }));
+  await waitFor(() => expect(f.repo.kernel.getTask(task.id).status).toBe("open"));
+  expect(f.repo.sessions(task.id)).toHaveLength(0);
+  await slot.findByText("Selected 1 of 1 parts");
+  expect((slot.getByRole("checkbox", { name: "Select part: Open chat with update" }) as HTMLInputElement).checked).toBe(true);
+});
+
 it("rejects selected dossier fields while preserving the unchecked fields for acceptance", async () => {
   const f = await fixture(), task = await f.create("Original"), ref = f.repo.detail(task.id).facts[0].id;
   f.repo.propose({ taskId: task.id, revision: task.revision, requestId: randomUUID(), draft: {

@@ -10,7 +10,8 @@ export function proposalParts(changes: StewardChanges, extraction?: Extraction):
 }
 
 export function sourceParts(candidate: SyncCandidate): string[] {
-  return [...Object.keys(candidate.changes).map(field => `field:${field}`),
+  const actions = (candidate.actions ?? []).map(action => `action:${action}`);
+  return [...actions, ...Object.keys(candidate.changes).map(field => `field:${field}`),
     ...(candidate.recordFactIndexes ?? candidate.facts.map((_, i) => i)).map(i => `fact:${i}`)];
 }
 

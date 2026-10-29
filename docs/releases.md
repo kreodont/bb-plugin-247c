@@ -1,3 +1,13 @@
+# 0.5.115
+
+Source proposals for tasks waiting for a response now include independent,
+preselected actions to reopen the task and open its work chat with the update.
+Acceptance reuses an existing conversation or creates one with the configured
+work model. Messages queue behind active work and wait for active reviews.
+Partial decisions survive proposal merging. Durable delivery receipts prevent
+duplicate messages after retries or restarts; delivery status and chat links
+remain visible with recently accepted tasks. Closing proposals are unchanged.
+
 # 0.5.114
 
 Source updates may propose reopening an archived task when a verified new request

@@ -1,0 +1,193 @@
+import { afterEach, expect, it, vi } from "vitest";
+import { randomUUID } from "node:crypto";
+import { fixture } from "./test-support.js";
+import { sourceData, startSourceSync, submitSourceData } from "./source-sync-test-support.js";
+import { SourceSyncStore } from "./source-sync.js";
+import { SourceChatUpdates } from "./source-chat-updates.js";
+import { sourceParts } from "./proposal-parts.js";
+import { rpcContract, sessionSchema, type SyncCandidate } from "./contracts.js";
+
+const hosts: Awaited<ReturnType<typeof fixture>>[] = [];
+afterEach(async () => { for (const f of hosts.splice(0)) await f.harness.lifecycle.dispose(); vi.restoreAllMocks(); });
+async function setup(status: "waiting" | "open" = "waiting", proposedStatus?: "open" | "done") {
+  const f = await fixture({ settings: { workProvider: "codex", workModel: "gpt-5.6-sol" } }); hosts.push(f);
+  const task = await f.create();
+  if (status === "waiting") f.repo.status(task.id, "waiting", task.revision);
+  const { run } = await startSourceSync(f), { input } = await sourceData(f, run, task.id);
+  if (proposedStatus) input.suggestions[0].changes.status = { value: proposedStatus, evidenceRefs: ["fact:0"] };
+  await submitSourceData(f, run, input);
+  const store = new SourceSyncStore(f.repo), candidate = store.candidates()[0];
+  return { f, task, store, candidate };
+}
+function dispatcher(f: Awaited<ReturnType<typeof fixture>>) {
+  const openChat = vi.fn(async (input: { taskId: string; requestId: string }) => sessionSchema.parse(await f.harness.behavior.callRpc("openChat", input)));
+  return { openChat, service: new SourceChatUpdates(f.bb, f.repo, { openChat }, () => ({ projectId: "proj_personal", providerId: "codex", model: "gpt-5.6-sol" })) };
+}
+function stubSend(f: Awaited<ReturnType<typeof fixture>>) {
+  const send = vi.fn<typeof f.bb.sdk.threads.send>();
+  f.harness.sdk.stub("threads.send", send);
+  return send;
+}
+function patchDelivery(f: Awaited<ReturnType<typeof fixture>>, candidate: SyncCandidate, patch: Partial<NonNullable<SyncCandidate["chatDelivery"]>>) {
+  f.repo.db.prepare("UPDATE source_sync_candidates SET value_json=? WHERE id=?").run(JSON.stringify({ ...candidate, chatDelivery: { ...candidate.chatDelivery, ...patch } }), candidate.id);
+}
+
+it.each([undefined, "open"] as const)("offers separate waiting actions before acceptance (model status %s)", async proposed => {
+  const { f, task, store, candidate } = await setup("waiting", proposed);
+  expect(candidate.actions).toEqual(["reopen", "openChat"]);
+  expect(candidate.changes.status).toBeUndefined();
+  expect(sourceParts(candidate)).toEqual(expect.arrayContaining(["action:reopen", "action:openChat"]));
+  expect(f.repo.kernel.getTask(task.id).status).toBe("waiting");
+  expect(f.repo.sessions(task.id)).toHaveLength(0);
+  expect(candidate.chatDelivery).toBeUndefined();
+  store.accept(candidate.id);
+  expect(f.repo.kernel.getTask(task.id).status).toBe("open");
+  expect(store.candidate(candidate.id).chatDelivery?.state).toBe("pending");
+  const once = f.repo.detail(task.id);
+  store.accept(candidate.id);
+  expect(f.repo.detail(task.id)).toEqual(once);
+});
+
+it.each([["open", undefined], ["waiting", "done"]] as const)("does not add waiting actions to %s / %s proposals", async (status, proposed) => {
+  const { candidate } = await setup(status, proposed);
+  expect(candidate.actions).toEqual([]);
+});
+
+it("supports chat-only acceptance while keeping reopen unchecked, then explicit rejection", async () => {
+  const { f, task, store, candidate } = await setup();
+  const input = { kind: "source" as const, id: candidate.id, revision: candidate.baseRevision, parts: ["action:openChat"], decision: "accept" as const, requestId: randomUUID() };
+  const result = store.reviewParts(input);
+  expect(f.repo.kernel.getTask(task.id).status).toBe("waiting");
+  const remaining = store.candidate(result.remainingId!);
+  expect(remaining.actions).toEqual(["reopen"]);
+  expect(remaining.chatDelivery).toBeUndefined();
+  const accepted = store.candidates().find(c => c.status === "applied")!;
+  expect(accepted.actions).toEqual(["openChat"]);
+  expect(accepted.chatDelivery?.message).toContain('"acceptedChanges":{}');
+  expect(store.reviewParts(input)).toEqual(result);
+  store.reject(remaining.id);
+  expect(f.repo.kernel.getTask(task.id).status).toBe("waiting");
+});
+
+it("reopens without launching a chat when the chat part is rejected", async () => {
+  const { f, task, store, candidate } = await setup();
+  const result = store.reviewParts({ kind: "source", id: candidate.id, revision: candidate.baseRevision, decision: "reject", parts: ["action:openChat"], requestId: randomUUID() });
+  store.accept(result.remainingId!);
+  await dispatcher(f).service.flush();
+  expect(f.repo.kernel.getTask(task.id).status).toBe("open");
+  expect(f.repo.sessions(task.id)).toHaveLength(0);
+});
+
+it.each([false, true])("opens or reuses the work chat and delivers once (existing=%s)", async existing => {
+  const { f, task, store, candidate } = await setup();
+  const { openChat, service } = dispatcher(f);
+  const previous = existing ? await openChat({ taskId: task.id, requestId: randomUUID() }) : null;
+  const send = stubSend(f).mockImplementation(async args => {
+    f.message(args.threadId, "user", args.input.map(p => p.type === "text" ? p.text : "").join("\n"));
+    return { ok: true, delivery: "sent" };
+  });
+  store.accept(candidate.id);
+  await Promise.all([service.flush(), service.flush()]);
+  const saved = store.candidate(candidate.id);
+  expect(saved.chatDelivery?.state).toBe("sent");
+  expect(send).toHaveBeenCalledTimes(1);
+  expect(send.mock.calls[0][0].mode).toBe("queue-if-active");
+  expect(send.mock.calls[0][0].input).toEqual([expect.objectContaining({ text: expect.stringContaining("https://mail.google.com/") })]);
+  expect(f.repo.sessions(task.id)).toHaveLength(1);
+  if (previous) expect(saved.chatDelivery?.threadId).toBe(previous.workerThreadId);
+  store.accept(candidate.id);
+  await dispatcher(f).service.flush(); // A fresh service instance reads persisted state.
+  expect(send).toHaveBeenCalledTimes(1);
+  const page = rpcContract.proposalInbox.output.parse(await f.harness.behavior.callRpc("proposalInbox", {}));
+  expect(page.recentlyAccepted[0].chatDelivery).toMatchObject({ state: "sent", threadId: saved.chatDelivery?.threadId });
+});
+
+it("resumes committed pending work after reload", async () => {
+  const { f, store, candidate } = await setup();
+  store.accept(candidate.id);
+  await f.reload();
+  const send = stubSend(f).mockResolvedValue({ ok: true, delivery: "sent" });
+  await dispatcher(f).service.flush();
+  expect(send).toHaveBeenCalledTimes(1);
+  expect(new SourceSyncStore(f.repo).candidate(candidate.id).chatDelivery?.state).toBe("sent");
+});
+
+it("never repeats an ambiguous send and keeps the failure visible", async () => {
+  const { f, store, candidate } = await setup();
+  const send = stubSend(f).mockRejectedValue(new Error("connection lost"));
+  store.accept(candidate.id);
+  await dispatcher(f).service.flush();
+  expect(store.candidate(candidate.id).chatDelivery?.state).toBe("uncertain");
+  await dispatcher(f).service.flush();
+  expect(send).toHaveBeenCalledTimes(1);
+  const page = rpcContract.proposalInbox.output.parse(await f.harness.behavior.callRpc("proposalInbox", {}));
+  expect(page.recentlyAccepted[0].chatDelivery?.error).toContain("Check the chat");
+});
+
+it("reconciles a lost send response using the saved message marker", async () => {
+  const { f, store, candidate } = await setup();
+  const send = stubSend(f).mockImplementation(async args => {
+    f.message(args.threadId, "user", args.input.map(p => p.type === "text" ? p.text : "").join("\n"));
+    throw new Error("response lost");
+  });
+  store.accept(candidate.id);
+  await dispatcher(f).service.flush();
+  expect(store.candidate(candidate.id).chatDelivery?.state).toBe("sent");
+  const saved = store.candidate(candidate.id);
+  patchDelivery(f, saved, { state: "sending" }); // Crash after BB accepted, before local receipt.
+  await dispatcher(f).service.flush();
+  expect(store.candidate(candidate.id).chatDelivery?.state).toBe("sent");
+  expect(send).toHaveBeenCalledTimes(1);
+});
+
+it("does not roll back an approval if the configured chat model is unavailable", async () => {
+  const { f, task, store, candidate } = await setup();
+  store.accept(candidate.id);
+  const service = new SourceChatUpdates(f.bb, f.repo, { openChat: vi.fn().mockRejectedValue(new Error("model unavailable")) }, () => ({ projectId: "", providerId: "", model: "" }));
+  await service.flush();
+  expect(f.repo.kernel.getTask(task.id).status).toBe("open");
+  expect(store.candidate(candidate.id)).toMatchObject({ status: "applied", chatDelivery: { state: "failed", error: expect.stringContaining("model unavailable") } });
+});
+
+it("waits for an active review and then reuses its resumed work conversation", async () => {
+  const { f, task, store, candidate } = await setup();
+  const { service, openChat } = dispatcher(f);
+  const session = await openChat({ taskId: task.id, requestId: randomUUID() });
+  f.repo.saveSession({ ...session, status: "reviewing" });
+  store.accept(candidate.id);
+  const send = stubSend(f).mockResolvedValue({ ok: true, delivery: "sent" });
+  await service.flush();
+  expect(send).not.toHaveBeenCalled();
+  expect(store.candidate(candidate.id).chatDelivery?.state).toBe("pending");
+  f.repo.saveSession({ ...session, status: "working" });
+  await service.flush();
+  expect(send).toHaveBeenCalledTimes(1);
+  expect(store.candidate(candidate.id).chatDelivery?.threadId).toBe(session.workerThreadId);
+});
+
+it("reuses a chat created before a restart and recognizes an already queued update", async () => {
+  const { f, task, store, candidate } = await setup();
+  store.accept(candidate.id);
+  const saved = store.candidate(candidate.id);
+  const session = await dispatcher(f).openChat({ taskId: task.id, requestId: saved.chatDelivery!.requestId });
+  const send = stubSend(f).mockResolvedValue({ ok: true, delivery: "sent" });
+  await dispatcher(f).service.flush();
+  expect(f.repo.sessions(task.id)).toHaveLength(1);
+  expect(send).toHaveBeenCalledTimes(1);
+  const delivered = store.candidate(candidate.id);
+  patchDelivery(f, delivered, { state: "sending" });
+  f.harness.sdk.stub("threads.queuedMessages.list", () => [{ content: [{ type: "text", text: delivered.chatDelivery!.message }] }]);
+  await dispatcher(f).service.flush();
+  expect(store.candidate(candidate.id).chatDelivery).toMatchObject({ state: "queued", threadId: session.workerThreadId });
+  expect(send).toHaveBeenCalledTimes(1);
+});
+
+it.each(["syncAccept", "acceptInbox", "reviewParts"])("dispatches from the %s approval RPC", async method => {
+  const { f, store, candidate } = await setup();
+  const send = stubSend(f).mockResolvedValue({ ok: true, delivery: "sent" });
+  await f.harness.behavior.callRpc(method, method === "syncAccept" ? { candidateId: candidate.id }
+    : method === "acceptInbox" ? { items: [{ kind: "source", id: candidate.id, revision: candidate.baseRevision }] }
+    : { kind: "source", id: candidate.id, revision: candidate.baseRevision, decision: "accept", parts: ["action:openChat"], requestId: randomUUID() });
+  await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+  await vi.waitFor(() => expect(store.candidates().some(c => c.chatDelivery?.state === "sent")).toBe(true));
+});

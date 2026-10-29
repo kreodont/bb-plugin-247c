@@ -1,6 +1,7 @@
 import { SourceStorage, packSourceRequest } from "./source-storage.js";
 import { normalizeMissingSlackReport, skippedSlackCalls, slackAccessProbe } from "./source-slack-missing.js";
 import { isLiveTask } from "./task-status.js";
+import { chatUpdateMessage } from "./source-update-actions.js";
 import { slackCitationMatches, slackPermalink, verifiedSlackTarget, type SlackTarget } from "./source-slack-evidence.js";
 import { DAY_TIME_ZONE } from "./day-contracts.js";
 import { DAY_REVIEW_INSTRUCTIONS } from "./agent-time.js";
@@ -506,7 +507,16 @@ ${errors.join("\n").slice(0, 16000)}`);
         }
         if (draft.taskId && related.some(c => c.runId === id && ["applied", "rejected"].includes(c.status))) throw new PolicyError(`The proposal for task ${draft.taskId} has already been reviewed by the user. This run cannot replace it; start a new check with the current dossier.`);
         if (!draft.taskId && this.repo.list(true).tasks.some(d => normalize(d.title) === normalize(draft.title))) throw new ConflictError("A task with this title already exists. Start a new check and link the finding to that task.");
-        const candidate = syncCandidateSchema.parse({ ...draft, id: randomUUID(), runId: run.id, baseRevision: draft.taskId ? dossier.task.revision : null,
+        const closing = ["done", "archived"].includes(draft.changes.status?.value ?? "open");
+        const waitingUpdate = dossier.task.status === "waiting" && !closing;
+        const defaultActions: NonNullable<SyncCandidate["actions"]> = waitingUpdate ? ["reopen", "openChat"] : [];
+        // Preserve choices already made during a partial review when merging.
+        const actions = !closing && isLiveTask(dossier.task.status)
+          ? [...new Set(parents.length ? parents.flatMap(parent => parent.actions ?? defaultActions) : defaultActions)] : [];
+        const changes = { ...draft.changes };
+        // Reopening is a separate human action, not an invented source fact.
+        if (waitingUpdate) delete changes.status;
+        const candidate = syncCandidateSchema.parse({ ...draft, changes, actions, id: randomUUID(), runId: run.id, baseRevision: draft.taskId ? dossier.task.revision : null,
           before: draft.taskId ? { title: dossier.task.title, status: dossier.task.status, urgent: dossier.planning.urgent, important: dossier.planning.important,
             customer: dossier.projection.customer ?? null, summary: dossier.projection.summary, nextStep: dossier.projection.nextStep, openQuestions: dossier.projection.openQuestions, blockers: dossier.projection.blockers, artifacts: dossier.projection.artifacts } : null,
           status: "pending", createdAt: now(), resolvedAt: null, proposalId: null, resultTaskId: null });
@@ -564,7 +574,12 @@ ${errors.join("\n").slice(0, 16000)}`);
         this.repo.db.prepare("INSERT INTO task_facts VALUES (?,?,?,?,?,?,?,?)").run(`sync:${candidate.id}:${index}`, taskId, fact.kind, fact.text, `approved-external-sync:${proposal.id}`, citation.url, citation.occurredAt, timestamp);
       }
       if (initialPriority) this.repo.classify({ taskId, revision: this.repo.planning(taskId).revision, ...initialPriority });
-      this.saveCandidate({ ...candidate, status: "applied", resolvedAt: timestamp, proposalId: proposal.id, resultTaskId: taskId });
+      if (candidate.actions?.includes("reopen")) {
+        const current = this.repo.kernel.getTask(taskId);
+        if (current.status === "waiting") this.repo.status(taskId, "open", current.revision);
+      }
+      this.saveCandidate({ ...candidate, status: "applied", resolvedAt: timestamp, proposalId: proposal.id, resultTaskId: taskId,
+        ...(candidate.actions?.includes("openChat") ? { chatDelivery: { requestId: randomUUID(), state: "pending", threadId: null, message: chatUpdateMessage(candidate), error: null } } : {}) });
       if (!candidate.taskId) this.repo.initializePrimarySource(taskId);
       return this.repo.detail(taskId);
     });
@@ -584,6 +599,7 @@ ${errors.join("\n").slice(0, 16000)}`);
           taskId, baseRevision: dossier?.task.revision ?? null,
           before: dossier ? { ...dossier.projection, ...dossier.planning, title: dossier.task.title, status: dossier.task.status } : null,
           title: dossier?.task.title ?? candidate.title, changes: pickChanges(candidate.changes, parts),
+          actions: candidate.actions?.filter(action => parts.includes(`action:${action}`)), chatDelivery: undefined,
           recordFactIndexes: parts.filter(p => p.startsWith("fact:")).map(p => Number(p.slice(5))),
           createdAt: now(), resolvedAt: null, status: "pending", proposalId: null, resultTaskId: null });
         this.repo.db.prepare("INSERT INTO source_sync_candidates VALUES (?,?,?,?,?,?)").run(child.id, child.runId, child.taskId, child.status, `parts:${input.requestId}:${suffix}`, JSON.stringify(child));

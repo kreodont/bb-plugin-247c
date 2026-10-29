@@ -59,6 +59,21 @@ When adopting this rule, incremental analysis revisits available sources linked 
 
 Each check takes a complete snapshot of unreviewed source proposals, including pending new tasks, and rechecks their linked sources alongside open tasks. The analyst combines relevant new findings with all matching pending proposals from earlier checks. Unrelated requests remain separate; one unchanged proposal is kept without creating another approval.
 
+Substantive updates to tasks in Waiting for response include two independent,
+preselected actions: **Reopen task** and **Open chat with update**. They run only
+after acceptance. The chat action reuses the active work conversation or creates
+one using the configured work account and model, then sends the new source context
+and accepted changes. An active conversation receives the update in its queue;
+an active review finishes before delivery. Completion and archival proposals do
+not reopen a task or start a chat. Partial reviews and merged proposals preserve
+the user's action choices.
+
+Accepted chat requests survive plugin restarts. Their delivery status and chat
+link appear with recently accepted tasks and in proposal history. If delivery is
+ambiguous, the plugin checks the chat for its saved message marker and never
+blindly sends a duplicate. A failed or unconfirmed delivery remains visible for
+manual follow-up; it does not undo the accepted task changes.
+
 A combined proposal preserves earlier facts, quotations and untouched proposed fields. Changed summaries and arrays describe the complete current result. Conflicting or stale field changes must be reconciled explicitly. Previous proposals become superseded history only after the combined result validates and is saved atomically with a new approval ID. Tasks still change only through human acceptance.
 
 Concurrent acceptance, rejection or dossier edits block a stale replacement. Rejected findings are not revived by an unchanged replay. Old receipts may substantiate unchanged carried facts, but never count as fresh source coverage; unavailable sources still produce a partial result. Oversized analyses or combined proposals fail without removing the pending backlog.

@@ -31,6 +31,33 @@ function legacySnapshot(store: SourceSyncStore, runId: string) {
   store.saveRequest(runId, request);
 }
 
+it.each(["accept", "reject"] as const)("does not restore a chat action already handled by partial %s when new findings merge", async decision => {
+  const f = await setup(), task = await f.create("Report"), store = new SourceSyncStore(f.repo);
+  f.repo.status(task.id, "waiting", task.revision);
+  const first = (await startSourceSync(f)).run, older = await finding(f, first, task.id);
+  await submitSourceData(f, first, older.input);
+  const original = store.pendingCandidates()[0];
+  const result = store.reviewParts({ kind: "source", id: original.id, revision: original.baseRevision, decision, parts: ["action:openChat"], requestId: randomUUID() });
+  const parent = store.candidate(result.remainingId!);
+  const next = (await startSourceSync(f)).run, data = await finding(f, next, task.id);
+  data.input.suggestions[0].mergeCandidateIds = [parent.id];
+  await submitSourceData(f, next, data.input);
+  expect(store.pendingCandidates()[0].actions).toEqual(["reopen"]);
+});
+
+it("preserves an unchecked chat action when merging after the task was reopened", async () => {
+  const f = await setup(), task = await f.create("Report"), store = new SourceSyncStore(f.repo);
+  f.repo.status(task.id, "waiting", task.revision);
+  const first = (await startSourceSync(f)).run, older = await finding(f, first, task.id);
+  await submitSourceData(f, first, older.input);
+  const original = store.pendingCandidates()[0];
+  const result = store.reviewParts({ kind: "source", id: original.id, revision: original.baseRevision, decision: "accept", parts: ["action:reopen"], requestId: randomUUID() });
+  const next = (await startSourceSync(f)).run, data = await finding(f, next, task.id);
+  data.input.suggestions[0].mergeCandidateIds = [result.remainingId!];
+  await submitSourceData(f, next, data.input);
+  expect(store.pendingCandidates()[0].actions).toEqual(["openChat"]);
+});
+
 it("merges a missed task update, preserving earlier facts and untouched fields until one human approval", async () => {
   const f = await setup(), task = await f.create("Report"), before = await f.detail(task.id);
   const store = new SourceSyncStore(f.repo);
