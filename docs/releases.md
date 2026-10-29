@@ -1,3 +1,9 @@
+# 0.5.116
+
+Pinned files uses an amber accent and a pin icon. In thread headers it appears
+after the task actions with extra spacing, making it easier to distinguish from
+the Source link. File opening and shortcut storage are unchanged.
+
 # 0.5.115
 
 Source proposals for tasks waiting for a response now include independent,

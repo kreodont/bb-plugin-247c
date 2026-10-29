@@ -5,6 +5,7 @@ import { cn } from "./lib/utils.js";
 const accents = {
   task: "[--c247-action-color:var(--timeline-accent)]",
   terminal: "[--c247-action-color:var(--ansi-5)]",
+  pinned: "[--c247-action-color:var(--ansi-3)]",
   time: "[--c247-action-color:var(--ansi-6)]",
   proposal: "[--c247-action-color:var(--attention)]",
   finish: "[--c247-action-color:var(--success)]",
