@@ -23,8 +23,8 @@ async function setup(status: "done" | "archived" = "done") {
   return { f, task, before, run, input, calls, draft, store, snapshots: store.request(run.id).snapshots };
 }
 
-it("keeps a fresh follow-up pending and reopens the same task only after human acceptance", async () => {
-  const { f, task, before, run, input, calls, store } = await setup();
+it.each(["done", "archived"] as const)("keeps a fresh follow-up pending and reopens the same task only after human acceptance (%s)", async status => {
+  const { f, task, before, run, input, calls, store } = await setup(status);
   store.submit(run.id, input, calls);
   const candidate = store.candidates()[0];
   expect(candidate).toMatchObject({ taskId: task.id, status: "pending", baseRevision: before.task.revision });
@@ -39,15 +39,15 @@ it("keeps a fresh follow-up pending and reopens the same task only after human a
   expect(f.repo.list(true).total).toBe(1);
 });
 
-it("preserves the completed task when the user rejects a follow-up", async () => {
-  const { f, task, before, run, input, calls, store } = await setup();
+it.each(["done", "archived"] as const)("preserves the completed task when the user rejects a follow-up (%s)", async status => {
+  const { f, task, before, run, input, calls, store } = await setup(status);
   store.submit(run.id, input, calls);
   store.reject(store.candidates()[0].id);
   expect(await f.detail(task.id)).toMatchObject({ task: before.task, projection: before.projection, facts: before.facts });
 });
 
-it("merges later findings with a still-pending reopening without losing the original request", async () => {
-  const { f, task, before, run, input, calls, store } = await setup();
+it.each(["done", "archived"] as const)("merges later findings with a still-pending reopening without losing the original request (%s)", async status => {
+  const { f, task, before, run, input, calls, store } = await setup(status);
   store.submit(run.id, input, calls);
   const parent = store.pendingCandidates()[0];
   vi.setSystemTime(new Date("2026-09-23T08:00:00Z"));
@@ -67,8 +67,8 @@ it("merges later findings with a still-pending reopening without losing the orig
   expect((await f.detail(task.id)).task).toEqual(before.task);
 });
 
-it("recovers a missed follow-up from a finished export without applying it or moving checkpoints", async () => {
-  const { f, task, before, run, input, calls, store } = await setup();
+it.each(["done", "archived"] as const)("recovers a missed follow-up from a finished export without applying it or moving checkpoints (%s)", async status => {
+  const { f, task, before, run, input, calls, store } = await setup(status);
   store.submit(run.id, { ...input, suggestions: [] }, calls);
   const checkpoints = store.checkpoints(), finishedAt = store.run(run.id).finishedAt;
   store.submit(run.id, input, calls, { supplement: true, finalize: false });
@@ -79,8 +79,8 @@ it("recovers a missed follow-up from a finished export without applying it or mo
   expect((await f.detail(task.id)).task).toEqual(before.task);
 });
 
-it.each(["before completion", "outside interval", "old next step", "old status"])("rejects reopening with evidence %s", async reason => {
-  const { draft, run, snapshots, calls } = await setup();
+it.each((["done", "archived"] as const).flatMap(status => ["before completion", "outside interval", "old next step", "old status"].map(reason => ({ status, reason }))))("rejects $status reopening with evidence $reason", async ({ status, reason }) => {
+  const { draft, run, snapshots, calls } = await setup(status);
   const old = reason === "outside interval" ? "2026-09-20T18:00:00Z" : "2026-09-20T09:00:00Z";
   draft.facts = draft.facts.map((fact, index) => ({ ...fact, citations: fact.citations.map(citation => ({ ...citation,
     occurredAt: reason === "old next step" && index === 0 || reason === "old status" && index === 1 ? citation.occurredAt : old,
@@ -88,14 +88,15 @@ it.each(["before completion", "outside interval", "old next step", "old status"]
   expect(() => validateSyncDraft(draft, run, snapshots, calls)).toThrow(/fresh source request/);
 });
 
-it.each(["status", "nextStep"] as const)("requires an explicit %s change for a completed task", async field => {
-  const { draft, run, snapshots, calls } = await setup();
+it.each((["done", "archived"] as const).flatMap(status => (["status", "nextStep"] as const).map(field => ({ status, field }))))("requires an explicit $field change for a $status task", async ({ status, field }) => {
+  const { draft, run, snapshots, calls } = await setup(status);
   delete draft.changes[field];
-  expect(() => validateSyncDraft(draft, run, snapshots, calls)).toThrow(/status=done/);
+  expect(() => validateSyncDraft(draft, run, snapshots, calls)).toThrow(`status=${status}`);
 });
 
-it("keeps archived tasks excluded even when fresh evidence exists", async () => {
+it("rejects archived-task updates that do not explicitly propose reopening", async () => {
   const { draft, run, snapshots, calls } = await setup("archived");
+  draft.changes.status = { value: "archived", evidenceRefs: ["fact:0"] };
   expect(() => validateSyncDraft(draft, run, snapshots, calls)).toThrow(/status=archived/);
 });
 
@@ -111,6 +112,8 @@ it("supplies the follow-up rule and cutoff in both analyst prompts", async () =>
   const bundle = { version: 1 as const, runId: run.id, startedAt: run.startedAt, finishedAt: run.until, elapsedMs: 1, calls, reports: input.reports, documents: [] };
   for (const prompt of [syncInstructions(run, snapshots, []), syncAnalysisInstructions(run, snapshots, [], bundle)]) {
     expect(prompt).toContain("COMPLETED-TASK FOLLOW-UPS");
+    expect(prompt).toContain("done or archived task");
+    expect(prompt).not.toContain("Archived tasks remain excluded");
     expect(prompt).toContain('"updatedAt":"2026-09-20T10:00:00.000Z"');
     expect(prompt).not.toContain("Update ONLY tasks with status=open");
   }

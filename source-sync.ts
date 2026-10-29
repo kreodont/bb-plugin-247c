@@ -142,9 +142,9 @@ export function syncEvidence(draft: SyncDraft, runId: string, dossier: TaskDossi
 export function validateSyncDraft(draft: SyncDraft, run: SyncRun, snapshots: TaskDossier[], calls: SourceCall[], carriedFacts: SyncDraft["facts"] = []): TaskDossier {
   const dossier = draft.taskId ? snapshots.find((d) => d.task.id === draft.taskId) : emptyDossier(draft.title);
   if (!dossier) throw new PolicyError(`taskId ${draft.taskId} is absent from the snapshot. Copy the exact id of the matching task from the snapshot; do not create a duplicate.`);
-  const reopening = Boolean(draft.taskId && dossier.task.status === "done");
+  const reopening = Boolean(draft.taskId && ["done", "archived"].includes(dossier.task.status));
   if (draft.taskId && !isLiveTask(dossier.task.status) && (!reopening || draft.changes.status?.value !== "open" || !draft.changes.nextStep?.value)) {
-    throw new PolicyError(`Task "${dossier.task.title}" (${draft.taskId}) has status=${dossier.task.status}. A done task requires a proposal to reopen it with a specific new next step; archived tasks are not updated automatically.`);
+    throw new PolicyError(`Task "${dossier.task.title}" (${draft.taskId}) has status=${dossier.task.status}. A done or archived task requires a proposal to reopen it with a specific new next step. Its status remains unchanged until human acceptance.`);
   }
   if (!draft.taskId && (!draft.changes.summary?.value || !draft.changes.nextStep?.value)) throw new PolicyError("A new task must have a summary and a specific next step.");
   if (!draft.taskId && draft.changes.status && draft.changes.status.value !== "open") throw new PolicyError("A new task must remain open.");
@@ -191,7 +191,7 @@ export function validateSyncDraft(draft: SyncDraft, run: SyncRun, snapshots: Tas
     };
     if (!draft.changes.status!.evidenceRefs.some(ref => fresh(ref, ["progress", "decision"]))
       || !draft.changes.nextStep!.evidenceRefs.some(ref => fresh(ref, ["explicit_next_step"], draft.changes.nextStep!.value!))) {
-      throw new PolicyError("Reopening a done task requires a fresh source request for both status and nextStep, after the task's last saved change and within this check's interval, or unchanged evidence from its still-pending follow-up proposal. Old completed results cannot reopen it.");
+      throw new PolicyError("Reopening a done or archived task requires a fresh source request for both status and nextStep, after the task's last saved change and within this check's interval, or unchanged evidence from its still-pending follow-up proposal. Old completed results cannot reopen it.");
     }
   }
   return dossier;

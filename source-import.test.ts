@@ -94,8 +94,12 @@ it("confines bundle reads to the configured folder and verifies their bytes", as
   await expect(f.harness.behavior.callRpc("syncImport", { ...input, sha256: "0".repeat(64) })).rejects.toThrow(/changed/);
   const other = await mkdtemp(join(tmpdir(), "247c-outside-")); folders.push(other);
   await writeFile(join(other, "outside.json"), "{}");
-  await symlink(join(other, "outside.json"), join(root, "escape.json"));
-  await expect(f.harness.behavior.callRpc("syncImport", { ...input, path: join(root, "escape.json") })).rejects.toThrow(/inside/);
+  // Windows directory junctions exercise the same realpath escape without
+  // requiring administrator privileges to create a file symlink.
+  const escaped = process.platform === "win32" ? join(root, "escape", "outside.json") : join(root, "escape.json");
+  if (process.platform === "win32") await symlink(other, join(root, "escape"), "junction");
+  else await symlink(join(other, "outside.json"), escaped);
+  await expect(f.harness.behavior.callRpc("syncImport", { ...input, path: escaped })).rejects.toThrow(/inside/);
   await f.harness.behavior.setSettings({ sourceImportRoot: "" });
   await expect(f.harness.behavior.callRpc("syncImport", input)).rejects.toThrow(/Configure/);
   expect(store.pendingCandidates()).toHaveLength(0);

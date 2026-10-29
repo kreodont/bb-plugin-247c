@@ -1,3 +1,12 @@
+# 0.5.114
+
+Source updates may propose reopening an archived task when a verified new request
+postdates the task's last saved change. The proposal must include both status=open
+and a specific new next step, with fresh source evidence for each. The task stays
+archived until human acceptance. Old requests, missing evidence and updates that
+do not propose reopening remain rejected. Pending follow-ups can be merged without
+losing their original verified request or creating duplicate tasks.
+
 # 0.5.113
 
 Worker startup snapshots reserve space for accepted work, source links and recent
