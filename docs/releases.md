@@ -1,3 +1,8 @@
+# 0.5.121
+
+Work agents present reply drafts in separate plain-text code blocks with BB's
+Copy button. Destination links and explanations remain outside the copied text.
+
 # 0.5.120
 
 The local Slack browser preference now also covers message links inside BB chats,

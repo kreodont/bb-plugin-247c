@@ -11,7 +11,7 @@ export const replyVerificationGuide = `Sent-reply verification: when the user re
 
 type Discussion = { session: Session; transcript: Transcript; proposal: StewardProposal | null };
 
-export const draftDestinationGuide = `Before each reply draft, add one short line in the user's language: service, recipient/channel, and a clickable link to the exact conversation. Resolve from known sources or targeted reads; never guess. If unverified, say so. Keep this line outside the draft and preserve required result formats. Drafting does not authorize sending.`;
+export const draftDestinationGuide = `Before each reply draft, give the service, recipient/channel and exact conversation link in the user's language. Use known sources or targeted reads; mark uncertainty, never guess. Put only the reply in a fenced text code block for copying; keep the destination outside. Preserve required result formats. Drafting grants no send permission.`;
 
 export function currentTaskInstructions(session: Session, context: NonNullable<Session["workerContext"]>): string {
   return `Current accepted 247C task ${session.taskId}: revision=${context.taskRevision}, sourceRevision=${context.sourceRevision}. Before the first task-specific answer or source search, check your complete c247_read context/accepted read against these versions. If missing or different, call c247_read now. Follow nextCursor to null. Compare new requests with accepted work before calling them new. Check known sources before asking the user to paste them. Current accepted fields override old state; pending proposals grant no permission. Preserve the user's request and unfinished work.`;
