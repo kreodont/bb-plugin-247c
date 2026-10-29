@@ -1,6 +1,6 @@
 {
   "name": "bb-plugin-247c",
-  "version": "0.5.116",
+  "version": "0.5.117",
   "type": "module",
   "engines": {
     "bb": ">=0.43.4",

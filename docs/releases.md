@@ -1,3 +1,10 @@
+# 0.5.117
+
+An optional local setting, Open Slack sources in the browser, sends Source and
+task source links to Slack's web message route instead of its desktop-app launch
+page. Message timestamps, thread targets and original evidence URLs are preserved.
+Other sources keep their existing navigation behavior.
+
 # 0.5.116
 
 Pinned files uses an amber accent and a pin icon. In thread headers it appears

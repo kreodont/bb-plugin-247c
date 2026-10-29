@@ -27,6 +27,17 @@ export function sourceUrl(value: string | null): URL | null {
   } catch { return null; }
 }
 
+// Slack's /messages route is the web destination offered by its launch page.
+// Rewrite navigation only; evidence and primary-source identity stay canonical.
+export function sourceHref(value: string, slackInBrowser = false): string | undefined {
+  const url = sourceUrl(value);
+  if (!url) return undefined;
+  if (!slackInBrowser || url.protocol !== "https:" || !/^[a-z0-9-]+\.slack\.com$/i.test(url.hostname)
+    || !/^\/archives\/[CDG][A-Z0-9]+(?:\/p[0-9]+)?\/?$/.test(url.pathname)) return value;
+  url.pathname = url.pathname.replace(/^\/archives\//, "/messages/");
+  return url.href;
+}
+
 function clickUpTaskId(url: URL): string | null {
   const host = url.hostname.toLowerCase();
   if (host !== "clickup.com" && !host.endsWith(".clickup.com")) return null;

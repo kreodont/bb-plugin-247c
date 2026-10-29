@@ -18,7 +18,7 @@ import { proposalParts, sourceParts } from "./proposal-parts.js";
 import { usePartSelection, PartReviewNote, partOutcome } from "./review-parts-ui.js";
 import { TaskViewMarker } from "./task-view-marker.js";
 import { TaskSources } from "./task-sources-ui.js";
-import { sourceUrl } from "./task-sources.js";
+import { sourceHref, sourceUrl } from "./task-sources.js";
 import { mountSidebarShortcut } from "./sidebar-shortcut.js";
 import { SidebarPluginLinks } from "./sidebar-plugin-links.js";
 import { TaskSwitcher, openTaskSwitcher } from "./task-switcher.js";
@@ -29,7 +29,7 @@ import { NavigationFrame } from "./navigation.js";
 import { deskRoute, taskDayPath, taskProposalPath, taskReviewPath, withThread } from "./desk-routes.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ComponentProps, FormEvent, ReactNode } from "react";
-import { definePluginApp, useRealtime, useRealtimeConnectionState, useBbNavigate, ThreadChat, Markdown, experimental_NewThreadComposer as NewThreadComposer, experimental_FileLink as FileLink } from "@get-bb/plugin-sdk/app";
+import { definePluginApp, useSettings, useRealtime, useRealtimeConnectionState, useBbNavigate, ThreadChat, Markdown, experimental_NewThreadComposer as NewThreadComposer, experimental_FileLink as FileLink } from "@get-bb/plugin-sdk/app";
 import type { NewThreadRequest, PluginNavPanelProps, PluginThreadHeaderActionProps } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
 import type { rpcContract, TaskCard, Dossier, Session, StartInput, KnowledgeEntry, SyncCandidate, SyncSource, SyncRun, ReviewDossier, ReviewItem, ReviewSelection } from "./contracts.js";
@@ -232,12 +232,13 @@ function ThreadProposalAction(props: PluginThreadHeaderActionProps) {
 
 function ThreadSource({ threadId, isCompactViewport }: PluginThreadHeaderActionProps) {
   const rpc = useUxRpc();
+  const { values } = useSettings();
   const load = useCallback(() => rpc.call("threadSource", { threadId }), [rpc, threadId]);
   const { data, error } = useSnapshot(load);
   const source = data?.source;
   if (error || !source || !sourceUrl(source.url)) return null;
   return <UxScope page="thread" view={threadId}><Button asChild size="sm" variant="outline" className={threadActionClass("neutral", isCompactViewport)}>
-    <a data-c247-ux-action="thread-source" href={source.url} target="_blank" rel="noopener noreferrer" title={`Primary source · ${source.label}\n${source.url}`} aria-label={`Open primary source: ${source.label}`}>
+    <a data-c247-ux-action="thread-source" href={sourceHref(source.url, values?.slackLinksInBrowser === true)} target="_blank" rel="noopener noreferrer" title={`Primary source · ${source.label}\n${source.url}`} aria-label={`Open primary source: ${source.label}`}>
       <Icon name="ExternalLink" aria-hidden="true" />{!isCompactViewport && "Source"}
     </a>
   </Button></UxScope>;

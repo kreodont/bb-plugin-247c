@@ -609,6 +609,23 @@ it("opens the primary source directly from full and compact headers and follows 
   expect(worker.inspection.navigateCalls).toHaveLength(0);
 });
 
+it("uses the local Slack browser preference in the header and task sources without changing saved evidence", async () => {
+  const f = await fixture(); hosts.push(f);
+  const url = "https://example.slack.com/archives/C123/p1234567890000000?thread_ts=1234500000.000001&cid=C123";
+  const task = f.repo.create({ title: "Browser source", description: "", primarySourceUrl: url, requestId: randomUUID() });
+  const session = await f.start(task.id, task.revision);
+  const rpc = Object.fromEntries(Object.keys(rpcContract).map(name => [name, (input: unknown) => f.harness.behavior.callRpc(name, input)]));
+  const options = { rpc, settings: { slackLinksInBrowser: true } };
+  const header = renderSlot(app.threadHeaderActions.find(slot => slot.id === "source")!, { threadId: session.workerThreadId!, projectId: "proj_personal", isCompactViewport: false }, options);
+  mounts.push(header);
+  const source = await within(header.container).findByRole("link", { name: "Open primary source: Slack message" });
+  expect(source.getAttribute("href")).toBe(url.replace("/archives/", "/messages/"));
+  const page = renderSlot(app.navPanels[0], { subPath: task.id }, options); mounts.push(page);
+  const taskLink = await within(page.container).findByRole("link", { name: /Slack message/ });
+  expect(taskLink.getAttribute("href")).toBe(source.getAttribute("href"));
+  expect(f.repo.detail(task.id).primarySource?.url).toBe(url);
+});
+
 it("omits the source shortcut for unlinked threads, missing sources, unsafe URLs and failed refreshes", async () => {
   const f = await fixture(), task = await f.create(), session = await f.start(task.id, task.revision);
   const header = setupThread(f, session.workerThreadId!, false, "source");

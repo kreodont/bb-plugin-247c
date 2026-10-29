@@ -1,11 +1,25 @@
 import { expect, it } from "vitest";
 import { factSchema, proposalViewSchema, syncCandidateSchema, type Dossier, type SyncCandidate } from "./contracts.js";
-import { sourceUrl, taskSourceLinks } from "./task-sources.js";
+import { sourceHref, sourceUrl, taskSourceLinks } from "./task-sources.js";
 
 const timestamp = "2026-09-12T03:00:00.000Z";
 const gmail = "https://mail.google.com/mail/u/0/#all/report-1";
 const slack = "https://example.slack.com/archives/C123/p1234567890000000";
 const jira = "https://example.atlassian.net/browse/APP-745";
+it("opens Slack messages in the browser only when requested and preserves thread targets", () => {
+  const url = slack + "?thread_ts=1234500000.000001&cid=C123#reply";
+  expect(sourceHref(url)).toBe(url);
+  expect(sourceHref(url, true)).toBe(url.replace("/archives/", "/messages/"));
+  for (const channel of ["D123", "G123"]) {
+    expect(sourceHref(`https://example.slack.com/archives/${channel}`, true)).toBe(`https://example.slack.com/messages/${channel}`);
+  }
+  for (const value of [gmail, jira, "https://example.slack.com.evil.test/archives/C123/p123", "https://example.slack.com/files/F123", "https://app.slack.com/client/T123/C123", "https://example.slack.com/messages/C123/p123"]) {
+    expect(sourceHref(value, true)).toBe(value);
+  }
+  expect(sourceHref("javascript:alert(1)", true)).toBeUndefined();
+  expect(sourceHref("https://user:password@example.slack.com/archives/C123", true)).toBeUndefined();
+});
+
 function dossier(): Pick<Dossier, "task" | "facts" | "proposals"> {
   return { task: { id: "task-1", title: "Review the sync report", status: "open", revision: 1, createdAt: timestamp, updatedAt: timestamp }, facts: [], proposals: [] };
 }

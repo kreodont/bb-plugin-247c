@@ -1,5 +1,7 @@
 # Source configuration
 
+Enable **Open Slack sources in the browser** (`slackLinksInBrowser`) to send Source and task source buttons directly to Slack's web message route. Links open in the system's default external browser. This preference is saved in the local settings patch and survives plugin updates. Original source URLs, message timestamps and thread targets are preserved.
+
 The BB `sources` setting contains JSON following [sources.example.json](sources.example.json). Keep your completed configuration outside the repository. It configures searches and account identity; do not put tokens or passwords in it.
 
 For corporate conversations, also follow the [setup-agent guide](setup-agent.md) to preauthorize source reads in the provider's local profile. These permissions are separate from the plugin's `sources` JSON and its approval workflow for task records. The repository contains the setup policy, not an installed permission allowlist.
