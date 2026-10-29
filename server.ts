@@ -33,7 +33,7 @@ import { proposalRefreshPreview, refreshProposal } from "./proposal-refresh.js";
 import { ACTIVE, EXTRA_SCHEMA, Repository } from "./repository.js";
 import { SessionRuntime } from "./runtime.js";
 import { ThreadRouting } from "./thread-routing.js";
-import { managementGuide, emptyChatInstructions, replyVerificationGuide, currentTaskInstructions } from "./prompts.js";
+import { managementGuide, emptyChatInstructions, replyVerificationGuide, draftDestinationGuide, currentTaskInstructions } from "./prompts.js";
 import { acceptedWorkerContext, workerContextBrief } from "./worker-context.js";
 import { SourceSyncRuntime, SYNC_ACTIVE } from "./source-sync.js";
 import { ProposalInbox } from "./proposal-inbox.js";
@@ -415,7 +415,7 @@ export default async function plugin(bb: BbPluginApi) {
     const freshContext = worker && conversation && session && ["starting", "working"].includes(session.status)
       ? currentTaskInstructions(session, acceptedWorkerContext(repo, session.taskId)) : "";
     const workerGuide = worker && session
-      ? [freshContext, emptyChat ? emptyChatInstructions(session) : "", replyVerificationGuide].filter(Boolean).join("\n\n") : "";
+      ? [freshContext, emptyChat ? emptyChatInstructions(session) : "", replyVerificationGuide, draftDestinationGuide].filter(Boolean).join("\n\n") : "";
     const timeTools = ["c247_day", "c247_plan_add", "c247_time_edit", "c247_plan_move", "c247_time_report"];
     return { skills: [], tools: reviewer ? [] : worker ? ["c247_read", "c247_knowledge", ...timeTools, ...(conversation ? [] : ["c247_submit_result"])] : ["c247_tasks", "c247_read", "c247_knowledge", "c247_create", "c247_propose", "c247_sync_status", "c247_sync_start", ...timeTools],
       ...(reviewer || worker || localInstructions ? { instructions: instructions(reviewer ? "This is a separate 247C recording/review session. Use only the supplied snapshots. Do not invoke tools or delegate. Return the requested JSON." : workerGuide) } : {}) };

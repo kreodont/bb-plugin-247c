@@ -1,3 +1,10 @@
+# 0.5.118
+
+Work chats now identify where to send each reply draft: the service, recipient or
+channel, and a direct conversation link, shown separately from the draft.
+Unknown destinations are marked as unverified rather than guessed. The guidance
+also applies to existing work chats on their next turn.
+
 # 0.5.117
 
 An optional local setting, Open Slack sources in the browser, sends Source and
