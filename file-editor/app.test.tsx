@@ -81,6 +81,25 @@ const range = (startLineNumber: number, endLineNumber = startLineNumber) => ({
 beforeEach(() => { vi.clearAllMocks(); editor.getValue.mockReturnValue("fixture"); });
 afterEach(cleanup);
 
+it("displays and copies the full host-native path while retaining relative RPC targets", async () => {
+  const absolutePath = "C:\\Work\\clients\\sample.csv";
+  const clipboard = vi.fn().mockResolvedValue(undefined), reveal = vi.fn().mockResolvedValue({ opened: true });
+  const original = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+  try {
+    mount(null, () => ({ ...file, absolutePath }), undefined, reveal);
+    const copy = await screen.findByRole("button", { name: "Copy file path" });
+    await waitFor(() => expect(copy.textContent).toBe(absolutePath));
+    fireEvent.click(copy);
+    await waitFor(() => expect(clipboard).toHaveBeenCalledWith(absolutePath));
+    fireEvent.click(screen.getByRole("button", { name: "Show in folder" }));
+    await waitFor(() => expect(reveal).toHaveBeenCalledWith({ path: "target.ts", source: base.source }));
+  } finally {
+    if (original) Object.defineProperty(navigator, "clipboard", original);
+    else Reflect.deleteProperty(navigator, "clipboard");
+  }
+});
+
 it("shows the current file in its folder without changing the buffer or saving", async () => {
   const write = vi.fn(), reveal = vi.fn().mockResolvedValue({ opened: true });
   const slot = mount(null, () => file, write, reveal);

@@ -1,3 +1,9 @@
+# 0.5.124
+
+Show in folder now makes the matching Explorer window visible and restores it
+when minimized. Success requires a visible window with the requested file selected.
+The file editor displays and copies the full path in the file host's native format.
+
 # 0.5.123
 
 Show in folder uses the Windows Shell API to open the containing folder and

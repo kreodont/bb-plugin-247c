@@ -67,6 +67,7 @@ function MonacoFileOpener({
   const navigationRef = useRef({ path, lineRange: experimental_lineRange });
 
   const [activePath, setActivePath] = useState(path);
+  const [displayPath, setDisplayPath] = useState(path);
   useEffect(() => setActivePath(path), [path]);
 
   const controllerRef = useRef<SaveController | null>(null);
@@ -209,6 +210,7 @@ function MonacoFileOpener({
   useEffect(() => {
     let disposed = false;
     setStatus({ kind: "loading" });
+    setDisplayPath(activePath);
     setSaveState({ kind: "clean" });
     setAutoSave(true);
     setPendingOpen(null);
@@ -227,6 +229,7 @@ function MonacoFileOpener({
           setStatus({ kind: "delegate", reason: file.reason });
           return;
         }
+        setDisplayPath(file.absolutePath);
 
         const monaco = await loadMonaco(baseUrl);
         if (disposed) return;
@@ -335,7 +338,7 @@ function MonacoFileOpener({
         />
       ) : null}
       <FileToolbar
-        path={activePath}
+        path={displayPath}
         indicator={indicatorFor(saveState, status)}
         isRefreshing={isRefreshing}
         canReload={status.kind === "ready" && saveState.kind !== "saving"}

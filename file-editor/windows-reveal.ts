@@ -9,6 +9,14 @@ try {
 using System;
 using System.Runtime.InteropServices;
 public static class FileLocation {
+  [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr window, int command);
+  [DllImport("user32.dll")] static extern bool IsIconic(IntPtr window);
+  [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr window);
+  [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr window);
+  public static void Show(IntPtr window) {
+    ShowWindow(window, IsIconic(window) ? 9 : 5);
+    SetForegroundWindow(window);
+  }
   [DllImport("ole32.dll")] static extern int CoInitializeEx(IntPtr reserved, uint mode);
   [DllImport("ole32.dll")] static extern void CoUninitialize();
   [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
@@ -31,6 +39,27 @@ public static class FileLocation {
 '@
   $file = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${Buffer.from(file, "utf8").toString("base64")}'))
   [FileLocation]::Reveal($file)
+  # The hidden helper's startup state can also hide the Explorer window.
+  # Only show a window that actually selected the requested file.
+  $shell = New-Object -ComObject Shell.Application
+  $visible = $false
+  for ($attempt = 0; $attempt -lt 20 -and -not $visible; $attempt++) {
+    foreach ($window in $shell.Windows()) {
+      try {
+        foreach ($item in $window.Document.SelectedItems()) {
+          if ([String]::Equals($item.Path, $file, [StringComparison]::OrdinalIgnoreCase)) {
+            $window.Visible = $true
+            [FileLocation]::Show([IntPtr]$window.HWND)
+            $visible = [FileLocation]::IsWindowVisible([IntPtr]$window.HWND)
+            break
+          }
+        }
+      } catch { continue }
+      if ($visible) { break }
+    }
+    if (-not $visible) { Start-Sleep -Milliseconds 100 }
+  }
+  if (-not $visible) { throw 'Windows did not show a file manager window with the requested file selected.' }
 } catch {
   [Console]::Error.WriteLine($_.Exception.Message)
   exit 1
