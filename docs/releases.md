@@ -1,3 +1,10 @@
+# 0.5.123
+
+Show in folder uses the Windows Shell API to open the containing folder and
+select the file. It no longer mistakes Explorer process exit codes for a failed
+request. Native Windows and WSL paths are passed as data, including spaces,
+Unicode and shell characters. Workspace boundaries and cancellation are preserved.
+
 # 0.5.122
 
 Waiting tasks now receive Reopen task and Open chat with update actions only when a source proposal explicitly resumes the task with an evidenced, actionable next step. Sent replies, reminders and other updates that still await an external response can update the dossier without reopening the task or starting a chat. Merged updates preserve partial review choices and remove unaccepted resume actions when the latest evidence explicitly keeps the task waiting.

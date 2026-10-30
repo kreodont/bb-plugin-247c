@@ -4,6 +4,7 @@ import { release } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
+import { windowsRevealArgs } from "./windows-reveal.js";
 
 const execute = promisify(execFile);
 type Run = (command: string, args: string[], signal: AbortSignal) => Promise<string>;
@@ -29,11 +30,11 @@ export async function revealFile(
     if (platform === "darwin") {
       await launch("/usr/bin/open", ["-R", file], signal);
     } else if (platform === "win32") {
-      await launch("explorer.exe", [`/select,${file}`], signal);
+      await launch("powershell.exe", windowsRevealArgs(file), signal);
     } else if (platform === "linux" && (options.wsl ?? /microsoft/i.test(release()))) {
       const windowsPath = (await launch("wslpath", ["-w", file], signal)).trim();
       if (!windowsPath) throw new Error("Could not resolve the Windows file location.");
-      await launch("explorer.exe", [`/select,${windowsPath}`], signal);
+      await launch("powershell.exe", windowsRevealArgs(windowsPath), signal);
     } else if (platform === "linux") {
       try {
         await launch("gdbus", ["call", "--session", "--dest", "org.freedesktop.FileManager1", "--object-path", "/org/freedesktop/FileManager1", "--method", "org.freedesktop.FileManager1.ShowItems", JSON.stringify([pathToFileURL(file).href]), ""], signal);

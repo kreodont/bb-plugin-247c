@@ -3,6 +3,7 @@ import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { revealFile } from "./reveal-file.js";
+import { windowsRevealArgs } from "./windows-reveal.js";
 
 const roots: string[] = [];
 afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))); });
@@ -25,7 +26,27 @@ it("converts WSL paths before selecting the file in Windows Explorer", async () 
   const input = await fixture(), run = vi.fn().mockResolvedValueOnce("C:\\Work\\notes.txt\n").mockResolvedValueOnce("");
   await revealFile(input, signal(), { platform: "linux", wsl: true, run });
   expect(run.mock.calls[0][0]).toBe("wslpath");
-  expect(run.mock.calls[1].slice(0, 2)).toEqual(["explorer.exe", ["/select,C:\\Work\\notes.txt"]]);
+  expect(run.mock.calls[1].slice(0, 2)).toEqual(["powershell.exe", windowsRevealArgs("C:\\Work\\notes.txt")]);
+});
+
+it("uses the Windows Shell API with the exact path encoded as data", async () => {
+  const input = await fixture(), run = vi.fn().mockResolvedValue("");
+  await revealFile(input, signal(), { platform: "win32", run });
+  expect(run).toHaveBeenCalledOnce();
+  const [command, args] = run.mock.calls[0];
+  expect(command).toBe("powershell.exe");
+  expect(args.slice(0, -1)).toEqual(["-NoProfile", "-NonInteractive", "-STA", "-EncodedCommand"]);
+  const script = Buffer.from(args.at(-1), "base64").toString("utf16le");
+  const encodedPath = script.match(/FromBase64String\('([^']+)'\)/)![1];
+  expect(Buffer.from(encodedPath, "base64").toString("utf8")).toBe(input.path);
+  expect(script).not.toContain("$(example)");
+  expect(script).toContain("Marshal.ThrowExceptionForHR(SHOpenFolderAndSelectItems");
+});
+
+it("does not treat a failed Windows Shell request as success", async () => {
+  const run = vi.fn().mockRejectedValue(Object.assign(new Error("Shell request failed"), { code: 1 }));
+  await expect(revealFile(await fixture(), signal(), { platform: "win32", run })).rejects.toThrow(/file manager/);
+  expect(run).toHaveBeenCalledOnce();
 });
 
 it("requests Linux file selection and falls back to the containing folder", async () => {
@@ -45,7 +66,9 @@ it("reports an unavailable desktop without claiming success", async () => {
 it("rejects missing files, directories and symlinks outside the root without launching anything", async () => {
   const input = await fixture(), run = vi.fn();
   const workspace = path.join(input.rootPath, "workspace"); await mkdir(workspace);
-  const link = path.join(workspace, "outside.txt"); await symlink(input.path, link);
+  const target = path.join(workspace, "outside");
+  await symlink(input.rootPath, target, process.platform === "win32" ? "junction" : "dir");
+  const link = path.join(target, path.basename(input.path));
   await expect(revealFile({ path: link, rootPath: workspace }, signal(), { run })).rejects.toThrow(/outside/);
   await expect(revealFile({ path: workspace, rootPath: workspace }, signal(), { run })).rejects.toThrow(/not a file/);
   await expect(revealFile({ ...input, path: path.join(workspace, "missing") }, signal(), { run })).rejects.toThrow();
