@@ -1,3 +1,7 @@
+# 0.5.122
+
+Waiting tasks now receive Reopen task and Open chat with update actions only when a source proposal explicitly resumes the task with an evidenced, actionable next step. Sent replies, reminders and other updates that still await an external response can update the dossier without reopening the task or starting a chat. Merged updates preserve partial review choices and remove unaccepted resume actions when the latest evidence explicitly keeps the task waiting.
+
 # 0.5.121
 
 Work agents present reply drafts in separate plain-text code blocks with BB's

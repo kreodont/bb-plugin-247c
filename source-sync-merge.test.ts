@@ -22,7 +22,8 @@ async function finding(f: Awaited<ReturnType<typeof fixture>>, run: SyncRun, tas
     messageId, occurredAt: new Date(Date.parse(run.until) - 1000).toISOString(), quote };
   const input: SyncSubmit = { reports: reportsFor(calls), suggestions: [{ taskId, title, rationale: "The sender supplied the approved figures.", confidence: 0.9,
     facts: [{ kind: "progress", text: "Approved figures arrived.", citations: [citation] }, { kind: "explicit_next_step", text: step, citations: [citation] }],
-    changes: { summary: { value: "The report now has approved figures.", evidenceRefs: ["fact:0"] }, nextStep: { value: step, evidenceRefs: ["fact:1"] } } }] };
+    changes: { ...(taskId && f.repo.kernel.getTask(taskId).status === "waiting" ? { status: { value: "open" as const, evidenceRefs: ["fact:0"] } } : {}),
+      summary: { value: "The report now has approved figures.", evidenceRefs: ["fact:0"] }, nextStep: { value: step, evidenceRefs: ["fact:1"] } } }] };
   return { input, calls, citation };
 }
 
@@ -56,6 +57,37 @@ it("preserves an unchecked chat action when merging after the task was reopened"
   data.input.suggestions[0].mergeCandidateIds = [result.remainingId!];
   await submitSourceData(f, next, data.input);
   expect(store.pendingCandidates()[0].actions).toEqual(["openChat"]);
+});
+
+it("adds resume actions when a new reply makes a pending informational update actionable", async () => {
+  const f = await setup(), task = await f.create("Report"), store = new SourceSyncStore(f.repo);
+  f.repo.status(task.id, "waiting", task.revision);
+  const first = (await startSourceSync(f)).run, older = await finding(f, first, task.id);
+  delete older.input.suggestions[0].changes.status;
+  await submitSourceData(f, first, older.input);
+  const parent = store.pendingCandidates()[0];
+  expect(parent.actions).toEqual([]);
+  const next = (await startSourceSync(f)).run, data = await finding(f, next, task.id);
+  data.input.suggestions[0].mergeCandidateIds = [parent.id];
+  await submitSourceData(f, next, data.input);
+  expect(store.pendingCandidates()[0].actions).toEqual(["reopen", "openChat"]);
+});
+
+it("drops unaccepted resume actions when later evidence explicitly keeps the task waiting", async () => {
+  const f = await setup(), task = await f.create("Report"), store = new SourceSyncStore(f.repo);
+  f.repo.status(task.id, "waiting", task.revision);
+  const first = (await startSourceSync(f)).run, older = await finding(f, first, task.id);
+  await submitSourceData(f, first, older.input);
+  const parent = store.pendingCandidates()[0];
+  const next = (await startSourceSync(f)).run, data = await finding(f, next, task.id);
+  data.input.suggestions[0].mergeCandidateIds = [parent.id];
+  data.input.suggestions[0].changes.status = { value: "waiting", evidenceRefs: ["fact:0"] };
+  await submitSourceData(f, next, data.input);
+  const combined = store.pendingCandidates()[0];
+  expect(combined.actions).toEqual([]);
+  store.accept(combined.id);
+  expect(f.repo.kernel.getTask(task.id).status).toBe("waiting");
+  expect(store.candidate(combined.id).chatDelivery).toBeUndefined();
 });
 
 it("merges a missed task update, preserving earlier facts and untouched fields until one human approval", async () => {

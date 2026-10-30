@@ -183,6 +183,9 @@ export function validateSyncDraft(draft: SyncDraft, run: SyncRun, snapshots: Tas
     if (!change?.evidenceRefs.some((ref) => /^fact:\d+$/.test(ref))) throw new PolicyError("Every change must reference a verified source finding (fact:N).");
   }
   validateEvidence(draft, dossier, syncEvidence(draft, run.id, dossier));
+  if (dossier.task.status === "waiting" && draft.changes.status?.value === "open" && !draft.changes.nextStep?.value) {
+    throw new PolicyError("Resuming a waiting task requires a source-supported nextStep that the user can act on now. A sent reply, reminder or progress report while an external response is still pending must keep the task waiting.");
+  }
   if (reopening) {
     const fresh = (ref: string, kinds: string[], text?: string) => {
       const index = /^fact:(\d+)$/.exec(ref)?.[1], fact = index === undefined ? undefined : draft.facts[Number(index)];
@@ -508,14 +511,18 @@ ${errors.join("\n").slice(0, 16000)}`);
         if (draft.taskId && related.some(c => c.runId === id && ["applied", "rejected"].includes(c.status))) throw new PolicyError(`The proposal for task ${draft.taskId} has already been reviewed by the user. This run cannot replace it; start a new check with the current dossier.`);
         if (!draft.taskId && this.repo.list(true).tasks.some(d => normalize(d.title) === normalize(draft.title))) throw new ConflictError("A task with this title already exists. Start a new check and link the finding to that task.");
         const closing = ["done", "archived"].includes(draft.changes.status?.value ?? "open");
-        const waitingUpdate = dossier.task.status === "waiting" && !closing;
-        const defaultActions: NonNullable<SyncCandidate["actions"]> = waitingUpdate ? ["reopen", "openChat"] : [];
+        const resumesWaiting = dossier.task.status === "waiting" && draft.changes.status?.value === "open";
+        const defaultActions: NonNullable<SyncCandidate["actions"]> = resumesWaiting ? ["reopen", "openChat"] : [];
         // Preserve choices already made during a partial review when merging.
-        const actions = !closing && isLiveTask(dossier.task.status)
-          ? [...new Set(parents.length ? parents.flatMap(parent => parent.actions ?? defaultActions) : defaultActions)] : [];
+        // A prior informational update must not suppress a later actionable reply.
+        // Explicitly continuing to wait also cancels unaccepted resume actions.
+        const pendingActions = parents.flatMap(parent => parent.actions ?? []);
+        const preserveChoices = pendingActions.length > 0 || parents.some(parent => parent.recordFactIndexes);
+        const actions = !closing && draft.changes.status?.value !== "waiting" && isLiveTask(dossier.task.status)
+          ? [...new Set(preserveChoices ? pendingActions : defaultActions)] : [];
         const changes = { ...draft.changes };
-        // Reopening is a separate human action, not an invented source fact.
-        if (waitingUpdate) delete changes.status;
+        // Split the evidenced resume proposal into separately reviewable actions.
+        if (resumesWaiting) delete changes.status;
         const candidate = syncCandidateSchema.parse({ ...draft, changes, actions, id: randomUUID(), runId: run.id, baseRevision: draft.taskId ? dossier.task.revision : null,
           before: draft.taskId ? { title: dossier.task.title, status: dossier.task.status, urgent: dossier.planning.urgent, important: dossier.planning.important,
             customer: dossier.projection.customer ?? null, summary: dossier.projection.summary, nextStep: dossier.projection.nextStep, openQuestions: dossier.projection.openQuestions, blockers: dossier.projection.blockers, artifacts: dossier.projection.artifacts } : null,

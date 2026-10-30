@@ -1,15 +1,15 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { fixture } from "./test-support.js";
-import { sourceData, startSourceSync, submitSourceData } from "./source-sync-test-support.js";
-import { SourceSyncStore } from "./source-sync.js";
+import { connectorCall, reportsFor, sourceData, startSourceSync, submitSourceData } from "./source-sync-test-support.js";
+import { readSourceCalls, SourceSyncStore } from "./source-sync.js";
 import { SourceChatUpdates } from "./source-chat-updates.js";
 import { sourceParts } from "./proposal-parts.js";
 import { rpcContract, sessionSchema, type SyncCandidate } from "./contracts.js";
 
 const hosts: Awaited<ReturnType<typeof fixture>>[] = [];
 afterEach(async () => { for (const f of hosts.splice(0)) await f.harness.lifecycle.dispose(); vi.restoreAllMocks(); });
-async function setup(status: "waiting" | "open" = "waiting", proposedStatus?: "open" | "done") {
+async function setup(status: "waiting" | "open" = "waiting", proposedStatus: "open" | "done" = "open") {
   const f = await fixture({ settings: { workProvider: "codex", workModel: "gpt-5.6-sol" } }); hosts.push(f);
   const task = await f.create();
   if (status === "waiting") f.repo.status(task.id, "waiting", task.revision);
@@ -32,8 +32,8 @@ function patchDelivery(f: Awaited<ReturnType<typeof fixture>>, candidate: SyncCa
   f.repo.db.prepare("UPDATE source_sync_candidates SET value_json=? WHERE id=?").run(JSON.stringify({ ...candidate, chatDelivery: { ...candidate.chatDelivery, ...patch } }), candidate.id);
 }
 
-it.each([undefined, "open"] as const)("offers separate waiting actions before acceptance (model status %s)", async proposed => {
-  const { f, task, store, candidate } = await setup("waiting", proposed);
+it("offers separate waiting actions for an evidenced resume proposal before acceptance", async () => {
+  const { f, task, store, candidate } = await setup();
   expect(candidate.actions).toEqual(["reopen", "openChat"]);
   expect(candidate.changes.status).toBeUndefined();
   expect(sourceParts(candidate)).toEqual(expect.arrayContaining(["action:reopen", "action:openChat"]));
@@ -46,6 +46,48 @@ it.each([undefined, "open"] as const)("offers separate waiting actions before ac
   const once = f.repo.detail(task.id);
   store.accept(candidate.id);
   expect(f.repo.detail(task.id)).toEqual(once);
+});
+
+it.each([
+  { author: "user", quote: "The order fails because the tax code is missing. Can you confirm the correct code?", status: undefined },
+  { author: "user", quote: "The order fails because the tax code is missing. Can you confirm the correct code?", status: "waiting" as const },
+  { author: "colleague", quote: "Thanks, I will confirm the correct code tomorrow.", status: undefined },
+])("keeps waiting after $author updates (status $status), including after acceptance", async ({ author, quote, status }) => {
+  const f = await fixture(); hosts.push(f);
+  const task = await f.create(); f.repo.status(task.id, "waiting", task.revision);
+  const { run } = await startSourceSync(f), { input } = await sourceData(f, run, task.id);
+  connectorCall(f, run.threadId!, "mcp__Gmail__get_thread", { threadId: "tax-thread" }, { messages: [{ id: "tax-reply", author, text: quote }] });
+  const calls = await readSourceCalls(f.bb, run.threadId!);
+  const citation = { callRef: calls.at(-1)!.ref, source: "gmail" as const, url: "https://mail.google.com/mail/u/0/#all/tax-thread",
+    messageId: "tax-reply", occurredAt: run.until, quote };
+  const draft = input.suggestions[0], step = "Wait for the colleague to confirm the correct tax code, then retry the order.";
+  draft.rationale = "The investigation is complete; the next step must reflect the pending external answer.";
+  draft.facts = [{ kind: "progress", text: "The correct tax code was requested; a response is still pending.", citations: [citation] },
+    { kind: "explicit_next_step", text: step, citations: [citation] }];
+  draft.changes = { nextStep: { value: step, evidenceRefs: ["fact:1"] }, ...(status ? { status: { value: status, evidenceRefs: ["fact:0"] } } : {}) };
+  input.reports = reportsFor(calls);
+  await submitSourceData(f, run, input);
+  const store = new SourceSyncStore(f.repo), candidate = store.pendingCandidates()[0];
+  expect(candidate.actions).toEqual([]);
+  expect(sourceParts(candidate).some(p => p.startsWith("action:"))).toBe(false);
+  const { service, openChat } = dispatcher(f), send = stubSend(f);
+  store.accept(candidate.id); await service.flush();
+  expect(f.repo.kernel.getTask(task.id).status).toBe("waiting");
+  expect(f.repo.detail(task.id).projection.nextStep).toBe(step);
+  expect(f.repo.sessions(task.id)).toHaveLength(0);
+  expect(store.candidate(candidate.id).chatDelivery).toBeUndefined();
+  expect(openChat).not.toHaveBeenCalled(); expect(send).not.toHaveBeenCalled();
+});
+
+it("rejects reopening without an evidenced next step and keeps the task waiting", async () => {
+  const f = await fixture(); hosts.push(f);
+  const task = await f.create(); f.repo.status(task.id, "waiting", task.revision);
+  const { run } = await startSourceSync(f), { input } = await sourceData(f, run, task.id);
+  input.suggestions[0].changes.status = { value: "open", evidenceRefs: ["fact:0"] };
+  delete input.suggestions[0].changes.nextStep;
+  await expect(submitSourceData(f, run, input)).rejects.toThrow(/Resuming a waiting task requires/);
+  expect(new SourceSyncStore(f.repo).pendingCandidates()).toEqual([]);
+  expect(f.repo.kernel.getTask(task.id).status).toBe("waiting");
 });
 
 it.each([["open", undefined], ["waiting", "done"]] as const)("does not add waiting actions to %s / %s proposals", async (status, proposed) => {

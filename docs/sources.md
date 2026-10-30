@@ -61,8 +61,12 @@ When adopting this rule, incremental analysis revisits available sources linked 
 
 Each check takes a complete snapshot of unreviewed source proposals, including pending new tasks, and rechecks their linked sources alongside open tasks. The analyst combines relevant new findings with all matching pending proposals from earlier checks. Unrelated requests remain separate; one unchanged proposal is kept without creating another approval.
 
-Substantive updates to tasks in Waiting for response include two independent,
-preselected actions: **Reopen task** and **Open chat with update**. They run only
+Updates that explicitly propose resuming a task in Waiting for response, with
+source evidence and a concrete next step the user can act on now, include two
+independent, preselected actions: **Reopen task** and **Open chat with update**. A
+sent reply, reminder or progress report while a response is still pending may
+update the dossier without reopening the task or starting a chat. A colleague's
+acknowledgment or promise to respond later also leaves it waiting. The actions run only
 after acceptance. The chat action reuses the active work conversation or creates
 one using the configured work account and model, then sends the new source context
 and accepted changes. An active conversation receives the update in its queue;
