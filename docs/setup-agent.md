@@ -286,3 +286,19 @@ file opens and saves with **247C File Editor**, then disable the old plugin.
 If a client pinned the old opener, select **247C File Editor** in its file-opener
 preference. **Show in folder** opens the file manager on the file’s host and
 requires a desktop session there. Pinned paths remain installation-specific.
+
+## Existing task-tracker instructions
+
+When moving an existing workspace to 247C, inspect its provider instructions,
+project instructions, memory indexes, local planning skills and imported knowledge
+copies for retired tracker workflows. Remove obsolete tool calls and reconcile
+useful guidance with 247C's task, day-plan and proposal contracts. Keep the original
+notes in a private backup outside instruction and knowledge search roots. Refresh
+imported copies as well as the source files so workers cannot retrieve stale rules.
+
+A work chat already belongs to a 247C task. A Jira ticket created during that work
+is an artifact of the existing task, unless the user identifies separate work.
+Workers record findings for review; they do not approve their own proposals or
+require a second tracker. Historical source identifiers remain evidence, not
+instructions to invoke a retired integration. Workspace-specific policy stays
+local and must not be added to the public repository.

@@ -1,3 +1,7 @@
+# 0.5.125
+
+Removed a retired tracker reference from source-analysis instructions. The setup guide now covers cleaning inherited tracker rules and imported knowledge while preserving task history and keeping workspace-specific policy local.
+
 # 0.5.124
 
 Show in folder now makes the matching Explorer window visible and restores it
