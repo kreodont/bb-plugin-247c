@@ -1,0 +1,11 @@
+# Saved analysis references
+
+External collectors can set `resultFormat: "references-v1"` on `scriptAnalysisStart`. The plugin freezes a batch-local catalog before starting the visible analysis thread. Each source record has a short reference such as `r3`; each continuous source passage has a reference such as `r3.p12`. The model supplies interpretations and reference selections. The host supplies the original event IDs, source IDs, call references, URLs, timestamps and quotation text. Passage splitting preserves source wording and boundaries. Background records remain available as evidence but cannot be skipped as newly selected events.
+
+The analysis uses `c247_script_analysis_select`. Its complete selection schema is included in the instructions. `c247_script_analysis_sources` rereads the frozen catalog after context compaction without accessing external services. Unknown references, missing coverage and invalid proposals are rejected. There is no fuzzy matching or automatic substitution of a different source.
+
+Each submitted selection is saved before validation, including invalid rows. Updates shows the concrete rejection and provides View saved submission in analysis history. `scriptAnalysisAttempt` reads the last attempt by thread ID. An operator can submit a corrected payload through `scriptAnalysisRepair`, using the batch key and the last attempt ID. Repair requires an ended, failed analysis with no frozen valid result. It runs the same validation, preserves prior attempts and does not start a model or accept task changes. Concurrent or stale repairs are rejected.
+
+The result stays Saved; import pending until the collector imports a source bundle carrying its `analysisKey`. The bundle must include the selected source receipts. Only a successful, committed import confirms the analysis as Imported into Proposals. Repeating the same import is idempotent; another import ID cannot claim the same analysis. Failed imports leave the validated result available for recovery. Task changes still require human approval.
+
+Omitting `resultFormat` keeps the previous literal-citation contract for existing collectors and in-flight batches. Their saved results, launch keys and repair checks remain compatible. Personal schedules, model choices, source connections and collector optimizations remain local settings.

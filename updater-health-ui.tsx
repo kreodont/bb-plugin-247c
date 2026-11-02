@@ -41,6 +41,22 @@ function HealthDetails({ data }: { data: UpdaterHealthState }) {
   </>;
 }
 
+export function analysisStateLabel(state: string) {
+  return ({ launching: "Starting analysis", analyzing: "Analyzing", ready: "Saved; import pending",
+    imported: "Imported into Proposals", failed: "Needs repair" } as Record<string, string>)[state] ?? state;
+}
+function SavedAnalysisAttempt({ threadId }: { threadId: string }) {
+  const rpc = useRpc<typeof rpcContract>();
+  const [text, setText] = useState<string | null>(null);
+  return <div><Button size="sm" variant="outline" onClick={() => {
+    if (text !== null) { setText(null); return; }
+    rpc.call("scriptAnalysisAttempt", { threadId }).then(attempt => setText(attempt
+      ? JSON.stringify(attempt, null, 2) : "No saved submission is available."), () => setText("Could not load the saved submission. Try again."));
+  }}>{text === null ? "View saved submission" : "Hide saved submission"}</Button>
+    {text !== null && <pre aria-label="Saved analysis submission" className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded border p-2 text-xs">{text}</pre>}
+  </div>;
+}
+
 export function UpdaterHealthBanner({ showHealthy = false }: { showHealthy?: boolean }) {
   const { data, error } = useUpdaterHealth();
   const navigate = useBbNavigate();
@@ -52,8 +68,8 @@ export function UpdaterHealthBanner({ showHealthy = false }: { showHealthy?: boo
     <HealthDetails data={data} />
     {showHealthy && Boolean(data.analysisThreads?.length) && <div className="mt-2">
       <Button size="sm" variant="outline" onClick={() => navigate.toThread(data.analysisThreads![0].threadId)}>Analysis conversation</Button>
-      <span className="ml-2 text-xs">{data.analysisThreads![0].state} · {data.analysisThreads![0].model} · {data.analysisThreads![0].reasoningLevel}</span>
-      <details className="mt-2 text-xs"><summary>Analysis history · {data.analysisThreads!.length}</summary>{data.analysisThreads!.map(thread => <div key={thread.threadId} className="mt-1"><Button size="sm" variant="ghost" onClick={() => navigate.toThread(thread.threadId)}>{thread.title}</Button> · {thread.state}{thread.error && <p>{thread.error}</p>}</div>)}</details>
+      <span className="ml-2 text-xs">{analysisStateLabel(data.analysisThreads![0].state)} · {data.analysisThreads![0].model} · {data.analysisThreads![0].reasoningLevel}</span>
+      <details className="mt-2 text-xs"><summary>Analysis history · {data.analysisThreads!.length}</summary>{data.analysisThreads!.map(thread => <div key={thread.threadId} className="mt-1"><Button size="sm" variant="ghost" onClick={() => navigate.toThread(thread.threadId)}>{thread.title}</Button> · {analysisStateLabel(thread.state)}{thread.error && <p>{thread.error}</p>}{thread.hasSavedAttempt && <SavedAnalysisAttempt threadId={thread.threadId} />}</div>)}</details>
     </div>}
     {(showHealthy || data.pendingRecords > 0) && data.nextRunAt && <p className="mt-2 text-xs text-muted-foreground">Next scheduled run: {timestamp(data.nextRunAt, data.timeZone)}</p>}
   </section>;

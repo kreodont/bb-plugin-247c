@@ -2,7 +2,7 @@ import { retainSourcePayloads } from "./source-retention.js";
 import { TaskSearch } from "./search-index.js";
 import { createFileEditorHandlers } from "./file-editor/server.js";
 import { ExternalAnalysis } from "./external-analysis.js";
-import { scriptAnalysisResultSchema } from "./contracts.js";
+import { scriptAnalysisResultSchema, scriptAnalysisSelectionInputSchema } from "./contracts.js";
 import { reviewFailures } from "./review-failures.js";
 import { reviewActivity } from "./review-activity.js";
 import { migrateTaskStatuses } from "./task-status-migration.js";
@@ -81,6 +81,8 @@ export default async function plugin(bb: BbPluginApi) {
   const threadRouting = new ThreadRouting(bb, async () => (await settings.get()).threadProjectId);
   const externalAnalysis = new ExternalAnalysis(bb, join(dirname(db.name), "script-analysis"), threadRouting, () => configuration);
   await externalAnalysis.load();
+  const importAnalysis = { before: (key: string, runId: string, receiptRefs: string[]) => externalAnalysis.assertImportable(key, runId, receiptRefs),
+    after: (key: string, runId: string) => externalAnalysis.confirmImported(key, runId) };
   const runtime = new SessionRuntime(bb, repo, getSettings, threadRouting);
   const days = new DayPlanning(repo, () => new Date(), () => configuration.timeZone, () => configuration.reportMeetingsWhenPlanned);
   const dayPlanner = new DayPlanner(bb, () => settings.get(), () => days.today());
@@ -163,6 +165,8 @@ export default async function plugin(bb: BbPluginApi) {
     scriptAnalysisStart: input => externalAnalysis.start(input),
     scriptAnalysisStatus: ({ key }) => externalAnalysis.status(key),
     scriptAnalysisFinish: ({ key, error }) => externalAnalysis.finish(key, error),
+    scriptAnalysisAttempt: ({ threadId }) => externalAnalysis.attempt(threadId),
+    scriptAnalysisRepair: ({ key, attemptId, payload }) => externalAnalysis.repair(key, attemptId, payload),
     syncState: () => sync.store.state(),
     syncQuickStart: ({ requestId }) => {
       if (configuration.sourceUpdaterProjectId.trim() || configuration.sourceUpdaterAutomationId.trim())
@@ -174,7 +178,7 @@ export default async function plugin(bb: BbPluginApi) {
         throw new PolicyError("A source updater automation is configured. Refresh the Updates page and use Check for updates to run it.");
       return sync.start(input);
     },
-    syncImport: async (input) => importSourceBundle(sync.store, (await settings.get()).sourceImportRoot, input),
+    syncImport: async (input) => importSourceBundle(sync.store, (await settings.get()).sourceImportRoot, input, importAnalysis),
     syncCancel: ({ runId }) => sync.cancel(runId),
     syncAccept: async ({ candidateId, initialPriority }) => { const result = sync.store.accept(candidateId, initialPriority); deliverChatUpdates(); await runtime.archiveFinishedThreads(); return result; },
     syncReject: ({ candidateId }) => sync.store.reject(candidateId),
@@ -369,6 +373,8 @@ export default async function plugin(bb: BbPluginApi) {
     execute(input, ctx) { return runtime.submit(ctx.threadId, input).then(boundedJson); },
   });
   bb.agents.registerTool({ name: "c247_script_analysis_result", description: "Submit the complete saved-source analysis. Correct any validation errors and resubmit until saved successfully. The existing updater then validates and imports pending proposals; no task changes are applied.", parameters: scriptAnalysisResultSchema, execute: (input, ctx) => externalAnalysis.submit(ctx.threadId, input).then(boundedJson) });
+  bb.agents.registerTool({ name: "c247_script_analysis_select", description: "Submit interpretations following the supplied selection schema. Select citation refs and skipped record refs from the saved catalog; never provide source IDs, dates or quotation text. saved:false retains the attempt but requires correction. saved:true means awaiting import, not imported or approved.", parameters: scriptAnalysisSelectionInputSchema, execute: (input, ctx) => externalAnalysis.select(ctx.threadId, input).then(boundedJson) });
+  bb.agents.registerTool({ name: "c247_script_analysis_sources", description: "Read this analysis's frozen reference catalog, including after context compaction. No external source requests. Omit record to list records; supply record such as r3 to read its passages. Continue with nextOffset until null.", parameters: z.object({ record: z.string().max(40).optional(), offset: z.number().int().min(0).default(0) }).strict(), execute: (input, ctx) => externalAnalysis.sources(ctx.threadId, input.record, input.offset).then(boundedJson) });
   const workerBriefs = new Map<string, { key: string; text: string }>();
   bb.agents.contributeInstructions(({ threadId }) => {
     const session = repo.forThread(threadId);
@@ -569,7 +575,7 @@ Use the 247C panel to approve, archive, start or finish sessions.
           const { candidates: _candidates, ...state } = sync.store.state(); value = state;
         } else if (command === "sync-ingest" && args.length === 1) {
           independentCaller(ctx.threadId);
-          value = await importSourceBundle(sync.store, (await settings.get()).sourceImportRoot, rpcContract.syncImport.input.parse(JSON.parse(args[0])));
+          value = await importSourceBundle(sync.store, (await settings.get()).sourceImportRoot, rpcContract.syncImport.input.parse(JSON.parse(args[0])), importAnalysis);
         } else if (command === "sync-supplement" && args.length === 2) {
           independentCaller(ctx.threadId);
           value = sync.supplement(idSchema.parse(args[0]), JSON.parse(args[1]));

@@ -4,6 +4,7 @@ import { fireEvent, waitFor } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { CapturedPluginApp, RenderedSlot } from "@get-bb/plugin-sdk/testing/app";
 import { emptyUpdaterHealth } from "./updater-health.js";
+import { UpdaterHealthBanner } from "./updater-health-ui.js";
 
 let app: CapturedPluginApp;
 const mounts: RenderedSlot[] = [];
@@ -11,6 +12,22 @@ beforeAll(async () => { app = await loadPluginApp(() => import("./app.js")); }, 
 afterEach(() => { mounts.splice(0).forEach(m => m.lifecycle.unmount()); localStorage.clear(); });
 const warning = { ...emptyUpdaterHealth(0), configured: true, status: "paused" as const, alert: true,
   title: "Source updater is paused", detail: "Paused after three failed runs", incidentId: "incident_one", lastSuccessAt: Date.parse("2026-09-23T09:06:00Z") };
+
+it("distinguishes a saved submission from import and exposes the retained rejection", async () => {
+  const state = { ...warning, analysisThreads: [{ threadId: "analysis", title: "Saved analysis", state: "ready",
+    startedAt: 1, model: "model", reasoningLevel: "medium", error: "Unknown passage r9.p1", hasSavedAttempt: true }] };
+  const slot = renderSlot({ component: UpdaterHealthBanner }, { showHealthy: true }, { rpc: {
+    updaterHealth: () => state,
+    scriptAnalysisAttempt: () => ({ id: "attempt", at: 1, format: "references-v1", valid: false,
+      error: "Unknown passage r9.p1", payload: { suggestions: [], skipped: [] } }),
+  } }); mounts.push(slot);
+  await slot.findAllByText(/Saved; import pending/);
+  expect(slot.queryByText("Imported into Proposals")).toBeNull();
+  fireEvent.click(slot.getByText(/Analysis history/));
+  fireEvent.click(slot.getByRole("button", { name: "View saved submission" }));
+  await slot.findByLabelText("Saved analysis submission");
+  expect(slot.getByLabelText("Saved analysis submission").textContent).toContain("Unknown passage r9.p1");
+});
 
 it("shows a notification outside the 247C panel, dismisses only that incident and alerts again after recovery", async () => {
   let state = warning;

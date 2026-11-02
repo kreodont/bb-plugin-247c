@@ -15,6 +15,47 @@ const input = { key: "a".repeat(64), providerId: "codex", model: "gpt-6-sol", re
   { eventId: "history", newOrChanged: false, callRef: "read-2", id: "message-2" },
 ] }) };
 const result = { suggestions: [], skipped: [{ eventId: "e", reason: "No new work." }] };
+const referenceInput = { ...input, resultFormat: "references-v1", context: JSON.stringify({ sourceDocuments: [{
+  eventId: "long-event-id", newOrChanged: true, callRef: "read", id: "message", source: "clickup",
+  url: "https://example.com/message", eventAt: "2026-11-02T10:00:00Z", response: { content: "Okay. Okay. Review the invoice." },
+}] }) };
+it("retains rejected selections across reload and repair without another model or a false confirmation", async () => {
+  const f = await setup();
+  const job = await f.harness.behavior.callRpc("scriptAnalysisStart", referenceInput) as any;
+  const bad = { suggestions: [], skipped: [{ record: "unknown", reason: "No new work." }] };
+  const failed = await f.harness.behavior.callAgentTool("c247_script_analysis_select", bad, { threadId: job.threadId });
+  expect(JSON.parse(failed as string)).toMatchObject({ saved: false, imported: false });
+  await f.idle(job.threadId, "Everything saved!");
+  await f.reload();
+  expect(await f.harness.behavior.callRpc("scriptAnalysisStatus", { key: input.key })).toMatchObject({ state: "failed", result: null, error: expect.stringContaining("not a selected event") });
+  const attempt = await f.harness.behavior.callRpc("scriptAnalysisAttempt", { threadId: job.threadId }) as any;
+  expect(attempt).toMatchObject({ payload: bad, valid: false, error: expect.stringContaining("unknown") });
+  await expect(f.harness.behavior.callRpc("scriptAnalysisRepair", { key: input.key, attemptId: "stale", payload: bad })).rejects.toThrow(/changed/);
+  const good = { suggestions: [], skipped: [{ record: "r1", reason: "No new work." }] };
+  expect(await f.harness.behavior.callRpc("scriptAnalysisRepair", { key: input.key, attemptId: attempt.id, payload: good })).toMatchObject({ saved: true, imported: false });
+  expect(await f.harness.behavior.callRpc("scriptAnalysisStatus", { key: input.key })).toMatchObject({ state: "ready", error: null, result: { suggestions: [], skipped: [{ eventId: "long-event-id", reason: "No new work." }] } });
+  await expect(f.harness.behavior.callRpc("scriptAnalysisFinish", { key: input.key, error: null })).rejects.toThrow(/Only a successful/);
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
+  const history = await f.harness.behavior.callRpc("updaterHealth", {}) as any;
+  expect(history.analysisThreads[0]).toMatchObject({ state: "ready", hasSavedAttempt: true, importRunId: null });
+});
+it("retains structurally invalid selection rows before reporting their errors", async () => {
+  const f = await setup();
+  const job = await f.harness.behavior.callRpc("scriptAnalysisStart", referenceInput) as any;
+  const invalid = { suggestions: [{ unexpected: true }], skipped: [] };
+  const output = await f.harness.behavior.callAgentTool("c247_script_analysis_select", invalid, { threadId: job.threadId });
+  expect(JSON.parse(output as string)).toMatchObject({ saved: false, imported: false });
+  expect(await f.harness.behavior.callRpc("scriptAnalysisAttempt", { threadId: job.threadId })).toMatchObject({ payload: invalid, valid: false });
+});
+it("keeps each reference catalog scoped to its analysis and available after compaction", async () => {
+  const f = await setup();
+  const job = await f.harness.behavior.callRpc("scriptAnalysisStart", referenceInput) as any;
+  await expect(f.harness.behavior.callAgentTool("c247_script_analysis_sources", {}, { threadId: "unrelated" })).rejects.toThrow(/belongs to this thread/);
+  const passages = await f.harness.behavior.callAgentTool("c247_script_analysis_sources", { record: "r1" }, { threadId: job.threadId });
+  expect(JSON.stringify(passages)).toContain("Okay. Okay.");
+  await f.reload();
+  expect(await f.harness.behavior.callAgentTool("c247_script_analysis_sources", { record: "r1" }, { threadId: job.threadId })).toEqual(passages);
+});
 it("rejects a nonliteral quote before freezing and accepts correction in the same thread after reload", async () => {
   const f = await setup();
   const context = JSON.parse(input.context);

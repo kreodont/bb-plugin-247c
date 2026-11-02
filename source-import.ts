@@ -18,6 +18,7 @@ export const sourceImportBundleSchema = z.object({
   windows: z.record(externalSource, z.object({ since: z.iso.datetime({ offset: true }) }).strict()),
   taskRevisions: z.record(idSchema, revisionSchema),
   receipts: z.array(receiptSchema).max(2000), result: syncSubmitSchema,
+  analysisKey: z.string().regex(/^[a-f0-9]{64}$/).optional(),
 }).strict();
 
 const clickUpReads = new Set(["clickup_get_task", "clickup_get_task_comments", "clickup_get_threaded_comments", "clickup_get_document_pages"]);
@@ -53,7 +54,9 @@ export function importedSourceCalls(receipts: z.infer<typeof receiptSchema>[]): 
   return calls;
 }
 
-export async function importSourceBundle(store: SourceSyncStore, root: string, raw: z.infer<typeof syncImportSchema>) {
+export async function importSourceBundle(store: SourceSyncStore, root: string, raw: z.infer<typeof syncImportSchema>, analysis?: {
+  before(key: string, runId: string, receiptRefs: string[]): Promise<void>; after(key: string, runId: string): Promise<void>;
+}) {
   const input = syncImportSchema.parse(raw);
   if (!root || !isAbsolute(root) || !isAbsolute(input.path)) throw new PolicyError("Configure an absolute local source import folder first.");
   const directory = await realpath(root), path = await realpath(input.path);
@@ -72,8 +75,15 @@ export async function importSourceBundle(store: SourceSyncStore, root: string, r
   if (bundle.result.reports.some(report => !externalSource.safeParse(report.source).success)) throw new PolicyError("Imported runs must report Teams, Outlook and ClickUp.");
   for (const range of Object.values(bundle.windows)) if (Date.parse(range.since) >= Date.parse(bundle.until)) throw new PolicyError("Every source interval must start before its end.");
   const calls = importedSourceCalls(bundle.receipts);
-  return store.repo.request(input.requestId, input, () => store.importResult({
+  if (bundle.analysisKey) {
+    if (!analysis) throw new PolicyError("Analysis import confirmation is unavailable.");
+    await analysis.before(bundle.analysisKey, input.requestId, calls.map(call => call.ref));
+  }
+  const result = store.repo.request(input.requestId, input, () => store.importResult({
     id: input.requestId, provider: bundle.provider, model: bundle.model, startedAt: bundle.startedAt, until: bundle.until,
     windows: bundle.windows, taskRevisions: bundle.taskRevisions, input: bundle.result, provenance: { path, sha256: input.sha256 },
   }, calls));
+  // A replay after a lost response confirms the same committed import.
+  if (bundle.analysisKey) await analysis!.after(bundle.analysisKey, result.id);
+  return result;
 }

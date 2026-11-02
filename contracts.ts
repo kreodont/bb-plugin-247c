@@ -266,9 +266,24 @@ export const scriptAnalysisStartSchema = z.object({
   key: z.string().regex(/^[a-f0-9]{64}$/), providerId: z.string().min(1), model: z.string().min(1),
   reasoningLevel: z.enum(["low", "medium", "high", "xhigh", "max", "none", "ultra", "ultracode"]),
   instructions: z.string().min(1).max(100000), context: z.string().min(1).max(1048576),
+  resultFormat: z.enum(["literal-v1", "references-v1"]).optional(),
 }).strict();
 export const scriptAnalysisResultSchema = z.object({ suggestions: z.array(syncDraftSchema).max(100),
   skipped: z.array(z.object({ eventId: z.string().min(1), reason: z.string().trim().min(1) }).strict()).max(2000) }).strict();
+export const scriptAnalysisSelectionSchema = z.object({
+  suggestions: z.array(syncDraftSchema.extend({ facts: z.array(syncFactSchema.extend({
+    citations: z.array(z.object({ ref: z.string().min(1).max(80) }).strict()).min(1).max(8),
+  })).min(1).max(30) })).max(100),
+  skipped: z.array(z.object({ record: z.string().min(1).max(80), reason: z.string().trim().min(1) }).strict()).max(2000),
+}).strict();
+export const scriptAnalysisAttemptSchema = z.object({ id: z.string(), at: z.number(), format: z.string(),
+  payload: z.json(), error: z.string().nullable(), valid: z.boolean() });
+// Accept JSON rows at the tool boundary so invalid rows are retained too.
+// The complete strict selection schema is supplied in the analysis instructions.
+export const scriptAnalysisSelectionInputSchema = z.object({
+  suggestions: z.array(z.unknown()).max(100).describe("Suggestions following the supplied selection schema."),
+  skipped: z.array(z.unknown()).max(2000).describe("Each entry is {record: 'r1', reason: '...'}."),
+}).strict();
 
 export const rpcContract = defineRpcContract({
   ...searchRpcContract,
@@ -279,6 +294,8 @@ export const rpcContract = defineRpcContract({
   scriptAnalysisStart: { input: scriptAnalysisStartSchema, output: z.object({ threadId: idSchema, state: z.string(), reused: z.boolean() }) },
   scriptAnalysisStatus: { input: z.object({ key: z.string().regex(/^[a-f0-9]{64}$/) }).strict(), output: z.object({ threadId: idSchema, state: z.string(), error: z.string().nullable(), result: scriptAnalysisResultSchema.nullable() }) },
   scriptAnalysisFinish: { input: z.object({ key: z.string().regex(/^[a-f0-9]{64}$/), error: z.string().max(2000).nullable() }).strict(), output: z.object({ ok: z.boolean() }) },
+  scriptAnalysisAttempt: { input: z.object({ threadId: idSchema }).strict(), output: scriptAnalysisAttemptSchema.nullable() },
+  scriptAnalysisRepair: { input: z.object({ key: z.string().regex(/^[a-f0-9]{64}$/), attemptId: z.string(), payload: z.json() }).strict(), output: z.json() },
   threadProject: { input: z.object({}).strict(), output: z.object({ projectId: idSchema.nullable(), providerId: z.string().nullable().default(null), model: z.string().nullable().default(null), timeZone: z.string().optional(), pendingTotal: z.number().optional(), sidebarPluginLinks: z.boolean().optional(), workProvider: z.string().optional(), workModel: z.string().optional(), syncProvider: z.string().optional(), syncModel: z.string().optional() }) },
   ...dayRpcContract,
   proposalInbox: { input: z.object({ offset: z.number().int().min(0).default(0) }).strict(), output: z.object({ items: z.array(reviewItemSchema), total: z.number(), nextOffset: z.number().nullable(),

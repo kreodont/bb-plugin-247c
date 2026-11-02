@@ -10,6 +10,32 @@ import { scheduledSourceUpdate } from "./source-schedule.js";
 import type { SourceSyncRuntime } from "./source-sync.js";
 
 const hosts: Awaited<ReturnType<typeof fixture>>[] = [], folders: string[] = [];
+it("confirms a referenced analysis only after a committed import and preserves confirmation on replay", async () => {
+  const { f, bundle, request, store } = await setup();
+  await f.harness.behavior.setSettings({ threadProjectId: "proj_tasks" });
+  f.harness.inspection.sdk.stub("projects.get", ({ projectId }) => ({ id: projectId, kind: "standard", sources: [{ id: "s", type: "local_path", hostId: "host_local", path: "/work/tasks", isDefault: true }] }));
+  const key = "c".repeat(64), citation = bundle.result.suggestions[0].facts[0].citations[0];
+  const job = await f.harness.behavior.callRpc("scriptAnalysisStart", { key, providerId: "codex", model: "test-model", reasoningLevel: "medium",
+    resultFormat: "references-v1", instructions: "Analyze saved records.", context: JSON.stringify({ sourceDocuments: [{
+      eventId: "event", newOrChanged: true, callRef: citation.callRef, id: citation.messageId, source: citation.source,
+      url: citation.url, eventAt: citation.occurredAt, response: citation.quote,
+    }] }) }) as any;
+  const draft = bundle.result.suggestions[0];
+  await f.harness.behavior.callAgentTool("c247_script_analysis_select", { suggestions: [{ ...draft,
+    facts: draft.facts.map(fact => ({ ...fact, citations: [{ ref: "r1.p1" }] })) }], skipped: [] }, { threadId: job.threadId });
+  bundle.analysisKey = key;
+  await expect(f.harness.behavior.callRpc("syncImport", { ...await request(), sha256: "0".repeat(64) })).rejects.toThrow(/changed/);
+  expect(store.state().runs).toHaveLength(0);
+  expect(await f.harness.behavior.callRpc("scriptAnalysisStatus", { key })).toMatchObject({ state: "ready" });
+  const input = await request();
+  const imported = await f.harness.behavior.callRpc("syncImport", input) as any;
+  expect(await f.harness.behavior.callRpc("scriptAnalysisStatus", { key })).toMatchObject({ state: "imported", error: null });
+  expect(await f.harness.behavior.callRpc("updaterHealth", {})).toMatchObject({ analysisThreads: [{ state: "imported", importRunId: imported.id }] });
+  await f.reload();
+  expect(await f.harness.behavior.callRpc("syncImport", input)).toEqual(imported);
+  expect(await f.harness.behavior.callRpc("proposalInbox", {})).toMatchObject({ total: 1 });
+  await expect(f.harness.behavior.callRpc("syncImport", await request())).rejects.toThrow(/another imported run/);
+});
 afterEach(async () => {
   for (const f of hosts.splice(0)) await f.harness.lifecycle.dispose();
   for (const path of folders.splice(0)) await rm(path, { recursive: true, force: true });

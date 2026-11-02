@@ -24,7 +24,7 @@ export const sourceCoverageSchema = z.object({
 export type SourceCoverage = z.infer<typeof sourceCoverageSchema>;
 
 export const updaterHealthSchema = z.object({
-  analysisThreads: z.array(z.object({ threadId: z.string(), title: z.string(), state: z.string(), startedAt: z.number(), model: z.string(), reasoningLevel: z.string(), error: z.string().nullable() })).max(20).optional(),
+  analysisThreads: z.array(z.object({ threadId: z.string(), title: z.string(), state: z.string(), startedAt: z.number(), model: z.string(), reasoningLevel: z.string(), error: z.string().nullable(), hasSavedAttempt: z.boolean().optional(), importRunId: z.string().nullable().optional() })).max(20).optional(),
   mode: z.enum(["native", "external"]).optional(),
   configured: z.boolean(), status: z.enum(["disabled", "healthy", "running", "waiting", "paused", "failed", "attention", "overdue", "unavailable"]),
   alert: z.boolean(), title: z.string(), detail: z.string(), incidentId: z.string().nullable(),

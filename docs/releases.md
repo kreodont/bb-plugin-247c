@@ -1,3 +1,7 @@
+# 0.5.126
+
+Saved source analysis can now select short record and passage references. The host supplies exact citation text and source identities from a frozen catalog. Rejected submissions remain available for repair, with their specific errors shown in Updates. A saved result stays pending until its source bundle has been imported successfully. Existing collectors and saved analyses remain compatible.
+
 # 0.5.125
 
 Removed a retired tracker reference from source-analysis instructions. The setup guide now covers cleaning inherited tracker rules and imported knowledge while preserving task history and keeping workspace-specific policy local.
