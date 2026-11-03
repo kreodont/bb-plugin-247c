@@ -32,15 +32,16 @@ export type SourceCall = { ref: string; source: SyncSource; tool: string; args: 
 // Threaded replies omit task IDs. Prove their task URL through a successful
 // parent-comment listing, matching structured IDs rather than quoted message text.
 function replyBelongsToTask(call: SourceCall, calls: SourceCall[], taskId: string): boolean {
-  if (call.source !== "clickup" || call.tool !== "clickup_get_threaded_comments" || !call.args || typeof call.args !== "object") return false;
+  if (call.source !== "clickup" || !/(?:^|[._])clickup_get_threaded_comments$/i.test(call.tool) || !call.args || typeof call.args !== "object") return false;
   const args = call.args as Record<string, unknown>;
   if (typeof args.comment_id !== "string") return false;
   return calls.some(parent => {
-    if (parent.source !== "clickup" || parent.tool !== "clickup_get_task_comments" || !parent.completed || !parent.read || parent.truncated || !parent.args || typeof parent.args !== "object") return false;
+    if (parent.source !== "clickup" || !/(?:^|[._])clickup_get_task_comments$/i.test(parent.tool) || !parent.completed || !parent.read || parent.truncated || !parent.args || typeof parent.args !== "object") return false;
     const parentArgs = parent.args as Record<string, unknown>;
     if (parentArgs.task_id !== taskId || parentArgs.workspace_id !== args.workspace_id) return false;
     try {
       const raw = JSON.parse(parent.output.split("\n")[0]);
+      if (Array.isArray(raw.comments) && raw.comments.some((comment: { id?: unknown }) => String(comment.id) === args.comment_id)) return true;
       const blocks = Array.isArray(raw.content) ? raw.content : [];
       return blocks.some((block: { type?: string; text?: string }) => {
         if (block.type !== "text" || !block.text) return false;
@@ -66,12 +67,32 @@ export function syncRanges(checkpoints: Record<string, string | null>, since: st
 
 // Only direct, read-only connector calls can substantiate imported evidence.
 // Shell output, agent prose, search-tool discovery and 247C's own tools cannot.
-export function callSource(name: string): SyncSource | null {
+export function callSource(name: string, args?: unknown): SyncSource | null {
   if (!/(search|read|get|fetch|list)/i.test(name) || /(send|create|update|delete|write|modify|c247|tool_search)/i.test(name)) return null;
   if (/gmail/i.test(name)) return "gmail";
   if (/slack/i.test(name)) return "slack";
   if (/jira/i.test(name) && /jira|atlassian/i.test(name)) return "jira";
+  if (/(?:^|[._])clickup_(?:get|list|search)_[a-z_]+$/i.test(name)) return "clickup";
+  if (/(?:microsoft[_ -]?365|m365)[._]/i.test(name)) {
+    if (/(?:^|[._])read_resource$/i.test(name)) {
+      const uri = args && typeof args === "object" && "uri" in args ? args.uri : null;
+      if (typeof uri === "string" && /^teams:\/\/\//i.test(uri)) return "teams";
+      if (typeof uri === "string" && /^mail:\/\/\//i.test(uri)) return "outlook";
+    }
+    if (/(?:^|[._])(?:teams_list_[a-z_]+|chat_message_search)$/i.test(name)) return "teams";
+    if (/(?:^|[._])outlook_email_search$/i.test(name)) return "outlook";
+  }
   return null;
+}
+
+function fullSourceRead(source: SyncSource, tool: string, args: unknown): boolean {
+  if (source === "clickup") return /(?:^|[._])clickup_get_(?:task|task_comments|threaded_comments|document_pages)$/i.test(tool);
+  if (source === "teams" || source === "outlook") {
+    const uri = args && typeof args === "object" && "uri" in args ? args.uri : null;
+    return /(?:^|[._])read_resource$/i.test(tool) && typeof uri === "string" && /\/messages\/[^/?#]+(?:\/replies)?(?:\?.*)?$/.test(uri);
+  }
+  return source === "jira" ? /getJiraIssue|fetch.*issue/i.test(tool)
+    : /(?:read|get|fetch).*(?:thread|replies|email)|(?:thread|replies).*(?:read|get|fetch)/i.test(tool);
 }
 
 export function decodedText(raw: string): string {
@@ -104,7 +125,7 @@ export async function readSourceCalls(bb: BbPluginApi, threadId: string): Promis
       if (event.type !== "item/completed" || event.data.item.type !== "toolCall") continue;
       const item = event.data.item;
       const tool = [item.server, item.tool].filter(Boolean).join(".");
-      const source = callSource(tool);
+      const source = callSource(tool, item.arguments);
       if (!source) continue;
       const ref = `call:${digest(item.id).slice(0, 32)}`;
       if (calls.has(ref)) continue;
@@ -115,7 +136,7 @@ export async function readSourceCalls(bb: BbPluginApi, threadId: string): Promis
       calls.set(ref, { ref, source, tool, args: item.arguments ?? {}, output,
         completed: item.status === "completed" && !item.error && !/"isError"\s*:\s*true/.test(output),
         truncated: Boolean(item.truncation?.result || item.truncation?.resultText),
-        read: source === "jira" ? /getJiraIssue|fetch.*issue/i.test(tool) : /(?:read|get|fetch).*(?:thread|replies|email)|(?:thread|replies).*(?:read|get|fetch)/i.test(tool),
+        read: fullSourceRead(source, tool, item.arguments),
       });
     }
     if (page.length < limit) return [...calls.values()];
@@ -171,7 +192,7 @@ export function validateSyncDraft(draft: SyncDraft, run: SyncRun, snapshots: Tas
       : citation.source === "slack" ? url.hostname === "slack.com" || url.hostname.endsWith(".slack.com")
       : citation.source === "jira" ? url.hostname.endsWith(".atlassian.net") && (typeof jiraSite !== "string" || !jiraSite.includes(".") || url.hostname === jiraSite)
       : citation.source === "teams" ? url.hostname === "teams.microsoft.com" && pathIds[0] === "l" && pathIds[1] === "message" && pathIds.length === 4 && pathIds.slice(2).every(part => proof.includes(part))
-      : citation.source === "outlook" ? ["outlook.office.com", "outlook.office365.com", "outlook.live.com"].includes(url.hostname) && proof.includes(citation.url)
+      : citation.source === "outlook" ? ["outlook.office.com", "outlook.office365.com", "outlook.live.com", "outlook.cloud.microsoft"].includes(url.hostname) && proof.includes(citation.url)
       : (url.hostname === "clickup.com" || url.hostname.endsWith(".clickup.com")) && (proof.includes(citation.url) || (pathIds[0] === "t" && (proof.includes(pathIds.at(-1)!) || replyBelongsToTask(call, calls, pathIds.at(-1)!))) || (pathIds[1] === "docs" && pathIds.length === 4 && pathIds.slice(2).every(part => proof.includes(part))));
     if (url.protocol !== "https:" || !allowed || url.username || url.password) throw new PolicyError("A direct HTTPS source link matching the saved connector response is required.");
     if (citation.source === "slack" && !slackCitationMatches(citation, call)) throw new PolicyError("The Slack citation must use the channel_id from its saved read and the cited message's exact timestamp. Copy the actual permalink; do not combine a channel from another source with this message.");

@@ -83,6 +83,36 @@ it("requires fresh source proof and leaves valid changes pending until human acc
   expect(f.repo.kernel.getDossier(task.id).projection.nextStep).toBe(input.changes.nextStep!.value);
 });
 
+it.each(["clickup", "outlook", "teams"] as const)("uses verified %s reads in a backlog proposal", async source => {
+  const f = await setup(), task = await f.create(), run = await start(f, [task.id]);
+  await tool(f, run, "dossier", { taskId: task.id });
+  const quote = "Please prepare the report.";
+  const url = source === "clickup" ? "https://app.clickup.com/123/docs/doc/page"
+    : source === "outlook" ? "https://outlook.cloud.microsoft/mail/id/message"
+    : "https://teams.microsoft.com/l/message/chat/message";
+  const args = source === "clickup" ? { document_id: "doc", page_ids: ["page"] }
+    : { uri: source === "outlook" ? "mail:///messages/message" : "teams:///chats/chat/messages/message" };
+  connectorCall(f, run.threadId!, source === "clickup" ? "claude_ai_ClickUp.clickup_get_document_pages" : "claude_ai_Microsoft_365.read_resource",
+    args, { id: "message", chatId: "chat", webUrl: url, content: quote });
+  const calls = await tool(f, run, "calls");
+  expect(calls.calls).toHaveLength(1);
+  expect(calls.calls[0]).toMatchObject({ source, read: true, completed: true, truncated: false });
+  const citation = { callRef: calls.calls[0].ref, source, url, messageId: "message", occurredAt: new Date(run.startedAt - 1000).toISOString(), quote };
+  const input = { taskId: task.id,
+    finding: { outcome: "ready", summary: "The report was requested.", action: "Prepare the report.", sourceStatus: "checked", sourceDetail: "Read the linked source." },
+    facts: [{ kind: "explicit_next_step", text: "Prepare the report.", citations: [citation] }],
+    changes: { nextStep: { value: "Prepare the report.", evidenceRefs: ["fact:0"] } } };
+  const forged = structuredClone(input); forged.facts[0].citations[0].quote = "Invented completion.";
+  await expect(tool(f, run, "submit", forged)).rejects.toThrow(/quote is absent/);
+  const badLink = structuredClone(input); badLink.facts[0].citations[0].url = "https://example.com/message";
+  await expect(tool(f, run, "submit", badLink)).rejects.toThrow(/source link/);
+  const saved = await tool(f, run, "submit", input);
+  expect(saved).toMatchObject({ saved: true, canonicalTasksChanged: 0 });
+  expect(f.repo.kernel.getProposal(saved.proposalId).status).toBe("pending");
+  expect(f.repo.kernel.getTask(task.id)).toEqual(task);
+  expect((await state(f)).items[0].sources).toEqual([{ url, label: source }]);
+});
+
 it("does not replace a pending proposal or repeat an unchanged rejected recommendation", async () => {
   const f = await setup(), task = await f.create(), first = await start(f, [task.id]);
   await tool(f, first, "dossier", { taskId: task.id });

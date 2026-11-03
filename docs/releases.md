@@ -1,3 +1,7 @@
+# 0.5.130
+
+Backlog now recognizes ClickUp and Microsoft 365 Outlook/Teams reads as source evidence. Microsoft 365 searches remain discovery results; full message reads supply citations. ClickUp document pages, tasks, comments and threaded replies are supported. Review instructions follow each task's actual sources instead of requiring Gmail, Slack or Jira. Failed reads, truncated responses, invented quotes and unrelated source links remain invalid evidence.
+
 # 0.5.129
 
 Backlog reviews now distinguish the original request from extra verification

@@ -6,7 +6,10 @@ the visible rows, not the selection. **Review selected** starts one visible revi
 chat in the configured task project. No scheduled review is created.
 
 The reviewer reads each selected task's accepted context, up to three recent
-linked work conversations, and current Gmail, Slack or Jira source evidence.
+linked work conversations, and current evidence from the task's sources:
+ClickUp, Microsoft 365 Outlook/Teams, Gmail, Slack or Jira. It follows the task's
+source links and does not require unrelated services to be connected. Microsoft
+365 search results locate messages; full message resource reads supply evidence.
 It saves one finding per task: Ready to work, Waiting for someone, Can be closed,
 Your decision, Possible duplicate, or Could not verify. Missing source access,
 unreadable conversations and concurrent task edits cannot silently count as a
