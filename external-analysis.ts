@@ -17,6 +17,9 @@ type Job = { key: string; fingerprint: string; token: string; threadId: string |
   coverageVersion?: 1; quoteValidationVersion?: 1; resultFormat?: "literal-v1" | "references-v1";
   lastAttemptId?: string; importRunId?: string };
 const PREFIX = "script-analysis:";
+// BB caps a turn's input at 1 MiB. Leave room for host-added context and
+// measure the serialized input, including instructions and escaping.
+export const ANALYSIS_LAUNCH_BUDGET = 1_000_000;
 
 /** A launch adapter only: the external collector still owns batching and import. */
 export class ExternalAnalysis {
@@ -88,7 +91,18 @@ export class ExternalAnalysis {
     if ([...this.jobs.values()].some(j => j.state === "launching" || j.state === "analyzing")) throw new PolicyError("A script analysis is already running. No duplicate was started.");
     const events = selectedEvents(input.context);
     const sources = analysisSources(input.context);
-    const references = input.resultFormat === "references-v1" ? prepareReferences(input.context) : null;
+    const message = "Analyze this updater's saved source batch. Show progress here and summarize the proposed changes when finished. Keep all changes pending for review.";
+    const prefix = input.instructions + "\n\n" + (input.resultFormat === "references-v1" ? REFERENCE_INSTRUCTIONS
+      : "Return the structured analysis using c247_script_analysis_result instead of printing JSON as the final reply.") + "\n\nSaved dataset:\n";
+    const makeInput = (context: string) => [
+      { type: "text" as const, text: message, mentions: [] },
+      { type: "text" as const, text: prefix + context, mentions: [], visibility: "agent-only" as const },
+    ];
+    const references = input.resultFormat === "references-v1"
+      ? prepareReferences(input.context, ANALYSIS_LAUNCH_BUDGET - JSON.stringify(makeInput("")).length) : null;
+    const threadInput = makeInput(references?.context ?? input.context);
+    if (JSON.stringify(threadInput).length > ANALYSIS_LAUNCH_BUDGET)
+      throw new PolicyError("Analysis input including instructions exceeds the launch budget. Split the batch before retrying; no thread was created.");
     const settings = this.settings();
     if (!settings.threadProjectId) throw new PolicyError("Configure the local 247C Thread project before launching script analysis.");
     const route = await this.routing.request({ projectId: settings.threadProjectId, environment: { type: "project-default" as const } });
@@ -115,8 +129,7 @@ export class ExternalAnalysis {
     const thread = await this.bb.sdk.threads.spawn({ ...route, title: job.title, visibility: "visible", permissionMode: "accept-edits",
       providerId: input.providerId, model: input.model, reasoningLevel: input.reasoningLevel,
       pluginMetadata: { scriptAnalysisKey: job.key, scriptAnalysisToken: job.token },
-      input: [{ type: "text", text: "Analyze this updater's saved source batch. Show progress here and summarize the proposed changes when finished. Keep all changes pending for review.", mentions: [] },
-        { type: "text", text: input.instructions + "\n\n" + (references ? REFERENCE_INSTRUCTIONS : "Return the structured analysis using c247_script_analysis_result instead of printing JSON as the final reply.") + "\n\nSaved dataset:\n" + (references?.context ?? input.context), mentions: [], visibility: "agent-only" }] });
+      input: threadInput });
     await this.save({ ...job, threadId: thread.id, state: "analyzing" });
     return { threadId: thread.id, state: "analyzing", reused: false };
   }

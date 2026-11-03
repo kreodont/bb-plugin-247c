@@ -1,6 +1,8 @@
 import { afterEach, expect, it } from "vitest";
 import { makePluginAgentConfigurationContext } from "@get-bb/plugin-sdk/testing";
 import { fixture } from "./test-support.js";
+import { ANALYSIS_LAUNCH_BUDGET } from "./external-analysis.js";
+import { literalChunks } from "./external-analysis-references.js";
 
 const hosts: Awaited<ReturnType<typeof fixture>>[] = [];
 afterEach(async () => { for (const f of hosts.splice(0)) await f.harness.lifecycle.dispose(); });
@@ -19,6 +21,47 @@ const referenceInput = { ...input, resultFormat: "references-v1", context: JSON.
   eventId: "long-event-id", newOrChanged: true, callRef: "read", id: "message", source: "clickup",
   url: "https://example.com/message", eventAt: "2026-11-02T10:00:00Z", response: { content: "Okay. Okay. Review the invoice." },
 }] }) };
+it("fits the complete launch including instructions and reads deferred passages after reload", async () => {
+  const f = await setup();
+  const context = JSON.parse(referenceInput.context);
+  context.currentTasks = [{ id: "accepted-task", text: "a".repeat(760_000) }];
+  context.sourceDocuments[0].response = { content: 'Speaker: "Okay." 😀\n'.repeat(9500) };
+  const job = await f.harness.behavior.callRpc("scriptAnalysisStart", { ...referenceInput,
+    instructions: "Read saved data. ".repeat(3000), context: JSON.stringify(context) }) as any;
+  const request = f.harness.inspection.sdk.callsTo("threads.spawn")[0][0] as any;
+  expect(JSON.stringify(request.input).length).toBeLessThanOrEqual(ANALYSIS_LAUNCH_BUDGET);
+  const dataset = JSON.parse(request.input[1].text.split("\n\nSaved dataset:\n")[1]);
+  expect(dataset.currentTasks).toEqual(context.currentTasks);
+  expect(dataset.sourceDocuments[0].passagesDeferred).toBe(true);
+  await f.reload();
+  let offset = 0;
+  const passages: any[] = [];
+  for (;;) {
+    const page = JSON.parse(await f.harness.behavior.callAgentTool("c247_script_analysis_sources", { record: "r1", offset }, { threadId: job.threadId }) as string);
+    passages.push(...page.passages);
+    if (page.nextOffset === null) break;
+    offset = page.nextOffset;
+  }
+  expect(passages).toHaveLength(dataset.sourceDocuments[0].passageCount);
+  expect(passages.map(p => p.text)).toEqual(literalChunks(context.sourceDocuments[0].response.content).map(text => text.trim()));
+});
+it("refuses unpageable input before reserving a job or spawning a thread", async () => {
+  const f = await setup();
+  const context = JSON.parse(referenceInput.context);
+  context.currentTasks = [{ text: "x".repeat(990_000) }];
+  await expect(f.harness.behavior.callRpc("scriptAnalysisStart", { ...referenceInput,
+    instructions: "x".repeat(80_000), context: JSON.stringify(context) })).rejects.toThrow(/no thread was created/);
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
+  expect(await f.harness.behavior.callRpc("scriptAnalysisStart", referenceInput)).toMatchObject({ reused: false });
+});
+it("checks the final size for legacy launches too", async () => {
+  const f = await setup();
+  const context = JSON.parse(input.context);
+  context.padding = "x".repeat(980_000);
+  await expect(f.harness.behavior.callRpc("scriptAnalysisStart", { ...input,
+    instructions: "x".repeat(80_000), context: JSON.stringify(context) })).rejects.toThrow(/including instructions/);
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
+});
 it("retains rejected selections across reload and repair without another model or a false confirmation", async () => {
   const f = await setup();
   const job = await f.harness.behavior.callRpc("scriptAnalysisStart", referenceInput) as any;

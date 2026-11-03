@@ -1,3 +1,7 @@
+# 0.5.127
+
+Saved analysis now checks the complete launch message before creating a thread. Large source passages are read in pages from the frozen catalog when they do not fit alongside task context and instructions. All records and exact citations remain available. Oversized task context produces a specific error before launch instead of an empty failed conversation.
+
 # 0.5.126
 
 Saved source analysis can now select short record and passage references. The host supplies exact citation text and source identities from a frozen catalog. Rejected submissions remain available for repair, with their specific errors shown in Updates. A saved result stays pending until its source bundle has been imported successfully. Existing collectors and saved analyses remain compatible.

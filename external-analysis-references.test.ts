@@ -56,3 +56,19 @@ it("preserves Unicode and continuous source boundaries in long passages", () => 
     expect(() => validateAnalysisQuotes(analysisSources(context), resolveReferences(catalog, selection(passage.ref)))).not.toThrow();
   }
 });
+it("pages oversized sources without dropping records, task context or exact citations", () => {
+  const tasks = [{ id: "accepted-task", history: "Previously rejected request. ".repeat(20) }];
+  const context = JSON.stringify({ currentTasks: tasks, sourceDocuments: [doc,
+    { ...doc, id: "long-note", eventId: "b".repeat(64), response: { content: 'Speaker: "Okay." 😀\n'.repeat(1000) } }] });
+  const complete = prepareReferences(context);
+  const paged = prepareReferences(context, 3000);
+  const view = JSON.parse(paged.context);
+  expect(JSON.stringify(paged.context).length).toBeLessThanOrEqual(3000);
+  expect(view.currentTasks).toEqual(tasks);
+  expect(view.sourceDocuments).toHaveLength(2);
+  expect(view.sourceDocuments[0].passagesDeferred).toBe(false);
+  expect(view.sourceDocuments[1]).toMatchObject({ recordRef: "r2", passagesDeferred: true, passages: [], passageCount: expect.any(Number) });
+  expect(paged.catalog).toEqual(complete.catalog);
+  const last = paged.catalog.records[1].passages.at(-1)!;
+  expect(() => validateAnalysisQuotes(analysisSources(context), resolveReferences(paged.catalog, selection(last.ref)))).not.toThrow();
+});
