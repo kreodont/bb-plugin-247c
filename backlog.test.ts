@@ -229,3 +229,122 @@ it("refuses closing while explicitly proposing outstanding work", async () => {
   await expect(tool(f, run, "submit", input)).rejects.toThrow(/no remaining next step/);
   expect(f.repo.kernel.listProposals(task.id)).toHaveLength(0);
 });
+
+it.each(["close", "duplicate"])("requires a reviewable closure for %s findings", async outcome => {
+  const f = await setup(), task = await f.create(), other = await f.create(), run = await start(f, [task.id]);
+  await tool(f, run, "dossier", { taskId: task.id });
+  const data = await evidence(f, run, task.id);
+  const input = { ...data, finding: { ...data.finding, outcome, duplicateTaskId: outcome === "duplicate" ? other.id : null }, changes: null };
+  await expect(tool(f, run, "submit", input)).rejects.toThrow(/requires a pending status=done proposal/);
+  expect((await state(f)).run?.checked).toBe(0);
+  const result = await tool(f, run, "submit", { ...input, changes: { status: { value: "done", evidenceRefs: ["fact:0"] } } });
+  expect(f.repo.kernel.getProposal(result.proposalId)).toMatchObject({ status: "pending", changes: { status: { value: "done" }, nextStep: { value: null } } });
+  expect(f.repo.kernel.getTask(task.id).status).toBe("open");
+});
+
+it("explains a verified finding without forcing unnecessary task changes", async () => {
+  const f = await setup(), task = await f.create(), run = await start(f, [task.id]);
+  await tool(f, run, "dossier", { taskId: task.id });
+  const input = { ...await evidence(f, run, task.id), changes: null };
+  await expect(tool(f, run, "submit", input)).rejects.toThrow(/noChangeReason/);
+  await tool(f, run, "submit", { ...input, noChangeReason: "The accepted next step is still current." });
+  expect((await state(f)).items[0]).toMatchObject({ proposalId: null, noChangeReason: "The accepted next step is still current." });
+});
+
+it("continues bounded batches once after idle, preserving progress across reloads", async () => {
+  const f = await setup(), tasks = await Promise.all(Array.from({ length: 4 }, () => f.create()));
+  const run = await start(f, tasks.map(t => t.id));
+  expect(run.batch?.taskIds).toHaveLength(3);
+  for (const taskId of run.batch!.taskIds) {
+    await tool(f, run, "dossier", { taskId });
+    await tool(f, run, "submit", unread(taskId));
+  }
+  expect(await tool(f, run, "next")).toMatchObject({ task: null, batchComplete: true, remaining: 1 });
+  const remaining = tasks.find(t => !run.batch!.taskIds.includes(t.id))!;
+  await expect(tool(f, run, "submit", unread(remaining.id))).rejects.toThrow(/another batch/);
+  await f.reload();
+  await f.idle(run.threadId!, "Batch complete.");
+  f.harness.inspection.sdk.stub("projects.get", ({ projectId }) => ({ id: projectId, kind: "standard", sources: [{ id: "source_tasks", type: "local_path", hostId: "host_test", path: "/work/tasks", isDefault: true }] }));
+  const service = new BacklogReview(f.bb, f.repo, new ThreadRouting(f.bb, async () => settings.threadProjectId), () => settings);
+  vi.useFakeTimers({ toFake: ["Date"] }); await service.tick();
+  vi.setSystemTime(Date.now() + 31000);
+  await Promise.all([service.tick(), service.tick()]);
+  const next = (await state(f)).run!;
+  expect(next).toMatchObject({ id: run.id, checked: 3, total: 4, previousThreadIds: [run.threadId], batch: { number: 2, startedChecked: 3, taskIds: [remaining.id] } });
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
+  expect(next.threadId).not.toBe(run.threadId);
+  expect((await tool(f, run, "next")).task).toBeNull();
+  await expect(tool(f, run, "submit", unread(remaining.id))).rejects.toThrow(/moved to a new batch/);
+  await tool(f, next, "dossier", { taskId: remaining.id });
+  await tool(f, next, "submit", unread(remaining.id));
+  await f.idle(next.threadId!, "Finished.");
+  await service.tick();
+  expect((await state(f)).run).toMatchObject({ checked: 4, status: "partial" });
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
+});
+
+it("resumes an old partial review once without discarding saved findings", async () => {
+  const f = await setup(), a = await f.create(), b = await f.create(), run = await start(f, [a.id, b.id]);
+  await tool(f, run, "dossier", { taskId: a.id });
+  await tool(f, run, "submit", unread(a.id));
+  await f.harness.behavior.callRpc("backlogStop", { runId: run.id });
+  const saved = (await state(f)).run!;
+  const { batch: _, previousThreadIds: __, ...legacy } = saved;
+  f.repo.db.prepare("UPDATE backlog_runs SET value_json=? WHERE id=?").run(JSON.stringify(legacy), run.id);
+  await f.reload();
+  await f.harness.behavior.setSettings({ backlogModel: "different-model" });
+  f.harness.inspection.sdk.stub("projects.get", ({ projectId }) => ({ id: projectId, kind: "standard", sources: [{ id: "source_tasks", type: "local_path", hostId: "host_test", path: "/work/tasks", isDefault: true }] }));
+  const input = { runId: run.id };
+  const [first, replay] = await Promise.all([f.harness.behavior.callRpc("backlogResume", input), f.harness.behavior.callRpc("backlogResume", input)]);
+  expect(first).toEqual(replay);
+  expect((await state(f)).run).toMatchObject({ checked: 1, model: settings.backlogModel, batch: { taskIds: [b.id] } });
+  expect((await state(f)).items.find(i => i.taskId === a.id)?.result?.outcome).toBe("unverified");
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
+});
+
+it("never auto-continues a stopped review or retries a batch with no progress", async () => {
+  const f = await setup(), a = await f.create(), b = await f.create(), run = await start(f, [a.id, b.id]);
+  await tool(f, run, "dossier", { taskId: a.id });
+  await tool(f, run, "submit", unread(a.id));
+  await f.harness.behavior.callRpc("backlogStop", { runId: run.id });
+  const service = new BacklogReview(f.bb, f.repo, new ThreadRouting(f.bb, async () => settings.threadProjectId), () => settings);
+  vi.useFakeTimers({ toFake: ["Date"] }); await service.tick();
+  vi.setSystemTime(Date.now() + 31000); await service.tick();
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
+  const next = backlogRpcContract.backlogResume.output.parse(await f.harness.behavior.callRpc("backlogResume", { runId: run.id }));
+  await f.idle(next.threadId!, "Stopped before submitting.");
+  await service.tick(); vi.setSystemTime(Date.now() + 31000); await service.tick();
+  expect((await state(f)).run).toMatchObject({ status: "partial", checked: 1 });
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(2);
+});
+
+it("creates the actual closure proposal even when an unrelated proposal is pending", async () => {
+  const f = await setup(), task = await f.create(), first = await start(f, [task.id]);
+  await tool(f, first, "dossier", { taskId: task.id });
+  const original = await tool(f, first, "submit", await evidence(f, first, task.id));
+  const second = await start(f, [task.id]);
+  await tool(f, second, "dossier", { taskId: task.id });
+  const input = await evidence(f, second, task.id);
+  const result = await tool(f, second, "submit", { ...input, finding: { ...input.finding, outcome: "close" }, changes: { status: { value: "done", evidenceRefs: ["fact:0"] } } });
+  expect(result.proposalId).not.toBe(original.proposalId);
+  expect(f.repo.kernel.getProposal(original.proposalId).status).toBe("pending");
+  expect(f.repo.kernel.getProposal(result.proposalId)).toMatchObject({ status: "pending", changes: { status: { value: "done" } } });
+  expect((await state(f)).items[0].proposalNote).toContain("own proposal");
+});
+
+it("does not duplicate an uncertain continuation launch", async () => {
+  const f = await setup(), a = await f.create(), b = await f.create(), run = await start(f, [a.id, b.id]);
+  await tool(f, run, "dossier", { taskId: a.id });
+  await tool(f, run, "submit", unread(a.id));
+  await f.idle(run.threadId!, "Partial batch.");
+  const service = new BacklogReview(f.bb, f.repo, new ThreadRouting(f.bb, async () => settings.threadProjectId), () => settings);
+  f.harness.inspection.sdk.stub("threads.spawn", () => { throw new Error("Lost response"); });
+  vi.useFakeTimers({ toFake: ["Date"] }); await service.tick();
+  vi.setSystemTime(Date.now() + 31000); await service.tick();
+  const pending = (await state(f)).run!;
+  expect(pending).toMatchObject({ status: "starting", threadId: null, checked: 1 });
+  await service.tick(); await service.tick();
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(2);
+  await f.harness.behavior.callRpc("backlogStop", { runId: run.id });
+  await expect(f.harness.behavior.callRpc("backlogResume", { runId: run.id })).rejects.toThrow(/unconfirmed/);
+});

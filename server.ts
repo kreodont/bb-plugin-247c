@@ -117,6 +117,7 @@ export default async function plugin(bb: BbPluginApi) {
     backlogState: ({ runId }) => backlog.state(runId),
     backlogStart: input => backlog.start(input),
     backlogStop: ({ runId }) => backlog.stop(runId),
+    backlogResume: ({ runId }) => backlog.resume(runId),
     ...createFileEditorHandlers(bb),
     search: input => search.search(input),
     searchRetry: () => search.retry(),
@@ -385,7 +386,7 @@ export default async function plugin(bb: BbPluginApi) {
   bb.agents.registerTool({ name: "c247_backlog_dossier", description: "Read a selected backlog task's dossier in bounded pages. Follow nextCursor until null.", parameters: dossierReadSchema, execute: (input, ctx) => backlog.dossier(ctx.threadId, input) });
   bb.agents.registerTool({ name: "c247_backlog_chat", description: "Read a linked recent task conversation as paged JSON fragments. Follow nextOffset; an unreadable chat is explicitly unverified.", parameters: z.object({ taskId: z.string(), threadId: z.string(), offset: z.number().int().min(0).default(0) }).strict(), execute: (input, ctx) => backlog.chat(ctx.threadId, input.taskId, input.threadId, input.offset).then(boundedJson) });
   bb.agents.registerTool({ name: "c247_backlog_calls", description: "List this review's read-only source call receipts. Follow nextOffset; use ref as citation.callRef. No source collection is started here.", parameters: z.object({ offset: z.number().int().min(0).default(0) }).strict(), execute: ({ offset }, ctx) => backlog.calls(ctx.threadId, offset).then(boundedJson) });
-  bb.agents.registerTool({ name: "c247_backlog_submit", description: "Save one selected task's backlog finding and optional evidence-backed pending proposal. Never applies changes. Correct validation errors and retry. When remaining is zero, finish the review.", parameters: backlogSubmitSchema, execute: (input, ctx) => backlog.submit(ctx.threadId, input).then(boundedJson) });
+  bb.agents.registerTool({ name: "c247_backlog_submit", description: "Save one selected task's backlog finding and optional evidence-backed pending proposal. Never applies changes. Correct validation errors and retry. Call next after saving. When next.task is null, finish this batch; the plugin continues remaining tasks.", parameters: backlogSubmitSchema, execute: (input, ctx) => backlog.submit(ctx.threadId, input).then(boundedJson) });
   bb.agents.contributeInstructions(({ threadId }) => {
     const session = repo.forThread(threadId);
     if (!session || session.workerThreadId !== threadId || session.mode !== "conversation" || !["starting", "working"].includes(session.status)) return null;

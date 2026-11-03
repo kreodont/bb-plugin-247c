@@ -64,6 +64,19 @@ it("keeps the Backlog tab visible beside Search", async () => {
   expect(slot.inspection.navigateCalls.at(-1)).toMatchObject({ method: "toPluginPanel", path: "desk", options: { subPath: "backlog" } });
 });
 
+it("continues stopped work once without navigating away", async () => {
+  const { slot, f } = await setup();
+  fireEvent.click(slot.getByRole("button", { name: "Review selected · 2" }));
+  await slot.findByText("Reviewing · 0/2");
+  fireEvent.click(slot.getByRole("button", { name: "Stop review" }));
+  const resume = await slot.findByRole("button", { name: "Continue review" });
+  fireEvent.click(resume); fireEvent.click(resume);
+  await slot.findByText("Reviewing · 0/2");
+  await slot.findByText("Previous review chats");
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(2);
+  expect(slot.inspection.navigateCalls).toEqual([]);
+});
+
 it("reviews and accepts a saved proposal inline without leaving Backlog", async () => {
   const { slot, f } = await setup();
   fireEvent.click(slot.getByRole("button", { name: "Review selected · 2" }));

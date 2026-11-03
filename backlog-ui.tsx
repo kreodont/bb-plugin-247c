@@ -10,7 +10,7 @@ import { sourceHref } from "./task-sources.js";
 
 type State = z.infer<typeof backlogRpcContract.backlogState.output>;
 type Review = (dossier: Dossier, proposal: Dossier["proposals"][number], busy: boolean, action: (fn: () => Promise<unknown>) => Promise<boolean>) => ReactNode;
-const outcomes = { ready: "Ready to work", waiting: "Waiting for someone", close: "Can be closed", decision: "Your decision", duplicate: "Possible duplicate", unverified: "Could not verify" };
+const outcomes = { ready: "Ready to work", waiting: "Waiting for someone", close: "Can be closed", decision: "Your decision", duplicate: "Duplicate", unverified: "Could not verify" };
 const tones = { ready: "border-l-emerald-500", waiting: "border-l-sky-500", close: "border-l-violet-500", decision: "border-l-amber-500", duplicate: "border-l-orange-500", unverified: "border-l-red-500" };
 
 export function BacklogPage({ renderProposal }: { renderProposal: Review }) {
@@ -72,6 +72,9 @@ export function BacklogPage({ renderProposal }: { renderProposal: Review }) {
       <div className="flex flex-wrap items-center gap-3"><strong className="mr-auto">{data.run.status === "running" ? "Reviewing" : data.run.status === "starting" ? "Starting review" : data.run.status === "completed" ? "Review complete" : data.run.status === "stopped" ? "Review stopped" : "Review incomplete"} · {data.run.checked}/{data.run.total}</strong>
         {data.run.threadId && <Button size="sm" variant="outline" onClick={() => navigate.toThread(data.run!.threadId!)}>Open review chat</Button>}
         {["running", "starting"].includes(data.run.status) && <Button size="sm" variant="outline" disabled={busy} onClick={() => void action(() => rpc.call("backlogStop", { runId: data.run!.id }))}>Stop review</Button>}</div>
+      {!["running", "starting"].includes(data.run.status) && data.run.checked < data.run.total && <Button size="sm" variant="outline" disabled={busy || running} onClick={() => void action(() => rpc.call("backlogResume", { runId: data.run!.id }))}>Continue review</Button>}
+      {data.run.batch && <p className="text-xs text-muted-foreground">Batch {data.run.batch.number} · Up to 3 tasks per chat. Remaining tasks continue automatically after this chat finishes.</p>}
+      {data.run.previousThreadIds.length > 0 && <details><summary className="cursor-pointer text-xs">Previous review chats</summary>{data.run.previousThreadIds.map((id, index) => <Button key={id} size="sm" variant="link" onClick={() => navigate.toThread(id)}>Chat {index + 1}</Button>)}</details>}
       <progress className="h-2 w-full accent-primary" aria-label="Tasks reviewed" max={data.run.total} value={data.run.checked} />
       <p className="text-xs text-muted-foreground">{data.run.unverified} could not be verified · {data.run.total - data.run.checked} not reviewed. Saved results remain available after leaving this page.</p>
       {data.run.error && <p role="alert" className="text-sm text-destructive">{data.run.error}</p>}
@@ -92,6 +95,7 @@ export function BacklogPage({ renderProposal }: { renderProposal: Review }) {
         {i.result && <div className="mt-3 space-y-2 text-sm"><p>{i.result.summary}</p>{i.result.action && !["done", "archived"].includes(i.taskStatus) && <p className="font-medium">{i.result.action}</p>}<p className="text-xs text-muted-foreground">{i.result.sourceDetail}</p>{i.result.duplicateTaskId && <Button variant="link" size="sm" onClick={() => navigate.toPluginPanel("desk", { subPath: i.result!.duplicateTaskId! })}>Open related task</Button>}</div>}
         {i.sources.length > 0 && <div className="mt-2 flex flex-wrap gap-3 text-xs">{i.sources.map((s, index) => <a key={s.url} href={sourceHref(s.url, true)} target="_blank" rel="noopener noreferrer" className="text-primary underline">{s.label} · Source {index + 1}</a>)}</div>}
         {i.proposalNote && <p className="mt-3 text-xs text-muted-foreground">{i.proposalNote}</p>}
+        {i.result && !i.proposalId && <p className="mt-3 text-xs text-muted-foreground">No task changes proposed.{i.noChangeReason ? ` ${i.noChangeReason}` : ""}</p>}
         {i.proposalId && <div className="mt-3"><Button size="sm" disabled={busy} variant="secondary" onClick={() => void review(i.taskId, i.proposalId!)}>Review proposal · {i.proposalStatus}</Button></div>}
         {detail?.taskId === i.taskId && proposal && <div className="mt-4">{renderProposal(detail.dossier, proposal, busy, decide)}<Button size="sm" variant="ghost" disabled={busy} onClick={() => setDetail(null)}>Hide changes</Button></div>}
       </article>)}</div>

@@ -11,6 +11,7 @@ export const backlogItemSchema = z.object({
   taskId: z.string(), title: z.string(), revision: z.number().int(), taskStatus: z.enum(["open", "waiting", "done", "archived"]),
   result: backlogFindingSchema.nullable(), checkedAt: z.string().nullable(),
   proposalId: z.string().nullable(), proposalStatus: z.string().nullable(), proposalNote: z.string().nullable(), stale: z.boolean(),
+  noChangeReason: z.string().nullable().default(null),
   sources: z.array(z.object({ url: z.string(), label: z.string() })),
 });
 export const backlogRunSchema = z.object({
@@ -18,6 +19,8 @@ export const backlogRunSchema = z.object({
   threadId: z.string().nullable(), providerId: z.string(), model: z.string(), projectId: z.string(),
   title: z.string(), startedAt: z.number(), error: z.string().nullable(),
   total: z.number(), checked: z.number(), unverified: z.number(),
+  previousThreadIds: z.array(z.string()).default([]),
+  batch: z.object({ number: z.number().int(), startedChecked: z.number().int(), taskIds: z.array(z.string()) }).nullable().default(null),
 });
 export const backlogRpcContract = {
   backlogState: { input: z.object({ runId: z.string().optional() }).strict(), output: z.object({
@@ -26,6 +29,7 @@ export const backlogRpcContract = {
   }) },
   backlogStart: { input: z.object({ taskIds: z.array(z.string().min(1)).min(1).max(500), requestId: z.uuid() }).strict(), output: backlogRunSchema },
   backlogStop: { input: z.object({ runId: z.string() }).strict(), output: backlogRunSchema },
+  backlogResume: { input: z.object({ runId: z.string() }).strict(), output: backlogRunSchema },
 } as const;
 export const BACKLOG_SCHEMA = `
 CREATE TABLE backlog_runs (id TEXT PRIMARY KEY, request_id TEXT NOT NULL UNIQUE, thread_id TEXT UNIQUE, status TEXT NOT NULL, value_json TEXT NOT NULL);
