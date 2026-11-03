@@ -348,3 +348,15 @@ it("does not duplicate an uncertain continuation launch", async () => {
   await f.harness.behavior.callRpc("backlogStop", { runId: run.id });
   await expect(f.harness.behavior.callRpc("backlogResume", { runId: run.id })).rejects.toThrow(/unconfirmed/);
 });
+
+it("shows a resumed older review by default without hiding newer history", async () => {
+  const f = await setup(), a = await f.create(), b = await f.create(), first = await start(f, [a.id]);
+  await f.harness.behavior.callRpc("backlogStop", { runId: first.id });
+  const second = await start(f, [b.id]);
+  await tool(f, second, "dossier", { taskId: b.id });
+  await tool(f, second, "submit", unread(b.id));
+  await f.harness.behavior.callRpc("backlogResume", { runId: first.id });
+  expect((await state(f)).run?.id).toBe(first.id);
+  expect((await state(f)).history[0].id).toBe(second.id);
+  expect(backlogRpcContract.backlogState.output.parse(await f.harness.behavior.callRpc("backlogState", { runId: second.id })).run?.id).toBe(second.id);
+});

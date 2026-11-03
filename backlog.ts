@@ -49,7 +49,7 @@ export class BacklogReview {
   }
   state(runId?: string) {
     const cfg = this.settings(), history = this.runs();
-    const run = runId ? this.run(runId) : history[0] ?? null;
+    const run = runId ? this.run(runId) : history.find(active) ?? history[0] ?? null;
     return { configured: Boolean(cfg.backlogProvider && cfg.backlogModel && cfg.threadProjectId), providerId: cfg.backlogProvider, model: cfg.backlogModel, run, history,
       items: run ? this.items(run.id).map(i => ({ taskId: i.task_id, title: i.title, revision: i.revision, taskStatus: this.repo.kernel.getTask(i.task_id).status,
         result: i.result_json ? JSON.parse(i.result_json).finding : null, checkedAt: i.checked_at, proposalId: i.proposal_id,
