@@ -1,3 +1,4 @@
+import { backlogRpcContract } from "./backlog-contracts.js";
 import { searchRpcContract } from "./search-contracts.js";
 import { connectionAttemptSchema } from "./source-diagnostics.js";
 import { editorRpcContract } from "./file-editor/contracts.js";
@@ -286,6 +287,7 @@ export const scriptAnalysisSelectionInputSchema = z.object({
 }).strict();
 
 export const rpcContract = defineRpcContract({
+  ...backlogRpcContract,
   ...searchRpcContract,
   ...editorRpcContract,
   ...pinnedFilesRpcContract,

@@ -1244,6 +1244,7 @@ it("preselects independent waiting actions and accepts task changes without the 
   const f = await fixture(), task = await f.create("Waiting report");
   f.repo.status(task.id, "waiting", task.revision);
   const { run } = await startSourceSync(f), { input } = await sourceData(f, run, task.id);
+  input.suggestions[0].changes.status = { value: "open", evidenceRefs: ["fact:0"] };
   await submitSourceData(f, run, input);
   const { slot } = await setup("updates", f);
   const reopen = await slot.findByRole("checkbox", { name: "Select part: Reopen task" });

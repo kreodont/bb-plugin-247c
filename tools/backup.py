@@ -141,6 +141,8 @@ def related_thread_ids(db):
     ids = {r[0] for r in db.execute("SELECT thread_id FROM session_threads UNION SELECT thread_id FROM source_sync_runs WHERE thread_id IS NOT NULL")}
     if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='agent_time_threads'").fetchone():
         ids.update(r[0] for r in db.execute("SELECT thread_id FROM agent_time_threads"))
+    if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='backlog_runs'").fetchone():
+        ids.update(r[0] for r in db.execute("SELECT thread_id FROM backlog_runs WHERE thread_id IS NOT NULL"))
     return sorted(ids)
 
 
@@ -310,6 +312,12 @@ def restore_to_new(path, destination):
                 value = json.loads(raw)
                 value.update(status="blocked", error=message, finishedAt=datetime.now(timezone.utc).isoformat())
                 db.execute("UPDATE source_sync_runs SET status='blocked',value_json=? WHERE id=?", (json.dumps(value, ensure_ascii=False), run_id))
+            if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='backlog_runs'").fetchone():
+                for run_id, raw in db.execute("SELECT id,value_json FROM backlog_runs WHERE status IN ('starting','running')").fetchall():
+                    value = json.loads(raw)
+                    value.update(status="stopped", error=message)
+                    db.execute("UPDATE backlog_runs SET status='stopped',value_json=? WHERE id=?", (json.dumps(value, ensure_ascii=False), run_id))
+                db.execute("UPDATE backlog_items SET chats_json='{}'")
             db.commit()
         settings = json.loads((root / "settings/247c.json").read_text())
         settings["hourlyUpdates"] = False
@@ -317,7 +325,8 @@ def restore_to_new(path, destination):
         # In particular, an old patch must not re-enable them on first activation.
         for key, value in {"threadProjectId": "", "localSettingsPatch": "",
                            "calendarReaderCommand": "[]", "sourceImportRoot": "",
-                           "dayPlannerProjectId": "", "dayPlannerAutomationId": ""}.items():
+                           "dayPlannerProjectId": "", "dayPlannerAutomationId": "",
+                           "backlogProvider": "", "backlogModel": ""}.items():
             if key in settings:
                 settings[key] = value
         dump(root / "settings/247c.for-restore.json", settings)

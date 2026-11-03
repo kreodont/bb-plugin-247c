@@ -16,6 +16,21 @@ class RecoveryTests(unittest.TestCase):
             self.assertEqual(backup.related_thread_ids(db), ["analyst", "worker"])
             db.executescript("CREATE TABLE agent_time_threads(thread_id TEXT); INSERT INTO agent_time_threads VALUES('worker'),('hidden-child');")
             self.assertEqual(backup.related_thread_ids(db), ["analyst", "hidden-child", "worker"])
+            db.executescript("CREATE TABLE backlog_runs(thread_id TEXT); INSERT INTO backlog_runs VALUES('backlog-review'),(NULL);")
+            self.assertEqual(backup.related_thread_ids(db), ["analyst", "backlog-review", "hidden-child", "worker"])
+
+    def test_restore_stops_backlog_runs_and_preserves_findings(self):
+        self.db.executescript('''
+          CREATE TABLE backlog_runs(id TEXT PRIMARY KEY,status TEXT,value_json TEXT);
+          CREATE TABLE backlog_items(run_id TEXT,result_json TEXT,chats_json TEXT);
+          INSERT INTO backlog_runs VALUES('run1','running','{"id":"run1","status":"running","checked":1}');
+          INSERT INTO backlog_items VALUES('run1','{"finding":"ready"}','{"temporary":"chat copy"}');
+        ''')
+        self.db.commit()
+        backup.restore_to_new(self.archive(), self.root / "backlog-restored")
+        with backup.readonly(self.root / "backlog-restored/prepared-bb/plugins/247c/data.db") as db:
+            self.assertEqual(db.execute("SELECT status FROM backlog_runs").fetchone()[0], "stopped")
+            self.assertEqual(db.execute("SELECT result_json,chats_json FROM backlog_items").fetchone(), ('{"finding":"ready"}', '{}'))
 
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()

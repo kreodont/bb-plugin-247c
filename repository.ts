@@ -1,3 +1,4 @@
+import { BACKLOG_SCHEMA } from "./backlog-contracts.js";
 import { SEARCH_MIGRATION, SEARCH_MESSAGE_SEQUENCE_MIGRATION, SEARCH_MISSING_THREADS_MIGRATION } from "./search-schema.js";
 import { SOURCE_STORAGE_MIGRATION } from "./source-storage.js";
 import { CUSTOMER_MIGRATION } from "./migration-compatibility.js";
@@ -55,6 +56,7 @@ export const EXTRA_SCHEMA = [
   SEARCH_MIGRATION,
   SEARCH_MESSAGE_SEQUENCE_MIGRATION,
   SEARCH_MISSING_THREADS_MIGRATION,
+  BACKLOG_SCHEMA,
 ];
 export const ACTIVE = new Set<Session["status"]>(["starting", "working", "collecting", "review_starting", "reviewing", "repair_starting"]);
 export const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");

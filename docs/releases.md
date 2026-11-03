@@ -1,3 +1,12 @@
+# 0.5.128
+
+Backlog is now a top-level tab for reviewing selected open and waiting tasks.
+All tasks are selected by default. An explicitly configured corporate model
+checks task context, recent chats and current sources, saving findings with
+source links and pending proposals. Progress survives navigation and restarts;
+stopped or incomplete reviews retain their results and show unchecked tasks.
+See [Backlog review](backlog-review.md) for local setup and review behavior.
+
 # 0.5.127
 
 Saved analysis now checks the complete launch message before creating a thread. Large source passages are read in pages from the frozen catalog when they do not fit alongside task context and instructions. All records and exact citations remain available. Oversized task context produces a specific error before launch instead of an empty failed conversation.

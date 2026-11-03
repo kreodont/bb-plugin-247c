@@ -1,3 +1,4 @@
+import { BacklogReview, backlogSubmitSchema } from "./backlog.js";
 import { retainSourcePayloads } from "./source-retention.js";
 import { TaskSearch } from "./search-index.js";
 import { createFileEditorHandlers } from "./file-editor/server.js";
@@ -79,6 +80,7 @@ export default async function plugin(bb: BbPluginApi) {
   const search = new TaskSearch(repo, bb, () => bb.realtime.publish("search-changed", {}));
   const getSettings = async (): Promise<SettingsView> => settings.get();
   const threadRouting = new ThreadRouting(bb, async () => (await settings.get()).threadProjectId);
+  const backlog = new BacklogReview(bb, repo, threadRouting, () => configuration);
   const externalAnalysis = new ExternalAnalysis(bb, join(dirname(db.name), "script-analysis"), threadRouting, () => configuration);
   await externalAnalysis.load();
   const importAnalysis = { before: (key: string, runId: string, receiptRefs: string[]) => externalAnalysis.assertImportable(key, runId, receiptRefs),
@@ -112,6 +114,9 @@ export default async function plugin(bb: BbPluginApi) {
   days.tick();
 
   bb.rpc.register(rpcContract, {
+    backlogState: ({ runId }) => backlog.state(runId),
+    backlogStart: input => backlog.start(input),
+    backlogStop: ({ runId }) => backlog.stop(runId),
     ...createFileEditorHandlers(bb),
     search: input => search.search(input),
     searchRetry: () => search.retry(),
@@ -376,6 +381,11 @@ export default async function plugin(bb: BbPluginApi) {
   bb.agents.registerTool({ name: "c247_script_analysis_select", description: "Submit interpretations following the supplied selection schema. Select citation refs and skipped record refs from the saved catalog; never provide source IDs, dates or quotation text. saved:false retains the attempt but requires correction. saved:true means awaiting import, not imported or approved.", parameters: scriptAnalysisSelectionInputSchema, execute: (input, ctx) => externalAnalysis.select(ctx.threadId, input).then(boundedJson) });
   bb.agents.registerTool({ name: "c247_script_analysis_sources", description: "Read this analysis's frozen reference catalog, including after context compaction. No external source requests. Omit record to list records; supply record such as r3 to read its passages. Continue with nextOffset until null.", parameters: z.object({ record: z.string().max(40).optional(), offset: z.number().int().min(0).default(0) }).strict(), execute: (input, ctx) => externalAnalysis.sources(ctx.threadId, input.record, input.offset).then(boundedJson) });
   const workerBriefs = new Map<string, { key: string; text: string }>();
+  bb.agents.registerTool({ name: "c247_backlog_next", description: "Read the next unfinished backlog task. Request includeIndex once at the start or after compaction. Does not change tasks.", parameters: z.object({ includeIndex: z.boolean().default(false) }).strict(), execute: ({ includeIndex }, ctx) => boundedJson(backlog.next(ctx.threadId, includeIndex)) });
+  bb.agents.registerTool({ name: "c247_backlog_dossier", description: "Read a selected backlog task's dossier in bounded pages. Follow nextCursor until null.", parameters: dossierReadSchema, execute: (input, ctx) => backlog.dossier(ctx.threadId, input) });
+  bb.agents.registerTool({ name: "c247_backlog_chat", description: "Read a linked recent task conversation as paged JSON fragments. Follow nextOffset; an unreadable chat is explicitly unverified.", parameters: z.object({ taskId: z.string(), threadId: z.string(), offset: z.number().int().min(0).default(0) }).strict(), execute: (input, ctx) => backlog.chat(ctx.threadId, input.taskId, input.threadId, input.offset).then(boundedJson) });
+  bb.agents.registerTool({ name: "c247_backlog_calls", description: "List this review's read-only source call receipts. Follow nextOffset; use ref as citation.callRef. No source collection is started here.", parameters: z.object({ offset: z.number().int().min(0).default(0) }).strict(), execute: ({ offset }, ctx) => backlog.calls(ctx.threadId, offset).then(boundedJson) });
+  bb.agents.registerTool({ name: "c247_backlog_submit", description: "Save one selected task's backlog finding and optional evidence-backed pending proposal. Never applies changes. Correct validation errors and retry. When remaining is zero, finish the review.", parameters: backlogSubmitSchema, execute: (input, ctx) => backlog.submit(ctx.threadId, input).then(boundedJson) });
   bb.agents.contributeInstructions(({ threadId }) => {
     const session = repo.forThread(threadId);
     if (!session || session.workerThreadId !== threadId || session.mode !== "conversation" || !["starting", "working"].includes(session.status)) return null;
@@ -388,6 +398,8 @@ export default async function plugin(bb: BbPluginApi) {
     return text;
   });
   bb.agents.configure((context) => {
+    const backlogConfiguration = backlog.configure(context);
+    if (backlogConfiguration) return backlogConfiguration;
     const external = externalAnalysis.configure(context);
     if (external) return external;
     const own = context.origin.pluginId === bb.pluginId;
@@ -428,7 +440,7 @@ export default async function plugin(bb: BbPluginApi) {
   });
 
   bb.experimental_hooks.on("message.dispatch", (context) => runtime.prepareDispatch(context));
-  bb.events.on("thread.created", async ({ thread }) => { await runtime.created(thread); await sync.created(thread); });
+  bb.events.on("thread.created", async ({ thread }) => { backlog.created(thread); await runtime.created(thread); await sync.created(thread); });
   for (const event of ["thread.idle", "thread.failed", "thread.deleted"] as const) {
     bb.events.on(event, async ({ thread }) => {
       await externalAnalysis.ended(thread.id);
@@ -448,6 +460,14 @@ export default async function plugin(bb: BbPluginApi) {
         catch { if (!signal.aborted) bb.log.warn("Task search indexing failed; it will retry automatically."); }
         if (signal.aborted) break;
         await sleep(search.state().pending ? 1000 : 5000, signal);
+      }
+    },
+  });
+  bb.background.service("backlog-monitor", {
+    async start(signal) {
+      while (!signal.aborted) {
+        try { await backlog.tick(); } catch { if (!signal.aborted) bb.log.warn("Backlog review status is temporarily unavailable; saved results are preserved."); }
+        await sleep(5000, signal);
       }
     },
   });

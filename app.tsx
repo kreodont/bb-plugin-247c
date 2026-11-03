@@ -1,3 +1,4 @@
+import { BacklogPage } from "./backlog-ui.js";
 import { SearchPage, prepareSearch } from "./search-ui.js";
 import { SourceConnectionDiagnostics } from "./source-diagnostics-ui.js";
 import { registerFileEditor } from "./file-editor/app.js";
@@ -1055,6 +1056,7 @@ function PageContent({ subPath }: PluginNavPanelProps) {
   const timeZone = usePlanningTimeZone();
   const { path, threadId, focusTaskId } = deskRoute(subPath);
   if (path === "tasks") return <Desk />;
+  if (path === "backlog") return <BacklogPage renderProposal={(dossier, proposal, busy, action) => <ProposalCard dossier={dossier} proposal={proposal} busy={busy} action={action} />} />;
   if (path === "search") return <SearchPage threadId={threadId} />;
   if (path === "reviews") return <ReviewFailuresPage />;
   if (path === "ux") return <UxPageView />;
