@@ -1,4 +1,5 @@
 import { DAY_TIME_ZONE } from "./day-contracts.js";
+import { REQUEST_SCOPE_POLICY } from "./task-completion-policy.js";
 import { languageGuide } from "./language.js";
 import { defaultSourceConfig, type SourceConfig } from "./source-config.js";
 import type { SyncCandidate, SyncRun } from "./contracts.js";
@@ -14,6 +15,7 @@ export function syncAnalysisInstructions(run: SyncRun, dossiers: TaskDossier[], 
   const rules = legacy.slice(legacy.indexOf("Each suggestion:"));
   const page = sourceExportPage(bundle, 0);
   return `You are analyzing a PREPARED Gmail, Slack and Jira export for 247C tasks.
+${REQUEST_SCOPE_POLICY}
 ${languageGuide}
 A script already collected the data without a model: ${bundle.calls.length} calls in ${(bundle.elapsedMs / 1000).toFixed(1)} seconds.
 Planning time zone: ${timeZone}.
@@ -72,6 +74,7 @@ export function syncInstructions(run: SyncRun, dossiers: TaskDossier[], previous
     messages: [...new Set(c.facts.flatMap((f) => f.citations.map((q) => `${q.source}:${q.messageId}`)))],
   }));
   return `You are the user's 247C update collector. The user started a Gmail, Slack and Jira check.
+${REQUEST_SCOPE_POLICY}
 Read updates, compare them with tasks and submit proposals.
 ${languageGuide}
 This run ${run.id} is separate from task work sessions. Finish through c247_sync_submit.

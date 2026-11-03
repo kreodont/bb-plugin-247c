@@ -1,3 +1,11 @@
+# 0.5.129
+
+Backlog reviews now distinguish the original request from extra verification
+invented in previous AI summaries. A local preference can favor closure when
+only hypothetical doubts remain. Closing proposals clear the old next step,
+and closed tasks no longer display an action to close them again. Source
+analysts also avoid creating follow-up work for already satisfied requests.
+
 # 0.5.128
 
 Backlog is now a top-level tab for reviewing selected open and waiting tasks.

@@ -82,4 +82,9 @@ it("reviews and accepts a saved proposal inline without leaving Backlog", async 
   await slot.findByRole("button", { name: "Review proposal · applied" });
   expect(f.repo.detail(task.id).projection.nextStep).toBe(draft.changes.nextStep!.value);
   expect(slot.inspection.navigateCalls).toEqual([]);
+  const current = f.repo.kernel.getTask(task.id);
+  f.repo.status(task.id, "done", current.revision);
+  await slot.behavior.emitRealtime("desk-changed", {});
+  await slot.findByText("Closed");
+  expect(slot.queryByText("Prepare report.")).toBeNull();
 });

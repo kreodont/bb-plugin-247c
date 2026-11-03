@@ -160,3 +160,42 @@ it("paginates source call receipts without returning source bodies", async () =>
   expect(JSON.stringify(first)).not.toContain("Private source body");
   expect((await tool(f, run, "calls", { offset: 20 })).calls).toHaveLength(1);
 });
+
+it("refreshes the local closure preference during an existing review without another model launch", async () => {
+  const f = await setup(), task = await f.create(), run = await start(f, [task.id]);
+  const first = await tool(f, run, "next");
+  expect(first.reviewPolicy).not.toContain("Local review preference: prefer closure");
+  await f.harness.behavior.setSettings({ backlogPreferClosure: true });
+  expect((await tool(f, run, "next")).reviewPolicy).toContain("Local review preference: prefer closure");
+  expect((await tool(f, run, "dossier", { taskId: task.id })).instructions).toContain("Resolve residual doubt in favor of closing");
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
+});
+
+it("clears an obsolete next step in a closure proposal and keeps retries idempotent", async () => {
+  const f = await setup(), initial = await f.create();
+  const step = f.repo.note({ taskId: initial.id, revision: initial.revision, kind: "explicit_next_step", text: "Independently verify the supplied link.", requestId: randomUUID() });
+  const revision = f.repo.kernel.getTask(initial.id).revision;
+  const previous = f.repo.propose({ taskId: initial.id, revision, requestId: randomUUID(), draft: { rationale: "Old step", confidence: 1, changes: { nextStep: { value: step.text, evidenceRefs: [step.id] } } } }, "test");
+  f.repo.accept(previous.id, revision);
+  const task = f.repo.kernel.getTask(initial.id), run = await start(f, [task.id]);
+  await tool(f, run, "dossier", { taskId: task.id });
+  const data = await evidence(f, run, task.id);
+  const input = { ...data, finding: { ...data.finding, outcome: "close", summary: "Requested link supplied.", action: "Close task." }, changes: { status: { value: "done", evidenceRefs: ["fact:0"] } } };
+  const result = await tool(f, run, "submit", input);
+  expect(f.repo.kernel.getProposal(result.proposalId).changes.nextStep).toEqual({ value: null, evidenceRefs: ["fact:0"] });
+  expect(f.repo.detail(task.id).projection.nextStep).toBe(step.text);
+  expect(await tool(f, run, "submit", input)).toEqual(result);
+  f.repo.accept(result.proposalId, task.revision);
+  expect(f.repo.detail(task.id).projection.nextStep).toBeNull();
+  expect((await state(f)).items[0].taskStatus).toBe("done");
+});
+
+it("refuses closing while explicitly proposing outstanding work", async () => {
+  const f = await setup(), task = await f.create(), run = await start(f, [task.id]);
+  await tool(f, run, "dossier", { taskId: task.id });
+  const input = await evidence(f, run, task.id);
+  input.finding.outcome = "close";
+  input.changes.status = { value: "done", evidenceRefs: ["fact:0"] };
+  await expect(tool(f, run, "submit", input)).rejects.toThrow(/no remaining next step/);
+  expect(f.repo.kernel.listProposals(task.id)).toHaveLength(0);
+});

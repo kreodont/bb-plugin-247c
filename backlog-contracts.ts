@@ -8,7 +8,7 @@ export const backlogFindingSchema = z.object({
   sourceDetail: z.string().trim().min(1).max(1000),
 });
 export const backlogItemSchema = z.object({
-  taskId: z.string(), title: z.string(), revision: z.number().int(),
+  taskId: z.string(), title: z.string(), revision: z.number().int(), taskStatus: z.enum(["open", "waiting", "done", "archived"]),
   result: backlogFindingSchema.nullable(), checkedAt: z.string().nullable(),
   proposalId: z.string().nullable(), proposalStatus: z.string().nullable(), proposalNote: z.string().nullable(), stale: z.boolean(),
   sources: z.array(z.object({ url: z.string(), label: z.string() })),

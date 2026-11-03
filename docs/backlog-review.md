@@ -19,6 +19,11 @@ titles, priorities and reported time are preserved. Duplicate findings link to
 the other task and do not merge or archive either task. An existing pending
 proposal is linked explicitly instead of silently replaced.
 
+Completion follows the original request, not extra work invented in an earlier
+AI summary. A supplied answer or link can satisfy that request without an
+independent audit nobody requested. Closing proposals clear the old next step;
+accepted tasks show Closed and no longer display an action to close them again.
+
 Progress and results survive navigation, reloads and restarts. Stop review keeps
 saved findings and marks the remaining tasks unchecked. An interrupted review
 does not silently launch again; select tasks for a new review. History retains
@@ -34,6 +39,12 @@ local settings patch, outside Git. The standard personal Claude and Codex
 providers are rejected. An unavailable account or model fails before launch;
 there is no fallback to another account or model. Configure source read access in
 that corporate profile as described in [the setup-agent guide](setup-agent.md).
+
+Enable `backlogPreferClosure` locally to resolve residual doubt in favor of
+closing a satisfied request with no concrete remaining obligation. Future real
+follow-ups can reopen it through Proposals. This preference is supplied on each
+task read, including in a review already running; no conversation restart is
+needed. Unread sources and explicit unresolved requests remain visible.
 
 The Backlog agent has dedicated tools scoped to its selected tasks. Every proposed
 change requires verified connector citations and a matching task revision. It
