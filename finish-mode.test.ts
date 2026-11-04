@@ -7,6 +7,7 @@ const draft = { rationale: "The task is pending.", facts: [], knowledge: [], rep
 it("limits the host finish decision to pending status in resolve mode", () => {
   expect(validateExtraction(draft, transcript, undefined, "open", "resolve").changes?.status?.value).toBe("waiting");
   expect(() => validateExtraction(draft, transcript, undefined, "open")).toThrow(/supports only pending/);
+  for (const status of ["done", "archived"] as const) expect(() => validateExtraction(draft, transcript, undefined, status, "resolve")).toThrow(/supports only pending/);
   expect(() => validateExtraction({ ...draft, changes: { status: { value: "done", evidenceRefs: [FINISH_PENDING_REF] } } }, transcript, undefined, "open", "resolve")).toThrow(/supports only pending/);
   expect(() => validateExtraction({ ...draft, changes: { ...draft.changes, nextStep: { value: null, evidenceRefs: [FINISH_PENDING_REF] } } }, transcript, undefined, "open", "resolve")).toThrow(/supports only pending/);
 });

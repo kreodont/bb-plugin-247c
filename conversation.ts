@@ -129,7 +129,7 @@ export function validateExtraction(value: unknown, transcript: Transcript, timeC
     throw new PolicyError("Finish session requires the recorder to choose changes.status=done or waiting. Pause is the separate action that leaves the task open. Explain the result and return the complete corrected review; do not ask the user to choose.");
   }
   for (const [field, change] of Object.entries(extraction.changes ?? {})) {
-    if (change?.evidenceRefs.includes(FINISH_PENDING_REF) && !(finishMode === "resolve" && field === "status" && change.value === "waiting")) throw new PolicyError("The session finish decision supports only pending status, never completion or other changes.");
+    if (change?.evidenceRefs.includes(FINISH_PENDING_REF) && !(finishMode === "resolve" && ["open", "waiting"].includes(taskStatus ?? "") && field === "status" && change.value === "waiting")) throw new PolicyError("The session finish decision supports only pending status, never completion or other changes.");
   }
   const messages = new Map(transcript.messages.map((m) => [m.ref, m]));
   for (const fact of extraction.facts) {
