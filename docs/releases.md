@@ -1,3 +1,7 @@
+# 0.5.134
+
+Stale source proposals now have a Refresh proposal button. Review the current task, select the changes to keep, and save a replacement for acceptance. Original findings and quotes remain in history. Refreshing does not run a model or apply task changes.
+
 # 0.5.130
 
 Backlog now recognizes ClickUp and Microsoft 365 Outlook/Teams reads as source evidence. Microsoft 365 searches remain discovery results; full message reads supply citations. ClickUp document pages, tasks, comments and threaded replies are supported. Review instructions follow each task's actual sources instead of requiring Gmail, Slack or Jira. Failed reads, truncated responses, invented quotes and unrelated source links remain invalid evidence.

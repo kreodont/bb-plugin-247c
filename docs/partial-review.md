@@ -20,6 +20,12 @@ Use **Review current task** to see the current summary, next step, priority, que
 
 Neither recovery action accepts anything, runs a model, changes the task or time journal, or rewrites the conversation. The replacement must still be accepted. Supporting evidence is preserved even when its associated record is not selected. The original is retired only after the replacement is validated and saved in the same transaction. A concurrent edit requires another review of the latest task; an active work session or review discussion must finish first. For a new AI analysis of a conversation, the existing **Work → Retry review** and **Discuss review** actions remain available.
 
+### Recovering a stale source proposal
+
+Expand the source proposal and choose **Refresh proposal**. Compare the current task with the proposed changes, select the parts to keep, confirm the review, and choose **Save updated proposal**. The replacement remains pending until you accept it. Unchecked parts stay in the original history and are excluded from the replacement.
+
+This uses the saved source findings without running a model or checking sources again. Quotes remain unchanged. Concurrent edits require another review. Closed tasks still require evidence for reopening; references to accepted text that has changed cannot silently be reused.
+
 ### Applying reviewed parts
 
 A partial decision is one SQLite transaction. The original proposal and its evidence remain in history. An accepted subset gets its own exact approval, application receipt and undo proposal. Unselected parts get a new pending identity against the resulting revision. Rejected parts do not change the task or its unread state. Concurrent dossier edits, completed reviews and active review discussions are checked before applying any subset. Failed partitions roll back completely; retrying the same request does not duplicate effects.

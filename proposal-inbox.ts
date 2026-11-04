@@ -16,7 +16,7 @@ export class ProposalInbox {
       const active = task ? this.repo.active().some(s => s.taskId === task.id) : false;
       const currentTask = task ? { revision: task.revision, status: task.status, activeSession: active ? "active" : null } : null;
       const duplicate = !task && this.repo.list(true).tasks.some(t => t.title.trim().toLocaleLowerCase() === candidate.title.trim().toLocaleLowerCase());
-      const blockedReason = task && task.revision !== candidate.baseRevision ? "The dossier changed after the check. An updated proposal is required."
+      const blockedReason = task && task.revision !== candidate.baseRevision ? "The dossier changed. Expand this proposal and choose Refresh proposal to review the current task."
         : active && candidate.changes.status && task && statusNeedsStoppedSession(task.status, candidate.changes.status.value) ? "Finish the work session before changing the task status."
         : duplicate ? "A task with this title already exists. Check for a duplicate." : null;
       return { kind, candidate, currentTask, blockedReason };

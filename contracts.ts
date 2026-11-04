@@ -329,6 +329,8 @@ export const rpcContract = defineRpcContract({
   propose: { input: z.object({ taskId: idSchema, revision: revisionSchema, draft: draftSchema, requestId: z.uuid() }).strict(), output: proposalSchema },
   proposalRefreshPreview: { input: z.object({ proposalId: idSchema }).strict(), output: proposalRefreshPreviewSchema },
   refreshProposal: { input: proposalRefreshInputSchema, output: proposalSchema },
+  sourceProposalRefreshPreview: { input: z.object({ proposalId: idSchema }).strict(), output: proposalRefreshPreviewSchema },
+  refreshSourceProposal: { input: proposalRefreshInputSchema, output: syncCandidateSchema },
   accept: { input: z.object({ proposalId: idSchema, revision: revisionSchema }).strict(), output: dossierSchema },
   reject: { input: z.object({ proposalId: idSchema }).strict(), output: proposalSchema },
   revert: { input: z.object({ proposalId: idSchema }).strict(), output: proposalSchema },

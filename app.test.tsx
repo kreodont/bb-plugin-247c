@@ -569,7 +569,7 @@ it("disables stale source proposals and shows source failures without a successf
   expect((accept as HTMLButtonElement).disabled).toBe(true);
   expect(slot.getByText("Unavailable")).toBeTruthy();
   expect(slot.getAllByText(/Slack требует входа/)).toHaveLength(2); // Source card and persistent health warning.
-  expect(slot.getByText(/The dossier changed after this check/)).toBeTruthy();
+  expect(slot.getByText(/The task changed after this proposal was prepared/)).toBeTruthy();
 });
 
 function setupThread(f: Awaited<ReturnType<typeof fixture>>, threadId: string, isCompactViewport = false, action: "task" | "session" | "reported" | "source" = "session") {
@@ -1474,4 +1474,35 @@ it("preserves the customer draft after a failed save and retries", async () => {
   fireEvent.click(retry);
   await waitFor(() => expect(f.repo.detail(task.id).projection.customer).toBe("Acme"));
   expect(save).toHaveBeenCalledTimes(2);
+});
+
+
+it.each(["task", "inbox"])("refreshes stale source proposals from the %s after an explicit review", async location => {
+  const f = await fixture(), task = await f.create("Current task context");
+  const { run } = await startSourceSync(f), { input } = await sourceData(f, run, task.id);
+  await submitSourceData(f, run, input);
+  const store = new SourceSyncStore(f.repo), old = store.pendingCandidates()[0];
+  f.repo.note({ taskId: task.id, revision: task.revision, requestId: randomUUID(), kind: "constraint", text: "Keep the approved scope." });
+  const before = f.repo.kernel.getDossier(task.id);
+  const { slot } = await setup(location === "task" ? task.id : "proposals", f);
+  if (location === "task") fireEvent.click(await slot.findByRole("tab", { name: "Proposals · 1" }));
+  else { await slot.findByRole("heading", { name: "Proposals · 1" }); fireEvent.click(slot.getByRole("button", { name: "Expand all" })); }
+  fireEvent.click(await slot.findByRole("button", { name: "Refresh proposal" }));
+  expect(slot.getByText("Keep the approved scope.")).toBeTruthy();
+  expect((slot.getByRole("button", { name: "Save updated proposal" }) as HTMLButtonElement).disabled).toBe(true);
+  const confirm = slot.getByRole("checkbox", { name: "I reviewed the current task and want to keep the selected changes." });
+  fireEvent.click(confirm);
+  fireEvent.click(slot.getByRole("checkbox", { name: "Select part: Next step" }));
+  await waitFor(() => expect((confirm as HTMLInputElement).checked).toBe(false));
+  fireEvent.click(confirm);
+  fireEvent.click(slot.getByRole("button", { name: "Save updated proposal" }));
+  await waitFor(() => expect(store.candidate(old.id).status).toBe("superseded"));
+  const next = store.pendingCandidates()[0];
+  expect(next.changes.nextStep).toBeUndefined();
+  expect(next.baseRevision).toBe(before.task.revision);
+  expect(next.facts).toEqual(old.facts);
+  expect(f.repo.kernel.getDossier(task.id)).toEqual(before);
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
+  if (location === "inbox") fireEvent.click(await slot.findByRole("button", { name: "Expand all" }));
+  await waitFor(() => expect((slot.getByRole("button", { name: "Accept update" }) as HTMLButtonElement).disabled).toBe(false));
 });

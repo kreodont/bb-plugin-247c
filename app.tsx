@@ -383,7 +383,7 @@ function SyncCandidateCard({ candidate, currentTask, action, busy, partSelection
     {candidate.chatDelivery && <div className="space-y-2 p-4"><ChatUpdateStatus delivery={candidate.chatDelivery} />{candidate.chatDelivery.threadId && <Button size="sm" variant="outline" onClick={() => navigate.toThread(candidate.chatDelivery!.threadId!)}>Open update chat</Button>}</div>}
     <div className="divide-y divide-border border-y border-border">{Object.entries(candidate.changes).map(([field, change]) => <div key={field} className="p-4"><div className="mb-2 text-xs font-medium">{pending ? selection.checkbox(`field:${field}`, fieldNames[field as keyof typeof fieldNames]) : fieldNames[field as keyof typeof fieldNames] + partOutcome(candidate.partReview, `field:${field}`)}</div><div className={cn("grid gap-3 text-sm leading-relaxed", candidate.before && "md:grid-cols-2")}>{candidate.before && <div className="rounded-lg bg-muted/40 p-3"><p className="mb-1 text-xs text-muted-foreground">Before</p>{value(field, candidate.before[field as keyof typeof candidate.before])}</div>}<div className="rounded-lg bg-primary/5 p-3"><p className="mb-1 text-xs text-muted-foreground">After</p>{value(field, change?.value)}</div></div></div>)}</div>
     <details className="p-4"><summary className="cursor-pointer text-sm">Facts and quotes · {quotes.length}</summary><ul className="mt-3 space-y-2 text-sm">{candidate.facts.map((fact, i) => (!candidate.recordFactIndexes || candidate.recordFactIndexes.includes(i)) && <li key={i} className="whitespace-pre-wrap">{pending ? selection.checkbox(`fact:${i}`, `Record ${i + 1}: ${fact.text}`) : fact.text + partOutcome(candidate.partReview, `fact:${i}`)}</li>)}</ul><div className="mt-4 space-y-4">{quotes.map((quote, index) => <div key={index} className="border-l-2 border-border pl-3"><a href={quote.url} target="_blank" rel="noopener noreferrer" className="text-xs underline underline-offset-4">{sourceNames[quote.source]} · {date(quote.occurredAt)}</a><blockquote className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-muted-foreground">{quote.quote}</blockquote></div>)}</div></details>
-    <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border p-4">{(candidate.taskId ?? candidate.resultTaskId) && <Button size="sm" variant="ghost" onClick={() => navigate.toPluginPanel("desk", { subPath: candidate.taskId ?? candidate.resultTaskId! })}>Open task</Button>}{pending && <>{stale && <p className="w-full text-sm text-destructive">The dossier changed after this check. Check sources from the previous date to replace the stale proposal.</p>}{active && <p className="w-full text-sm text-muted-foreground">Finish the work session before changing the status.</p>}<Button data-c247-ux-action="proposal-reject" variant="ghost" size="sm" disabled={busy || !selection.picked.length} onClick={() => void decide("reject")}>{selection.all ? "Reject update" : `Reject selected parts · ${selection.picked.length}`}</Button><Button data-c247-ux-action="proposal-accept" size="sm" disabled={busy || stale || active || !selection.picked.length} onClick={() => void decide("accept")}>{!candidate.taskId ? selection.all ? "Create task from proposal" : "Create task with selected parts" : selection.all ? "Accept update" : `Accept selected parts · ${selection.picked.length}`}</Button></>}</div>
+    <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border p-4">{(candidate.taskId ?? candidate.resultTaskId) && <Button size="sm" variant="ghost" onClick={() => navigate.toPluginPanel("desk", { subPath: candidate.taskId ?? candidate.resultTaskId! })}>Open task</Button>}{pending && <>{stale && <div className="w-full"><ProposalRecovery source proposalId={candidate.id} revision={currentTask?.revision ?? candidate.baseRevision ?? 0} parts={selection.picked} all={selection.all} busy={busy} action={action} /></div>}{active && <p className="w-full text-sm text-muted-foreground">Finish the work session before changing the status.</p>}<Button data-c247-ux-action="proposal-reject" variant="ghost" size="sm" disabled={busy || !selection.picked.length} onClick={() => void decide("reject")}>{selection.all ? "Reject update" : `Reject selected parts · ${selection.picked.length}`}</Button><Button data-c247-ux-action="proposal-accept" size="sm" disabled={busy || stale || active || !selection.picked.length} onClick={() => void decide("accept")}>{!candidate.taskId ? selection.all ? "Create task from proposal" : "Create task with selected parts" : selection.all ? "Accept update" : `Accept selected parts · ${selection.picked.length}`}</Button></>}</div>
   </article>;
 }
 
@@ -600,7 +600,7 @@ function ProposalCard({ proposal, dossier, action, busy, discuss, partSelection,
   </article>;
 }
 
-function ProposalRecovery({ proposalId, revision, parts, all, busy, action }: { proposalId: string; revision: number; parts: string[]; all: boolean; busy: boolean; action: (fn: () => Promise<unknown>) => Promise<boolean> }) {
+function ProposalRecovery({ source = false, proposalId, revision, parts, all, busy, action }: { source?: boolean; proposalId: string; revision: number; parts: string[]; all: boolean; busy: boolean; action: (fn: () => Promise<unknown>) => Promise<boolean> }) {
   const rpc = useUxRpc();
   const [preview, setPreview] = useState<import("./contracts.js").ProposalRefreshPreview | null>(null);
   const [error, setError] = useState<string | null>(null), [attempt, setAttempt] = useState(0);
@@ -611,12 +611,12 @@ function ProposalRecovery({ proposalId, revision, parts, all, busy, action }: { 
   useEffect(() => {
     let live = true;
     setPreview(null); setError(null); setConfirmed(false); setReviewing(false);
-    void rpc.call("proposalRefreshPreview", { proposalId }).then(value => { if (live) setPreview(value); }).catch(error => { if (live) setError(String(error)); });
+    void rpc.call(source ? "sourceProposalRefreshPreview" : "proposalRefreshPreview", { proposalId }).then(value => { if (live) setPreview(value); }).catch(error => { if (live) setError(String(error)); });
     return () => { live = false; };
-  }, [rpc, proposalId, revision, attempt]);
+  }, [rpc, source, proposalId, revision, attempt]);
   async function refresh(reviewed: boolean) {
     if (!preview) return;
-    const ok = await action(() => rpc.call("refreshProposal", { proposalId, revision: preview.revision, parts, reviewed, requestId: requestId.current }));
+    const ok = await action(() => rpc.call(source ? "refreshSourceProposal" : "refreshProposal", { proposalId, revision: preview.revision, parts, reviewed, requestId: requestId.current }));
     if (!ok) setAttempt(value => value + 1);
   }
   return <section aria-label="Update stale proposal" className="mb-4 space-y-3 rounded-lg border border-border p-3">
@@ -626,7 +626,7 @@ function ProposalRecovery({ proposalId, revision, parts, all, busy, action }: { 
       : preview.blockedReason ? <p className="text-sm text-muted-foreground">{preview.blockedReason}</p>
       : <><p className="text-sm text-muted-foreground">{preview.reason}</p>
         {preview.safe && all && !reviewing ? <Button size="sm" variant="outline" disabled={busy} onClick={() => void refresh(false)}>Refresh proposal</Button>
-          : !reviewing && <Button size="sm" variant="outline" disabled={busy} onClick={() => setReviewing(true)}>Review current task</Button>}
+          : !reviewing && <Button size="sm" variant="outline" disabled={busy} onClick={() => setReviewing(true)}>{source ? "Refresh proposal" : "Review current task"}</Button>}
         {reviewing && <div className="space-y-3">
           <p className="text-sm">Compare the current task below with the proposed values above. Select the parts to keep using their checkboxes.</p>
           <div className="space-y-3 rounded-lg bg-muted/30 p-3"><h3 className="text-sm font-medium">Current task · revision {preview.revision}</h3>

@@ -1,3 +1,4 @@
+import { sourceProposalRefreshPreview, refreshSourceProposal } from "./source-proposal-refresh.js";
 import { BacklogReview, backlogSubmitSchema } from "./backlog.js";
 import { retainSourcePayloads } from "./source-retention.js";
 import { TaskSearch } from "./search-index.js";
@@ -221,6 +222,8 @@ export default async function plugin(bb: BbPluginApi) {
     propose: (input) => repo.propose(input, "human:bb-panel"),
     proposalRefreshPreview: ({ proposalId }) => proposalRefreshPreview(repo, proposalId),
     refreshProposal: (input) => refreshProposal(repo, input),
+    sourceProposalRefreshPreview: ({ proposalId }) => sourceProposalRefreshPreview(sync.store, proposalId),
+    refreshSourceProposal: (input) => refreshSourceProposal(sync.store, input),
     accept: ({ proposalId, revision }) => runtime.accept(proposalId, revision),
     reject: async ({ proposalId }) => { const proposal = repo.reject(proposalId); await runtime.archiveFinishedThreads(proposal.taskId); return proposal; },
     revert: ({ proposalId }) => { const proposal = repo.kernel.proposeRevert(proposalId); changed(); return proposal; },
