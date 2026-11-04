@@ -63,6 +63,22 @@ it("checks the final size for legacy launches too", async () => {
   expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
 });
 
+it("lets the running analyst correct a title collision without another model launch", async () => {
+  const f = await setup(), context = JSON.parse(referenceInput.context);
+  context.currentTasks = [{ id: "existing", title: "Invoice review", status: "open" }];
+  const job = await f.harness.behavior.callRpc("scriptAnalysisStart", { ...referenceInput, context: JSON.stringify(context) }) as any;
+  const selection = { suggestions: [{ taskId: null as string | null, title: "Invoice review", rationale: "Source update", confidence: 1,
+    facts: [{ kind: "explicit_next_step", text: "Review the invoice.", citations: [{ ref: "r1.p1" }] }],
+    changes: { nextStep: { value: "Review the invoice.", evidenceRefs: ["fact:0"] } } }], skipped: [] };
+  const rejected = JSON.parse(await f.harness.behavior.callAgentTool("c247_script_analysis_select", selection, { threadId: job.threadId }) as string);
+  expect(rejected).toMatchObject({ saved: false, error: expect.stringContaining("existing (status=open)") });
+  expect(await f.harness.behavior.callRpc("scriptAnalysisStatus", { key: input.key })).toMatchObject({ state: "analyzing", result: null });
+  await f.reload();
+  selection.suggestions[0].taskId = "existing";
+  expect(JSON.parse(await f.harness.behavior.callAgentTool("c247_script_analysis_select", selection, { threadId: job.threadId }) as string)).toMatchObject({ saved: true });
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
+});
+
 it("pages growing task history, requires complete reads and resumes them after reload", async () => {
   const f = await setup();
   const context = JSON.parse(referenceInput.context);

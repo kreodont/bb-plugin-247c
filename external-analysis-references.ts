@@ -6,7 +6,8 @@ export const referenceCatalogSchema = z.object({ version: z.literal(1), records:
   ref: z.string(), eventId: z.string().nullable(), selected: z.boolean(),
   passages: z.array(z.object({ ref: z.string(), path: z.string(), citation: syncCitationSchema })),
 })), contextEntries: z.array(z.object({ ref: z.string(), section: z.string(), index: z.number().int(),
-  taskId: z.string().nullable(), content: z.string() })).default([]) });
+  taskId: z.string().nullable(), content: z.string() })).default([]),
+  taskIndex: z.array(z.object({ id: z.string(), title: z.string(), status: z.string() })).default([]) });
 type Catalog = z.infer<typeof referenceCatalogSchema>;
 
 /** Split at source boundaries without normalizing whitespace or speech. */
@@ -47,7 +48,10 @@ function fragments(value: unknown, path = "response", depth = 0): { path: string
 
 export function prepareReferences(context: string, maxSerializedCharacters = 950_000): { catalog: Catalog; context: string } {
   const data = z.object({ sourceDocuments: z.array(z.record(z.string(), z.unknown())) }).passthrough().parse(JSON.parse(context));
-  const catalog: Catalog = { version: 1, records: [], contextEntries: [] };
+  const taskIndex = Array.isArray(data.currentTasks) ? data.currentTasks.filter((t): t is Record<string, unknown> =>
+    Boolean(t && typeof t === "object" && typeof t.id === "string" && typeof t.title === "string"))
+    .map(t => ({ id: t.id as string, title: t.title as string, status: typeof t.status === "string" ? t.status : "unknown" })) : [];
+  const catalog: Catalog = { version: 1, records: [], contextEntries: [], taskIndex };
   const documents = data.sourceDocuments.map((doc, index) => {
     const ref = `r${index + 1}`;
     const identity = syncCitationSchema.omit({ quote: true }).parse({
@@ -102,6 +106,14 @@ export function prepareReferences(context: string, maxSerializedCharacters = 950
 
 export function resolveReferences(catalog: Catalog, raw: unknown) {
   const selection = scriptAnalysisSelectionSchema.parse(raw);
+  const normalize = (title: string) => title.trim().replace(/\s+/g, " ").toLocaleLowerCase();
+  for (const suggestion of selection.suggestions) {
+    if (suggestion.taskId !== null) continue;
+    const titles = [suggestion.title, suggestion.changes.title?.value].filter((v): v is string => typeof v === "string").map(normalize);
+    const matches = catalog.taskIndex.filter(t => titles.includes(normalize(t.title)));
+    if (matches.length) throw new PolicyError("A task with this title already exists: " + matches.map(t => `${t.id} (status=${t.status})`).join(", ")
+      + ". Read its saved context. If this is the same work, use its taskId and preserve accepted scope and manual choices. A different source ticket ID does not prove new work. Do not infer reopening or merge distinct requests solely from their title. Correct and resubmit this result before import.");
+  }
   const passages = new Map(catalog.records.flatMap(r => r.passages.map(p => [p.ref, p.citation] as const)));
   const records = new Map(catalog.records.map(r => [r.ref, r]));
   const suggestions = selection.suggestions.map(s => ({ ...s, facts: s.facts.map(f => ({ ...f,

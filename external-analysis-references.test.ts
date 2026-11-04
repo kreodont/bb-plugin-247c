@@ -85,3 +85,16 @@ it("retains closed tasks and pending decisions exactly when their rows must be p
   expect(view.currentTasks).toEqual(original.currentTasks);
   expect(view.pendingProposals).toEqual(original.pendingProposals);
 });
+
+it.each(["open", "waiting", "done", "archived"])("rejects duplicate new-task titles before import for %s tasks", status => {
+  const context = JSON.stringify({ currentTasks: [{ id: "existing", title: "Review Invoice", status }], sourceDocuments: [doc] });
+  const { catalog } = prepareReferences(context);
+  const draft = selection("r1.p1");
+  draft.suggestions[0].title = "  REVIEW   invoice  ";
+  expect(() => resolveReferences(catalog, draft)).toThrow(/existing \(status=/);
+  expect(draft.suggestions[0].taskId).toBeNull();
+  const corrected = { ...draft, suggestions: draft.suggestions.map(s => ({ ...s, taskId: "existing" })) };
+  expect(resolveReferences(catalog, corrected).suggestions[0].taskId).toBe("existing");
+  draft.suggestions[0].title = "Separate invoice request";
+  expect(resolveReferences(catalog, draft).suggestions[0].taskId).toBeNull();
+});
