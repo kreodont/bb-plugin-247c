@@ -1,3 +1,4 @@
+import { FINISH_PENDING_REF, finishDecisionEvidence } from "./finish-mode.js";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { extractionSchema, type Dossier, type Extraction, type Session, type Transcript } from "./contracts.js";
 import type { ProposalEvidence } from "./core/types.js";
@@ -113,8 +114,23 @@ export function reportedTimeEvidence(transcript: Transcript, context: Session["r
     messageRefsByDate: days, undatedMessageRefs };
 }
 
-export function validateExtraction(value: unknown, transcript: Transcript, timeContext?: Session["reportedTimeContext"], taskStatus?: Dossier["task"]["status"]): Extraction {
+export function validateExtraction(value: unknown, transcript: Transcript, timeContext?: Session["reportedTimeContext"], taskStatus?: Dossier["task"]["status"], finishMode?: Session["finishMode"]): Extraction {
+  // Pause never asks for a task-status decision. Remove even a malformed status
+  // before schema validation, while preserving validation of all useful output.
+  if (finishMode === "pause" && value && typeof value === "object" && !Array.isArray(value)) {
+    const raw = value as Record<string, unknown>, changes = raw.changes;
+    if (changes && typeof changes === "object" && !Array.isArray(changes)) {
+      const { status: _, ...rest } = changes as Record<string, unknown>;
+      value = { ...raw, changes: Object.keys(rest).length ? rest : null };
+    }
+  }
   const extraction = extractionSchema.parse(value);
+  if (finishMode === "resolve" && !["done", "waiting"].includes(extraction.changes?.status?.value ?? "")) {
+    throw new PolicyError("Finish session requires the recorder to choose changes.status=done or waiting. Pause is the separate action that leaves the task open. Explain the result and return the complete corrected review; do not ask the user to choose.");
+  }
+  for (const [field, change] of Object.entries(extraction.changes ?? {})) {
+    if (change?.evidenceRefs.includes(FINISH_PENDING_REF) && !(finishMode === "resolve" && field === "status" && change.value === "waiting")) throw new PolicyError("The session finish decision supports only pending status, never completion or other changes.");
+  }
   const messages = new Map(transcript.messages.map((m) => [m.ref, m]));
   for (const fact of extraction.facts) {
     for (const citation of fact.citations) {
@@ -132,7 +148,7 @@ export function validateExtraction(value: unknown, transcript: Transcript, timeC
     const status = extraction.changes.status;
     const progressStatus = status.value === "done" || status.value === "waiting" && (taskStatus === "open" || taskStatus === "waiting") || status.value === "open" && taskStatus === "waiting";
     const completionFacts = status.evidenceRefs.map((ref) => factRefs.has(ref) ? extraction.facts[Number(ref.slice(5))] : undefined);
-    if (!completionFacts.some((fact) => fact && (progressStatus ? ["progress", "decision", "user_instruction"] : ["decision", "user_instruction"]).includes(fact.kind) && fact.citations.some((citation) => progressStatus ? ["user", "assistant"].includes(messages.get(citation.messageRef)?.role ?? "") : messages.get(citation.messageRef)?.role === "user"))) {
+    if (!(finishMode === "resolve" && status.value === "waiting" && status.evidenceRefs.includes(FINISH_PENDING_REF)) && !completionFacts.some((fact) => fact && (progressStatus ? ["progress", "decision", "user_instruction"] : ["decision", "user_instruction"]).includes(fact.kind) && fact.citations.some((citation) => progressStatus ? ["user", "assistant"].includes(messages.get(citation.messageRef)?.role ?? "") : messages.get(citation.messageRef)?.role === "user"))) {
       throw new PolicyError(status.value === "done" ? "A proposal to complete the task must cite a result or decision in this conversation." : progressStatus ? "A task status proposal must cite a result or decision in this conversation." : "Archiving or reopening a task must cite a user decision in the conversation.");
     }
   }
@@ -164,7 +180,7 @@ export function extractionEvidence(extraction: Extraction, session: Session, tra
 // Preflight the same proposal that the kernel will save. Only failures here
 // describe model output; storage, revision and lifecycle errors are not repairs.
 export function extractionProposal(extraction: Extraction, session: Session, dossier: Dossier, transcript?: Transcript) {
-  const additionalEvidence = [...acceptedEvidence(dossier), ...extractionEvidence(extraction, session, transcript)];
+  const additionalEvidence = [...finishDecisionEvidence(session), ...acceptedEvidence(dossier), ...extractionEvidence(extraction, session, transcript)];
   const changes = extraction.changes ?? { summary: { value: dossier.projection.summary, evidenceRefs: ["accepted:summary:0"] } };
   const output = parseProposalDraft({ rationale: extraction.rationale, confidence: 0.8, changes });
   validateEvidence(output, dossier, additionalEvidence);

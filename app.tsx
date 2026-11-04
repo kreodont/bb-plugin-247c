@@ -1135,7 +1135,7 @@ export default definePluginApp((app) => {
   app.slots.experimental_threadHeaderAction({ id: "proposal", title: "247C proposal", component: ThreadProposalAction });
   app.slots.experimental_threadHeaderAction({ id: "source", title: "247C primary source", component: ThreadSourceAction });
   app.slots.experimental_threadHeaderAction({ id: "reported", title: "247C reported today", component: ThreadReportedAction });
-  app.slots.experimental_threadHeaderAction({ id: "pause", title: "Pause until tomorrow", component: ThreadPauseAction });
+  app.slots.experimental_threadHeaderAction({ id: "pause", title: "Pause session", component: ThreadPauseAction });
   app.slots.experimental_threadHeaderAction({ id: "session", title: "247C session", component: ThreadSessionAction });
   app.slots.experimental_threadHeaderAction({ id: "pinned-files", title: "Pinned files", component: ThreadPinnedFiles });
 });

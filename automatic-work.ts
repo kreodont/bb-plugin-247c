@@ -1,3 +1,4 @@
+import { sessionFinishMode } from "./finish-mode.js";
 import { randomUUID } from "node:crypto";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { automationCheckpointSchema, type AutomationCheckpoint } from "./automation-contracts.js";
@@ -97,7 +98,13 @@ export class AutomaticWork {
   }
   async finish(id: string, recorder: "auto" | "same" | "personal-claude" = "auto", automatic = false) {
     const session = this.repo.session(id);
-    if (this.control().enabled && session.mode === "conversation" && session.status === "working" && session.automation?.state !== "ready") this.repo.saveSession({ ...session, automation: { ...session.automation, state: "reviewing" } });
+    if (this.control().enabled && session.mode === "conversation" && session.status === "working") {
+      const task = this.repo.kernel.getTask(session.taskId);
+      const finishMode = session.continuedFrom ? sessionFinishMode(session) : ["open", "waiting"].includes(task.status) ? "resolve" as const : undefined;
+      if (!automatic && session.automation?.outcome === "paused") this.manualOpen(session.taskId);
+      const current = this.repo.session(id);
+      this.repo.saveSession({ ...current, ...(finishMode ? { finishMode } : {}), automation: automatic && session.automation?.state === "ready" ? current.automation! : { state: "reviewing" } });
+    }
     return this.runtime.finish(id, recorder, automatic && session.automation?.state === "ready" ? async () => {
       if (!this.control().enabled || this.read(`pause:${session.taskId}`)) return false;
       const threadId = session.workerThreadId!, current = this.repo.session(id);
@@ -116,7 +123,7 @@ export class AutomaticWork {
     if (task.status === "waiting") this.repo.status(task.id, "open", task.revision);
     const until = this.days.pauseUntilTomorrow(session.taskId, session.id);
     this.save(`pause:${session.taskId}`, { until, sessionId: id });
-    this.repo.saveSession({ ...this.repo.session(id), automation: { state: "reviewing", outcome: "paused", pauseUntil: until, note: "Paused until manual continuation." } });
+    this.repo.saveSession({ ...this.repo.session(id), finishMode: "pause", automation: { state: "reviewing", outcome: "paused", pauseUntil: until, note: "Paused until manual continuation." } });
     this.repo.sessionEvent(id, "paused", "The user paused this task and moved it to tomorrow's plan. No automatic restart.", { until });
     return this.runtime.finish(id);
   }
@@ -183,11 +190,11 @@ export class AutomaticWork {
         const row = this.repo.db.prepare("SELECT value_json FROM session_updates WHERE proposal_id=?").get(proposal.id) as { value_json: string } | undefined;
         if (!row) throw new Error("The session review has no validated extraction.");
         const update = sessionUpdateSchema.parse(JSON.parse(row.value_json));
-        const parts = proposalParts(proposal.changes, update.extraction).filter(p => p !== "reportedTime" && !(session.automation?.outcome === "paused" && p === "field:status"));
+        const parts = proposalParts(proposal.changes, update.extraction).filter(p => p !== "reportedTime" && !(sessionFinishMode(session) === "pause" && p === "field:status"));
         if (parts.length) await this.runtime.reviewParts({ kind: "proposal", id: proposal.id, revision: proposal.baseRevision, decision: "accept", parts, requestId: randomUUID() }, "automation:247c");
         session = this.repo.session(session.id);
         // The explicit Pause action wins even if the recorder proposed a status change.
-        if (session.automation?.outcome === "paused" && session.proposalId) {
+        if (sessionFinishMode(session) === "pause" && session.proposalId) {
           const remaining = this.repo.kernel.getProposal(session.proposalId);
           if (remaining.status === "pending" && session.extraction?.changes?.status) await this.runtime.reviewParts({ kind: "proposal", id: remaining.id, revision: remaining.baseRevision, decision: "reject", parts: ["field:status"], requestId: randomUUID() }, "automation:247c");
         }

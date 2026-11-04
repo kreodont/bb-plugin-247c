@@ -52,10 +52,10 @@ export function ThreadPauseAction({ threadId, isCompactViewport }: PluginThreadH
   useEffect(() => { void refresh().catch(() => setVisible(false)); }, [refresh]);
   useRealtime("desk-changed", () => void refresh().catch(() => setVisible(false)));
   if (!visible) return null;
-  return <Button size="sm" variant="outline" className={threadActionClass("pinned", isCompactViewport)} aria-label="Pause until tomorrow" disabled={busy} onClick={async () => {
+  return <Button size="sm" variant="outline" className={threadActionClass("pinned", isCompactViewport)} aria-label="Pause session" aria-description="End and review this session without choosing done or waiting. Keep the task open and plan it for tomorrow." disabled={busy} onClick={async () => {
     if (busy) return; setBusy(true);
-    try { await rpc.call("pauseSession", { sessionId }); toast.success("Paused until tomorrow", { description: "The task stays open. Continue manually from its chat." }); }
+    try { await rpc.call("pauseSession", { sessionId }); toast.success("Session paused", { description: "Results will be reviewed; the task stays open and is planned for tomorrow. Continue manually." }); }
     catch (cause) { toast.error("Could not finish pausing", { description: cause instanceof Error ? cause.message : String(cause) }); }
     finally { setBusy(false); void refresh(); }
-  }}><Icon name="Pause" />{!isCompactViewport && (busy ? "Pausing…" : "Pause until tomorrow")}</Button>;
+  }}><Icon name="Pause" />{!isCompactViewport && (busy ? "Pausing…" : "Pause session")}</Button>;
 }

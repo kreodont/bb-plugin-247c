@@ -1,3 +1,4 @@
+import { sessionFinishMode } from "./finish-mode.js";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { isDeepStrictEqual } from "node:util";
 import { z } from "zod";
@@ -8,7 +9,7 @@ const requestSchema = z.object({ source: z.literal("spawn"),
   input: z.tuple([z.object({ type: z.literal("text"), text: z.string().max(1024 * 1024) })]),
   execution: z.object({ model: z.string().min(1), reasoningLevel: sessionSchema.shape.reviewerReasoning }),
 });
-const packetSchema = z.object({ sessionId: z.string(), continuedFrom: z.string().nullable(), task: z.unknown(), planning: z.unknown(),
+const packetSchema = z.object({ finishMode: z.enum(["resolve", "pause"]).nullable().optional(), sessionId: z.string(), continuedFrom: z.string().nullable(), task: z.unknown(), planning: z.unknown(),
   projection: z.unknown(), facts: z.unknown(), transcript: z.unknown(), previousReview: z.unknown() });
 
 /** Reuse only an unedited, single-turn recorder response for this exact frozen
@@ -33,6 +34,7 @@ export async function readSavedRecorder(bb: BbPluginApi, threadId: string, sessi
   try { json = JSON.parse(prompt.slice(start + marker.length)); } catch { return null; }
   const packet = packetSchema.safeParse(json);
   if (!packet.success || packet.data.sessionId !== session.id || packet.data.continuedFrom !== session.continuedFrom) return null;
+  if ((packet.data.finishMode ?? null) !== (sessionFinishMode(session) ?? null)) return null;
   for (const field of ["task", "planning", "projection", "facts"] as const) {
     if (!isDeepStrictEqual(packet.data[field], dossier[field])) return null;
   }

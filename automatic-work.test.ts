@@ -190,3 +190,49 @@ it("preserves parts left pending by an explicit human partial review", async () 
   expect(s.f.repo.session(s.session.id).status).toBe("awaiting_approval");
   expect(s.f.repo.session(s.session.id).automation?.appliedAt).toBeUndefined();
 });
+
+it("requires Finish session to classify the task and repairs an omitted status", async () => {
+  const s = await setup(), { session } = await chat(s);
+  const quote = "The report was prepared; confirmation from the recipient is still pending.";
+  await s.f.idle(session.workerThreadId!, quote); await s.auto.finish(session.id);
+  const reviewing = s.f.repo.session(session.id), ref = s.f.repo.transcript(session.id)!.messages.find(m => m.text === quote)!.ref;
+  expect(reviewing.finishMode).toBe("resolve");
+  const draft: Extraction = { rationale: "Preserve the report.", facts: [{ kind: "progress", text: quote, citations: [{ messageRef: ref, quote }] }], changes: { summary: { value: quote, evidenceRefs: ["fact:0"] } }, knowledge: [] };
+  await s.f.idle(reviewing.reviewerThreadId!, draft);
+  const repair = s.f.repo.session(session.id);
+  expect(repair.extractionRepair?.feedback).toContain("choose changes.status=done or waiting");
+  expect(repair.proposalId).toBeNull();
+  await s.runtime.tick(session.id);
+  const retry = s.f.repo.session(session.id);
+  await s.f.idle(retry.reviewerThreadId!, { ...draft, changes: { ...draft.changes, status: { value: "waiting", evidenceRefs: ["fact:0"] } } });
+  await s.auto.tick();
+  expect(s.f.repo.kernel.getTask(session.taskId).status).toBe("waiting");
+});
+it("keeps Pause independent of status classification even with automatic mode off", async () => {
+  const s = await setup(false), { task, session } = await chat(s);
+  const quote = "The local fix is ready; deployment can be continued later.";
+  await s.f.idle(session.workerThreadId!, quote); await s.auto.pause(session.id);
+  const reviewing = s.f.repo.session(session.id), ref = s.f.repo.transcript(session.id)!.messages.find(m => m.text === quote)!.ref;
+  const draft: Extraction = { rationale: "Save the local work.", facts: [{ kind: "progress", text: quote, citations: [{ messageRef: ref, quote }] }],
+    changes: { status: { value: "done", evidenceRefs: ["fact:0"] }, summary: { value: quote, evidenceRefs: ["fact:0"] } }, knowledge: [],
+    reportedTime: { minutes: 20, reason: "Preparing and checking the local fix.", workSummary: "Prepared and checked the local fix.", evidenceRefs: ["fact:0"] } };
+  await s.f.idle(reviewing.reviewerThreadId!, draft);
+  const reviewed = s.f.repo.session(session.id);
+  expect(reviewed).toMatchObject({ finishMode: "pause", status: "awaiting_approval" });
+  expect(reviewed.extraction?.changes?.status).toBeUndefined();
+  expect(reviewed.extraction?.reportedTime?.minutes).toBe(20);
+  await s.runtime.accept(reviewed.proposalId!, s.f.repo.kernel.getTask(task.id).revision);
+  expect(s.f.repo.kernel.getTask(task.id).status).toBe("open");
+});
+it("can leave a finished session pending without inventing completed work", async () => {
+  const s = await setup(), { task, session } = await chat(s);
+  await s.auto.finish(session.id);
+  expect(s.f.repo.transcript(session.id)?.messages.some(m => m.role === "assistant")).toBe(false);
+  const reviewing = s.f.repo.session(session.id);
+  await s.f.idle(reviewing.reviewerThreadId!, { rationale: "The task is not complete; keep it pending after Finish session.", facts: [], knowledge: [], reportedTime: null,
+    changes: { status: { value: "waiting", evidenceRefs: ["session:finish:pending"] } } });
+  expect(s.f.repo.session(session.id).status).toBe("awaiting_approval");
+  await s.auto.tick(); expect(s.f.repo.kernel.getTask(task.id).status).toBe("waiting");
+  expect(s.f.repo.detail(task.id).facts).toHaveLength(1); // original description only
+  expect(s.days.taskItem(task.id, s.days.today())?.reportedMinutes ?? null).toBeNull();
+});

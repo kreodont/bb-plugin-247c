@@ -1,3 +1,4 @@
+import { sessionFinishMode } from "./finish-mode.js";
 import { isLiveTask } from "./task-status.js";
 import { randomUUID } from "node:crypto";
 import { workspacePaths, resolveWorkspaceArtifact, workspaceFileUrl } from "./workspace-path.js";
@@ -202,6 +203,7 @@ export class SessionRuntime {
     let session: Session = { id: input.requestId, taskId: input.taskId, baseRevision: input.revision, status: "starting", objective, criteria: input.criteria, mode, finishedAt: null, extraction: null, extractionRepair: null,
       ...(mode === "conversation" ? { workerContext: acceptedWorkerContext(this.repo, input.taskId) } : {}),
       ...(closedTaskConversation ? { closedTaskConversation: true } : {}),
+      ...(discussion && sessionFinishMode(discussion.session) ? { finishMode: sessionFinishMode(discussion.session) } : {}),
       continuedFrom: discussion?.session.id ?? null, discussionProposalId: discussion?.proposal?.id ?? null,
       workerThreadId: null, reviewerThreadId: null, environmentId: null, hostId: null, workerProvider: input.request.providerId, workerModel: input.request.model,
       reviewerProvider, reviewerModel, reviewerReasoning: input.request.reasoningLevel, round: 0, maximumRepairs: options.maximumRepairs, createdAt: timestamp, updatedAt: timestamp,
@@ -526,7 +528,7 @@ export class SessionRuntime {
       let extraction: Extraction;
       let proposalInput: ReturnType<typeof extractionProposal>;
       try {
-        extraction = validateExtraction(parseJsonResult(saved.output, 512 * 1024), transcript, session.reportedTimeContext, this.repo.kernel.getTask(session.taskId).status);
+        extraction = validateExtraction(parseJsonResult(saved.output, 512 * 1024), transcript, session.reportedTimeContext, this.repo.kernel.getTask(session.taskId).status, sessionFinishMode(session));
         proposalInput = extractionProposal(extraction, session, dossier, transcript);
       } catch (error) {
         if (error instanceof PolicyError || error instanceof ZodError) continue;
@@ -604,7 +606,7 @@ export class SessionRuntime {
       let extraction: Extraction;
       let proposalInput: ReturnType<typeof extractionProposal>;
       try {
-        extraction = validateExtraction(parseJsonResult(output.output, 512 * 1024), transcript, session.reportedTimeContext, this.repo.kernel.getTask(session.taskId).status);
+        extraction = validateExtraction(parseJsonResult(output.output, 512 * 1024), transcript, session.reportedTimeContext, this.repo.kernel.getTask(session.taskId).status, sessionFinishMode(session));
         proposalInput = extractionProposal(extraction, session, dossier, transcript);
       } catch (error) {
         // Only malformed model output is repairable. Operational failures and

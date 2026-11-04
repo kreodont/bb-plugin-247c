@@ -29,9 +29,9 @@ it("pauses from the worker header in one click and hides the action during revie
   const session = sessionSchema.parse(await f.harness.behavior.callRpc("start", { ...f.startInput(task.id, task.revision), criteria: [] }));
   await f.idle(session.workerThreadId!, "Investigated the issue and saved the local findings.");
   const slot = renderSlot(app.threadHeaderActions.find(action => action.id === "pause")!, { threadId: session.workerThreadId!, projectId: "proj_personal", isCompactViewport: false }, { rpc }); mounts.push(slot);
-  fireEvent.click(await slot.findByRole("button", { name: "Pause until tomorrow" }));
+  fireEvent.click(await slot.findByRole("button", { name: "Pause session" }));
   await waitFor(() => expect(f.repo.session(session.id).status).toBe("reviewing"));
-  await waitFor(() => expect(slot.queryByRole("button", { name: "Pause until tomorrow" })).toBeNull());
+  await waitFor(() => expect(slot.queryByRole("button", { name: "Pause session" })).toBeNull());
   expect(f.repo.kernel.getTask(task.id).status).toBe("open");
   expect(await f.harness.behavior.callRpc("automationState", {})).toMatchObject({ paused: [{ taskId: task.id }] });
 });

@@ -1,5 +1,12 @@
 # 0.5.134
 
+## 0.5.136
+
+- Distinguish Finish session from Pause session: automatic Finish reviews must resolve the task as done or waiting, while Pause records the work without a status decision.
+- Remove status changes from paused reviews before validation, including with automatic processing disabled; preserve session time estimates for confirmation.
+- Preserve the finish mode through review repairs, discussions and recovery.
+
+
 ## 0.5.135
 
 - Add opt-in automatic acceptance of incoming updates and session review changes, with reported time kept for human confirmation.

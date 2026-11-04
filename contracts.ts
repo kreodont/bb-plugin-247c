@@ -123,6 +123,7 @@ export const knowledgeEntrySchema = z.union([conversationKnowledgeEntrySchema, f
 export const sessionStatusSchema = z.enum(["starting", "working", "collecting", "review_starting", "reviewing", "repair_starting", "awaiting_approval", "applied", "rejected", "blocked", "cancelled", "completed"]);
 export const sessionSchema = z.object({
   automation: automationSessionSchema.optional(),
+  finishMode: z.enum(["resolve", "pause"]).optional(),
   id: idSchema, taskId: idSchema, baseRevision: revisionSchema, status: sessionStatusSchema, objective: z.string(), criteria: z.array(z.string()),
   mode: z.enum(["result", "conversation"]).default("result"), finishedAt: z.string().nullable().default(null),
   continuedFrom: idSchema.nullable().default(null),
