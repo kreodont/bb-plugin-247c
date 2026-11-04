@@ -218,7 +218,7 @@ export class SessionRuntime {
     try {
       const thread = await this.bb.sdk.threads.spawn({ ...request,
         title: `247C · worker · ${session.id}`, visibility: "visible",
-        input: emptyChat ? [{ type: "text", text: emptyChatBootstrap(session.id), mentions: [], visibility: "agent-only" }] : [...request.input, { type: "text", text: workerInstructions(session, this.repo.detail(session.taskId), discussion), mentions: [], visibility: "agent-only" }],
+        input: emptyChat ? [{ type: "text", text: emptyChatBootstrap(session.id), mentions: [], visibility: "agent-only" }] : [...request.input, { type: "text", text: workerInstructions(session, this.repo.detail(session.taskId), discussion, options.automaticProcessing), mentions: [], visibility: "agent-only" }],
       });
       session = this.repo.saveSession({ ...this.repo.session(session.id), workerThreadId: thread.id, environmentId: thread.environmentId });
       if (!ACTIVE.has(session.status) || this.disposed) { await this.stopThread(thread.id, false); return session; }
@@ -429,7 +429,7 @@ export class SessionRuntime {
     return { workerModel, reviewerProvider, reviewerModel, reviewerReasoning, selectionReason: `Review model selected manually: ${reviewerModel} (${reviewerProvider}).` };
   }
 
-  async finish(id: string, recorder: "auto" | "same" | "personal-claude" = "auto") {
+  async finish(id: string, recorder: "auto" | "same" | "personal-claude" = "auto", readyCheck?: () => Promise<boolean>) {
     let session = this.repo.session(id);
     if (session.mode !== "conversation") throw new PolicyError("This session was created with acceptance criteria and uses the earlier verification workflow.");
     if (session.finishedAt || !ACTIVE.has(session.status)) return session;
@@ -438,11 +438,12 @@ export class SessionRuntime {
     const { selectionReason, ...selection } = await this.chooseRecorder(session, recorder, options);
     session = this.repo.session(id);
     if (session.finishedAt || !ACTIVE.has(session.status)) return session;
+    if (readyCheck && !await readyCheck()) return this.repo.session(id);
     // Freeze dispatch before awaiting anything that can deliver an idle event.
     session = this.repo.saveSession({ ...this.current(id), ...selection, status: "collecting", finishedAt: new Date().toISOString(), deadlineAt: Date.now() + options.sessionMinutes * 60000 });
     session = this.repo.saveSession({ ...session, reportedTimeContext: this.repo.sessionTime.capture(session) });
     this.unavailableMonitors.delete(id);
-    this.repo.sessionEvent(id, "conversation-finished", "The user ended the conversation; a separate review is starting.");
+    this.repo.sessionEvent(id, "conversation-finished", session.automation ? "The conversation ended for a separate automatic review." : "The user ended the conversation; a separate review is starting.");
     this.repo.sessionEvent(id, "recorder-selected", selectionReason, selection);
     // Collection owns stopping and snapshotting under tick's processing lock.
     // Releasing here as well would stop the same runtime twice before review.
@@ -747,13 +748,13 @@ export class SessionRuntime {
     });
   }
 
-  async reviewParts(input: PartDecision) {
+  async reviewParts(input: PartDecision, actor = "human:bb-panel") {
     const proposal = this.repo.kernel.getProposal(input.id);
     if (input.decision === "accept" && proposal.status === "pending") {
       const session = this.repo.sessions(proposal.taskId).find(s => s.proposalId === proposal.id);
       if (session) await this.assertArtifacts(session);
     }
-    const result = this.repo.reviewParts(input);
+    const result = this.repo.reviewParts(input, actor);
     await this.archiveFinishedThreads(proposal.taskId);
     return result;
   }

@@ -1,3 +1,6 @@
+import { AutomaticWork } from "./automatic-work.js";
+import { automaticWorkGuide } from "./automation-prompts.js";
+import { automationCheckpointSchema } from "./automation-contracts.js";
 import { sourceProposalRefreshPreview, refreshSourceProposal } from "./source-proposal-refresh.js";
 import { BacklogReview, backlogSubmitSchema } from "./backlog.js";
 import { retainSourcePayloads } from "./source-retention.js";
@@ -107,7 +110,9 @@ export default async function plugin(bb: BbPluginApi) {
     const defaults = composerDefaultsSchema.parse(JSON.parse(configuration.composerDefaults));
     return { projectId: configuration.threadProjectId, providerId: defaults.providerId || configuration.workProvider, model: defaults.model || configuration.workModel };
   };
-  const chatUpdates = new SourceChatUpdates(bb, repo, runtime, chatDefaults);
+  const automatic = new AutomaticWork(bb, repo, runtime, sync.store, days, () => configuration);
+  automatic.control();
+  const chatUpdates = new SourceChatUpdates(bb, repo, runtime, chatDefaults, automatic);
   const deliverChatUpdates = () => { void chatUpdates.flush().catch(() => bb.log.warn("Accepted chat updates could not be processed; saved requests will resume automatically.")); };
   const updaterHealth = new UpdaterHealth(bb, () => configuration, () => Date.now(),
     () => evaluateNativeUpdater(sync.store.nativeHealthRuns(), configuration, Date.now()));
@@ -115,6 +120,10 @@ export default async function plugin(bb: BbPluginApi) {
   days.tick();
 
   bb.rpc.register(rpcContract, {
+    automationState: () => automatic.state(),
+    automationSet: async ({ enabled }) => { await settings.experimental_set({ automaticProcessing: enabled }); configuration = await settings.get(); return automatic.state(); },
+    automationRetry: ({ id }) => automatic.retry(id),
+    pauseSession: ({ sessionId }) => automatic.pause(sessionId),
     backlogState: ({ runId }) => backlog.state(runId),
     backlogStart: input => backlog.start(input),
     backlogStop: ({ runId }) => backlog.stop(runId),
@@ -202,9 +211,9 @@ export default async function plugin(bb: BbPluginApi) {
     threadSession: ({ threadId }) => {
       const session = repo.forThread(threadId);
       if (!session) return { session: null };
-      const { id, taskId, workerThreadId, reviewerThreadId, mode, status, finishedAt, proposalId } = session;
+      const { id, taskId, workerThreadId, reviewerThreadId, mode, status, finishedAt, proposalId, automation } = session;
       const date = days.today(), item = days.taskItem(taskId, date);
-      return { session: { id, taskId, workerThreadId, reviewerThreadId, mode, status, finishedAt, proposalId }, reportedToday: {
+      return { session: { id, taskId, workerThreadId, reviewerThreadId, mode, status, finishedAt, proposalId, ...(automation ? { automation } : {}) }, reportedToday: {
         date, timeZone: days.timeZone, minutes: item?.reportedMinutes ?? null, estimated: item?.reportedMode === "estimate" && item.reportedMinutes !== null,
       } };
     },
@@ -228,8 +237,8 @@ export default async function plugin(bb: BbPluginApi) {
     reject: async ({ proposalId }) => { const proposal = repo.reject(proposalId); await runtime.archiveFinishedThreads(proposal.taskId); return proposal; },
     revert: ({ proposalId }) => { const proposal = repo.kernel.proposeRevert(proposalId); changed(); return proposal; },
     start: (input) => runtime.start(input),
-    openChat: (input) => runtime.openChat(input, chatDefaults()),
-    finish: ({ sessionId, recorder }) => runtime.finish(sessionId, recorder),
+    openChat: async (input) => { const session = await runtime.openChat(input, chatDefaults()); automatic.manualOpen(input.taskId); return session; },
+    finish: ({ sessionId, recorder }) => automatic.finish(sessionId, recorder),
     retry: ({ sessionId, recorder }) => runtime.retry(sessionId, recorder),
     resume: ({ sessionId }) => runtime.resume(sessionId),
     cancel: ({ sessionId }) => runtime.cancel(sessionId),
@@ -271,7 +280,7 @@ export default async function plugin(bb: BbPluginApi) {
   bb.agents.registerTool({
     name: "c247_day_estimate", description: "For the active 247C source analyst only: set an explicitly labeled, editable reported-time estimate for measured work. Set reportedMinutes as the total for this task and date based on the volume and type of completed work, including estimated human reading and checking. Include workSummary as a short plain English sentence about work actually done, separately from reason (rationale and assumptions); skip entries without sufficient evidence. Read c247_day_review first; use its full ID/revision and a stable requestId. Never records manual hours, modifies tasks or submits an external timesheet.",
     parameters: dayEstimateSchema,
-    execute(input, ctx) { const run = timeAnalyst(ctx.threadId); return boundedJson(days.estimate(input, `agent-time:source:${run.id}`)); },
+    execute(input, ctx) { const run = timeAnalyst(ctx.threadId); if (configuration.automaticProcessing) return boundedJson({ skipped: true, reason: "Automatic work uses session time proposals requiring user confirmation. Do not add a second daily estimate." }); return boundedJson(days.estimate(input, `agent-time:source:${run.id}`)); },
   });
   const timeInstructions = "247C day planning keeps plannedMinutes and reportedMinutes independent for tasks. These tools record manual time only from an explicit user instruction, including its date and whether to SET a total or ADD minutes. Never infer hours from chat duration, task completion, a model's guess, or external content. Read c247_day first; use the returned full item ID and revision. A stable requestId prevents duplicate additions. Times are a separate journal; task fields and knowledge still go through approved proposals. Meetings are imported by the calendar script, with automatic reported=planned after the meeting, or immediately when the local reportMeetingsWhenPlanned setting is enabled; manual overrides always win. Never create a task just to represent an imported meeting. actualMinutes is read-only measured agent runtime (summed across agents), or equals reported for meetings. Hourly analysis separately proposes reported minutes from the volume, complexity and type of work, including estimated human reading and checking, with an explanation for user review. Estimates are independent of agent runtime, with no ratio floor or ceiling; these tools never invent manual hours. Manual reported time has no ratio limit because agent runtime excludes human reading and other work. Manual corrections win. reportedWorkSummary is an optional short plain English description of work actually done for that day. Supply it with explicit reported-time entries when the conversation establishes the work; never infer it from a title or planned step. It can be corrected independently of minutes. No bullets, emoji, markup or long dashes.";
   bb.agents.registerTool({
@@ -384,6 +393,8 @@ export default async function plugin(bb: BbPluginApi) {
   bb.agents.registerTool({ name: "c247_script_analysis_result", description: "Submit the complete saved-source analysis. Correct any validation errors and resubmit until saved successfully. The existing updater then validates and imports pending proposals; no task changes are applied.", parameters: scriptAnalysisResultSchema, execute: (input, ctx) => externalAnalysis.submit(ctx.threadId, input).then(boundedJson) });
   bb.agents.registerTool({ name: "c247_script_analysis_select", description: "Submit interpretations following the supplied selection schema. Select citation refs and skipped record refs from the saved catalog; never provide source IDs, dates or quotation text. saved:false retains the attempt but requires correction. saved:true means awaiting import, not imported or approved.", parameters: scriptAnalysisSelectionInputSchema, execute: (input, ctx) => externalAnalysis.select(ctx.threadId, input).then(boundedJson) });
   bb.agents.registerTool({ name: "c247_script_analysis_sources", description: "Read this analysis's frozen reference catalog, including after context compaction. No external source requests. Omit record to list records; supply record such as r3 to read its passages. Continue with nextOffset until null.", parameters: z.object({ record: z.string().max(40).optional(), offset: z.number().int().min(0).default(0) }).strict(), execute: (input, ctx) => externalAnalysis.sources(ctx.threadId, input.record, input.offset).then(boundedJson) });
+  bb.agents.registerTool({ name: "c247_work_checkpoint", description: "Record that your own 247C work chat needs the user's input or is ready for a separate review. No task changes or time acceptance. Ready means the whole request is done or only an external reply is pending.", parameters: automationCheckpointSchema,
+    execute: (input, ctx) => automatic.checkpoint(ctx.threadId, input).then(boundedJson) });
   const workerBriefs = new Map<string, { key: string; text: string }>();
   bb.agents.registerTool({ name: "c247_script_analysis_context", description: "Read deferred task or pending-proposal context from this analysis's frozen dataset. Supply contextRef as ref, start at offset=0 and follow every nextOffset. No external requests.", parameters: z.object({ ref: z.string().max(40), offset: z.number().int().min(0).default(0) }).strict(), execute: (input, ctx) => externalAnalysis.context(ctx.threadId, input.ref, input.offset).then(boundedJson) });
   bb.agents.registerTool({ name: "c247_backlog_next", description: "Read the next unfinished backlog task. Request includeIndex once at the start or after compaction. Does not change tasks.", parameters: z.object({ includeIndex: z.boolean().default(false) }).strict(), execute: ({ includeIndex }, ctx) => boundedJson(backlog.next(ctx.threadId, includeIndex)) });
@@ -438,9 +449,9 @@ export default async function plugin(bb: BbPluginApi) {
     const freshContext = worker && conversation && session && ["starting", "working"].includes(session.status)
       ? currentTaskInstructions(session, acceptedWorkerContext(repo, session.taskId)) : "";
     const workerGuide = worker && session
-      ? [freshContext, emptyChat ? emptyChatInstructions(session) : "", replyVerificationGuide, draftDestinationGuide].filter(Boolean).join("\n\n") : "";
+      ? [freshContext, emptyChat ? emptyChatInstructions(session, configuration.automaticProcessing) : "", configuration.automaticProcessing && conversation ? automaticWorkGuide : "", replyVerificationGuide, draftDestinationGuide].filter(Boolean).join("\n\n") : "";
     const timeTools = ["c247_day", "c247_plan_add", "c247_time_edit", "c247_plan_move", "c247_time_report"];
-    return { skills: [], tools: reviewer ? [] : worker ? ["c247_read", "c247_knowledge", ...timeTools, ...(conversation ? [] : ["c247_submit_result"])] : ["c247_tasks", "c247_read", "c247_knowledge", "c247_create", "c247_propose", "c247_sync_status", "c247_sync_start", ...timeTools],
+    return { skills: [], tools: reviewer ? [] : worker ? ["c247_read", "c247_knowledge", ...timeTools, ...(conversation ? configuration.automaticProcessing ? ["c247_work_checkpoint"] : [] : ["c247_submit_result"])] : ["c247_tasks", "c247_read", "c247_knowledge", "c247_create", "c247_propose", "c247_sync_status", "c247_sync_start", ...timeTools],
       ...(reviewer || worker || localInstructions ? { instructions: instructions(reviewer ? "This is a separate 247C recording/review session. Use only the supplied snapshots. Do not invoke tools or delegate. Return the requested JSON." : workerGuide) } : {}) };
   });
 
@@ -472,6 +483,14 @@ export default async function plugin(bb: BbPluginApi) {
     async start(signal) {
       while (!signal.aborted) {
         try { await backlog.tick(); } catch { if (!signal.aborted) bb.log.warn("Backlog review status is temporarily unavailable; saved results are preserved."); }
+        await sleep(5000, signal);
+      }
+    },
+  });
+  bb.background.service("automatic-work", {
+    async start(signal) {
+      while (!signal.aborted) {
+        try { await automatic.tick(); } catch { if (!signal.aborted) bb.log.warn("Automatic task work could not finish its check; saved work is preserved."); }
         await sleep(5000, signal);
       }
     },

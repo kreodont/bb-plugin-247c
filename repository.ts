@@ -1,3 +1,4 @@
+import { AUTOMATION_SCHEMA } from "./automation-contracts.js";
 import { BACKLOG_SCHEMA } from "./backlog-contracts.js";
 import { SEARCH_MIGRATION, SEARCH_MESSAGE_SEQUENCE_MIGRATION, SEARCH_MISSING_THREADS_MIGRATION } from "./search-schema.js";
 import { SOURCE_STORAGE_MIGRATION } from "./source-storage.js";
@@ -57,6 +58,7 @@ export const EXTRA_SCHEMA = [
   SEARCH_MESSAGE_SEQUENCE_MIGRATION,
   SEARCH_MISSING_THREADS_MIGRATION,
   BACKLOG_SCHEMA,
+  AUTOMATION_SCHEMA,
 ];
 export const ACTIVE = new Set<Session["status"]>(["starting", "working", "collecting", "review_starting", "reviewing", "repair_starting"]);
 export const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -273,8 +275,8 @@ export class Repository {
     this.db.prepare("INSERT INTO part_reviews VALUES (?,?,?)").run(kind, id, JSON.stringify(review));
   }
 
-  reviewParts(input: PartDecision) {
-    const result = this.request(input.requestId, { kind: "review-parts", input }, () => {
+  reviewParts(input: PartDecision, actor = "human:bb-panel") {
+    const result = this.request(input.requestId, { kind: "review-parts", input, ...(actor === "human:bb-panel" ? {} : { actor }) }, () => {
       this.sessionTime.reconcile(this.kernel.getProposal(input.id).taskId);
       const proposal = this.kernel.getProposal(input.id);
       if (proposal.status === "rejected" && this.sessionTime.isOmittedOnly(input.id)) return { taskId: proposal.taskId, remainingId: null };
@@ -306,7 +308,7 @@ export class Repository {
       // The original draft and its evidence remain intact in history. Only exact
       // selected subsets receive approvals; the rest get a fresh pending identity.
       const accepted = split.accepted.length ? make(split.accepted, "accepted") : null;
-      if (accepted) this.accept(accepted.id, task.revision);
+      if (accepted) this.accept(accepted.id, task.revision, actor);
       const remaining = split.remaining.length ? make(split.remaining, "remaining") : null;
       this.kernel.rejectProposal(proposal.id);
       for (const session of this.sessions(task.id)) if (session.proposalId === proposal.id) {
@@ -316,7 +318,7 @@ export class Repository {
           ...(update ? { extraction: remaining ? pickExtraction(update.extraction, split.remaining, proposal.id) : accepted ? pickExtraction(update.extraction, split.accepted, proposal.id) : update.extraction } : {}),
           status: remaining ? "awaiting_approval" : accepted || session.acceptedPartProposalIds?.length ? "applied" : "rejected" });
       }
-      this.savePartReview("proposal", proposal.id, { ...split, acceptedId: accepted?.id ?? null, remainingId: remaining?.id ?? null, createdAt: now() });
+      this.savePartReview("proposal", proposal.id, { ...(actor === "human:bb-panel" ? {} : { actor }), ...split, acceptedId: accepted?.id ?? null, remainingId: remaining?.id ?? null, createdAt: now() });
       return { taskId: task.id, remainingId: remaining?.id ?? null };
     });
     this.changed(); return result;
@@ -331,7 +333,7 @@ export class Repository {
     return proposal;
   }
 
-  accept(proposalId: string, revision: number) {
+  accept(proposalId: string, revision: number, actor = "human:bb-panel") {
     this.sessionTime.reconcile(this.kernel.getProposal(proposalId).taskId);
     const proposal = this.kernel.getProposal(proposalId);
     if (proposal.status === "applied") return this.detail(proposal.taskId);
@@ -341,7 +343,7 @@ export class Repository {
       if (proposal.baseRevision !== revision) throw new ConflictError("The proposal targets an old dossier revision. A new result is required.");
       if (proposal.changes.status && statusNeedsStoppedSession(this.kernel.getTask(proposal.taskId).status, proposal.changes.status.value) && this.active().some((s) => s.taskId === proposal.taskId)) throw new PolicyError("Finish this task's current work session first.");
       if (this.active().some((s) => s.discussionProposalId === proposalId)) throw new PolicyError("Finish discussing this review first. Its revised proposal will appear after the session ends.");
-      if (proposal.status === "pending") this.kernel.approveProposal(proposalId, "human:bb-panel");
+      if (proposal.status === "pending") this.kernel.approveProposal(proposalId, actor);
       this.kernel.applyProposal(proposalId);
       this.applySessionUpdate(proposalId);
       for (const session of this.sessions(proposal.taskId)) if (session.proposalId === proposalId) this.saveSession({ ...session, status: "applied" });
@@ -511,7 +513,7 @@ export class Repository {
     // stays valid across its later edits, preserving a manual thread unarchive.
     // Closing the whole task still creates a new archival pass by revision.
     return (this.db.prepare(`WITH RECURSIVE accepted_sessions(id) AS (
-        SELECT id FROM sessions WHERE status='applied'
+        SELECT id FROM sessions WHERE status='applied' OR json_extract(value_json,'$.automation.appliedAt') IS NOT NULL
         UNION SELECT json_extract(s.value_json,'$.continuedFrom') FROM sessions s JOIN accepted_sessions a ON s.id=a.id
           WHERE json_extract(s.value_json,'$.continuedFrom') IS NOT NULL
       ) SELECT st.thread_id,s.task_id,t.revision FROM session_threads st
@@ -527,7 +529,7 @@ export class Repository {
     return Boolean(this.db.prepare(`WITH RECURSIVE descendants(id) AS (
       SELECT id FROM sessions WHERE id=?
       UNION SELECT s.id FROM sessions s JOIN descendants d ON json_extract(s.value_json,'$.continuedFrom')=d.id
-    ) SELECT 1 FROM sessions WHERE id IN (SELECT id FROM descendants) AND status='applied' LIMIT 1`).get(sessionId));
+    ) SELECT 1 FROM sessions WHERE id IN (SELECT id FROM descendants) AND (status='applied' OR json_extract(value_json,'$.automation.appliedAt') IS NOT NULL) LIMIT 1`).get(sessionId));
   }
   recordThreadArchive(threadId: string, revision: number, succeeded: boolean) {
     this.db.prepare(`INSERT INTO closed_task_thread_archives(thread_id,task_revision,archived_at,retry_at) VALUES(?,?,?,?)

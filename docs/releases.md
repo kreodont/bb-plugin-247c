@@ -1,5 +1,12 @@
 # 0.5.134
 
+## 0.5.135
+
+- Add opt-in automatic acceptance of incoming updates and session review changes, with reported time kept for human confirmation.
+- Queue work chats with bounded concurrency, durable pause holds, explicit completion checkpoints and visible failures.
+- Add Pause until tomorrow to task chat headers, preserving current-day time and existing next-day plans.
+
+
 Stale source proposals now have a Refresh proposal button. Review the current task, select the changes to keep, and save a replacement for acceptance. Original findings and quotes remain in history. Refreshing does not run a model or apply task changes.
 
 # 0.5.130

@@ -94,6 +94,18 @@ export class DayPlanning {
     });
     this.repo.changed(); return item;
   }
+  pauseUntilTomorrow(taskId: string, sessionId: string) {
+    const today = this.today(), tomorrow = shiftDay(today, 1);
+    return this.repo.request(`pause-plan:${sessionId}`, { kind: "pause-plan", taskId, sessionId }, () => {
+      const task = this.repo.kernel.getTask(taskId), before = this.taskItem(taskId, today);
+      let next = this.taskItem(taskId, tomorrow);
+      if (!next) next = this.write({ ...this.blank(tomorrow, taskId, task.title), step: before?.step ?? this.repo.kernel.getDossier(taskId).projection.nextStep ?? "" }, null, "human:pause", "added");
+      else if (next.removed) next = this.write({ ...next, removed: false }, next, "human:pause", "restored");
+      if (before && !before.removed) this.write({ ...before, state: "carried", carriedTo: tomorrow }, before, "human:pause", "carried");
+      this.repo.changed();
+      return tomorrow;
+    });
+  }
   private automatic(input: DayItem): DayItem {
     if (!input.calendar) return input;
     const item = structuredClone(input), event = item.calendar!;

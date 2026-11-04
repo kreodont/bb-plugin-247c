@@ -1,3 +1,4 @@
+import { automationSessionSchema, automationStateSchema } from "./automation-contracts.js";
 import { backlogRpcContract } from "./backlog-contracts.js";
 import { searchRpcContract } from "./search-contracts.js";
 import { connectionAttemptSchema } from "./source-diagnostics.js";
@@ -47,7 +48,7 @@ export const proposalSchema = z.object({
   id: idSchema, taskId: idSchema, baseRevision: revisionSchema, model: z.string(), status: z.enum(["pending", "approved", "applied", "rejected", "conflicted"]),
   createdAt: z.string(), resolvedAt: z.string().nullable(), idempotencyKey: z.string().nullable(), rationale: z.string(), confidence: z.number(), changes: changesSchema,
 });
-export const partReviewSchema = z.object({ accepted: z.array(z.string()), rejected: z.array(z.string()), remaining: z.array(z.string()), acceptedId: idSchema.nullable(), remainingId: idSchema.nullable(), createdAt: z.string() });
+export const partReviewSchema = z.object({ actor: z.string().optional(), accepted: z.array(z.string()), rejected: z.array(z.string()), remaining: z.array(z.string()), acceptedId: idSchema.nullable(), remainingId: idSchema.nullable(), createdAt: z.string() });
 export const partDecisionSchema = z.object({ kind: z.enum(["source", "proposal"]), id: idSchema, revision: revisionSchema.nullable(), decision: z.enum(["accept", "reject"]), parts: z.array(z.string().min(1).max(120)).min(1).max(400), requestId: z.uuid(), initialPriority: initialPrioritySchema.optional() }).strict().refine(v => !v.initialPriority || (v.kind === "source" && v.decision === "accept"), "Initial priority is only available when accepting a new source task.");
 export const partDecisionResultSchema = z.object({ taskId: idSchema.nullable(), remainingId: idSchema.nullable() });
 export const proposalViewSchema = proposalSchema.extend({ partReview: partReviewSchema.optional(), evidence: z.array(evidenceSchema), receipt: z.object({ id: z.string(), beforeRevision: z.number(), afterRevision: z.number(), createdAt: z.string() }).nullable() });
@@ -121,6 +122,7 @@ export const fileKnowledgeEntrySchema = z.object({
 export const knowledgeEntrySchema = z.union([conversationKnowledgeEntrySchema, fileKnowledgeEntrySchema]);
 export const sessionStatusSchema = z.enum(["starting", "working", "collecting", "review_starting", "reviewing", "repair_starting", "awaiting_approval", "applied", "rejected", "blocked", "cancelled", "completed"]);
 export const sessionSchema = z.object({
+  automation: automationSessionSchema.optional(),
   id: idSchema, taskId: idSchema, baseRevision: revisionSchema, status: sessionStatusSchema, objective: z.string(), criteria: z.array(z.string()),
   mode: z.enum(["result", "conversation"]).default("result"), finishedAt: z.string().nullable().default(null),
   continuedFrom: idSchema.nullable().default(null),
@@ -186,6 +188,7 @@ export const syncRunSchema = z.object({
   connectionAttempts: z.array(connectionAttemptSchema).max(20).optional(),
 });
 export const sourceChatDeliverySchema = z.object({
+  automatic: z.boolean().optional(),
   requestId: z.uuid(), state: z.enum(["pending", "sending", "sent", "queued", "failed", "uncertain"]),
   threadId: idSchema.nullable(), message: z.string(), error: z.string().nullable(),
 });
@@ -259,7 +262,7 @@ export function nativeRequest(value: z.infer<typeof requestSchema>): NewThreadRe
   return value as unknown as NewThreadRequest;
 }
 export const sessionStartSchema = z.object({ taskId: idSchema, revision: revisionSchema, requestId: z.uuid(), continueSessionId: idSchema.optional(), criteria: z.array(z.string().trim().min(1).max(1500)).max(20).default([]), request: requestSchema }).strict();
-export const settingsViewSchema = z.object({ codexReviewer: z.string(), claudeReviewer: z.string(), maximumRepairs: z.number(), sessionMinutes: z.number(), excludedReviewModels: z.string().optional() });
+export const settingsViewSchema = z.object({ codexReviewer: z.string(), claudeReviewer: z.string(), maximumRepairs: z.number(), sessionMinutes: z.number(), excludedReviewModels: z.string().optional(), automaticProcessing: z.boolean().optional() });
 export const syncStartSchema = z.object({ requestId: z.uuid(), since: z.iso.datetime({ offset: true }).nullable().default(null), request: requestSchema }).strict();
 export const syncImportSchema = z.object({ requestId: z.uuid(), path: z.string().min(1).max(4096), sha256: z.string().regex(/^[a-f0-9]{64}$/) }).strict();
 export const syncStateSchema = z.object({ runs: z.array(syncRunSchema), candidates: z.array(syncCandidateSchema), pending: z.number(), checkpoints: z.record(sourceKeySchema, z.string().nullable()), nextSince: z.record(sourceKeySchema, z.string()) });
@@ -288,6 +291,10 @@ export const scriptAnalysisSelectionInputSchema = z.object({
 }).strict();
 
 export const rpcContract = defineRpcContract({
+  automationState: { input: z.object({}).strict(), output: automationStateSchema },
+  automationSet: { input: z.object({ enabled: z.boolean() }).strict(), output: automationStateSchema },
+  automationRetry: { input: z.object({ id: z.string() }).strict(), output: automationStateSchema },
+  pauseSession: { input: z.object({ sessionId: idSchema }).strict(), output: sessionSchema },
   ...backlogRpcContract,
   ...searchRpcContract,
   ...editorRpcContract,
@@ -317,7 +324,7 @@ export const rpcContract = defineRpcContract({
   reviewParts: { input: partDecisionSchema, output: partDecisionResultSchema },
   detail: { input: z.object({ id: idSchema, sessionId: idSchema.optional() }).strict(), output: dossierSchema },
   reviewActivity: { input: z.object({}).strict(), output: z.object({ threads: z.array(z.object({ threadId: idSchema, status: z.enum(["collecting", "review_starting", "reviewing", "awaiting_approval"]) })) }) },
-  threadSession: { input: z.object({ threadId: idSchema }).strict(), output: z.object({ session: sessionSchema.pick({ id: true, taskId: true, workerThreadId: true, reviewerThreadId: true, mode: true, status: true, finishedAt: true, proposalId: true }).nullable(), reportedToday: z.object({ date: dayDateSchema, timeZone: z.string().optional(), minutes: dayMinutesSchema, estimated: z.boolean() }).optional() }) },
+  threadSession: { input: z.object({ threadId: idSchema }).strict(), output: z.object({ session: sessionSchema.pick({ id: true, taskId: true, workerThreadId: true, reviewerThreadId: true, mode: true, status: true, finishedAt: true, proposalId: true, automation: true }).nullable(), reportedToday: z.object({ date: dayDateSchema, timeZone: z.string().optional(), minutes: dayMinutesSchema, estimated: z.boolean() }).optional() }) },
   threadSource: { input: z.object({ threadId: idSchema }).strict(), output: z.object({ source: taskSourceLinkSchema.nullable() }) },
   setPrimarySource: { input: z.object({ taskId: idSchema, url: sourceUrlSchema, revision: revisionSchema, requestId: z.uuid() }).strict(), output: sourceSelectionSchema },
   create: { input: z.object({ title: z.string().trim().min(1).max(200), description: z.string().trim().max(12000).default(""), primarySourceUrl: sourceUrlSchema.nullable().optional(), customer: customerSchema.optional(), requestId: z.uuid() }).strict(), output: taskSchema },

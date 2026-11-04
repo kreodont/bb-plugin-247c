@@ -1,3 +1,4 @@
+import { AutomaticWorkPage, AutomaticWorkStatus, ThreadPauseAction } from "./automatic-work-ui.js";
 import { BacklogPage } from "./backlog-ui.js";
 import { SearchPage, prepareSearch } from "./search-ui.js";
 import { SourceConnectionDiagnostics } from "./source-diagnostics-ui.js";
@@ -1049,13 +1050,14 @@ function DeskPage({ subPath }: PluginNavPanelProps) {
   if (!data) return <p role="status">Loading 247C settings…</p>;
   const page = deskRoute(subPath).path.split("/")[0];
   const uxPage = !page || page === "tasks" ? "tasks" : ["day", "report", "proposals", "updates", "knowledge", "ux", "search"].includes(page) ? page as "day" | "report" | "proposals" | "updates" | "knowledge" | "ux" | "search" : "task";
-  return <UxScope page={uxPage} view={subPath} className="h-full min-h-0"><PlanningTimeZone.Provider value={data.timeZone ?? DAY_TIME_ZONE}><ErrorNotice error={error} retry={() => void refresh()} /><NavigationFrame subPath={subPath} pendingTotal={data.pendingTotal} failedReviews={reviews.data?.total ?? 0} today={localDay(new Date(), data.timeZone ?? DAY_TIME_ZONE)} goTo={path => navigate.toPluginPanel("desk", { subPath: withThread(path, threadId) })} returnToThread={threadId ? () => navigate.toThread(threadId) : undefined}><div className="flex h-full min-h-0 flex-col"><UpdaterHealthBanner showHealthy={deskRoute(subPath).path === "updates"} /><div className="min-h-0 flex-1"><PageContent subPath={subPath} /></div></div></NavigationFrame></PlanningTimeZone.Provider></UxScope>;
+  return <UxScope page={uxPage} view={subPath} className="h-full min-h-0"><PlanningTimeZone.Provider value={data.timeZone ?? DAY_TIME_ZONE}><ErrorNotice error={error} retry={() => void refresh()} /><NavigationFrame subPath={subPath} pendingTotal={data.pendingTotal} failedReviews={reviews.data?.total ?? 0} today={localDay(new Date(), data.timeZone ?? DAY_TIME_ZONE)} goTo={path => navigate.toPluginPanel("desk", { subPath: withThread(path, threadId) })} returnToThread={threadId ? () => navigate.toThread(threadId) : undefined}><div className="flex h-full min-h-0 flex-col"><AutomaticWorkStatus /><UpdaterHealthBanner showHealthy={deskRoute(subPath).path === "updates"} /><div className="min-h-0 flex-1"><PageContent subPath={subPath} /></div></div></NavigationFrame></PlanningTimeZone.Provider></UxScope>;
 }
 
 function PageContent({ subPath }: PluginNavPanelProps) {
   const timeZone = usePlanningTimeZone();
   const { path, threadId, focusTaskId } = deskRoute(subPath);
   if (path === "tasks") return <Desk />;
+  if (path === "automatic") return <AutomaticWorkPage />;
   if (path === "backlog") return <BacklogPage renderProposal={(dossier, proposal, busy, action) => <ProposalCard dossier={dossier} proposal={proposal} busy={busy} action={action} />} />;
   if (path === "search") return <SearchPage threadId={threadId} />;
   if (path === "reviews") return <ReviewFailuresPage />;
@@ -1133,6 +1135,7 @@ export default definePluginApp((app) => {
   app.slots.experimental_threadHeaderAction({ id: "proposal", title: "247C proposal", component: ThreadProposalAction });
   app.slots.experimental_threadHeaderAction({ id: "source", title: "247C primary source", component: ThreadSourceAction });
   app.slots.experimental_threadHeaderAction({ id: "reported", title: "247C reported today", component: ThreadReportedAction });
+  app.slots.experimental_threadHeaderAction({ id: "pause", title: "Pause until tomorrow", component: ThreadPauseAction });
   app.slots.experimental_threadHeaderAction({ id: "session", title: "247C session", component: ThreadSessionAction });
   app.slots.experimental_threadHeaderAction({ id: "pinned-files", title: "Pinned files", component: ThreadPinnedFiles });
 });

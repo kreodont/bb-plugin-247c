@@ -83,6 +83,10 @@ its path once. Every subsequent plugin load, including a native Git update,
 validates and reapplies the named values through BB's settings API. No changes to
 the downloaded source are needed. Unlisted settings keep their saved values.
 
+## Automatic task work
+
+See [Automatic task work](automatic-work.md) for opt-in incoming-event processing, worker checkpoints, reported-time confirmation and manual continuation after a pause. Configure an explicit work account and model before enabling it.
+
 ## Automatic day-plan accounting
 
 With `hourlyUpdates` enabled, each hourly check also reconciles the day plan with completed work in linked 247C task chats and their agents. Actual sums measured agent runtime; reported estimates use the volume and type of work, including human reading and checking, and are marked for user review without a ratio limit relative to actual. Existing manual values are preserved. On a fresh machine, tracking starts with that local day and its own BB history. See [Time journal rules](../skills/day-planning.md) for measurement boundaries, manual overrides and recovery behavior.

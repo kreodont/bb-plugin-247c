@@ -572,7 +572,7 @@ ${errors.join("\n").slice(0, 16000)}`);
     this.repo.db.prepare("UPDATE source_sync_candidates SET status=?,task_id=?,value_json=? WHERE id=?").run(candidate.status, candidate.taskId ?? candidate.resultTaskId, JSON.stringify(candidate), candidate.id);
     return candidate;
   }
-  accept(id: string, initialPriority?: { urgent: boolean; important: boolean }) {
+  accept(id: string, initialPriority?: { urgent: boolean; important: boolean }, automatic = false) {
     const result = this.repo.store.transaction(() => {
       const candidate = this.candidate(id);
       if (initialPriority && candidate.taskId) throw new PolicyError("Initial priority is only available for new tasks.");
@@ -591,8 +591,8 @@ ${errors.join("\n").slice(0, 16000)}`);
       const proposal = this.repo.kernel.createProposal({ taskId, baseRevision: dossier.task.revision,
         model: `external-sync:${run.provider}:${run.model}`, output: { rationale: candidate.rationale, confidence: candidate.confidence, changes: draft.changes },
         additionalEvidence: draft.evidence, idempotencyKey: `sync:${candidate.id}` });
-      this.repo.accept(proposal.id, dossier.task.revision);
-      // These facts belong to this human-approved receipt, without extra revisions.
+      this.repo.accept(proposal.id, dossier.task.revision, automatic ? "automation:247c" : "human:bb-panel");
+      // These facts belong to this accepted receipt, without extra revisions.
       const timestamp = now();
       for (const [index, fact] of candidate.facts.entries()) {
         if (candidate.recordFactIndexes && !candidate.recordFactIndexes.includes(index)) continue;
@@ -607,7 +607,8 @@ ${errors.join("\n").slice(0, 16000)}`);
         if (current.status === "waiting") this.repo.status(taskId, "open", current.revision);
       }
       this.saveCandidate({ ...candidate, status: "applied", resolvedAt: timestamp, proposalId: proposal.id, resultTaskId: taskId,
-        ...(candidate.actions?.includes("openChat") ? { chatDelivery: { requestId: randomUUID(), state: "pending", threadId: null, message: chatUpdateMessage(candidate), error: null } } : {}) });
+        ...(candidate.actions?.includes("openChat") || automatic && this.repo.kernel.getTask(taskId).status === "open"
+          ? { chatDelivery: { requestId: randomUUID(), state: "pending", threadId: null, message: chatUpdateMessage({ ...candidate, resultTaskId: taskId }, automatic), error: null, ...(automatic ? { automatic: true } : {}) } } : {}) });
       if (!candidate.taskId) this.repo.initializePrimarySource(taskId);
       return this.repo.detail(taskId);
     });

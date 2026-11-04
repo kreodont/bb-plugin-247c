@@ -12,6 +12,8 @@ export const timeZoneSchema = z.string().min(1).max(100).refine(value => {
 export const excludedReviewModelsSchema = z.array(z.object({ providerId: z.string().min(1).max(200), model: z.string().min(1).max(200) }).strict()).max(100);
 export function parseExcludedReviewModels(value = "[]") { return excludedReviewModelsSchema.parse(JSON.parse(value)); }
 export const settingDescriptors = {
+    automaticProcessing: { type: "boolean", label: "Automatic task work", description: "Accept new source proposals and review results except reported time. Start work chats with the configured account; external writes still require your approval. Enabling does not process the existing backlog.", default: false },
+    automaticMaximumWorkers: { type: "number", label: "Automatic work: concurrent chats", default: 2, experimental_schema: z.number().int().min(1).max(5) },
     slackLinksInBrowser: { type: "boolean", label: "Open Slack sources in the browser", description: "Open Slack message links in BB chats and source buttons through the web route, avoiding the desktop-app launch page. Saved locally; original messages and source URLs are preserved.", default: false },
     sidebarPluginLinks: { type: "boolean", label: "Show plugin links above chats", description: "Restore text links for visible plugin panels above the chat list in BB's icon-rail layout, including 247C counts and reported time. Saved in the local settings patch.", default: false },
     sourceUpdaterProjectId: { type: "string", label: "Source updater project", description: "Project containing the existing script automation to monitor for missed runs, failures and pauses. Monitoring never starts a model or changes the schedule.", default: "", experimental_schema: z.string().trim().max(200) },

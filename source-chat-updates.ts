@@ -1,5 +1,5 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
-import { syncCandidateSchema, type SyncCandidate } from "./contracts.js";
+import { syncCandidateSchema, type Session, type SyncCandidate } from "./contracts.js";
 import type { Repository } from "./repository.js";
 import type { SessionRuntime } from "./runtime.js";
 
@@ -11,7 +11,8 @@ export class SourceChatUpdates {
   private running: Promise<void> | undefined;
   constructor(readonly bb: BbPluginApi, readonly repo: Repository,
     readonly runtime: Pick<SessionRuntime, "openChat">,
-    readonly defaults: () => { projectId: string; providerId: string; model: string }) {}
+    readonly defaults: () => { projectId: string; providerId: string; model: string },
+    readonly automation?: { allow(candidate: SyncCandidate): boolean; opened(candidate: SyncCandidate, session: Session): void }) {}
 
   flush() {
     if (this.running) return this.running;
@@ -51,12 +52,18 @@ export class SourceChatUpdates {
         continue;
       }
       try {
+        if (delivery.automatic && (!this.automation || !this.automation.allow(candidate))) continue;
         const taskId = candidate.resultTaskId!;
         // Do not inject an update into a bounded recorder or interrupt review.
         const active = this.repo.active().find(session => session.taskId === taskId);
         if (active && (active.mode !== "conversation" || !["starting", "working"].includes(active.status))) continue;
+        if (delivery.automatic && (!this.defaults().providerId || !this.defaults().model)) throw new Error("Choose an explicit work account and model in 247C settings before starting automatic chats.");
         const session = await this.runtime.openChat({ taskId, requestId: delivery.requestId }, this.defaults());
         if (session.mode !== "conversation" || session.status !== "working" || !session.workerThreadId) continue;
+        if (delivery.automatic) {
+          if (!this.automation?.allow(candidate)) continue;
+          this.automation.opened(candidate, session);
+        }
         delivery = { ...delivery, state: "sending", threadId: session.workerThreadId };
         this.save(candidate, delivery);
         const result = await this.bb.sdk.threads.send({ threadId: session.workerThreadId, mode: "queue-if-active", input: [{ type: "text", text: delivery.message, mentions: [] }] });

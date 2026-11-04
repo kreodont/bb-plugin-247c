@@ -19,6 +19,8 @@ history is converted in the background and database space is reclaimed when
 checks and reviews are idle. Task records, evidence and recovery remain available;
 optional source retention retires old unreferenced payloads while preserving pending proposals, unread intervals, cited evidence and the incremental baseline. Retention is disabled until scheduled explicitly. See [storage compatibility](docs/releases.md).
 
+**Automatic work** can accept new incoming changes, start task chats and apply session reviews while leaving reported time for your confirmation. **Pause until tomorrow** keeps a task open, carries its plan entry and requires manual continuation. Enable the mode under **More → Automatic work** after selecting your work account and model. See [Automatic task work](docs/automatic-work.md).
+
 Click **247C** in the sidebar to open **Proposals** when any proposals await a decision, or **Tasks** when none remain. The **Tasks** tab and **All tasks** links always open the task list. The proposal count remains a direct shortcut and also works with Enter or Space when focused; the panel options menu remains available to its right.
 
 The task dossier keeps **Open chat** or **New chat** in a sticky action bar, alongside **Review changes** when proposals await a decision and **Open review** while a recorder is running. Chat buttons go directly to the native BB thread. **Work** remains available for session history and advanced controls.
