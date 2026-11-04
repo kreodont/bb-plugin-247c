@@ -5,7 +5,8 @@ import { PolicyError } from "./core/errors.js";
 export const referenceCatalogSchema = z.object({ version: z.literal(1), records: z.array(z.object({
   ref: z.string(), eventId: z.string().nullable(), selected: z.boolean(),
   passages: z.array(z.object({ ref: z.string(), path: z.string(), citation: syncCitationSchema })),
-})) });
+})), contextEntries: z.array(z.object({ ref: z.string(), section: z.string(), index: z.number().int(),
+  taskId: z.string().nullable(), content: z.string() })).default([]) });
 type Catalog = z.infer<typeof referenceCatalogSchema>;
 
 /** Split at source boundaries without normalizing whitespace or speech. */
@@ -46,7 +47,7 @@ function fragments(value: unknown, path = "response", depth = 0): { path: string
 
 export function prepareReferences(context: string, maxSerializedCharacters = 950_000): { catalog: Catalog; context: string } {
   const data = z.object({ sourceDocuments: z.array(z.record(z.string(), z.unknown())) }).passthrough().parse(JSON.parse(context));
-  const catalog: Catalog = { version: 1, records: [] };
+  const catalog: Catalog = { version: 1, records: [], contextEntries: [] };
   const documents = data.sourceDocuments.map((doc, index) => {
     const ref = `r${index + 1}`;
     const identity = syncCitationSchema.omit({ quote: true }).parse({
@@ -73,6 +74,27 @@ export function prepareReferences(context: string, maxSerializedCharacters = 950
     doc.passagesDeferred = true;
     transformed = encode();
   }
+  // Task history grows independently of the number of selected source events.
+  // Freeze full rows, preserving every task in the index and every decision.
+  const candidates = ["currentTasks", "pendingProposals"].flatMap(section => {
+    const rows = data[section];
+    if (!Array.isArray(rows)) return [];
+    return rows.map((value, index) => ({ section, index, value, content: JSON.stringify(value) }));
+  }).sort((a, b) => b.content.length - a.content.length);
+  for (const entry of candidates) {
+    if (JSON.stringify(transformed).length <= maxSerializedCharacters) break;
+    if (!entry.value || typeof entry.value !== "object" || Array.isArray(entry.value)) continue;
+    const ref = `c${catalog.contextEntries.length + 1}`;
+    const identity = Object.fromEntries(["id", "taskId", "title", "status", "revision"].filter(k => k in entry.value)
+      .map(k => [k, entry.value[k]]));
+    const preview = { ...identity, contextRef: ref, contextDeferred: true, contextCharacters: entry.content.length };
+    if (JSON.stringify(preview).length >= entry.content.length) continue;
+    catalog.contextEntries.push({ ref, section: entry.section, index: entry.index,
+      taskId: typeof (entry.section === "currentTasks" ? entry.value.id : entry.value.taskId) === "string"
+        ? (entry.section === "currentTasks" ? entry.value.id : entry.value.taskId) : null, content: entry.content });
+    (data[entry.section] as unknown[])[entry.index] = preview;
+    transformed = encode();
+  }
   if (JSON.stringify(transformed).length > maxSerializedCharacters)
     throw new PolicyError("Analysis task context and source index exceed the launch budget even with passages paged. Split the batch or reduce its context before retrying; no thread was created.");
   return { catalog: referenceCatalogSchema.parse(catalog), context: transformed };
@@ -97,4 +119,4 @@ export function resolveReferences(catalog: Catalog, raw: unknown) {
   return scriptAnalysisResultSchema.parse({ suggestions, skipped });
 }
 
-export const REFERENCE_INSTRUCTIONS = "Use c247_script_analysis_select. Use c247_script_analysis_sources to read deferred passages and reread the saved catalog after compaction; it does not access external services. A source document with passagesDeferred:true has its complete content saved in the catalog, not an empty response. Before interpreting or skipping such a selected record, call c247_script_analysis_sources with its recordRef and read all pages using nextOffset until null. Read deferred background records when needed for context. These saved-data tools are required and override older instructions prohibiting tools. For citations supply only {ref: 'r1.p2'} from a record's passages. For skipped events supply {record: 'r1', reason: '...'} using recordRef. Never compose or copy source IDs, callRefs, dates, URLs or quotation text into citations. The host supplies those values from the frozen catalog. Every selected record needs a cited passage or an explicit skip. Background passages may support findings but background records cannot be skipped as new events. Choose all passages needed for the claim; each reference becomes a separate exact citation. Older instructions about copying citation objects or eventId values are replaced by this format. saved:true means validated data is saved for import, NOT that Proposals have been imported. Only the Updates import status confirms that." + "\nSelection schema:\n" + JSON.stringify(z.toJSONSchema(scriptAnalysisSelectionSchema));
+export const REFERENCE_INSTRUCTIONS = "Use c247_script_analysis_select. Task or pending-proposal rows with contextDeferred:true are indexes, not complete dossiers. Read their exact saved JSON with c247_script_analysis_context using contextRef and every nextOffset until null. Before updating an existing task, read its deferred context. Before proposing a new task, compare all indexed titles/statuses and read potentially matching tasks, including closed or archived ones, and relevant pending proposals to avoid duplicates or repeating rejected decisions. Absence of facts in an index is not absence from the dossier. These reads access only this frozen batch, not external services. Use c247_script_analysis_sources to read deferred passages and reread the saved catalog after compaction; it does not access external services. A source document with passagesDeferred:true has its complete content saved in the catalog, not an empty response. Before interpreting or skipping such a selected record, call c247_script_analysis_sources with its recordRef and read all pages using nextOffset until null. Read deferred background records when needed for context. These saved-data tools are required and override older instructions prohibiting tools. For citations supply only {ref: 'r1.p2'} from a record's passages. For skipped events supply {record: 'r1', reason: '...'} using recordRef. Never compose or copy source IDs, callRefs, dates, URLs or quotation text into citations. The host supplies those values from the frozen catalog. Every selected record needs a cited passage or an explicit skip. Background passages may support findings but background records cannot be skipped as new events. Choose all passages needed for the claim; each reference becomes a separate exact citation. Older instructions about copying citation objects or eventId values are replaced by this format. saved:true means validated data is saved for import, NOT that Proposals have been imported. Only the Updates import status confirms that." + "\nSelection schema:\n" + JSON.stringify(z.toJSONSchema(scriptAnalysisSelectionSchema));

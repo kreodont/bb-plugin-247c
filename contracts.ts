@@ -266,9 +266,10 @@ export const syncStateSchema = z.object({ runs: z.array(syncRunSchema), candidat
 export const scriptAnalysisStartSchema = z.object({
   key: z.string().regex(/^[a-f0-9]{64}$/), providerId: z.string().min(1), model: z.string().min(1),
   reasoningLevel: z.enum(["low", "medium", "high", "xhigh", "max", "none", "ultra", "ultracode"]),
-  instructions: z.string().min(1).max(100000), context: z.string().min(1).max(1048576),
+  instructions: z.string().min(1).max(100000), context: z.string().min(1).max(16000000),
   resultFormat: z.enum(["literal-v1", "references-v1"]).optional(),
-}).strict();
+}).strict().refine(input => input.resultFormat === "references-v1" || input.context.length <= 1048576,
+  { message: "Legacy analysis context exceeds 1048576 characters.", path: ["context"] });
 export const scriptAnalysisResultSchema = z.object({ suggestions: z.array(syncDraftSchema).max(100),
   skipped: z.array(z.object({ eventId: z.string().min(1), reason: z.string().trim().min(1) }).strict()).max(2000) }).strict();
 export const scriptAnalysisSelectionSchema = z.object({

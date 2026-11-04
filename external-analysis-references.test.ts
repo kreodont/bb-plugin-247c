@@ -72,3 +72,16 @@ it("pages oversized sources without dropping records, task context or exact cita
   const last = paged.catalog.records[1].passages.at(-1)!;
   expect(() => validateAnalysisQuotes(analysisSources(context), resolveReferences(paged.catalog, selection(last.ref)))).not.toThrow();
 });
+
+it("retains closed tasks and pending decisions exactly when their rows must be paged", () => {
+  const original = { sourceDocuments: [doc], currentTasks: [{ id: "closed", title: "Prior request", status: "done", revision: 8,
+    facts: [{ kind: "decision", text: 'Keep closed. "No follow-up." 😀\n'.repeat(1000) }] }],
+    pendingProposals: [{ id: "pending", taskId: "closed", rationale: "Awaiting review. ".repeat(1000) }] };
+  const prepared = prepareReferences(JSON.stringify(original), 2500), view = JSON.parse(prepared.context);
+  expect(JSON.stringify(prepared.context).length).toBeLessThanOrEqual(2500);
+  expect(view.currentTasks[0]).toMatchObject({ id: "closed", title: "Prior request", status: "done", revision: 8, contextDeferred: true });
+  expect(prepared.catalog.contextEntries).toHaveLength(2);
+  for (const entry of prepared.catalog.contextEntries) view[entry.section][entry.index] = JSON.parse(entry.content);
+  expect(view.currentTasks).toEqual(original.currentTasks);
+  expect(view.pendingProposals).toEqual(original.pendingProposals);
+});

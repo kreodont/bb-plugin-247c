@@ -48,7 +48,7 @@ it("fits the complete launch including instructions and reads deferred passages 
 it("refuses unpageable input before reserving a job or spawning a thread", async () => {
   const f = await setup();
   const context = JSON.parse(referenceInput.context);
-  context.currentTasks = [{ text: "x".repeat(990_000) }];
+  context.padding = "x".repeat(990_000);
   await expect(f.harness.behavior.callRpc("scriptAnalysisStart", { ...referenceInput,
     instructions: "x".repeat(80_000), context: JSON.stringify(context) })).rejects.toThrow(/no thread was created/);
   expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
@@ -61,6 +61,36 @@ it("checks the final size for legacy launches too", async () => {
   await expect(f.harness.behavior.callRpc("scriptAnalysisStart", { ...input,
     instructions: "x".repeat(80_000), context: JSON.stringify(context) })).rejects.toThrow(/including instructions/);
   expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(0);
+});
+
+it("pages growing task history, requires complete reads and resumes them after reload", async () => {
+  const f = await setup();
+  const context = JSON.parse(referenceInput.context);
+  context.currentTasks = [{ id: "existing", title: "Invoice review", status: "done", revision: 3,
+    facts: [{ kind: "decision", text: 'Do not reopen without a new request. "Okay" 😀\n'.repeat(25000) }] }];
+  const job = await f.harness.behavior.callRpc("scriptAnalysisStart", { ...referenceInput, context: JSON.stringify(context) }) as any;
+  const request = f.harness.inspection.sdk.callsTo("threads.spawn")[0][0] as any;
+  expect(JSON.stringify(request.input).length).toBeLessThanOrEqual(ANALYSIS_LAUNCH_BUDGET);
+  const dataset = JSON.parse(request.input[1].text.split("\n\nSaved dataset:\n")[1]);
+  expect(dataset.currentTasks[0]).toMatchObject({ id: "existing", status: "done", revision: 3, contextDeferred: true });
+  const ref = dataset.currentTasks[0].contextRef;
+  const selection = { suggestions: [{ taskId: "existing", title: "Invoice review", rationale: "New request.", confidence: 0.9,
+    facts: [{ kind: "explicit_next_step", text: "Review invoice.", citations: [{ ref: "r1.p1" }] }],
+    changes: { nextStep: { value: "Review invoice.", evidenceRefs: ["fact:0"] } } }], skipped: [] };
+  const submit = async () => JSON.parse(await f.harness.behavior.callAgentTool("c247_script_analysis_select", selection, { threadId: job.threadId }) as string);
+  expect(await submit()).toMatchObject({ saved: false, error: expect.stringContaining("complete saved task context") });
+  await expect(f.harness.behavior.callAgentTool("c247_script_analysis_context", { ref }, { threadId: "other" })).rejects.toThrow(/belongs to this thread/);
+  await expect(f.harness.behavior.callAgentTool("c247_script_analysis_context", { ref, offset: 12000 }, { threadId: job.threadId })).rejects.toThrow(/in order/);
+  let content = "", offset = 0;
+  for (;;) {
+    const page = JSON.parse(await f.harness.behavior.callAgentTool("c247_script_analysis_context", { ref, offset }, { threadId: job.threadId }) as string);
+    content += page.content;
+    if (offset === 0) await f.reload();
+    if (page.nextOffset === null) break;
+    offset = page.nextOffset;
+  }
+  expect(JSON.parse(content)).toEqual(context.currentTasks[0]);
+  expect(await submit()).toMatchObject({ saved: true, imported: false });
 });
 it("retains rejected selections across reload and repair without another model or a false confirmation", async () => {
   const f = await setup();
