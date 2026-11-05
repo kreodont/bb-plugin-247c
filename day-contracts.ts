@@ -42,6 +42,7 @@ export const dayConfigSchema = z.object({ date: dayDateSchema, capacityMinutes: 
 export const dayTotalsSchema = z.object({ plannedMinutes: z.number(), actualMinutes: z.number().default(0), reportedMinutes: z.number(), missingReported: z.number().int(), estimatedReported: z.number().int().default(0) });
 export const agentTimeStateSchema = z.object({ from: dayDateSchema.nullable(), checkedAt: z.string().nullable(), errors: z.array(z.string()), running: z.boolean() });
 export const calendarStateSchema = z.object({
+  errorSince: z.string().nullable().optional(), lastError: z.string().max(3000).nullable().optional(),
   status: z.enum(["idle", "running", "complete", "error"]), startedAt: z.string().nullable(), completedAt: z.string().nullable(),
   message: z.string().max(3000).nullable(), events: z.number().int().min(0), from: dayDateSchema.nullable(), through: dayDateSchema.nullable(),
 });

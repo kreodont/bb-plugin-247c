@@ -19,7 +19,10 @@ export class CalendarRuntime {
     if (this.active) return this.days.calendarState();
     const from = weekStart(date), through = shiftDay(date, 7), controller = new AbortController();
     this.controller = controller;
-    this.days.saveCalendarState({ ...this.days.calendarState(), status: "running", message: null, from, through, startedAt: this.days.now() });
+    const previous = this.days.calendarState();
+    this.days.saveCalendarState({ ...previous, status: "running", message: null, from, through, startedAt: this.days.now(),
+      errorSince: previous.errorSince ?? (previous.status === "error" ? previous.startedAt : null),
+      lastError: previous.lastError ?? (previous.status === "error" ? previous.message : null) });
     const abort = () => controller.abort(externalSignal?.reason);
     externalSignal?.addEventListener("abort", abort, { once: true });
     this.active = Promise.resolve().then(() => this.collect(from, through, controller)).finally(() => externalSignal?.removeEventListener("abort", abort));
@@ -31,9 +34,10 @@ export class CalendarRuntime {
       if (this.disposed) return;
       controller.signal.throwIfAborted();
       this.days.mergeCalendar(result.events, "calendar:sync");
-      this.days.saveCalendarState({ ...this.days.calendarState(), status: "complete", completedAt: this.days.now(), events: result.events.filter(e => e.status === "confirmed").length, message: null });
+      this.days.saveCalendarState({ ...this.days.calendarState(), status: "complete", completedAt: this.days.now(), events: result.events.filter(e => e.status === "confirmed").length, message: null, errorSince: null, lastError: null });
     } catch (error) {
-      if (!this.disposed) this.days.saveCalendarState({ ...this.days.calendarState(), status: controller.signal.aborted ? "idle" : "error", message: controller.signal.aborted ? "Calendar check stopped. Previous meetings are preserved." : sourceError(error) });
+      if (!this.disposed) this.days.saveCalendarState({ ...this.days.calendarState(), status: controller.signal.aborted ? "idle" : "error", message: controller.signal.aborted ? "Calendar check stopped. Previous meetings are preserved." : sourceError(error),
+        ...(!controller.signal.aborted ? { errorSince: this.days.calendarState().errorSince ?? this.days.calendarState().startedAt ?? this.days.now(), lastError: sourceError(error).slice(0, 3000) } : {}) });
     } finally { if (this.controller === controller) { this.controller = null; this.active = null; } }
   }
   async settled() { await this.active; }

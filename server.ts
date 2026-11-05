@@ -3,6 +3,7 @@ import { AutomaticWork } from "./automatic-work.js";
 import { automaticWorkGuide } from "./automation-prompts.js";
 import { automationCheckpointSchema } from "./automation-contracts.js";
 import { sourceProposalRefreshPreview, refreshSourceProposal } from "./source-proposal-refresh.js";
+import { withCalendarHealth } from "./calendar-health.js";
 import { BacklogReview, backlogSubmitSchema } from "./backlog.js";
 import { retainSourcePayloads } from "./source-retention.js";
 import { TaskSearch } from "./search-index.js";
@@ -179,7 +180,7 @@ export default async function plugin(bb: BbPluginApi) {
     proposalInbox: ({ offset }) => inbox.list(offset),
     acceptInbox: async ({ items }) => { const result = await inbox.accept(items); deliverChatUpdates(); if (result.applied.length) await runtime.archiveFinishedThreads(); return result; },
     updaterStart: (input) => updaterHealth.start(input),
-    updaterHealth: async ({ refresh }) => ({ ...await updaterHealth.state(refresh), analysisThreads: externalAnalysis.history() }),
+    updaterHealth: async ({ refresh }) => ({ ...withCalendarHealth(await updaterHealth.state(refresh), days.calendarState(), configuration.calendarMeetings), analysisThreads: externalAnalysis.history() }),
     scriptAnalysisStart: input => externalAnalysis.start(input),
     scriptAnalysisStatus: ({ key }) => externalAnalysis.status(key),
     scriptAnalysisFinish: ({ key, error }) => externalAnalysis.finish(key, error),

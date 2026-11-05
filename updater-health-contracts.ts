@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { calendarStateSchema } from "./day-contracts.js";
 
 export const sourceCoverageSchema = z.object({
   source: z.enum(["gmail", "slack", "jira", "teams", "outlook", "clickup"]),
@@ -24,6 +25,7 @@ export const sourceCoverageSchema = z.object({
 export type SourceCoverage = z.infer<typeof sourceCoverageSchema>;
 
 export const updaterHealthSchema = z.object({
+  calendar: calendarStateSchema.optional(), calendarAlert: z.boolean().optional(),
   analysisThreads: z.array(z.object({ threadId: z.string(), title: z.string(), state: z.string(), startedAt: z.number(), model: z.string(), reasoningLevel: z.string(), error: z.string().nullable(), hasSavedAttempt: z.boolean().optional(), importRunId: z.string().nullable().optional() })).max(20).optional(),
   mode: z.enum(["native", "external"]).optional(),
   configured: z.boolean(), status: z.enum(["disabled", "healthy", "running", "waiting", "paused", "failed", "attention", "overdue", "unavailable"]),

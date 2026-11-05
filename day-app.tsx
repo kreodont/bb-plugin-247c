@@ -88,7 +88,7 @@ export function CalendarStatus({ date }: { date?: string }) {
   }
   return <section aria-label="Work calendar" className="rounded-xl border border-border bg-card p-4">
     <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-sm font-medium">Work calendar</h2><p className="mt-1 text-xs text-muted-foreground">{data?.status === "running" ? "Loading meetings…" : data?.status === "complete" ? `Meetings: ${data.events} · checked ${new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone }).format(new Date(data.completedAt!))}` : "Calendar from 247C settings"}{data?.from && data.through ? ` · ${shortDate(data.from)} — ${shortDate(data.through)}` : ""}</p></div><Button variant="outline" size="sm" disabled={busy || data?.status === "running"} onClick={() => void sync()}>Check calendar</Button></div>
-    <p className="mt-2 text-xs text-muted-foreground">Meetings also update when checking email, Slack and Jira. Manual time edits are preserved.</p>
+    <p className="mt-2 text-xs text-muted-foreground">Meetings also update when checking work sources. Manual time edits are preserved.</p>
     <ErrorText error={mutationError ?? error ?? (data?.status === "error" ? data.message : null)} />
     {data?.status === "idle" && data.message && <p className="mt-2 text-xs text-muted-foreground">{data.message}</p>}
   </section>;

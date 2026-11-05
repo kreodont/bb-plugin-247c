@@ -1,3 +1,8 @@
+# 0.5.139
+
+- Show calendar sync failures in the global status banner, sidebar badge and notification, with the last successful sync and a link to the calendar.
+- Keep calendar warnings visible during retries and clear them only after a successful sync.
+
 # 0.5.138
 
 - Automatically archive successful Updates chats after the final response, keeping their saved results and proposals in Updates history.

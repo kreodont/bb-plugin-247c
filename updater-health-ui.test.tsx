@@ -5,6 +5,28 @@ import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import type { CapturedPluginApp, RenderedSlot } from "@get-bb/plugin-sdk/testing/app";
 import { emptyUpdaterHealth } from "./updater-health.js";
 import { UpdaterHealthBanner } from "./updater-health-ui.js";
+import { withCalendarHealth } from "./calendar-health.js";
+
+it("shows calendar failures in the banner, sidebar and notification even with no source updater configured", async () => {
+  const state = withCalendarHealth({ ...emptyUpdaterHealth(0), timeZone: "Europe/Athens" }, { status: "error", startedAt: "2026-11-05T15:00:00Z",
+    completedAt: "2026-11-05T14:02:00Z", message: "Outlook returned a series", events: 24, from: "2026-11-02", through: "2026-11-12" }, true);
+  const banner = renderSlot({ component: UpdaterHealthBanner }, {}, { rpc: { updaterHealth: () => state } }); mounts.push(banner);
+  await banner.findByLabelText("Calendar sync error");
+  expect(banner.getByText("Outlook returned a series")).toBeTruthy();
+  expect(banner.getByText(/Last successful calendar sync:/).textContent).toContain("16:02");
+  fireEvent.click(banner.getByRole("button", { name: "Open calendar" }));
+  expect(banner.inspection.navigateCalls[0]).toMatchObject({ method: "toPluginPanel", path: "desk", options: { subPath: expect.stringMatching(/^day\//) } });
+  banner.lifecycle.unmount();
+  const badge = renderSlot({ component: app.navPanels[0].experimental_sidebarAccessory! }, {}, { rpc: {
+    updaterHealth: () => state, list: () => ({ total: 1, pendingTotal: 0 }), day: () => ({ totals: { reportedMinutes: 0 }, date: "2026-11-05", timeZone: "Europe/Athens" }),
+  } }); mounts.push(badge);
+  await badge.findByRole("button", { name: "Work calendar needs attention" });
+  badge.lifecycle.unmount();
+  const overlay = renderSlot(app.appOverlays.find(row => row.id === "updater-health-notification")!, {}, { rpc: { updaterHealth: () => state } }); mounts.push(overlay);
+  await overlay.findByRole("alert");
+  expect(overlay.getByText(/Meetings and day totals/)).toBeTruthy();
+  expect(overlay.getByRole("button", { name: "Open calendar" })).toBeTruthy();
+});
 
 let app: CapturedPluginApp;
 const mounts: RenderedSlot[] = [];
