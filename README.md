@@ -88,6 +88,8 @@ Enable the local `reportMeetingsWhenPlanned` setting to fill automatic meeting r
 
 Open **Updates** from the home screen, then click **Check for updates** to start immediately with the saved analysis settings. Progress appears on the same page; repeated clicks do not start a second check. Each source resumes from the exact time of its last complete run. As with scheduled checks, unchanged documents are reused and the model is skipped when there is no new source or day-plan work to analyze.
 
+Successful check chats archive automatically after the final response. Their results, proposals and chat links remain available in **Updates → Check history**. Incomplete checks and failures remain visible. Chats with a new user message after completion, or chats manually restored from the archive, remain under manual control. Cleanup also resumes after BB restarts.
+
 Use **Custom check…** to choose an analysis model in BB's native composer, add instructions or enable **Set a start date** for a different interval. On a fresh installation, complete one custom check to save the account and workspace for future one-click checks. A first run covers the last 24 hours unless a start date is selected.
 
 Since 0.2.16, a script collects changes, full threads and Jira comments in parallel through configured connectors, using the saved login for the configured Claude profile on the BB server. Collection does not run a corporate model or consume its generation quota. The panel shows threads read and elapsed time. The selected model then receives the exported data and task snapshot, analyzes them and prepares proposals. Quotes are checked against the script's saved responses.

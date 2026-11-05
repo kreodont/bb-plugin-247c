@@ -1,3 +1,4 @@
+import { SourceThreadArchives } from "./source-thread-archives.js";
 import { AutomaticWork } from "./automatic-work.js";
 import { automaticWorkGuide } from "./automation-prompts.js";
 import { automationCheckpointSchema } from "./automation-contracts.js";
@@ -109,6 +110,7 @@ export default async function plugin(bb: BbPluginApi) {
     const defaults = composerDefaultsSchema.parse(JSON.parse(configuration.composerDefaults));
     return { projectId: configuration.threadProjectId, providerId: defaults.providerId || configuration.workProvider, model: defaults.model || configuration.workModel };
   };
+  const sourceArchives = new SourceThreadArchives(bb, repo, () => externalAnalysis.importedThreads());
   const automatic = new AutomaticWork(bb, repo, runtime, sync.store, days, () => configuration);
   automatic.control();
   const inbox = new ProposalInbox(repo, sync.store, runtime, automatic);
@@ -464,6 +466,7 @@ export default async function plugin(bb: BbPluginApi) {
       if (session && ACTIVE.has(session.status)) await runtime.tick(session.id);
       const run = sync.store.forThread(thread.id);
       if (run) await sync.tick(run.id);
+      await sourceArchives.tick(thread.id);
     });
   }
   for (const event of ["thread.created", "thread.active", "thread.idle", "thread.failed", "thread.deleted"] as const) {
@@ -532,6 +535,14 @@ export default async function plugin(bb: BbPluginApi) {
       }
     },
   });
+  bb.background.service("source-chat-archives", {
+    async start(signal) {
+      while (!signal.aborted) {
+        await sourceArchives.tick();
+        await sleep(30_000, signal);
+      }
+    },
+  });
   bb.background.service("session-monitor", {
     async start(signal) {
       if ((await settings.get()).hourlyUpdates) {
@@ -565,7 +576,7 @@ export default async function plugin(bb: BbPluginApi) {
     if (runId) bb.log.info(`Scheduled 247C source check: ${runId}`);
   });
   settings.onChange(changed);
-  bb.onDispose(async () => { workerBriefs.clear(); search.dispose(); updaterHealth.dispose(); calendar.dispose(); sync.dispose(); await agentTime.dispose(); await runtime.dispose(); await knowledge!.dispose(); });
+  bb.onDispose(async () => { workerBriefs.clear(); search.dispose(); sourceArchives.dispose(); updaterHealth.dispose(); calendar.dispose(); sync.dispose(); await agentTime.dispose(); await runtime.dispose(); await knowledge!.dispose(); });
 
   const usage = `247C — durable tasks, conversations and knowledge
 

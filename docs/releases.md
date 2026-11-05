@@ -1,3 +1,8 @@
+# 0.5.138
+
+- Automatically archive successful Updates chats after the final response, keeping their saved results and proposals in Updates history.
+- Recover cleanup after restart and retry transient archive failures. Keep incomplete checks, active work, queued messages, pending interactions and follow-up conversations visible. Respect manual unarchiving.
+
 # 0.5.137
 
 - Finish idle work sessions automatically when accepting a source update that resolves the task as done or waiting.

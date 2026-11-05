@@ -39,6 +39,9 @@ export class ExternalAnalysis {
     this.jobs.set(job.key, job);
     this.bb.realtime.publish("updater-health-changed", { at: Date.now() });
   }
+  importedThreads() {
+    return [...this.jobs.values()].flatMap(job => job.state === "imported" && job.threadId && job.importRunId ? [{ threadId: job.threadId, runId: job.importRunId }] : []);
+  }
   history() {
     return [...this.jobs.values()].filter(j => j.threadId).sort((a, b) => b.startedAt - a.startedAt).slice(0, 20)
       .map(j => ({ threadId: j.threadId!, title: j.title, state: j.state, startedAt: j.startedAt, model: j.model, reasoningLevel: j.reasoningLevel, error: j.error, hasSavedAttempt: Boolean(j.lastAttemptId), importRunId: j.importRunId ?? null }));
