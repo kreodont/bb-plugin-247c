@@ -1,3 +1,7 @@
+# 0.5.142
+
+- Explain when another session blocks Retry review, Discuss review or Resume chat, and link to that session. Clear the explanation when the blocker ends.
+
 # 0.5.141
 
 - Archive successfully imported Updates chats even when their batch has partial collection coverage. Keep unfinished imports, active conversations and user follow-ups visible.

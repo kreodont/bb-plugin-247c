@@ -1524,3 +1524,29 @@ it("accepts source completion from an expanded task card and finishes its idle c
   await waitFor(() => expect(f.repo.kernel.getTask(task.id).status).toBe("done"));
   expect(f.repo.session(session.id)).toMatchObject({ status: "reviewing", finishMode: "source" });
 });
+
+
+it.each(["working", "reviewing"] as const)("explains review actions blocked by a %s session and links to it", async status => {
+  const f = await fixture(), task = await f.create();
+  const old = sessionSchema.parse(await f.harness.behavior.callRpc("start", { ...f.startInput(task.id, task.revision), criteria: [] }));
+  f.repo.saveSession({ ...old, status: "blocked", finishedAt: new Date().toISOString(), error: "The review was interrupted by a plugin reload. The conversation is saved; click Retry review." });
+  const active = sessionSchema.parse(await f.harness.behavior.callRpc("start", { ...f.startInput(task.id, task.revision), criteria: [] }));
+  f.repo.saveSession({ ...active, status });
+  const { slot } = await setup(`${task.id}/session/${old.id}`, f);
+  const retry = await slot.findByRole("button", { name: "Retry review" });
+  expect((retry as HTMLButtonElement).disabled).toBe(true);
+  expect((slot.getByRole("button", { name: "Discuss review" }) as HTMLButtonElement).disabled).toBe(true);
+  const message = status === "working" ? "Session 2 is still open. Finish it before using these actions." : "Session 2 is being processed. Wait for it to finish before using these actions.";
+  expect(slot.getByText(message).id).toBe(retry.getAttribute("aria-describedby"));
+  fireEvent.click(slot.getByRole("button", { name: "Go to Session 2" }));
+  if (status === "working") await slot.findByRole("button", { name: "Finish session" });
+  else await slot.findByText("Saving the conversation outcome. Dossier and knowledge proposals will appear here.");
+  expect(slot.queryByText(message)).toBeNull();
+  expect(f.repo.session(active.id).status).toBe(status);
+  fireEvent.click(slot.getByRole("button", { name: "Session 1 · Needs attention" }));
+  await slot.findByText(message);
+  f.repo.saveSession({ ...f.repo.session(active.id), status: "completed" });
+  await slot.behavior.emitRealtime("desk-changed", {});
+  await waitFor(() => expect((slot.getByRole("button", { name: "Retry review" }) as HTMLButtonElement).disabled).toBe(false));
+  expect(slot.queryByText(message)).toBeNull();
+});

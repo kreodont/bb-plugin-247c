@@ -766,6 +766,12 @@ function Work({ dossier, refresh, showProposals, discussionId, initialSessionId 
   const conversation = session?.mode === "conversation";
   const canResume = conversation && session.status === "blocked" && !session.finishedAt && session.workerThreadId && !session.reviewerThreadId && !session.proposalId && (isLiveTask(dossier.task.status) || session.continuedFrom);
   const canRetry = conversation && session.finishedAt && !dossier.sessions.some((s) => s.continuedFrom === session.id && s.proposalId) && (session.status === "blocked" || session.status === "rejected" || (session.status === "awaiting_approval" && session.baseRevision !== dossier.task.revision));
+  const blockingSession = active && active.id !== session?.id && conversation && (session.finishedAt || canResume) ? active : null;
+  const blockingNumber = blockingSession ? dossier.sessions.length - dossier.sessions.indexOf(blockingSession) : null;
+  const blockingMessage = blockingSession ? ["starting", "working"].includes(blockingSession.status)
+    ? `Session ${blockingNumber} is still open. Finish it before using these actions.`
+    : `Session ${blockingNumber} is being processed. Wait for it to finish before using these actions.` : undefined;
+  const blockingNoticeId = `session-actions-blocked-${session?.id}`;
   return <div className="space-y-4"><ErrorNotice error={error} />
     <div className="flex flex-wrap items-center gap-2">{dossier.sessions.map((s, i) => <button type="button" key={s.id} className={cn("rounded-lg border px-3 py-2 text-xs", !showComposer && session?.id === s.id ? "border-primary/30 bg-primary/5" : "border-border text-muted-foreground")} onClick={() => { setSelected(s.id); setStarting(false); setContinuing(null); setReviewer(false); }}>Session {dossier.sessions.length - i} · {sessionLabel(s)}</button>)}{!active && isLiveTask(dossier.task.status) && session && <Button size="sm" variant="outline" onClick={() => { setContinuing(null); setStarting(true); }}>New session</Button>}</div>
     {showComposer ? <div className="space-y-5">
@@ -776,13 +782,14 @@ function Work({ dossier, refresh, showProposals, discussionId, initialSessionId 
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><Pill attention={ACTIVE.has(session.status) || session.status === "awaiting_approval"}>{sessionLabel(session)}</Pill><span className="text-xs text-muted-foreground">{date(session.createdAt)}</span></div>
           <div className="flex flex-wrap items-center gap-2">
-            {conversation && session.finishedAt && !ACTIVE.has(session.status) && <Button size="sm" variant="outline" disabled={busy || Boolean(active)} onClick={() => { setContinuing(session.id); setStarting(true); }}>Discuss review</Button>}
-            {canRetry && <Button size="sm" variant="outline" disabled={busy || Boolean(active)} onClick={() => void change("retry")}>Retry review</Button>}
-            {canResume && <Button size="sm" variant="outline" disabled={busy || Boolean(active)} onClick={() => void change("resume")}>Resume chat</Button>}
+            {conversation && session.finishedAt && !ACTIVE.has(session.status) && <Button size="sm" variant="outline" disabled={busy || Boolean(active)} aria-describedby={blockingSession ? blockingNoticeId : undefined} onClick={() => { setContinuing(session.id); setStarting(true); }}>Discuss review</Button>}
+            {canRetry && <Button size="sm" variant="outline" disabled={busy || Boolean(active)} aria-describedby={blockingSession ? blockingNoticeId : undefined} onClick={() => void change("retry")}>Retry review</Button>}
+            {canResume && <Button size="sm" variant="outline" disabled={busy || Boolean(active)} aria-describedby={blockingSession ? blockingNoticeId : undefined} onClick={() => void change("resume")}>Resume chat</Button>}
             {ACTIVE.has(session.status) && <Button size="sm" variant="ghost" disabled={busy} onClick={() => void change("cancel")}>{conversation ? "Cancel session" : "Stop session"}</Button>}
             {conversation && session.status === "working" && <Button size="sm" disabled={busy} onClick={() => void change("finish")}>{busy ? "Finishing…" : "Finish session"}</Button>}
           </div>
         </div>
+        {blockingSession && <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/30 p-3" role="status"><p id={blockingNoticeId} className="text-sm">{blockingMessage}</p><Button size="sm" variant="outline" disabled={busy} onClick={() => { setSelected(blockingSession.id); setStarting(false); setContinuing(null); setReviewer(false); }}>Go to Session {blockingNumber}</Button></div>}
         <details className="mt-3"><summary className="cursor-pointer text-xs text-muted-foreground">Starting point</summary><p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed">{session.objective}</p></details>
         {!conversation && <details className="mt-3"><summary className="cursor-pointer text-xs text-muted-foreground">Acceptance criteria · {session.criteria.length}</summary><ol className="mt-2 list-inside list-decimal space-y-1 text-sm">{session.criteria.map((c, i) => <li key={i}>{c}</li>)}</ol></details>}
         {conversation && session.status === "working" && <p className="mt-3 text-xs text-muted-foreground">You can keep talking. Finish session stops the current response and starts a review of the conversation. The model is selected automatically, with Sol and Sonnet preferred.</p>}
