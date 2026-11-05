@@ -26,7 +26,7 @@ it("follows a finished conversation through review to completion", async () => {
   const task = await f.create();
   const session = sessionSchema.parse(await f.harness.behavior.callRpc("start", { ...f.startInput(task.id, task.revision), criteria: [] }));
   expect(await f.harness.behavior.callRpc("reviewActivity", {})).toEqual({ threads: [] });
-  const review = sessionSchema.parse(await f.harness.behavior.callRpc("finish", { sessionId: session.id }));
+  const review = sessionSchema.parse(await f.harness.behavior.callRpc("pauseSession", { sessionId: session.id }));
   expect(await f.harness.behavior.callRpc("reviewActivity", {})).toEqual({ threads: [{ threadId: session.workerThreadId, status: "reviewing" }] });
   await f.idle(review.reviewerThreadId!, { rationale: "No new records", facts: [], changes: null, knowledge: [] });
   expect(await f.harness.behavior.callRpc("reviewActivity", {})).toEqual({ threads: [] });
@@ -39,7 +39,7 @@ it.each(["accept", "reject"] as const)("keeps the main chat marked across reads,
   const quote = "The configuration is ready.";
   f.message(session.workerThreadId!, "user", quote);
   await f.idle(session.workerThreadId!, "Verified the configuration.");
-  await f.harness.behavior.callRpc("finish", { sessionId: session.id });
+  await f.harness.behavior.callRpc("pauseSession", { sessionId: session.id });
   const ref = f.repo.transcript(session.id)!.messages.find(m => m.text === quote)!.ref;
   const extraction: Extraction = { rationale: "Save completed work", facts: [{ kind: "progress", text: quote, citations: [{ messageRef: ref, quote }] }],
     changes: { summary: { value: quote, evidenceRefs: ["fact:0"] } }, knowledge: [] };

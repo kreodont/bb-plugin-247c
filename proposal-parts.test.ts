@@ -125,7 +125,7 @@ it("selects conversation knowledge separately, preserves quotes and resolves the
   const quote = "The approved configuration uses a single region.";
   f.message(session.workerThreadId!, "user", quote);
   await f.idle(session.workerThreadId!, "Configuration recorded.");
-  await f.harness.behavior.callRpc("finish", { sessionId: session.id });
+  await f.harness.behavior.callRpc("pauseSession", { sessionId: session.id });
   const ref = f.repo.transcript(session.id)!.messages.find(m => m.text === quote)!.ref;
   const extraction: Extraction = { rationale: "Save configuration", facts: [{ kind: "description", text: quote, citations: [{ messageRef: ref, quote }] }],
     changes: { summary: { value: quote, evidenceRefs: ["fact:0"] } }, knowledge: [{ title: "Region rule", body: quote, tags: [], evidenceRefs: ["fact:0"] }] };

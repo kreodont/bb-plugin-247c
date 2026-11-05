@@ -135,12 +135,14 @@ export class AutomaticWork {
   }
   async finish(id: string, recorder: "auto" | "same" | "personal-claude" = "auto", automatic = false) {
     const session = this.repo.session(id);
-    if (this.control().enabled && session.mode === "conversation" && session.status === "working") {
+    const enabled = this.control().enabled;
+    if (session.mode === "conversation" && session.status === "working") {
       const task = this.repo.kernel.getTask(session.taskId);
       const finishMode = session.continuedFrom ? sessionFinishMode(session) : ["open", "waiting"].includes(task.status) ? "resolve" as const : undefined;
       if (!automatic && session.automation?.outcome === "paused") this.manualOpen(session.taskId);
       const current = this.repo.session(id);
-      this.repo.saveSession({ ...current, ...(finishMode ? { finishMode } : {}), automation: automatic && session.automation?.state === "ready" ? current.automation! : { state: "reviewing" } });
+      this.repo.saveSession({ ...current, ...(finishMode ? { finishMode } : {}),
+        ...(enabled ? { automation: automatic && session.automation?.state === "ready" ? current.automation! : { state: "reviewing" as const } } : {}) });
     }
     return this.runtime.finish(id, recorder, automatic && session.automation?.state === "ready" ? async () => {
       if (!this.control().enabled || this.read(`pause:${session.taskId}`)) return false;

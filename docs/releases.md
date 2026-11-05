@@ -1,3 +1,7 @@
+# 0.5.140
+
+- Require a Done or Pending decision when finishing a session in manual mode, as in automatic mode. Manual reviews still require acceptance; Pause and closed-task discussions retain their existing behavior.
+
 # 0.5.139
 
 - Show calendar sync failures in the global status banner, sidebar badge and notification, with the last successful sync and a link to the calendar.

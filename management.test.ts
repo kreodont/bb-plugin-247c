@@ -25,8 +25,12 @@ function fact(transcript: Transcript, text: string): Extraction["facts"][number]
   const message = transcript.messages.find((m) => m.text === text)!;
   return { kind: "user_instruction", text, citations: [{ messageRef: message.ref, quote: text }] };
 }
-async function review(f: Fixture, session: Session, draft?: (transcript: Transcript) => Extraction) {
-  await f.harness.behavior.callRpc("finish", { sessionId: session.id });
+async function review(f: Fixture, session: Session, draft?: (transcript: Transcript) => Extraction, legacy = false) {
+  if (legacy) {
+    // Historical reviews can include archive decisions without a Finish outcome.
+    const runtime = new SessionRuntime(f.bb, f.repo, async () => ({ codexReviewer: "", claudeReviewer: "", maximumRepairs: 0, sessionMinutes: 20 }));
+    await runtime.finish(session.id);
+  } else await f.harness.behavior.callRpc(["done", "archived"].includes(f.repo.kernel.getTask(session.taskId).status) ? "finish" : "pauseSession", { sessionId: session.id });
   const transcript = f.repo.transcript(session.id)!;
   const extraction: Extraction = draft?.(transcript) ?? { rationale: "По просьбе пользователя снизить оба приоритета, сохранив задачу открытой.", facts: [fact(transcript, decision)], changes: { urgent: { value: false, evidenceRefs: ["fact:0"] }, important: { value: false, evidenceRefs: ["fact:0"] } }, knowledge: [] };
   await f.idle(f.repo.session(session.id).reviewerThreadId!, extraction);
@@ -183,7 +187,7 @@ describe("Discussing a finished review", () => {
     const { f, task, session } = await setup();
     const archivedText = "Архивируй задачу, пока к ней не возвращаемся.";
     f.message(session.workerThreadId!, "user", archivedText);
-    const pending = await review(f, session, (transcript) => ({ rationale: "В архив по просьбе пользователя", facts: [fact(transcript, archivedText)], changes: { status: { value: "archived", evidenceRefs: ["fact:0"] } }, knowledge: [] }));
+    const pending = await review(f, session, (transcript) => ({ rationale: "В архив по просьбе пользователя", facts: [fact(transcript, archivedText)], changes: { status: { value: "archived", evidenceRefs: ["fact:0"] } }, knowledge: [] }), true);
     await f.harness.behavior.callRpc("accept", { proposalId: pending.proposalId, revision: task.revision });
     const archived = canonical(f, task.id);
     const input = { ...f.startInput(task.id, archived.task.revision), criteria: [], continueSessionId: session.id };

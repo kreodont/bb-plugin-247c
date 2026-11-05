@@ -28,7 +28,7 @@ function extraction(transcript: Transcript): Extraction {
     { kind: "progress", text: progress, citations: cite(progress) },
     { kind: "explicit_next_step", text: nextStep, citations: cite(nextStep) },
     { kind: "description", text: rule, citations: cite(rule) },
-  ], changes: { summary: { value: progress, evidenceRefs: ["fact:0"] }, nextStep: { value: nextStep, evidenceRefs: ["fact:1"] } },
+  ], changes: { status: { value: "waiting", evidenceRefs: ["fact:0"] }, summary: { value: progress, evidenceRefs: ["fact:0"] }, nextStep: { value: nextStep, evidenceRefs: ["fact:1"] } },
   knowledge: [{ title: "Значение invoice booked", body: rule, tags: ["счета", "интеграция"], evidenceRefs: ["fact:2"] }] };
 }
 async function finishExample(f: Awaited<ReturnType<typeof fixture>>, session: Session) {
@@ -348,7 +348,7 @@ describe("Conversations and their recorder", () => {
     const { f, task, session } = await conversation();
     const quote = "Повторно проверил документы: нужные значения сохранились, отката нет.";
     await f.idle(session.workerThreadId!, quote);
-    await f.harness.behavior.callRpc("finish", { sessionId: session.id });
+    await f.harness.behavior.callRpc("pauseSession", { sessionId: session.id });
     const source = f.repo.transcript(session.id)!.messages.find((message) => message.text === quote)!;
     const summary = "По отчёту ассистента, повторная проверка подтвердила сохранность изменений.";
     const draft: Extraction = { rationale: "Обновляем сводку по отчёту ассистента.", facts: [{ kind: "progress", text: `Ассистент сообщил: ${quote}`, citations: [{ messageRef: source.ref, quote }] }],
@@ -441,7 +441,7 @@ describe("Conversations and their recorder", () => {
     await f.idle(retried.reviewerThreadId!, extraction(f.repo.transcript(session.id)!));
     await f.harness.behavior.callRpc("reject", { proposalId: f.repo.session(session.id).proposalId });
     const another = sessionSchema.parse(await f.harness.behavior.callRpc("start", { ...f.startInput(task.id, task.revision), criteria: [] }));
-    await f.harness.behavior.callRpc("finish", { sessionId: another.id });
+    await f.harness.behavior.callRpc("pauseSession", { sessionId: another.id });
     await f.idle(f.repo.session(another.id).reviewerThreadId!, { rationale: "Нет новых данных.", facts: [], changes: null, knowledge: [] });
     const otherTask = await f.create("Другая задача");
     const otherSession = sessionSchema.parse(await f.harness.behavior.callRpc("start", { ...f.startInput(otherTask.id, otherTask.revision), criteria: [] }));
@@ -496,7 +496,7 @@ describe("Conversations and their recorder", () => {
     expect(f.threads.get(session.workerThreadId!)?.archivedAt).not.toBeNull();
   });
 
-  it("archives previously accepted sessions on an open task while preserving a new conversation and manual unarchive", async () => {
+  it("archives previously accepted sessions on a waiting task while preserving a new conversation and manual unarchive", async () => {
     const { f, task, session } = await conversation();
     const reviewing = await finishExample(f, session);
     await f.idle(reviewing.reviewerThreadId!, extraction(f.repo.transcript(session.id)!));
@@ -512,7 +512,7 @@ describe("Conversations and their recorder", () => {
     expect(f.threads.get(next.workerThreadId!)?.archivedAt).toBeNull();
     expect(f.repo.session(next.id).status).toBe("working");
     expect((await f.detail(task.id)).task).toEqual(accepted.task);
-    expect(accepted.task.status).toBe("open");
+    expect(accepted.task.status).toBe("waiting");
     expect(f.repo.transcript(session.id)).toEqual(transcript);
     expect(f.repo.pendingThreadArchives()).toEqual([]);
     // A later task edit/reload must not hide a manually reopened old thread.
@@ -533,7 +533,7 @@ describe("Conversations and their recorder", () => {
     f.harness.inspection.sdk.stub("threads.archive", () => { throw new Error("Temporary BB failure"); });
     await f.harness.behavior.callRpc("accept", { proposalId, revision: task.revision });
     const accepted = await f.detail(task.id);
-    expect(accepted.task).toMatchObject({ status: "open", revision: task.revision + 1 });
+    expect(accepted.task).toMatchObject({ status: "waiting", revision: task.revision + 1 });
     expect(f.repo.session(session.id).status).toBe("applied");
     expect(f.threads.get(session.workerThreadId!)?.archivedAt).toBeNull();
     expect(f.repo.pendingThreadArchives()).toEqual([]);
@@ -595,7 +595,7 @@ describe("Conversations and their recorder", () => {
     await f.harness.behavior.callRpc("accept", approval);
     await f.harness.behavior.callRpc("accept", approval);
     const accepted = await f.detail(task.id);
-    expect(accepted.task.status).toBe("open");
+    expect(accepted.task.status).toBe("waiting");
     expect(f.threads.get(session.workerThreadId!)?.archivedAt).not.toBeNull();
     expect(f.harness.inspection.sdk.callsTo("threads.archive").filter(([args]) => (args as { threadId: string }).threadId === session.workerThreadId)).toHaveLength(1);
     expect(accepted.task.revision).toBe(task.revision + 1);
@@ -658,13 +658,13 @@ describe("Conversations and their recorder", () => {
     expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
   });
 
-  it("keeps an open conversation across plugin reload, and permits a no-change result", async () => {
+  it("keeps an open conversation across plugin reload, and permits a no-change Pause result", async () => {
     const { f, session } = await conversation();
     await f.reload();
     const repo = f.repo;
     expect(repo.session(session.id).status).toBe("working");
     expect(f.harness.inspection.sdk.callsTo("threads.stop")).toHaveLength(0);
-    await f.harness.behavior.callRpc("finish", { sessionId: session.id });
+    await f.harness.behavior.callRpc("pauseSession", { sessionId: session.id });
     const reviewing = repo.session(session.id);
     await f.idle(reviewing.reviewerThreadId!, { rationale: "Новых сведений нет.", facts: [], changes: null, knowledge: [] });
     expect(repo.session(session.id).status).toBe("completed");
@@ -685,7 +685,7 @@ it.each([
   const { f, task, session } = await conversation();
   f.message(session.workerThreadId!, "user", instruction);
   await f.idle(session.workerThreadId!, instruction);
-  await f.harness.behavior.callRpc("finish", { sessionId: session.id });
+  await f.harness.behavior.callRpc("pauseSession", { sessionId: session.id });
   const saved = f.repo.transcript(session.id)!;
   const source = saved.messages.find(m => m.role === "user" && m.text === instruction)!;
   expect(source.text).toBe(instruction);

@@ -21,7 +21,7 @@ async function recordedStep(kind: Extraction["facts"][number]["kind"], report: s
     f.message(session.workerThreadId!, "user", report);
     await f.idle(session.workerThreadId!, "Понял.");
   } else await f.idle(session.workerThreadId!, report);
-  await f.harness.behavior.callRpc("finish", { sessionId: session.id });
+  await f.harness.behavior.callRpc("pauseSession", { sessionId: session.id });
   const transcript = f.repo.transcript(session.id)!;
   const source = transcript.messages.find((m) => m.role === role && m.text === report)!;
   const fact = role === "assistant" ? `По отчёту ассистента: ${report}` : report;

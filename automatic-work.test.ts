@@ -191,10 +191,10 @@ it("preserves parts left pending by an explicit human partial review", async () 
   expect(s.f.repo.session(s.session.id).automation?.appliedAt).toBeUndefined();
 });
 
-it("requires Finish session to classify the task and repairs an omitted status", async () => {
-  const s = await setup(), { session } = await chat(s);
+it.each([true, false])("requires Finish to classify the task with automatic mode %s and repairs an omitted status", async enabled => {
+  const s = await setup(enabled), { session } = await chat(s);
   const quote = "The report was prepared; confirmation from the recipient is still pending.";
-  await s.f.idle(session.workerThreadId!, quote); await s.auto.finish(session.id);
+  await s.f.idle(session.workerThreadId!, quote); await s.f.harness.behavior.callRpc("finish", { sessionId: session.id });
   const reviewing = s.f.repo.session(session.id), ref = s.f.repo.transcript(session.id)!.messages.find(m => m.text === quote)!.ref;
   expect(reviewing.finishMode).toBe("resolve");
   const draft: Extraction = { rationale: "Preserve the report.", facts: [{ kind: "progress", text: quote, citations: [{ messageRef: ref, quote }] }], changes: { summary: { value: quote, evidenceRefs: ["fact:0"] } }, knowledge: [] };
@@ -202,11 +202,44 @@ it("requires Finish session to classify the task and repairs an omitted status",
   const repair = s.f.repo.session(session.id);
   expect(repair.extractionRepair?.feedback).toContain("choose changes.status=done or waiting");
   expect(repair.proposalId).toBeNull();
-  await s.runtime.tick(session.id);
+  if (!enabled) {
+    expect(reviewing.automation).toBeUndefined();
+    await s.f.reload();
+    expect(s.f.repo.session(session.id).finishMode).toBe("resolve");
+  }
+  if (enabled) await s.runtime.tick(session.id);
+  else await s.f.harness.behavior.callRpc("retry", { sessionId: session.id });
   const retry = s.f.repo.session(session.id);
   await s.f.idle(retry.reviewerThreadId!, { ...draft, changes: { ...draft.changes, status: { value: "waiting", evidenceRefs: ["fact:0"] } } });
-  await s.auto.tick();
+  expect(s.f.repo.session(session.id)).toMatchObject({ status: "awaiting_approval", error: null });
+  if (enabled) await s.auto.tick();
+  if (!enabled) {
+    expect(s.f.repo.kernel.getTask(session.taskId).status).toBe("open");
+    const proposal = s.f.repo.kernel.getProposal(s.f.repo.session(session.id).proposalId!);
+    await s.f.harness.behavior.callRpc("accept", { proposalId: proposal.id, revision: proposal.baseRevision });
+  }
   expect(s.f.repo.kernel.getTask(session.taskId).status).toBe("waiting");
+});
+it("records Done in manual Finish without enabling automatic acceptance or changing time", async () => {
+  const s = await setup(false), { task, session } = await chat(s);
+  const date = s.days.today();
+  s.days.add({ taskId: task.id, date, reportedMinutes: 45, requestId: randomUUID() });
+  const quote = "The requested investigation and recommendation are complete.";
+  await s.f.idle(session.workerThreadId!, quote);
+  await s.f.harness.behavior.callRpc("finish", { sessionId: session.id });
+  const reviewing = s.f.repo.session(session.id), ref = s.f.repo.transcript(session.id)!.messages.find(m => m.text === quote)!.ref;
+  expect(reviewing.finishMode).toBe("resolve");
+  expect(reviewing.automation).toBeUndefined();
+  await s.f.idle(reviewing.reviewerThreadId!, { rationale: "The request is complete.",
+    facts: [{ kind: "progress", text: quote, citations: [{ messageRef: ref, quote }] }], knowledge: [], reportedTime: null,
+    changes: { status: { value: "done", evidenceRefs: ["fact:0"] } } });
+  await s.auto.tick();
+  expect(s.f.repo.kernel.getTask(task.id).status).toBe("open");
+  const proposal = s.f.repo.kernel.getProposal(s.f.repo.session(session.id).proposalId!);
+  await s.f.harness.behavior.callRpc("accept", { proposalId: proposal.id, revision: proposal.baseRevision });
+  expect(s.f.repo.kernel.getTask(task.id).status).toBe("done");
+  expect(s.days.taskItem(task.id, date)?.reportedMinutes).toBe(45);
+  expect(s.auto.control().enabled).toBe(false);
 });
 it("keeps Pause independent of status classification even with automatic mode off", async () => {
   const s = await setup(false), { task, session } = await chat(s);

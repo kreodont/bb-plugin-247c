@@ -71,7 +71,7 @@ it("preserves a frozen conversation and supporting evidence when only selected k
   const session = sessionSchema.parse(await f.harness.behavior.callRpc("start", { ...f.startInput(task.id, task.revision), criteria: [] }));
   const quote = "Use a single region for this deployment.";
   f.message(session.workerThreadId!, "user", quote); await f.idle(session.workerThreadId!, "Recorded.");
-  await f.harness.behavior.callRpc("finish", { sessionId: session.id });
+  await f.harness.behavior.callRpc("pauseSession", { sessionId: session.id });
   const transcript = f.repo.transcript(session.id)!;
   const ref = transcript.messages.find(message => message.text === quote)!.ref;
   const extraction: Extraction = { rationale: "Record configuration", facts: [{ kind: "description", text: quote, citations: [{ messageRef: ref, quote }] }],

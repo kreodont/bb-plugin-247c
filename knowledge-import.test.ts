@@ -108,7 +108,7 @@ it("combines imported files with conversation knowledge while retaining the prop
   const fact = "В ExampleERP booked означает проведённый счёт.";
   f.message(session.workerThreadId!, "user", fact);
   await f.idle(session.workerThreadId!, "Принял уточнение.");
-  await f.harness.behavior.callRpc("finish", { sessionId: session.id });
+  await f.harness.behavior.callRpc("pauseSession", { sessionId: session.id });
   const ref = f.repo.transcript(session.id)!.messages.find((message) => message.text === fact)!.ref;
   await f.idle(f.repo.session(session.id).reviewerThreadId!, { rationale: "Сохраним термин.", facts: [{ kind: "description", text: fact, citations: [{ messageRef: ref, quote: fact }] }], changes: null, knowledge: [{ title: "Значение booked", body: fact, tags: ["ExampleERP"], evidenceRefs: ["fact:0"] }] });
   const pending = f.repo.session(session.id);

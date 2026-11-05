@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { fixture } from "./test-support.js";
 import { sessionSchema, type Extraction } from "./contracts.js";
+import { SessionRuntime } from "./runtime.js";
 
 type RawEvents = Awaited<ReturnType<BbPluginApi["sdk"]["threads"]["events"]["list"]>>;
 type Spawn = Extract<Parameters<BbPluginApi["sdk"]["threads"]["spawn"]>[0], { prompt: string }>;
@@ -24,7 +25,9 @@ async function failedRecorder() {
   const session = sessionSchema.parse(await f.harness.behavior.callRpc("start", { ...f.startInput(task.id, task.revision), criteria: [] }));
   const report = "Правка Alpha работает в проде. Дополнительный PR ещё ждёт одобрения.";
   await f.idle(session.workerThreadId!, report);
-  await f.harness.behavior.callRpc("finish", { sessionId: session.id });
+  // Reproduce a saved review created before Finish required a status decision.
+  const runtime = new SessionRuntime(f.bb, f.repo, async () => ({ codexReviewer: "", claudeReviewer: "", maximumRepairs: 0, sessionMinutes: 20 }));
+  await runtime.finish(session.id);
   const reviewing = f.repo.session(session.id);
   const before = await f.detail(task.id);
   const transcript = f.repo.transcript(session.id)!;
@@ -37,7 +40,7 @@ async function failedRecorder() {
   f.harness.inspection.sdk.stub("threads.events.list", ({ threadId }) => events.get(threadId) ?? []);
   f.outputs.set(reviewing.reviewerThreadId!, JSON.stringify(draft));
   f.threads.set(reviewing.reviewerThreadId!, { ...f.threads.get(reviewing.reviewerThreadId!)!, status: "idle", archivedAt: Date.now() });
-  // A saved session from the earlier validator, before progress could clear a step.
+  // A legacy session without a finish mode, before progress could clear a step.
   f.repo.saveSession({ ...reviewing, status: "blocked", error: "nextStep needs explicit_next_step or user_instruction evidence" });
   return { f, task, before, session: f.repo.session(session.id), draft, transcript, events, spawn };
 }
