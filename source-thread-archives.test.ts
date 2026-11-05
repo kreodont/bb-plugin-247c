@@ -77,14 +77,40 @@ it("retries an archive failure after restart while leaving results intact", asyn
   await s.f.reload(); await new SourceThreadArchives(s.f.bb, s.f.repo, () => []).tick();
   expect(s.f.threads.get(s.threadId)?.archivedAt).toBeTruthy();
 });
-it("requires a completed imported run before archiving an external analyst", async () => {
+it("archives a confirmed imported batch even with partial collection coverage, including after reload", async () => {
   const s = await setup("partial");
   const external = await s.f.bb.sdk.threads.spawn({ projectId: "proj_personal", environment: { type: "reuse", environmentId: "env_test" }, title: "247C imported analysis", providerId: "codex", prompt: "Analyze the saved sources." });
   s.f.threads.set(external.id, { ...s.f.threads.get(external.id)!, status: "idle" });
-  const archives = new SourceThreadArchives(s.f.bb, s.f.repo, () => [{ threadId: external.id, runId: s.run.id }]);
+  s.store.save({ ...s.run, finishedAt: new Date().toISOString() });
+  const before = s.store.run(s.run.id), proposals = s.store.candidates();
+  let imported: { threadId: string; runId: string }[] = [];
+  const archives = new SourceThreadArchives(s.f.bb, s.f.repo, () => imported);
   await archives.tick(external.id); expect(s.f.threads.get(external.id)?.archivedAt).toBeNull();
-  s.store.save({ ...s.store.run(s.run.id), status: "completed", finishedAt: new Date().toISOString() });
-  await archives.tick(external.id); expect(s.f.threads.get(external.id)?.archivedAt).toBeTruthy();
+  imported = [{ threadId: external.id, runId: s.run.id }];
+  await s.f.reload();
+  await new SourceThreadArchives(s.f.bb, s.f.repo, () => imported).tick(external.id);
+  expect(s.f.threads.get(external.id)?.archivedAt).toBeTruthy();
+  const restored = new SourceSyncStore(s.f.repo);
+  expect(restored.run(s.run.id)).toEqual(before);
+  expect(restored.candidates()).toEqual(proposals);
+  expect(s.f.threads.get(s.threadId)?.archivedAt).toBeNull();
+});
+it.each(["blocked", "working"] as const)("keeps an external analysis visible when its linked run is %s", async status => {
+  const s = await setup(status);
+  const archives = new SourceThreadArchives(s.f.bb, s.f.repo, () => [{ threadId: s.threadId, runId: s.run.id }]);
+  await archives.tick(); expect(s.f.threads.get(s.threadId)?.archivedAt).toBeNull();
+});
+it("rechecks import confirmation and preserves follow-ups on partial batches", async () => {
+  const s = await setup("partial");
+  const imported = [{ threadId: s.threadId, runId: s.run.id }];
+  const archives = new SourceThreadArchives(s.f.bb, s.f.repo, () => imported);
+  s.f.harness.sdk.stub("threads.get", ({ threadId }) => { imported.length = 0; return s.f.threads.get(threadId)!; });
+  await archives.tick(); expect(s.f.threads.get(s.threadId)?.archivedAt).toBeNull();
+  s.f.harness.sdk.stub("threads.get", ({ threadId }) => s.f.threads.get(threadId)!);
+  imported.push({ threadId: s.threadId, runId: s.run.id });
+  s.store.save({ ...s.run, finishedAt: new Date(Date.now() - 1000).toISOString() });
+  s.f.message(s.threadId, "user", "Explain this result.");
+  await archives.tick(); expect(s.f.threads.get(s.threadId)?.archivedAt).toBeNull();
 });
 it("does not archive twice when an idle event overtakes a cleanup batch", async () => {
   const s = await setup(), { run } = await startSourceSync(s.f);

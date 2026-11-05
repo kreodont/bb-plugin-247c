@@ -1,3 +1,7 @@
+# 0.5.141
+
+- Archive successfully imported Updates chats even when their batch has partial collection coverage. Keep unfinished imports, active conversations and user follow-ups visible.
+
 # 0.5.140
 
 - Require a Done or Pending decision when finishing a session in manual mode, as in automatic mode. Manual reviews still require acceptance; Pause and closed-task discussions retain their existing behavior.

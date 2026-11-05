@@ -1,7 +1,7 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import type { Repository } from "./repository.js";
 
-type Candidate = { threadId: string; runId: string; finishedAt: string };
+type Candidate = { threadId: string; runId: string; finishedAt: string; importedAnalysis?: boolean };
 const PREFIX = "source-thread-archive:";
 
 /** Archive saved, successful checks without changing their results or proposals. */
@@ -12,14 +12,15 @@ export class SourceThreadArchives {
   constructor(readonly bb: BbPluginApi, readonly repo: Repository,
     readonly importedThreads: () => { threadId: string; runId: string }[]) {}
   private candidates(threadId?: string): Candidate[] {
-    const runs = this.repo.db.prepare(`SELECT id,thread_id AS threadId,json_extract(value_json,'$.finishedAt') AS finishedAt
-      FROM source_sync_runs WHERE status='completed' AND json_extract(value_json,'$.finishedAt') IS NOT NULL ORDER BY rowid DESC`).all() as { id: string; threadId: string | null; finishedAt: string }[];
+    const runs = this.repo.db.prepare(`SELECT id,status,thread_id AS threadId,json_extract(value_json,'$.finishedAt') AS finishedAt
+      FROM source_sync_runs WHERE status IN ('completed','partial') AND json_extract(value_json,'$.finishedAt') IS NOT NULL ORDER BY rowid DESC`).all() as { id: string; status: string; threadId: string | null; finishedAt: string }[];
     const completed = new Map(runs.map(run => [run.id, run]));
     const candidates = new Map<string, Candidate>();
-    for (const run of runs) if (run.threadId) candidates.set(run.threadId, { threadId: run.threadId, runId: run.id, finishedAt: run.finishedAt });
+    for (const run of runs) if (run.status === "completed" && run.threadId) candidates.set(run.threadId, { threadId: run.threadId, runId: run.id, finishedAt: run.finishedAt });
     for (const item of this.importedThreads()) {
       const run = completed.get(item.runId);
-      if (run) candidates.set(item.threadId, { ...item, finishedAt: run.finishedAt });
+      // Imported analysis batches do not claim complete collection coverage.
+      if (run) candidates.set(item.threadId, { ...item, finishedAt: run.finishedAt, importedAnalysis: true });
     }
     const marked = new Set((this.repo.db.prepare("SELECT key FROM automation_state WHERE key LIKE 'source-thread-archive:%'").all() as { key: string }[]).map(row => row.key.slice(PREFIX.length)));
     return [...candidates.values()].filter(item => (!threadId || item.threadId === threadId) && Number.isFinite(Date.parse(item.finishedAt)) && !marked.has(item.threadId)
@@ -32,7 +33,10 @@ export class SourceThreadArchives {
   }
   private stillCompleted(candidate: Candidate) {
     const row = this.repo.db.prepare("SELECT status FROM source_sync_runs WHERE id=?").get(candidate.runId) as { status: string } | undefined;
-    return !this.disposed && row?.status === "completed";
+    if (this.disposed) return false;
+    if (candidate.importedAnalysis) return ["completed", "partial"].includes(row?.status ?? "")
+      && this.importedThreads().some(item => item.threadId === candidate.threadId && item.runId === candidate.runId);
+    return row?.status === "completed";
   }
   private async ready(candidate: Candidate) {
     const { threadId } = candidate;
