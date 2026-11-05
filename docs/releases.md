@@ -1,3 +1,7 @@
+# 0.5.144
+
+- Start requested reviews for empty chats that BB still reports as pending. Check for messages, queued input and active agents before saving an empty transcript.
+
 # 0.5.143
 
 - Keep work sessions open until the user chooses Finish or Pause. Worker checkpoints and incoming source updates no longer start a review.

@@ -650,8 +650,25 @@ export class SessionRuntime {
     // A successful stop acknowledgement alone does not prove the final answer
     // has settled. Wait for a quiescent status before freezing its transcript.
     const thread = await this.bb.sdk.threads.get({ threadId: session.workerThreadId! });
-    if (["active", "starting", "stopping", "pending"].includes(thread.status)) return;
+    if (["active", "starting", "stopping"].includes(thread.status)) return;
     let transcript = this.repo.transcript(session.id);
+    if (thread.status === "pending") {
+      // BB keeps a never-started empty chat pending after stop. Confirm that it
+      // really has no work before allowing an explicitly requested review.
+      if (!(this.repo.sessionRequest(session.id) as { emptyChat?: boolean }).emptyChat
+        || session.continuedFrom || transcript?.messages.length || thread.activeBackgroundAgentCount) return;
+      const threadId = thread.id;
+      const [queued, interactions, page] = await Promise.all([
+        this.bb.sdk.threads.queuedMessages.list({ threadId }),
+        this.bb.sdk.threads.interactions.list({ threadId }),
+        this.bb.sdk.threads.timeline({ threadId, segmentLimit: "100", includeNestedRows: "true", summaryOnly: "false" }),
+      ]);
+      if (queued.length || interactions.length || page.rows.length || page.maxSeq !== 0 || page.timelinePage.hasOlderRows) return;
+      this.current(session.id);
+      const settled = await this.bb.sdk.threads.get({ threadId });
+      if (settled.status !== "pending" || settled.activeBackgroundAgentCount) return;
+      transcript ??= { threadId, capturedAt: new Date().toISOString(), messages: [], warnings: [] };
+    }
     if (!transcript) {
       const current = await readConversation(this.bb, session);
       const previous = session.continuedFrom ? this.repo.transcript(session.continuedFrom) : null;

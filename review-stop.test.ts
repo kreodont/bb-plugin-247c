@@ -119,3 +119,52 @@ it("does not retry an uncertain recorder launch even when it reports the same sh
   expect(f.repo.transcript(session.id)).not.toBeNull();
   expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(2); // Initial worker and one failed launch attempt.
 });
+
+async function emptyPendingChat() {
+  const f = await fixture({ settings: { threadProjectId: "proj_tasks", composerDefaults: JSON.stringify({ providerId: "claude-work", model: "claude-opus-5[1m]" }) } }); hosts.push(f);
+  f.harness.inspection.sdk.stub("projects.get", () => ({ id: "proj_tasks", kind: "standard", sources: [{ type: "local_path", hostId: "host_test", path: "/work", isDefault: true }] }));
+  const task = await f.create();
+  const session = sessionSchema.parse(await f.harness.behavior.callRpc("openChat", { taskId: task.id, requestId: crypto.randomUUID() }));
+  f.conversations.set(session.workerThreadId!, []);
+  f.threads.set(session.workerThreadId!, { ...f.threads.get(session.workerThreadId!)!, environmentId: "env_test" });
+  f.harness.inspection.sdk.stub("threads.stop", ({ threadId }) => {
+    f.threads.set(threadId, { ...f.threads.get(threadId)!, status: "pending" });
+    return { ok: true };
+  });
+  return { f, task, session };
+}
+it.each([false, true])("reviews an explicitly finished empty pending chat, archived=%s", async archived => {
+  const { f, task, session } = await emptyPendingChat();
+  if (archived) f.threads.set(session.workerThreadId!, { ...f.threads.get(session.workerThreadId!)!, archivedAt: Date.now() });
+  await f.harness.behavior.callRpc("finish", { sessionId: session.id });
+  const reviewing = f.repo.session(session.id);
+  expect(reviewing).toMatchObject({ status: "reviewing", finishMode: "resolve" });
+  expect(f.repo.transcript(session.id)?.messages).toEqual([]);
+  await f.idle(reviewing.reviewerThreadId!, { rationale: "No work was done. Keep the task pending after Finish.", facts: [], knowledge: [], reportedTime: null,
+    changes: { status: { value: "waiting", evidenceRefs: ["session:finish:pending"] } } });
+  expect(f.repo.session(session.id).status).toBe("awaiting_approval");
+  expect(f.repo.kernel.getTask(task.id).status).toBe("open");
+});
+it.each(["queued", "interaction", "background", "history", "missing-page"])("does not treat a pending chat with %s as empty", async reason => {
+  const { f, session } = await emptyPendingChat(), threadId = session.workerThreadId!;
+  if (reason === "queued") f.queued.set(threadId, [{ id: "queued" }] as never);
+  if (reason === "interaction") f.harness.inspection.sdk.stub("threads.interactions.list", () => [{ id: "approval" }] as never);
+  if (reason === "background") f.threads.set(threadId, { ...f.threads.get(threadId)!, activeBackgroundAgentCount: 1 });
+  if (reason === "history") f.message(threadId, "user", "Please investigate.");
+  if (reason === "missing-page") f.harness.inspection.sdk.stub("threads.timeline", () => ({ rows: [], maxSeq: 2, timelinePage: { hasOlderRows: true, olderCursor: { anchorId: "older", anchorSeq: 1 }, kind: "latest", returnedSegmentCount: 0, segmentLimi: 100 } }));
+  await f.harness.behavior.callRpc("finish", { sessionId: session.id });
+  expect(f.repo.session(session.id).status).toBe("collecting");
+  expect(f.repo.transcript(session.id)).toBeNull();
+  expect(f.repo.session(session.id).reviewerThreadId).toBeNull();
+});
+
+it("retries an empty pending chat without replacing its frozen transcript", async () => {
+  const { f, session } = await emptyPendingChat();
+  await f.harness.behavior.callRpc("finish", { sessionId: session.id });
+  const reviewing = f.repo.session(session.id), transcript = f.repo.transcript(session.id);
+  f.repo.saveSession({ ...reviewing, status: "blocked", error: "Review runtime unavailable" });
+  await f.harness.behavior.callRpc("retry", { sessionId: session.id });
+  expect(f.repo.session(session.id).status).toBe("reviewing");
+  expect(f.repo.session(session.id).reviewerThreadId).not.toBe(reviewing.reviewerThreadId);
+  expect(f.repo.transcript(session.id)).toEqual(transcript);
+});
