@@ -1,3 +1,8 @@
+# 0.5.143
+
+- Keep work sessions open until the user chooses Finish or Pause. Worker checkpoints and incoming source updates no longer start a review.
+- Show ready chats as waiting for manual Finish and free their automatic worker slots.
+
 # 0.5.142
 
 - Explain when another session blocks Retry review, Discuss review or Resume chat, and link to that session. Clear the explanation when the blocker ends.

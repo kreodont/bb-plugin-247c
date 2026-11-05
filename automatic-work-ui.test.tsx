@@ -35,3 +35,14 @@ it("pauses from the worker header in one click and hides the action during revie
   expect(f.repo.kernel.getTask(task.id).status).toBe("open");
   expect(await f.harness.behavior.callRpc("automationState", {})).toMatchObject({ paused: [{ taskId: task.id }] });
 });
+
+it("shows a ready session as waiting for the user to finish", async () => {
+  const { f, rpc } = await setup(), task = await f.create();
+  await f.harness.behavior.callRpc("automationSet", { enabled: true });
+  const session = sessionSchema.parse(await f.harness.behavior.callRpc("start", { ...f.startInput(task.id, task.revision), criteria: [] }));
+  f.repo.saveSession({ ...session, automation: { state: "ready", outcome: "done", note: "The work is ready." } });
+  const slot = renderSlot(app.navPanels[0], { subPath: "automatic" }, { rpc }); mounts.push(slot);
+  await slot.findByText(/Ready for you to finish/);
+  expect(slot.queryByText(/^Finishing/)).toBeNull();
+  expect(slot.getByText(/Sessions stay open until you choose Finish session or Pause session/)).toBeTruthy();
+});

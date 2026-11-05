@@ -1,4 +1,4 @@
-import { canFinishForSource, SourceSessionBusy } from "./source-session.js";
+import { statusNeedsStoppedSession } from "./task-status.js";
 import { sessionFinishMode } from "./finish-mode.js";
 import { randomUUID } from "node:crypto";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
@@ -76,7 +76,7 @@ export class AutomaticWork {
     if (this.repo.kernel.getTask(candidate.resultTaskId).status !== "open") return false;
     const active = this.repo.active().find(s => s.taskId === candidate.resultTaskId);
     if (active) return true;
-    const workers = this.sessions().filter(s => ["starting", "working", "collecting", "review_starting", "reviewing"].includes(s.status) && s.automation?.state !== "needs_input");
+    const workers = this.sessions().filter(s => ["starting", "working", "collecting", "review_starting", "reviewing"].includes(s.status) && s.automation?.state !== "needs_input" && !(s.status === "working" && s.automation?.state === "ready"));
     return workers.length < this.settings().automaticMaximumWorkers;
   }
   opened(_candidate: SyncCandidate, session: Session) {
@@ -84,40 +84,10 @@ export class AutomaticWork {
     this.repo.saveSession({ ...current, automation: { state: "working" } });
   }
   async acceptSource(id: string, priority?: { urgent: boolean; important: boolean }, automatic = false) {
-    const candidate = this.sources.candidate(id);
-    if (candidate.status !== "pending") return this.sources.accept(id, priority, automatic);
-    return this.withSourceSession(candidate, sessionId => this.sources.accept(id, priority, automatic, sessionId), automatic);
+    return this.sources.accept(id, priority, automatic);
   }
   async reviewSourceParts(input: PartDecision) {
-    if (input.decision !== "accept" || !input.parts.includes("field:status")) return this.sources.reviewParts(input);
-    const candidate = this.sources.candidate(input.id);
-    if (candidate.status !== "pending") return this.sources.reviewParts(input);
-    return this.withSourceSession(candidate, sessionId => this.sources.reviewParts(input, sessionId), false);
-  }
-  private async withSourceSession<T>(candidate: SyncCandidate, apply: (sessionId?: string) => T, automatic: boolean): Promise<T> {
-    const session = candidate.taskId ? this.repo.active().find(s => s.taskId === candidate.taskId) : undefined;
-    if (!session || !["done", "waiting"].includes(candidate.changes.status?.value ?? "")) return apply();
-    if (!canFinishForSource(session, candidate) || !session.workerThreadId) throw new SourceSessionBusy();
-    this.repo.assertCurrent(session.taskId, candidate.baseRevision!, false);
-    const threadId = session.workerThreadId, lastUserSeq = await this.lastUserSeq(threadId);
-    const ready = async () => {
-      const current = this.repo.session(session.id);
-      if (!canFinishForSource(current, candidate)
-        || automatic && (current.automation?.state === "needs_input" && current.automation.requestedAt || !this.control().enabled || this.read(`pause:${session.taskId}`))) return false;
-      const thread = await this.bb.sdk.threads.get({ threadId });
-      return thread.status === "idle" && !thread.activeBackgroundAgentCount
-        && !(await this.bb.sdk.threads.queuedMessages.list({ threadId })).length
-        && !(await this.bb.sdk.threads.interactions.list({ threadId })).length
-        && await this.lastUserSeq(threadId) === lastUserSeq;
-    };
-    if (!await ready()) throw new SourceSessionBusy();
-    let result: { value: T } | undefined;
-    await this.runtime.finish(session.id, "auto", ready, { automatic: this.control().enabled, apply: () => {
-      result = { value: apply(session.id) };
-      this.repo.sessionEvent(session.id, "source-resolution", "An accepted source update ended the work session. Work records and reported time are reviewed separately.", { candidateId: candidate.id });
-    } });
-    if (!result) throw new SourceSessionBusy();
-    return result.value;
+    return this.sources.reviewParts(input);
   }
   async checkpoint(threadId: string, raw: AutomationCheckpoint) {
     const input = automationCheckpointSchema.parse(raw), session = this.repo.forThread(threadId);
@@ -127,33 +97,26 @@ export class AutomaticWork {
     if (current.status !== "working" || current.finishedAt) throw new Error("This session has already finished.");
     this.repo.saveSession({ ...current, automation: { state: input.state, note: input.note, ...(input.state === "ready" ? { outcome: input.outcome } : {}), requestedAt: this.clock().toISOString(), lastUserSeq } });
     this.repo.sessionEvent(session.id, "work-checkpoint", input.note, input);
-    return { saved: true, next: input.state === "ready" ? "Explain the result and end your turn. The host will review it once idle." : "Ask the user and wait for their reply." };
+    return { saved: true, next: input.state === "ready" ? "Explain the result and end your turn. The session stays open until the user chooses Finish session or Pause session." : "Ask the user and wait for their reply." };
   }
   private async lastUserSeq(threadId: string) {
     const page = await this.bb.sdk.threads.timeline({ threadId, segmentLimit: "100", includeNestedRows: "false", summaryOnly: "false", deferContent: "false" });
     return Math.max(0, ...page.rows.filter(r => r.kind === "conversation" && r.role === "user").map(r => r.sourceSeqEnd));
   }
-  async finish(id: string, recorder: "auto" | "same" | "personal-claude" = "auto", automatic = false) {
+  async finish(id: string, recorder: "auto" | "same" | "personal-claude" = "auto") {
     const session = this.repo.session(id);
     const enabled = this.control().enabled;
     if (session.mode === "conversation" && session.status === "working") {
       const task = this.repo.kernel.getTask(session.taskId);
       const finishMode = session.continuedFrom ? sessionFinishMode(session) : ["open", "waiting"].includes(task.status) ? "resolve" as const : undefined;
-      if (!automatic && session.automation?.outcome === "paused") this.manualOpen(session.taskId);
+      if (session.automation?.outcome === "paused") this.manualOpen(session.taskId);
       const current = this.repo.session(id);
       this.repo.saveSession({ ...current, ...(finishMode ? { finishMode } : {}),
-        ...(enabled ? { automation: automatic && session.automation?.state === "ready" ? current.automation! : { state: "reviewing" as const } } : {}) });
+        ...(enabled ? { automation: { state: "reviewing" as const } } : {}) });
     }
-    return this.runtime.finish(id, recorder, automatic && session.automation?.state === "ready" ? async () => {
-      if (!this.control().enabled || this.read(`pause:${session.taskId}`)) return false;
-      const threadId = session.workerThreadId!, current = this.repo.session(id);
-      return current.status === "working" && current.automation?.lastUserSeq === session.automation?.lastUserSeq
-        && (await this.bb.sdk.threads.get({ threadId })).status === "idle"
-        && !(await this.bb.sdk.threads.queuedMessages.list({ threadId })).length
-        && !(await this.bb.sdk.threads.interactions.list({ threadId })).length
-        && await this.lastUserSeq(threadId) === session.automation?.lastUserSeq;
-    } : undefined);
+    return this.runtime.finish(id, recorder);
   }
+
   async pause(id: string) {
     const session = this.repo.session(id);
     if (session.mode !== "conversation" || session.status !== "working" || session.finishedAt) throw new Error("Pause an open work chat before its review begins.");
@@ -194,9 +157,9 @@ export class AutomaticWork {
       if (candidate.createdAt < control.since! || this.read(`error:${candidate.id}`) || this.manuallyHeld("source", candidate.id)) continue;
       if (["starting", "working"].includes(this.sources.run(candidate.runId).status)) continue;
       const active = candidate.taskId ? this.repo.active().find(s => s.taskId === candidate.taskId) : undefined;
-      if (active && (!canFinishForSource(active, candidate) && candidate.changes.status || !["starting", "working"].includes(active.status))) continue;
+      if (active && (candidate.changes.status && statusNeedsStoppedSession(this.repo.kernel.getTask(active.taskId).status, candidate.changes.status.value) || !["starting", "working"].includes(active.status))) continue;
       try { await this.acceptSource(candidate.id, undefined, true); }
-      catch (error) { if (!(error instanceof SourceSessionBusy)) this.error(candidate.id, error); }
+      catch (error) { this.error(candidate.id, error); }
     }
     for (const original of this.sessions()) {
       if (!this.control().enabled) break;
@@ -215,7 +178,8 @@ export class AutomaticWork {
           if (await this.lastUserSeq(threadId) !== session.automation.lastUserSeq) {
             this.repo.saveSession({ ...session, automation: { state: "working" } }); continue;
           }
-          session = await this.finish(session.id, "auto", true);
+          // A checkpoint is informational. Only an explicit Finish or Pause starts review.
+          continue;
         }
         if (session.status === "blocked") { this.error(session.id, session.error ?? "The work or review needs attention. Open its chat."); continue; }
         if (session.status === "completed" || session.status === "applied") {

@@ -1508,21 +1508,31 @@ it.each(["task", "inbox"])("refreshes stale source proposals from the %s after a
 });
 
 
-it("accepts source completion from an expanded task card and finishes its idle chat in the same action", async () => {
+it.each(["done", "waiting"] as const)("handles source status %s without finishing the open chat", async status => {
   const f = await fixture(), task = await f.create();
   const session = sessionSchema.parse(await f.harness.behavior.callRpc("start", { ...f.startInput(task.id, task.revision), criteria: [] }));
   await f.idle(session.workerThreadId!, "Checked the request and prepared a draft.");
   const { run } = await startSourceSync(f), { input } = await sourceData(f, run, task.id);
-  input.suggestions[0].changes.status = { value: "done", evidenceRefs: ["fact:0"] };
+  input.suggestions[0].changes.status = { value: status, evidenceRefs: ["fact:0"] };
   await submitSourceData(f, run, input);
   const { slot } = await setup(task.id, f);
   fireEvent.click(await slot.findByRole("tab", { name: "Proposals · 1" }));
   const accept = await slot.findByRole("button", { name: "Accept update" });
-  expect((accept as HTMLButtonElement).disabled).toBe(false);
-  expect(slot.getByText(/An idle work session will finish automatically/)).toBeTruthy();
-  fireEvent.click(accept);
-  await waitFor(() => expect(f.repo.kernel.getTask(task.id).status).toBe("done"));
-  expect(f.repo.session(session.id)).toMatchObject({ status: "reviewing", finishMode: "source" });
+  expect((accept as HTMLButtonElement).disabled).toBe(status === "done");
+  expect(slot.queryByText(/An idle work session will finish automatically/)).toBeNull();
+  if (status === "done") {
+    expect(slot.getByText("Finish the work session before changing the status.")).toBeTruthy();
+    fireEvent.click(slot.getByRole("checkbox", { name: "Select part: Task status" }));
+    const partial = await slot.findByRole("button", { name: /Accept selected parts/ });
+    expect((partial as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(partial);
+    await waitFor(() => expect(f.repo.kernel.getTask(task.id).revision).toBeGreaterThan(task.revision));
+    expect(f.repo.kernel.getTask(task.id).status).toBe("open");
+  } else {
+    fireEvent.click(accept);
+    await waitFor(() => expect(f.repo.kernel.getTask(task.id).status).toBe("waiting"));
+  }
+  expect(f.repo.session(session.id)).toMatchObject({ status: "working", finishedAt: null, reviewerThreadId: null });
 });
 
 
