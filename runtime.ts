@@ -56,7 +56,7 @@ export class SessionRuntime {
   constructor(readonly bb: BbPluginApi, readonly repo: Repository, readonly settings: () => Promise<SettingsView>, readonly threadRouting = new ThreadRouting(bb, async () => "")) {}
 
   private requiresOpenTask(session: Session) {
-    return !session.continuedFrom && !(session.mode === "conversation" && session.closedTaskConversation);
+    return !session.continuedFrom && !(session.mode === "conversation" && (session.closedTaskConversation || session.finishMode === "source"));
   }
 
   private current(id: string): Session {
@@ -431,7 +431,7 @@ export class SessionRuntime {
     return { workerModel, reviewerProvider, reviewerModel, reviewerReasoning, selectionReason: `Review model selected manually: ${reviewerModel} (${reviewerProvider}).` };
   }
 
-  async finish(id: string, recorder: "auto" | "same" | "personal-claude" = "auto", readyCheck?: () => Promise<boolean>) {
+  async finish(id: string, recorder: "auto" | "same" | "personal-claude" = "auto", readyCheck?: () => Promise<boolean>, sourceResolution?: { apply: () => void; automatic: boolean }) {
     let session = this.repo.session(id);
     if (session.mode !== "conversation") throw new PolicyError("This session was created with acceptance criteria and uses the earlier verification workflow.");
     if (session.finishedAt || !ACTIVE.has(session.status)) return session;
@@ -441,9 +441,17 @@ export class SessionRuntime {
     session = this.repo.session(id);
     if (session.finishedAt || !ACTIVE.has(session.status)) return session;
     if (readyCheck && !await readyCheck()) return this.repo.session(id);
+    session = this.repo.session(id);
+    if (session.status !== "working" || session.finishedAt) return session;
     // Freeze dispatch before awaiting anything that can deliver an idle event.
-    session = this.repo.saveSession({ ...this.current(id), ...selection, status: "collecting", finishedAt: new Date().toISOString(), deadlineAt: Date.now() + options.sessionMinutes * 60000 });
-    session = this.repo.saveSession({ ...session, reportedTimeContext: this.repo.sessionTime.capture(session) });
+    this.repo.store.transaction(() => {
+      session = this.repo.saveSession({ ...this.current(id), ...selection, status: "collecting", finishedAt: new Date().toISOString(), deadlineAt: Date.now() + options.sessionMinutes * 60000,
+        ...(sourceResolution ? { finishMode: "source" as const, ...(sourceResolution.automatic ? { automation: { state: "reviewing" as const } } : {}) } : {}) });
+      session = this.repo.saveSession({ ...session, reportedTimeContext: this.repo.sessionTime.capture(session) });
+      // Freeze dispatch and accept the source in one transaction. If the source
+      // became stale, the session remains open and no time is lost.
+      sourceResolution?.apply();
+    });
     this.unavailableMonitors.delete(id);
     this.repo.sessionEvent(id, "conversation-finished", session.automation ? "The conversation ended for a separate automatic review." : "The user ended the conversation; a separate review is starting.");
     this.repo.sessionEvent(id, "recorder-selected", selectionReason, selection);

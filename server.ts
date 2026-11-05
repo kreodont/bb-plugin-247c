@@ -105,13 +105,13 @@ export default async function plugin(bb: BbPluginApi) {
     try { await agentTime.refresh(); } catch { complete = false; }
     return { dayWork: days.analysisWork(), dayComplete: complete && agentTime.state().errors.length === 0, policy: configuration.threadInstructions };
   });
-  const inbox = new ProposalInbox(repo, sync.store, runtime);
   const chatDefaults = () => {
     const defaults = composerDefaultsSchema.parse(JSON.parse(configuration.composerDefaults));
     return { projectId: configuration.threadProjectId, providerId: defaults.providerId || configuration.workProvider, model: defaults.model || configuration.workModel };
   };
   const automatic = new AutomaticWork(bb, repo, runtime, sync.store, days, () => configuration);
   automatic.control();
+  const inbox = new ProposalInbox(repo, sync.store, runtime, automatic);
   const chatUpdates = new SourceChatUpdates(bb, repo, runtime, chatDefaults, automatic);
   const deliverChatUpdates = () => { void chatUpdates.flush().catch(() => bb.log.warn("Accepted chat updates could not be processed; saved requests will resume automatically.")); };
   const updaterHealth = new UpdaterHealth(bb, () => configuration, () => Date.now(),
@@ -196,13 +196,13 @@ export default async function plugin(bb: BbPluginApi) {
     },
     syncImport: async (input) => importSourceBundle(sync.store, (await settings.get()).sourceImportRoot, input, importAnalysis),
     syncCancel: ({ runId }) => sync.cancel(runId),
-    syncAccept: async ({ candidateId, initialPriority }) => { const result = sync.store.accept(candidateId, initialPriority); deliverChatUpdates(); await runtime.archiveFinishedThreads(); return result; },
+    syncAccept: async ({ candidateId, initialPriority }) => { const result = await automatic.acceptSource(candidateId, initialPriority); deliverChatUpdates(); await runtime.archiveFinishedThreads(); return result; },
     syncReject: ({ candidateId }) => sync.store.reject(candidateId),
     list: async ({ history }) => ({ ...repo.list(history), settings: await getSettings() }),
     detail: ({ id, sessionId }) => repo.detail(id, sessionId),
     taskSeen: ({ id, revision }) => repo.markSeen(id, revision),
     reviewParts: async (input) => {
-      const result = input.kind === "source" ? sync.store.reviewParts(input) : await runtime.reviewParts(input);
+      const result = input.kind === "source" ? await automatic.reviewSourceParts(input) : await runtime.reviewParts(input);
       if (input.kind === "source") deliverChatUpdates();
       if (input.kind === "source" && result.taskId) await runtime.archiveFinishedThreads(result.taskId);
       return result;

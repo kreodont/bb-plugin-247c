@@ -572,7 +572,7 @@ ${errors.join("\n").slice(0, 16000)}`);
     this.repo.db.prepare("UPDATE source_sync_candidates SET status=?,task_id=?,value_json=? WHERE id=?").run(candidate.status, candidate.taskId ?? candidate.resultTaskId, JSON.stringify(candidate), candidate.id);
     return candidate;
   }
-  accept(id: string, initialPriority?: { urgent: boolean; important: boolean }, automatic = false) {
+  accept(id: string, initialPriority?: { urgent: boolean; important: boolean }, automatic = false, finishingSessionId?: string) {
     const result = this.repo.store.transaction(() => {
       const candidate = this.candidate(id);
       if (initialPriority && candidate.taskId) throw new PolicyError("Initial priority is only available for new tasks.");
@@ -591,7 +591,7 @@ ${errors.join("\n").slice(0, 16000)}`);
       const proposal = this.repo.kernel.createProposal({ taskId, baseRevision: dossier.task.revision,
         model: `external-sync:${run.provider}:${run.model}`, output: { rationale: candidate.rationale, confidence: candidate.confidence, changes: draft.changes },
         additionalEvidence: draft.evidence, idempotencyKey: `sync:${candidate.id}` });
-      this.repo.accept(proposal.id, dossier.task.revision, automatic ? "automation:247c" : "human:bb-panel");
+      this.repo.accept(proposal.id, dossier.task.revision, automatic ? "automation:247c" : "human:bb-panel", finishingSessionId);
       // These facts belong to this accepted receipt, without extra revisions.
       const timestamp = now();
       for (const [index, fact] of candidate.facts.entries()) {
@@ -614,7 +614,7 @@ ${errors.join("\n").slice(0, 16000)}`);
     });
     this.repo.changed(); return result;
   }
-  reviewParts(input: PartDecision) {
+  reviewParts(input: PartDecision, finishingSessionId?: string) {
     const result = this.repo.request(input.requestId, { kind: "review-source-parts", input }, () => {
       const candidate = this.candidate(input.id);
       if (input.initialPriority && (candidate.taskId || input.decision !== "accept")) throw new PolicyError("Initial priority is only available when accepting a new task.");
@@ -635,7 +635,7 @@ ${errors.join("\n").slice(0, 16000)}`);
         return child;
       };
       const accepted = split.accepted.length ? make(split.accepted, "accepted") : null;
-      const taskId = accepted ? this.accept(accepted.id, input.initialPriority).task.id : candidate.taskId;
+      const taskId = accepted ? this.accept(accepted.id, input.initialPriority, false, finishingSessionId).task.id : candidate.taskId;
       const remaining = split.remaining.length ? make(split.remaining, "remaining", taskId) : null;
       this.saveCandidate({ ...candidate, status: "superseded", resolvedAt: now(), resultTaskId: taskId });
       this.repo.savePartReview("source", candidate.id, { ...split, acceptedId: accepted?.id ?? null, remainingId: remaining?.id ?? null, createdAt: now() });

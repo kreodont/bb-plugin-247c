@@ -7,7 +7,7 @@ import type { CapturedPluginApp, RenderedSlot } from "@get-bb/plugin-sdk/testing
 import { randomUUID } from "node:crypto";
 import { fixture } from "./test-support.js";
 import { Repository } from "./repository.js";
-import { rpcContract, syncStartSchema } from "./contracts.js";
+import { rpcContract, syncStartSchema, sessionSchema } from "./contracts.js";
 import { SourceSyncStore } from "./source-sync.js";
 import { DayPlanning } from "./day-planning.js";
 import { sourceData, startSourceSync, submitSourceData } from "./source-sync-test-support.js";
@@ -1505,4 +1505,22 @@ it.each(["task", "inbox"])("refreshes stale source proposals from the %s after a
   expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
   if (location === "inbox") fireEvent.click(await slot.findByRole("button", { name: "Expand all" }));
   await waitFor(() => expect((slot.getByRole("button", { name: "Accept update" }) as HTMLButtonElement).disabled).toBe(false));
+});
+
+
+it("accepts source completion from an expanded task card and finishes its idle chat in the same action", async () => {
+  const f = await fixture(), task = await f.create();
+  const session = sessionSchema.parse(await f.harness.behavior.callRpc("start", { ...f.startInput(task.id, task.revision), criteria: [] }));
+  await f.idle(session.workerThreadId!, "Checked the request and prepared a draft.");
+  const { run } = await startSourceSync(f), { input } = await sourceData(f, run, task.id);
+  input.suggestions[0].changes.status = { value: "done", evidenceRefs: ["fact:0"] };
+  await submitSourceData(f, run, input);
+  const { slot } = await setup(task.id, f);
+  fireEvent.click(await slot.findByRole("tab", { name: "Proposals · 1" }));
+  const accept = await slot.findByRole("button", { name: "Accept update" });
+  expect((accept as HTMLButtonElement).disabled).toBe(false);
+  expect(slot.getByText(/An idle work session will finish automatically/)).toBeTruthy();
+  fireEvent.click(accept);
+  await waitFor(() => expect(f.repo.kernel.getTask(task.id).status).toBe("done"));
+  expect(f.repo.session(session.id)).toMatchObject({ status: "reviewing", finishMode: "source" });
 });

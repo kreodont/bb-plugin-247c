@@ -333,7 +333,7 @@ export class Repository {
     return proposal;
   }
 
-  accept(proposalId: string, revision: number, actor = "human:bb-panel") {
+  accept(proposalId: string, revision: number, actor = "human:bb-panel", finishingSessionId?: string) {
     this.sessionTime.reconcile(this.kernel.getProposal(proposalId).taskId);
     const proposal = this.kernel.getProposal(proposalId);
     if (proposal.status === "applied") return this.detail(proposal.taskId);
@@ -341,7 +341,7 @@ export class Repository {
     this.store.transaction(() => {
       this.assertCurrent(proposal.taskId, revision, false);
       if (proposal.baseRevision !== revision) throw new ConflictError("The proposal targets an old dossier revision. A new result is required.");
-      if (proposal.changes.status && statusNeedsStoppedSession(this.kernel.getTask(proposal.taskId).status, proposal.changes.status.value) && this.active().some((s) => s.taskId === proposal.taskId)) throw new PolicyError("Finish this task's current work session first.");
+      if (proposal.changes.status && statusNeedsStoppedSession(this.kernel.getTask(proposal.taskId).status, proposal.changes.status.value) && this.active().some((s) => s.taskId === proposal.taskId && !(s.id === finishingSessionId && s.mode === "conversation" && s.finishMode === "source" && s.status === "collecting" && s.finishedAt))) throw new PolicyError("Finish this task's current work session first.");
       if (this.active().some((s) => s.discussionProposalId === proposalId)) throw new PolicyError("Finish discussing this review first. Its revised proposal will appear after the session ends.");
       if (proposal.status === "pending") this.kernel.approveProposal(proposalId, actor);
       this.kernel.applyProposal(proposalId);

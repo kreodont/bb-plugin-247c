@@ -16,3 +16,6 @@ it("does not allow an open or archived outcome for Finish and removes status fro
   expect(validateExtraction(draft, transcript, undefined, "open", "pause").changes).toBeNull();
   expect(validateExtraction({ ...draft, changes: { status: "I cannot choose a status" } }, transcript, undefined, "open", "pause").changes).toBeNull();
 });
+it("preserves the accepted source projection when recording an older work session", () => {
+  expect(validateExtraction({ ...draft, changes: { status: "malformed", summary: { value: "Old summary", evidenceRefs: ["missing"] } } }, transcript, undefined, "done", "source").changes).toBeNull();
+});

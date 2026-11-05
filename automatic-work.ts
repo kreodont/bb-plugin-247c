@@ -1,8 +1,9 @@
+import { canFinishForSource, SourceSessionBusy } from "./source-session.js";
 import { sessionFinishMode } from "./finish-mode.js";
 import { randomUUID } from "node:crypto";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { automationCheckpointSchema, type AutomationCheckpoint } from "./automation-contracts.js";
-import { sessionSchema, sessionUpdateSchema, type Session, type SyncCandidate } from "./contracts.js";
+import { sessionSchema, sessionUpdateSchema, type Session, type SyncCandidate, type PartDecision } from "./contracts.js";
 import { DayPlanning } from "./day-planning.js";
 import { proposalParts } from "./proposal-parts.js";
 import { Repository } from "./repository.js";
@@ -82,6 +83,42 @@ export class AutomaticWork {
     const current = this.repo.session(session.id);
     this.repo.saveSession({ ...current, automation: { state: "working" } });
   }
+  async acceptSource(id: string, priority?: { urgent: boolean; important: boolean }, automatic = false) {
+    const candidate = this.sources.candidate(id);
+    if (candidate.status !== "pending") return this.sources.accept(id, priority, automatic);
+    return this.withSourceSession(candidate, sessionId => this.sources.accept(id, priority, automatic, sessionId), automatic);
+  }
+  async reviewSourceParts(input: PartDecision) {
+    if (input.decision !== "accept" || !input.parts.includes("field:status")) return this.sources.reviewParts(input);
+    const candidate = this.sources.candidate(input.id);
+    if (candidate.status !== "pending") return this.sources.reviewParts(input);
+    return this.withSourceSession(candidate, sessionId => this.sources.reviewParts(input, sessionId), false);
+  }
+  private async withSourceSession<T>(candidate: SyncCandidate, apply: (sessionId?: string) => T, automatic: boolean): Promise<T> {
+    const session = candidate.taskId ? this.repo.active().find(s => s.taskId === candidate.taskId) : undefined;
+    if (!session || !["done", "waiting"].includes(candidate.changes.status?.value ?? "")) return apply();
+    if (!canFinishForSource(session, candidate) || !session.workerThreadId) throw new SourceSessionBusy();
+    this.repo.assertCurrent(session.taskId, candidate.baseRevision!, false);
+    const threadId = session.workerThreadId, lastUserSeq = await this.lastUserSeq(threadId);
+    const ready = async () => {
+      const current = this.repo.session(session.id);
+      if (!canFinishForSource(current, candidate)
+        || automatic && (current.automation?.state === "needs_input" && current.automation.requestedAt || !this.control().enabled || this.read(`pause:${session.taskId}`))) return false;
+      const thread = await this.bb.sdk.threads.get({ threadId });
+      return thread.status === "idle" && !thread.activeBackgroundAgentCount
+        && !(await this.bb.sdk.threads.queuedMessages.list({ threadId })).length
+        && !(await this.bb.sdk.threads.interactions.list({ threadId })).length
+        && await this.lastUserSeq(threadId) === lastUserSeq;
+    };
+    if (!await ready()) throw new SourceSessionBusy();
+    let result: { value: T } | undefined;
+    await this.runtime.finish(session.id, "auto", ready, { automatic: this.control().enabled, apply: () => {
+      result = { value: apply(session.id) };
+      this.repo.sessionEvent(session.id, "source-resolution", "An accepted source update ended the work session. Work records and reported time are reviewed separately.", { candidateId: candidate.id });
+    } });
+    if (!result) throw new SourceSessionBusy();
+    return result.value;
+  }
   async checkpoint(threadId: string, raw: AutomationCheckpoint) {
     const input = automationCheckpointSchema.parse(raw), session = this.repo.forThread(threadId);
     if (!this.control().enabled || !session || session.workerThreadId !== threadId || session.mode !== "conversation" || session.status !== "working" || session.finishedAt) throw new Error("Automatic checkpoints require an open 247C work chat and automatic mode.");
@@ -154,9 +191,10 @@ export class AutomaticWork {
     for (const candidate of this.sources.pendingCandidates()) {
       if (candidate.createdAt < control.since! || this.read(`error:${candidate.id}`) || this.manuallyHeld("source", candidate.id)) continue;
       if (["starting", "working"].includes(this.sources.run(candidate.runId).status)) continue;
-      // A running worker's review owns its status change. Do not close it underneath it.
-      if (candidate.taskId && this.repo.active().some(s => s.taskId === candidate.taskId) && (candidate.changes.status || this.repo.active().some(s => s.taskId === candidate.taskId && !["starting", "working"].includes(s.status)))) continue;
-      try { this.sources.accept(candidate.id, undefined, true); } catch (error) { this.error(candidate.id, error); }
+      const active = candidate.taskId ? this.repo.active().find(s => s.taskId === candidate.taskId) : undefined;
+      if (active && (!canFinishForSource(active, candidate) && candidate.changes.status || !["starting", "working"].includes(active.status))) continue;
+      try { await this.acceptSource(candidate.id, undefined, true); }
+      catch (error) { if (!(error instanceof SourceSessionBusy)) this.error(candidate.id, error); }
     }
     for (const original of this.sessions()) {
       if (!this.control().enabled) break;

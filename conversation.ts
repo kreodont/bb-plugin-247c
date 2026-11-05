@@ -124,6 +124,9 @@ export function validateExtraction(value: unknown, transcript: Transcript, timeC
       value = { ...raw, changes: Object.keys(rest).length ? rest : null };
     }
   }
+  // The accepted source owns the current projection; an older chat must not
+  // overwrite it when its work and time are recorded afterwards.
+  if (finishMode === "source" && value && typeof value === "object" && !Array.isArray(value)) value = { ...value, changes: null };
   const extraction = extractionSchema.parse(value);
   if (finishMode === "resolve" && !["done", "waiting"].includes(extraction.changes?.status?.value ?? "")) {
     throw new PolicyError("Finish session requires the recorder to choose changes.status=done or waiting. Pause is the separate action that leaves the task open. Explain the result and return the complete corrected review; do not ask the user to choose.");

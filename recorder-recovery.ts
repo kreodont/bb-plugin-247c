@@ -9,7 +9,7 @@ const requestSchema = z.object({ source: z.literal("spawn"),
   input: z.tuple([z.object({ type: z.literal("text"), text: z.string().max(1024 * 1024) })]),
   execution: z.object({ model: z.string().min(1), reasoningLevel: sessionSchema.shape.reviewerReasoning }),
 });
-const packetSchema = z.object({ finishMode: z.enum(["resolve", "pause"]).nullable().optional(), sessionId: z.string(), continuedFrom: z.string().nullable(), task: z.unknown(), planning: z.unknown(),
+const packetSchema = z.object({ finishMode: z.enum(["resolve", "pause", "source"]).nullable().optional(), sessionId: z.string(), continuedFrom: z.string().nullable(), task: z.unknown(), planning: z.unknown(),
   projection: z.unknown(), facts: z.unknown(), transcript: z.unknown(), previousReview: z.unknown() });
 
 /** Reuse only an unedited, single-turn recorder response for this exact frozen

@@ -1,18 +1,24 @@
-# 0.5.134
+# 0.5.137
 
-## 0.5.136
+- Finish idle work sessions automatically when accepting a source update that resolves the task as done or waiting.
+- Keep historical session records and reported-time confirmation, without letting an older conversation overwrite the accepted source fields.
+- Preserve busy chats and pending approvals; recheck new user input and task revisions before freezing the session.
+
+# 0.5.136
 
 - Distinguish Finish session from Pause session: automatic Finish reviews must resolve the task as done or waiting, while Pause records the work without a status decision.
 - Remove status changes from paused reviews before validation, including with automatic processing disabled; preserve session time estimates for confirmation.
 - Preserve the finish mode through review repairs, discussions and recovery.
 
 
-## 0.5.135
+# 0.5.135
 
 - Add opt-in automatic acceptance of incoming updates and session review changes, with reported time kept for human confirmation.
 - Queue work chats with bounded concurrency, durable pause holds, explicit completion checkpoints and visible failures.
 - Add Pause until tomorrow to task chat headers, preserving current-day time and existing next-day plans.
 
+
+# 0.5.134
 
 Stale source proposals now have a Refresh proposal button. Review the current task, select the changes to keep, and save a replacement for acceptance. Original findings and quotes remain in history. Refreshing does not run a model or apply task changes.
 

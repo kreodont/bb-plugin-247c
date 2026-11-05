@@ -1,3 +1,5 @@
+import { canFinishForSource } from "./source-session.js";
+import type { AutomaticWork } from "./automatic-work.js";
 import { statusNeedsStoppedSession } from "./task-status.js";
 import { randomUUID } from "node:crypto";
 import { reviewDossierSchema, sourceChatDeliverySchema, type ReviewItem, type ReviewSelection } from "./contracts.js";
@@ -8,16 +10,16 @@ import type { SessionRuntime } from "./runtime.js";
 
 type Row = { kind: "source" | "proposal"; id: string };
 export class ProposalInbox {
-  constructor(readonly repo: Repository, readonly sync: SourceSyncStore, readonly runtime: Pick<SessionRuntime, "accept" | "reviewParts">) {}
+  constructor(readonly repo: Repository, readonly sync: SourceSyncStore, readonly runtime: Pick<SessionRuntime, "accept" | "reviewParts">, readonly sourceActions: Pick<AutomaticWork, "acceptSource" | "reviewSourceParts">) {}
   item(kind: Row["kind"], id: string): ReviewItem {
     if (kind === "source") {
       const candidate = this.sync.candidate(id);
       const task = candidate.taskId ? this.repo.kernel.getTask(candidate.taskId) : null;
-      const active = task ? this.repo.active().some(s => s.taskId === task.id) : false;
+      const active = task ? this.repo.active().find(s => s.taskId === task.id) : undefined;
       const currentTask = task ? { revision: task.revision, status: task.status, activeSession: active ? "active" : null } : null;
       const duplicate = !task && this.repo.list(true).tasks.some(t => t.title.trim().toLocaleLowerCase() === candidate.title.trim().toLocaleLowerCase());
       const blockedReason = task && task.revision !== candidate.baseRevision ? "The dossier changed. Expand this proposal and choose Refresh proposal to review the current task."
-        : active && candidate.changes.status && task && statusNeedsStoppedSession(task.status, candidate.changes.status.value) ? "Finish the work session before changing the task status."
+        : active && !canFinishForSource(active, candidate) && candidate.changes.status && task && statusNeedsStoppedSession(task.status, candidate.changes.status.value) ? "Finish the work session before changing the task status."
         : duplicate ? "A task with this title already exists. Check for a duplicate." : null;
       return { kind, candidate, currentTask, blockedReason };
     }
@@ -89,10 +91,10 @@ export class ProposalInbox {
         let taskId: string;
         if (item.parts) {
           const input = { ...item, parts: item.parts, decision: "accept" as const, requestId: randomUUID() };
-          const result = item.kind === "source" ? this.sync.reviewParts(input) : await this.runtime.reviewParts(input);
+          const result = item.kind === "source" ? await this.sourceActions.reviewSourceParts(input) : await this.runtime.reviewParts(input);
           taskId = result.taskId!;
         } else {
-          const dossier = item.kind === "source" ? this.sync.accept(item.id, item.initialPriority) : await this.runtime.accept(item.id, item.revision!);
+          const dossier = item.kind === "source" ? await this.sourceActions.acceptSource(item.id, item.initialPriority) : await this.runtime.accept(item.id, item.revision!);
           taskId = dossier.task.id;
         }
         applied.push({ kind: item.kind, id: item.id, taskId });
