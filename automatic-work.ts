@@ -2,7 +2,6 @@ import { statusNeedsStoppedSession } from "./task-status.js";
 import { sessionFinishMode } from "./finish-mode.js";
 import { randomUUID } from "node:crypto";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
-import { automationCheckpointSchema, type AutomationCheckpoint } from "./automation-contracts.js";
 import { sessionSchema, sessionUpdateSchema, type Session, type SyncCandidate, type PartDecision } from "./contracts.js";
 import { DayPlanning } from "./day-planning.js";
 import { proposalParts } from "./proposal-parts.js";
@@ -89,16 +88,6 @@ export class AutomaticWork {
   async reviewSourceParts(input: PartDecision) {
     return this.sources.reviewParts(input);
   }
-  async checkpoint(threadId: string, raw: AutomationCheckpoint) {
-    const input = automationCheckpointSchema.parse(raw), session = this.repo.forThread(threadId);
-    if (!this.control().enabled || !session || session.workerThreadId !== threadId || session.mode !== "conversation" || session.status !== "working" || session.finishedAt) throw new Error("Automatic checkpoints require an open 247C work chat and automatic mode.");
-    const lastUserSeq = await this.lastUserSeq(threadId);
-    const current = this.repo.session(session.id);
-    if (current.status !== "working" || current.finishedAt) throw new Error("This session has already finished.");
-    this.repo.saveSession({ ...current, automation: { state: input.state, note: input.note, ...(input.state === "ready" ? { outcome: input.outcome } : {}), requestedAt: this.clock().toISOString(), lastUserSeq } });
-    this.repo.sessionEvent(session.id, "work-checkpoint", input.note, input);
-    return { saved: true, next: input.state === "ready" ? "Explain the result and end your turn. The session stays open until the user chooses Finish session or Pause session." : "Ask the user and wait for their reply." };
-  }
   private async lastUserSeq(threadId: string) {
     const page = await this.bb.sdk.threads.timeline({ threadId, segmentLimit: "100", includeNestedRows: "false", summaryOnly: "false", deferContent: "false" });
     return Math.max(0, ...page.rows.filter(r => r.kind === "conversation" && r.role === "user").map(r => r.sourceSeqEnd));
@@ -169,7 +158,7 @@ export class AutomaticWork {
         if (session.status === "working" && session.automation?.state === "working" && session.workerThreadId && this.clock().getTime() - Date.parse(session.updatedAt) > 30000) {
           const threadId = session.workerThreadId;
           if ((await this.bb.sdk.threads.get({ threadId })).status === "idle" && !(await this.bb.sdk.threads.queuedMessages.list({ threadId })).length) {
-            this.repo.saveSession({ ...session, automation: { state: "needs_input", note: "The worker stopped without a completion checkpoint. Open the chat to continue or finish the session." } }); continue;
+            this.repo.saveSession({ ...session, automation: { state: "needs_input", note: "The worker has replied. Open the chat to continue or finish the session." } }); continue;
           }
         }
         if (session.status === "working" && session.automation?.state === "ready" && session.workerThreadId) {

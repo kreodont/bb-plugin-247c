@@ -85,7 +85,7 @@ the downloaded source are needed. Unlisted settings keep their saved values.
 
 ## Automatic task work
 
-See [Automatic task work](automatic-work.md) for opt-in incoming-event processing, worker checkpoints, reported-time confirmation and manual continuation after a pause. Configure an explicit work account and model before enabling it.
+See [Automatic task work](automatic-work.md) for opt-in incoming-event processing, direct chat replies, reported-time confirmation and manual continuation after a pause. Configure an explicit work account and model before enabling it.
 
 ## Automatic day-plan accounting
 

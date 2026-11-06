@@ -1,7 +1,6 @@
 import { SourceThreadArchives } from "./source-thread-archives.js";
 import { AutomaticWork } from "./automatic-work.js";
 import { automaticWorkGuide } from "./automation-prompts.js";
-import { automationCheckpointSchema } from "./automation-contracts.js";
 import { sourceProposalRefreshPreview, refreshSourceProposal } from "./source-proposal-refresh.js";
 import { withCalendarHealth } from "./calendar-health.js";
 import { BacklogReview, backlogSubmitSchema } from "./backlog.js";
@@ -396,8 +395,6 @@ export default async function plugin(bb: BbPluginApi) {
   bb.agents.registerTool({ name: "c247_script_analysis_result", description: "Submit the complete saved-source analysis. Correct any validation errors and resubmit until saved successfully. The existing updater then validates and imports pending proposals; no task changes are applied.", parameters: scriptAnalysisResultSchema, execute: (input, ctx) => externalAnalysis.submit(ctx.threadId, input).then(boundedJson) });
   bb.agents.registerTool({ name: "c247_script_analysis_select", description: "Submit interpretations following the supplied selection schema. Select citation refs and skipped record refs from the saved catalog; never provide source IDs, dates or quotation text. saved:false retains the attempt but requires correction. saved:true means awaiting import, not imported or approved.", parameters: scriptAnalysisSelectionInputSchema, execute: (input, ctx) => externalAnalysis.select(ctx.threadId, input).then(boundedJson) });
   bb.agents.registerTool({ name: "c247_script_analysis_sources", description: "Read this analysis's frozen reference catalog, including after context compaction. No external source requests. Omit record to list records; supply record such as r3 to read its passages. Continue with nextOffset until null.", parameters: z.object({ record: z.string().max(40).optional(), offset: z.number().int().min(0).default(0) }).strict(), execute: (input, ctx) => externalAnalysis.sources(ctx.threadId, input.record, input.offset).then(boundedJson) });
-  bb.agents.registerTool({ name: "c247_work_checkpoint", description: "Record that your own 247C work chat needs the user's input or is ready for a separate review. Does not finish the session or start review; the user must choose Finish session or Pause session. No task changes or time acceptance. Ready means the whole request is done or only an external reply is pending.", parameters: automationCheckpointSchema,
-    execute: (input, ctx) => automatic.checkpoint(ctx.threadId, input).then(boundedJson) });
   const workerBriefs = new Map<string, { key: string; text: string }>();
   bb.agents.registerTool({ name: "c247_script_analysis_context", description: "Read deferred task or pending-proposal context from this analysis's frozen dataset. Supply contextRef as ref, start at offset=0 and follow every nextOffset. No external requests.", parameters: z.object({ ref: z.string().max(40), offset: z.number().int().min(0).default(0) }).strict(), execute: (input, ctx) => externalAnalysis.context(ctx.threadId, input.ref, input.offset).then(boundedJson) });
   bb.agents.registerTool({ name: "c247_backlog_next", description: "Read the next unfinished backlog task. Request includeIndex once at the start or after compaction. Does not change tasks.", parameters: z.object({ includeIndex: z.boolean().default(false) }).strict(), execute: ({ includeIndex }, ctx) => boundedJson(backlog.next(ctx.threadId, includeIndex)) });
@@ -454,7 +451,7 @@ export default async function plugin(bb: BbPluginApi) {
     const workerGuide = worker && session
       ? [freshContext, emptyChat ? emptyChatInstructions(session, configuration.automaticProcessing) : "", configuration.automaticProcessing && conversation ? automaticWorkGuide : "", replyVerificationGuide, draftDestinationGuide].filter(Boolean).join("\n\n") : "";
     const timeTools = ["c247_day", "c247_plan_add", "c247_time_edit", "c247_plan_move", "c247_time_report"];
-    return { skills: [], tools: reviewer ? [] : worker ? ["c247_read", "c247_knowledge", ...timeTools, ...(conversation ? configuration.automaticProcessing ? ["c247_work_checkpoint"] : [] : ["c247_submit_result"])] : ["c247_tasks", "c247_read", "c247_knowledge", "c247_create", "c247_propose", "c247_sync_status", "c247_sync_start", ...timeTools],
+    return { skills: [], tools: reviewer ? [] : worker ? ["c247_read", "c247_knowledge", ...timeTools, ...(conversation ? [] : ["c247_submit_result"])] : ["c247_tasks", "c247_read", "c247_knowledge", "c247_create", "c247_propose", "c247_sync_status", "c247_sync_start", ...timeTools],
       ...(reviewer || worker || localInstructions ? { instructions: instructions(reviewer ? "This is a separate 247C recording/review session. Use only the supplied snapshots. Do not invoke tools or delegate. Return the requested JSON." : workerGuide) } : {}) };
   });
 

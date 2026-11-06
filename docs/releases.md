@@ -1,3 +1,11 @@
+# 0.5.146
+
+Remove work checkpoint calls from worker tools and instructions. Workers answer directly in chat; only Finish or Pause starts review. Idle replies release automatic worker slots.
+
+# 0.5.145
+
+Allow a missing resume action to be proposed for an already accepted next step in the current waiting period. Rejected actions and old requests remain excluded.
+
 # 0.5.144
 
 - Start requested reviews for empty chats that BB still reports as pending. Check for messages, queued input and active agents before saving an empty transcript.

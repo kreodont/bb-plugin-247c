@@ -1,12 +1,13 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
+import { makePluginAgentConfigurationContext } from "@get-bb/plugin-sdk/testing";
 import { fixture } from "./test-support.js";
 import { AutomaticWork } from "./automatic-work.js";
 import { SessionRuntime } from "./runtime.js";
 import { DayPlanning } from "./day-planning.js";
 import { SourceSyncStore } from "./source-sync.js";
 import { SourceChatUpdates } from "./source-chat-updates.js";
-import { sessionSchema, type Extraction } from "./contracts.js";
+import { sessionSchema, type Session, type Extraction } from "./contracts.js";
 import { sourceData, startSourceSync, submitSourceData } from "./source-sync-test-support.js";
 import { proposalParts } from "./proposal-parts.js";
 
@@ -20,6 +21,13 @@ async function setup(enabled = true) {
   auto.control();
   const chats = new SourceChatUpdates(f.bb, f.repo, runtime, () => ({ projectId: "proj_personal", providerId: "claude-work", model: "claude-opus-5[1m]" }), auto);
   return { f, runtime, days, store, auto, settings, chats };
+}
+// Preserve coverage for states saved by older plugin versions.
+function legacyCheckpoint(s: Awaited<ReturnType<typeof setup>>, threadId: string, input: NonNullable<Session["automation"]> & { reason?: string }) {
+  const session = s.f.repo.forThread(threadId)!;
+  const lastUserSeq = Math.max(0, ...(s.f.conversations.get(threadId) ?? []).filter(r => r.kind === "conversation" && r.role === "user").map(r => r.sourceSeqEnd));
+  const { reason: _, ...automation } = input;
+  s.f.repo.saveSession({ ...session, automation: { ...automation, lastUserSeq } });
 }
 async function source(s: Awaited<ReturnType<typeof setup>>, taskId: string | null = null) {
   const { run } = await startSourceSync(s.f), { input } = await sourceData(s.f, run, taskId);
@@ -69,25 +77,24 @@ it("respects the worker cap, pause holds across dates, and disabled mode", async
   s.settings.automaticProcessing = false;
   expect(tomorrow.allow(s.store.candidate(second.id))).toBe(false);
 });
-it("does not finish an idle chat without an explicit ready checkpoint", async () => {
+it("keeps legacy needs-input sessions open", async () => {
   const s = await setup(), { session } = await chat(s);
   await s.f.idle(session.workerThreadId!, "I need your approval before changing the external record.");
-  await s.auto.checkpoint(session.workerThreadId!, { state: "needs_input", reason: "external_write", note: "Approve the prepared external change." });
+  legacyCheckpoint(s, session.workerThreadId!, { state: "needs_input", reason: "external_write", note: "Approve the prepared external change." });
   await s.auto.tick(); expect(s.f.repo.session(session.id).status).toBe("working");
   expect(s.auto.state().sessions[0].state).toBe("needs_input");
 });
 it("cancels an obsolete ready checkpoint after a new user message", async () => {
   const s = await setup(), { session } = await chat(s);
   await s.f.idle(session.workerThreadId!, "All work completed.");
-  await s.auto.checkpoint(session.workerThreadId!, { state: "ready", outcome: "done", note: "All work completed." });
+  legacyCheckpoint(s, session.workerThreadId!, { state: "ready", outcome: "done", note: "All work completed." });
   s.f.message(session.workerThreadId!, "user", "Wait, keep the task open.");
   await s.auto.tick(); expect(s.f.repo.session(session.id)).toMatchObject({ status: "working", automation: { state: "working" } });
 });
 it.each(["done", "waiting"] as const)("keeps a ready %s session open across idle ticks and reload until manual Finish", async outcome => {
   const s = await setup(), { session } = await chat(s), threadId = session.workerThreadId!;
   await s.f.idle(threadId, "The work is ready.");
-  const result = await s.auto.checkpoint(threadId, { state: "ready", outcome, note: "The work is ready." });
-  expect(result.next).toContain("until the user chooses Finish session or Pause session");
+  legacyCheckpoint(s, threadId, { state: "ready", outcome, note: "The work is ready." });
   const finish = vi.spyOn(s.runtime, "finish");
   await s.auto.tick(); await s.auto.tick();
   expect(finish).not.toHaveBeenCalled();
@@ -106,7 +113,7 @@ it("lets another automatic worker start while a ready session waits for manual F
   await s.auto.tick(); await s.chats.flush();
   const threadId = s.store.candidate(first.id).chatDelivery!.threadId!;
   await s.f.idle(threadId, "Ready for review.");
-  await s.auto.checkpoint(threadId, { state: "ready", outcome: "done", note: "Ready for review." });
+  legacyCheckpoint(s, threadId, { state: "ready", outcome: "done", note: "Ready for review." });
   const secondTask = await s.f.create("Another task"), second = await source(s, secondTask.id);
   await s.auto.tick(); await s.chats.flush();
   expect(s.store.candidate(second.id).chatDelivery?.state).toBe("sent");
@@ -184,11 +191,32 @@ it("recovers a pending automatic review after plugin reload without a second app
   await restored.tick(); expect(s.f.repo.kernel.getTask(s.task.id).revision).toBe(revision);
   expect(new DayPlanning(s.f.repo).taskItem(s.task.id, s.date)?.reportedMinutes).toBe(50);
 });
-it("rejects checkpoints from unrelated threads and while automatic mode is disabled", async () => {
+it.each(["codex", "claude-code", "claude-work"])("does not expose checkpoints to %s workers after reload", async providerId => {
   const s = await setup(), { session } = await chat(s);
-  await expect(s.auto.checkpoint("unrelated", { state: "ready", outcome: "done", note: "Done." })).rejects.toThrow(/open 247C work chat/);
-  s.settings.automaticProcessing = false;
-  await expect(s.auto.checkpoint(session.workerThreadId!, { state: "ready", outcome: "done", note: "Done." })).rejects.toThrow(/automatic mode/);
+  await s.f.reload();
+  const config = await s.f.harness.behavior.resolveAgentConfiguration(makePluginAgentConfigurationContext({
+    thread: { id: session.workerThreadId! }, origin: { pluginId: "247c" }, provider: { id: providerId },
+  }));
+  expect(config.tools.map(tool => tool.name)).not.toContain("c247_work_checkpoint");
+  expect(config.instructions).toContain("Do not use work checkpoints");
+  await expect(s.f.harness.behavior.callAgentTool("c247_work_checkpoint", { state: "ready", outcome: "done", note: "Done" },
+    { threadId: session.workerThreadId!, projectId: "proj_personal", signal: new AbortController().signal })).rejects.toThrow();
+  expect(s.f.repo.session(session.id).status).toBe("working");
+});
+
+it("releases the automatic worker slot after a reply without a checkpoint or review", async () => {
+  const s = await setup(), first = await source(s);
+  await s.auto.tick(); await s.chats.flush();
+  const session = s.f.repo.forThread(s.store.candidate(first.id).chatDelivery!.threadId!)!;
+  await s.f.idle(session.workerThreadId!, "Here is the answer. Which option do you prefer?");
+  const later = new AutomaticWork(s.f.bb, s.f.repo, s.runtime, s.store, s.days, () => s.settings, () => new Date(Date.now() + 60000));
+  await later.tick();
+  expect(s.f.repo.session(session.id)).toMatchObject({ status: "working", finishedAt: null, reviewerThreadId: null,
+    automation: { state: "needs_input", note: "The worker has replied. Open the chat to continue or finish the session." } });
+  expect(s.f.repo.transcript(session.id)).toBeNull();
+  const nextTask = await s.f.create("Another task"), next = await source(s, nextTask.id);
+  await later.tick(); await s.chats.flush();
+  expect(s.store.candidate(next.id).chatDelivery?.state).toBe("sent");
 });
 
 it("preserves parts left pending by an explicit human partial review", async () => {
@@ -329,7 +357,7 @@ it("can accept only the source waiting status without ending the conversation", 
 it("delivers ordinary incoming updates to a ready chat without finishing it", async () => {
   const s = await setup(), { task, session } = await chat(s), threadId = session.workerThreadId!;
   await s.f.idle(threadId, "The work is ready.");
-  await s.auto.checkpoint(threadId, { state: "ready", outcome: "done", note: "The work is ready." });
+  legacyCheckpoint(s, threadId, { state: "ready", outcome: "done", note: "The work is ready." });
   const candidate = await source(s, task.id);
   await s.auto.tick(); await s.chats.flush();
   expect(s.store.candidate(candidate.id)).toMatchObject({ status: "applied", chatDelivery: { state: "sent", threadId } });
