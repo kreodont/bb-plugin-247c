@@ -522,9 +522,23 @@ ${errors.join("\n").slice(0, 16000)}`);
         if (this.repo.db.prepare("SELECT id FROM source_sync_candidates WHERE fingerprint=?").get(key)) { duplicates++; continue; }
         const known = new Set(related.filter(c => (!previousBatch || c.runId !== id || c.status === "applied" || c.status === "rejected") &&
           (c.status === "applied" || (draft.taskId ? c.baseRevision === dossier.task.revision : c.taskId === null))).flatMap(eventIds));
+        // A previously accepted next step can have omitted its resume action.
+        // Recover only that action in the same waiting period, never an older
+        // request, a handled action, or a rejected/pending review of this event.
+        const waitingSince = Date.parse(dossier.task.waitingSince ?? "");
+        const overlaps = (candidate: SyncCandidate) => eventIds(candidate).some(event => incoming.has(event));
+        const omittedResume = dossier.task.status === "waiting" && draft.changes.status?.value === "open"
+          && Boolean(draft.changes.nextStep?.value) && draft.changes.nextStep!.value === dossier.projection.nextStep
+          && Object.keys(draft.changes).every(field => field === "status" || field === "nextStep")
+          && !parents.length && Number.isFinite(waitingSince)
+          && draft.facts.flatMap(f => f.citations).every(c => Date.parse(c.occurredAt) >= waitingSince)
+          && !related.some(c => overlaps(c) && (c.status === "pending" || c.status === "rejected"
+            || c.actions?.length || c.changes.status))
+          && [...incoming].every(event => related.some(c => c.status === "applied" && c.before?.status === "waiting"
+            && c.changes.nextStep?.value === dossier.projection.nextStep && eventIds(c).includes(event)));
         // One unchanged pending proposal needs no new approval identity. Several
         // missed proposals may be consolidated even without an additional event.
-        if (parents.length < 2 && related.filter(c => c.status === "pending").length < 2 && incoming.size && [...incoming].every(event => known.has(event))) { duplicates++; continue; }
+        if (!omittedResume && parents.length < 2 && related.filter(c => c.status === "pending").length < 2 && incoming.size && [...incoming].every(event => known.has(event))) { duplicates++; continue; }
         if (!supplement && request.pendingCandidates) {
           const missing = related.filter(c => c.status === "pending" && !parents.some(p => p.id === c.id));
           if (missing.length) throw new PolicyError("Combine this finding with the pending proposals using mergeCandidateIds: " + missing.map(c => c.id).join(", ") + ". All previous findings and untouched fields will be preserved.");

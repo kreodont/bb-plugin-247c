@@ -233,3 +233,48 @@ it.each(["syncAccept", "acceptInbox", "reviewParts"])("dispatches from the %s ap
   await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
   await vi.waitFor(() => expect(store.candidates().some(c => c.chatDelivery?.state === "sent")).toBe(true));
 });
+
+
+it.each(["recover", "rejected", "pending", "later-wait", "different-step", "extra-field"] as const)(
+  "handles an omitted resume action without reviving reviewed work: %s", async scenario => {
+    const f = await fixture({ settings: { workProvider: "codex", workModel: "gpt-5.6-sol" } }); hosts.push(f);
+    const task = await f.create(), store = new SourceSyncStore(f.repo);
+    f.repo.status(task.id, "waiting", task.revision);
+    const first = (await startSourceSync(f)).run, data = await sourceData(f, first, task.id);
+    for (const fact of data.input.suggestions[0].facts) for (const citation of fact.citations) citation.occurredAt = first.until;
+    store.submit(first.id, data.input, data.calls);
+    const original = store.pendingCandidates()[0];
+    if (scenario === "rejected") store.reject(original.id);
+    else if (scenario !== "pending") store.accept(original.id);
+    if (scenario === "later-wait") {
+      let current = f.repo.kernel.getTask(task.id);
+      current = f.repo.status(task.id, "open", current.revision);
+      f.repo.status(task.id, "waiting", current.revision);
+    }
+    const second = (await startSourceSync(f)).run;
+    const corrected = structuredClone(data.input), draft = corrected.suggestions[0];
+    draft.changes = { status: { value: "open", evidenceRefs: ["fact:0"] }, nextStep: draft.changes.nextStep };
+    if (scenario === "different-step") {
+      draft.facts[1].text = "Send another report.";
+      draft.changes.nextStep!.value = draft.facts[1].text;
+    }
+    if (scenario === "extra-field") draft.changes.summary = { value: "Different summary", evidenceRefs: ["fact:0"] };
+    const result = store.submit(second.id, corrected, data.calls);
+    if (scenario !== "recover") {
+      expect(result.duplicates).toBe(1);
+      expect(f.repo.kernel.getTask(task.id).status).toBe("waiting");
+      return;
+    }
+    expect(result.suggestions).toBe(1);
+    const candidate = store.pendingCandidates()[0];
+    expect(candidate.actions).toEqual(["reopen", "openChat"]);
+    expect(f.repo.kernel.getTask(task.id).status).toBe("waiting");
+    store.accept(candidate.id);
+    const send = stubSend(f).mockResolvedValue({ ok: true, delivery: "sent" });
+    await dispatcher(f).service.flush();
+    expect(f.repo.kernel.getTask(task.id).status).toBe("open");
+    expect(send).toHaveBeenCalledTimes(1);
+    const third = (await startSourceSync(f)).run;
+    expect(store.submit(third.id, corrected, data.calls).duplicates).toBe(1);
+    expect(send).toHaveBeenCalledTimes(1);
+  });
