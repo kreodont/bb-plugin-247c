@@ -17,6 +17,7 @@
     "react",
     "reactDom",
     "sonner",
-    "tailwindMerge"
+    "tailwindMerge",
+    "zod"
   ]
 }
