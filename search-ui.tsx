@@ -13,7 +13,12 @@ import { withThread } from "./desk-routes.js";
 // browser storage, settings, exports or the repository.
 let draft = "";
 let savedScope: SearchInput["scope"] = "all", savedStatus: SearchInput["status"] = "all";
-export function prepareSearch(query: string) { draft = query; savedScope = "all"; savedStatus = "all"; }
+const searchListeners = new Set<(target: HTMLElement) => void>();
+export function prepareSearch(query?: string, target?: HTMLElement) {
+  if (query !== undefined) draft = query.slice(0, 300);
+  savedScope = "all"; savedStatus = "all";
+  if (target) for (const listener of searchListeners) listener(target);
+}
 export function SearchHighlight({ text }: { text: string }) {
   return <>{text.split("\u0001").map((part, i) => {
     if (i === 0) return part;
@@ -27,6 +32,19 @@ export function SearchPage({ threadId }: { threadId?: string }) {
   const [query, setQuery] = useState(draft), [scope, setScope] = useState(savedScope), [status, setStatus] = useState(savedStatus);
   const [offset, setOffset] = useState(0), [data, setData] = useState<SearchResult | null>(null), [error, setError] = useState<string | null>(null), [busy, setBusy] = useState(false);
   const generation = useRef(0), mounted = useRef(false);
+  const input = useRef<HTMLInputElement>(null);
+  const [focusRequest, setFocusRequest] = useState(0);
+  useEffect(() => { input.current?.focus(); input.current?.select(); }, [focusRequest]);
+  useEffect(() => {
+    const receive = (target?: HTMLElement) => {
+      if (target && !target.contains(input.current)) return;
+      setQuery(draft); setScope(savedScope); setStatus(savedStatus); setOffset(0);
+      setFocusRequest(value => value + 1);
+    };
+    searchListeners.add(receive);
+    receive();
+    return () => { searchListeners.delete(receive); };
+  }, []);
   const refresh = useCallback(async () => {
     const version = ++generation.current;
     setBusy(true);
@@ -48,7 +66,7 @@ export function SearchPage({ threadId }: { threadId?: string }) {
   return <div className="h-full min-h-0 overflow-y-auto"><div className="mx-auto max-w-5xl space-y-4 p-4 md:p-5">
     <div><h1 className="text-xl font-medium">Search</h1><p className="mt-1 text-sm text-muted-foreground">Tasks, dossier history and conversations, including closed tasks.</p></div>
     <form onSubmit={event => { event.preventDefault(); void refresh(); }} className="flex flex-wrap items-center gap-2">
-      <div className="relative min-w-64 flex-1"><Icon name="Search" className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" /><Input autoFocus className="pl-9" maxLength={300} type="search" aria-label="Search all tasks and conversations" placeholder='Words, "exact phrase" or BK-812' value={query} onChange={event => { draft = event.target.value; setQuery(draft); setOffset(0); }} /></div>
+      <div className="relative min-w-64 flex-1"><Icon name="Search" className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" /><Input ref={input} autoFocus className="pl-9" maxLength={300} type="search" aria-label="Search all tasks and conversations" placeholder='Words, "exact phrase" or BK-812' value={query} onChange={event => { draft = event.target.value; setQuery(draft); setOffset(0); }} /></div>
       <select aria-label="Search in" className={selectClass} value={scope} onChange={event => { savedScope = event.target.value as SearchInput["scope"]; setScope(savedScope); setOffset(0); }}><option value="all">Everything</option><option value="tasks">Current tasks</option><option value="history">Dossier history</option><option value="messages">Conversations</option></select>
       <select aria-label="Task status" className={selectClass} value={status} onChange={event => { savedStatus = event.target.value as SearchInput["status"]; setStatus(savedStatus); setOffset(0); }}><option value="all">All statuses</option><option value="unfinished">Unfinished</option><option value="closed">Closed</option></select>
       <Button type="submit" variant="outline">Search</Button>

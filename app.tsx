@@ -1,6 +1,7 @@
 import { AutomaticWorkPage, AutomaticWorkStatus, ThreadPauseAction } from "./automatic-work-ui.js";
 import { BacklogPage } from "./backlog-ui.js";
 import { SearchPage, prepareSearch } from "./search-ui.js";
+import { SearchShortcut } from "./search-shortcut.js";
 import { SourceConnectionDiagnostics } from "./source-diagnostics-ui.js";
 import { registerFileEditor } from "./file-editor/app.js";
 import { ChatIndicator } from "./chat-indicator.js";
@@ -1122,6 +1123,7 @@ function SidebarCount() {
 }
 export default definePluginApp((app) => {
   registerFileEditor(app);
+  app.slots.experimental_appOverlay({ id: "search-shortcut", component: SearchShortcut });
   const reviewActivity = createReviewActivityIndicator();
   app.experimental_icons.register({ name: REVIEW_ACTIVITY_ICON, component: ReviewActivityIcon });
   app.experimental_icons.register({ name: REVIEW_READY_ICON, component: ReviewReadyIcon });

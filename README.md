@@ -202,6 +202,14 @@ filter) carries its query to the same page. Results distinguish current task
 fields from historical records and conversation text, with highlighted excerpts,
 status filters and links to the task, chat and matching message.
 
+Press **Command+F** on macOS or **Ctrl+F** on Windows/Linux in the 247C interface
+or a 247C chat to open Search. Selected text becomes the query, up to 300
+characters. Without a selection, the previous query is selected for editing.
+Search opened from a chat includes **Return to thread**. The shortcut respects
+pending page edits and leaves other chats, modal dialogs, terminals, browsers
+and file editors with their own Find behavior. Chats belong to this scope when
+created by 247C or located in its configured **Thread project**.
+
 Search is local SQLite FTS5; it starts no models and uses no provider tokens.
 Words are combined with AND, ordinary words support prefixes, quoted phrases
 preserve word order, and identifiers such as `BK-812` remain exact. This is a

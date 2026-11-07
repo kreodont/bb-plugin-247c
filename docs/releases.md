@@ -1,3 +1,7 @@
+# 0.5.147
+
+Open 247C Search with Command+F on macOS or Ctrl+F on Windows/Linux from the task interface and its chats. Selected text becomes the query; otherwise the previous query is ready to edit. Preserve unsaved-edit guards, return-to-chat navigation and Find inside browsers, terminals and file editors.
+
 # 0.5.146
 
 Remove work checkpoint calls from worker tools and instructions. Workers answer directly in chat; only Finish or Pause starts review. Idle replies release automatic worker slots.

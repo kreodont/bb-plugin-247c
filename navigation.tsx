@@ -2,6 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, us
 import { Button } from "./components/ui/button.js";
 import { Icon } from "./components/ui/icon.js";
 import { deskRoute } from "./desk-routes.js";
+import { usePageSearchShortcut } from "./search-shortcut.js";
+import { prepareSearch } from "./search-ui.js";
 
 type Guard = () => boolean | Promise<boolean>;
 const NavigationGuards = createContext<((guard: Guard) => () => void) | null>(null);
@@ -42,6 +44,8 @@ export function NavigationFrame({ subPath, children, returnToThread, goTo, today
   const guards = useRef(new Set<Guard>()), flight = useRef(false), mounted = useRef(true), route = useRef({ subPath });
   if (route.current.subPath !== subPath) route.current = { subPath };
   const [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
+  const root = useRef<HTMLDivElement>(null);
+  usePageSearchShortcut(root, query => { void move("section", "search", () => prepareSearch(query, root.current ?? undefined)); });
   const activePath = deskRoute(subPath).path;
   const activeSection = activePath.startsWith("day/") || activePath.startsWith("report/") ? "nav-today" : activePath === "proposals" ? "nav-proposals" : activePath === "updates" ? "nav-updates" : activePath === "backlog" ? "nav-backlog" : activePath === "search" ? "search" : !["reviews", "updates", "knowledge", "ux", "automatic"].includes(activePath) ? "nav-tasks" : null;
   const available = useSyncExternalStore(subscribeHistory, availability, () => 0);
@@ -50,7 +54,7 @@ export function NavigationFrame({ subPath, children, returnToThread, goTo, today
     return () => { guards.current.delete(guard); };
   }, []);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
-  async function move(direction: "back" | "forward" | "thread" | "section", path = "") {
+  async function move(direction: "back" | "forward" | "thread" | "section", path = "", beforeNavigate?: () => void) {
     if (flight.current || (direction === "section" ? !goTo : direction === "thread" ? !returnToThread : !(availability() & (direction === "back" ? 1 : 2)))) return;
     flight.current = true; setBusy(true); setError(null);
     const from = route.current;
@@ -58,6 +62,7 @@ export function NavigationFrame({ subPath, children, returnToThread, goTo, today
       for (const guard of [...guards.current]) if (!await guard()) return;
       // Saving can finish after another navigation or after this pane closes.
       if (mounted.current && route.current === from) {
+        beforeNavigate?.();
         if (direction === "section") goTo?.(path);
         else if (direction === "thread") returnToThread?.();
         else window.history[direction]();
@@ -69,7 +74,7 @@ export function NavigationFrame({ subPath, children, returnToThread, goTo, today
       if (mounted.current) setBusy(false);
     }
   }
-  return <NavigationGuards.Provider value={register}><div className="flex h-full min-h-0 flex-col">
+  return <NavigationGuards.Provider value={register}><div ref={root} className="flex h-full min-h-0 flex-col">
     <nav aria-label="247C navigation" className="flex shrink-0 flex-wrap items-center gap-1 border-b border-border bg-background px-3 py-2">
       <span title="Go back"><Button data-c247-ux-action="back" type="button" variant="ghost" size="sm" aria-label="Back" disabled={busy || !(available & 1)} onClick={() => void move("back")}><Icon name="ChevronLeft" aria-hidden="true" /></Button></span>
       <span title="Go forward"><Button data-c247-ux-action="forward" type="button" variant="ghost" size="sm" aria-label="Forward" disabled={busy || !(available & 2)} onClick={() => void move("forward")}><Icon name="ChevronRight" aria-hidden="true" /></Button></span>
