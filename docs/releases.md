@@ -1,3 +1,7 @@
+# 0.5.149
+
+Show overdue source checks in yellow when another check is scheduled. Display the next run time and omit urgent badges and popups. Keep failed checks, calendar errors and stalled runs red.
+
 # 0.5.148
 
 Accepting a source update that completes a task now finishes its idle work session automatically, including through the shared inbox and partial acceptance. Preserve the dialogue, review session work separately and leave reported-time estimates for confirmation. Wait for active responses, background agents, queued input and approvals. Recheck user input and task revisions before finishing; keep manual Finish and Pause behavior for ordinary work.

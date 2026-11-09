@@ -63,12 +63,17 @@ function statusPath(data: UpdaterHealthState | null) {
   return data?.calendarAlert ? `day/${localDay(new Date(), data.timeZone)}` : "updates";
 }
 
+function isAdvisory(data: UpdaterHealthState | null) {
+  return Boolean(data && !data.calendarAlert && (data.status === "waiting"
+    || (data.status === "overdue" && !data.running && data.nextRunAt !== null)));
+}
+
 export function UpdaterHealthBanner({ showHealthy = false }: { showHealthy?: boolean }) {
   const { data, error } = useUpdaterHealth();
   const navigate = useBbNavigate();
   if (error) return <div role="alert" className="m-4 rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm">{error}</div>;
   if (!data?.configured || (!data.alert && !showHealthy)) return null;
-  const waiting = data.status === "waiting";
+  const waiting = isAdvisory(data);
   return <section role={data.alert && !waiting ? "alert" : "status"} aria-label="Source updater status" className={`m-4 max-h-48 shrink-0 overflow-auto rounded-lg border p-4 ${waiting ? "border-amber-400/60 bg-amber-400/10" : data.alert ? "border-destructive/40 bg-destructive/5" : "border-border"}`}>
     <p className={`font-medium ${waiting ? "text-amber-800 dark:text-amber-300" : data.alert ? "text-destructive" : ""}`}>{data.title}</p>
     <HealthDetails data={data} />
@@ -78,14 +83,14 @@ export function UpdaterHealthBanner({ showHealthy = false }: { showHealthy?: boo
       <span className="ml-2 text-xs">{analysisStateLabel(data.analysisThreads![0].state)} · {data.analysisThreads![0].model} · {data.analysisThreads![0].reasoningLevel}</span>
       <details className="mt-2 text-xs"><summary>Analysis history · {data.analysisThreads!.length}</summary>{data.analysisThreads!.map(thread => <div key={thread.threadId} className="mt-1"><Button size="sm" variant="ghost" onClick={() => navigate.toThread(thread.threadId)}>{thread.title}</Button> · {analysisStateLabel(thread.state)}{thread.error && <p>{thread.error}</p>}{thread.hasSavedAttempt && <SavedAnalysisAttempt threadId={thread.threadId} />}</div>)}</details>
     </div>}
-    {(showHealthy || data.pendingRecords > 0) && data.nextRunAt && <p className="mt-2 text-xs text-muted-foreground">Next scheduled run: {timestamp(data.nextRunAt, data.timeZone)}</p>}
+    {(showHealthy || waiting || data.pendingRecords > 0) && data.nextRunAt && <p className="mt-2 text-xs text-muted-foreground">Next scheduled run: {timestamp(data.nextRunAt, data.timeZone)}</p>}
   </section>;
 }
 
 export function UpdaterHealthBadge() {
   const { data, error } = useUpdaterHealth();
   const navigate = useBbNavigate();
-  if (!error && (!data?.alert || data.status === "waiting")) return null;
+  if (!error && (!data?.alert || isAdvisory(data))) return null;
   const label = error ? "Source updater status unavailable" : data!.title;
   return <button type="button" data-c247-updater-shortcut="" aria-label={label} title={`${label}. Open update status`}
     className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-destructive font-bold text-white"
@@ -109,7 +114,7 @@ export function UpdaterHealthNotification() {
     }
   }, [data?.configured, data?.alert, error]);
   const incident = error ? "monitor-unavailable" : data?.incidentId;
-  if (!incident || incident === dismissed || (!error && (!data?.alert || data.status === "waiting"))) return null;
+  if (!incident || incident === dismissed || (!error && (!data?.alert || isAdvisory(data)))) return null;
   const dismiss = () => { setDismissed(incident); try { localStorage.setItem(DISMISSED_KEY, incident); } catch { /* The banner remains visible. */ } };
   return <aside role="alert" aria-label="247C updater notification" className="fixed bottom-4 right-4 z-50 w-96 max-w-[calc(100vw-2rem)] rounded-xl border border-destructive/50 bg-background p-4 shadow-lg">
     <div className="flex items-start gap-3"><Icon name="AlertCircle" className="mt-0.5 size-5 shrink-0 text-destructive" /><div className="min-w-0 flex-1">

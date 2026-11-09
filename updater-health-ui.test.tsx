@@ -207,3 +207,30 @@ it("keeps an import failure red even when records are also queued", async () => 
   expect(banner.className).toContain("border-destructive");
   expect(slot.getByRole("button", { name: state.title }).textContent).toBe("!");
 });
+
+it("shows an overdue check awaiting its next scheduled run in yellow without urgent alerts", async () => {
+  const { UpdaterHealthBadge, UpdaterHealthNotification } = await import("./updater-health-ui.js");
+  const state = { ...warning, status: "overdue" as const, title: "Scheduled source check is overdue",
+    nextRunAt: Date.parse("2026-11-09T15:00:00Z"), timeZone: "Europe/Athens" };
+  const slot = renderSlot({ component: () => <><UpdaterHealthBanner /><UpdaterHealthBadge /><UpdaterHealthNotification /></> }, {},
+    { rpc: { updaterHealth: () => state } }); mounts.push(slot);
+  const banner = await slot.findByRole("status", { name: "Source updater status" });
+  expect(banner.className).toContain("border-amber-");
+  expect(banner.textContent).toContain("Next scheduled run: 9 Nov, 17:00");
+  expect(slot.queryByRole("alert")).toBeNull();
+  expect(slot.queryByRole("button", { name: state.title })).toBeNull();
+});
+
+it.each([
+  { running: true, nextRunAt: 1000, calendarAlert: false },
+  { running: false, nextRunAt: null, calendarAlert: false },
+  { running: false, nextRunAt: 1000, calendarAlert: true },
+])("keeps overdue runs requiring attention red: %j", async patch => {
+  const { UpdaterHealthBadge } = await import("./updater-health-ui.js");
+  const state = { ...warning, status: "overdue" as const, ...patch };
+  const slot = renderSlot({ component: () => <><UpdaterHealthBanner /><UpdaterHealthBadge /></> }, {},
+    { rpc: { updaterHealth: () => state } }); mounts.push(slot);
+  const banner = await slot.findByRole("alert", { name: "Source updater status" });
+  expect(banner.className).toContain("border-destructive");
+  expect(slot.getByRole("button", { name: state.title }).textContent).toBe("!");
+});
