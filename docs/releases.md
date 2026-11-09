@@ -1,3 +1,7 @@
+# 0.5.148
+
+Accepting a source update that completes a task now finishes its idle work session automatically, including through the shared inbox and partial acceptance. Preserve the dialogue, review session work separately and leave reported-time estimates for confirmation. Wait for active responses, background agents, queued input and approvals. Recheck user input and task revisions before finishing; keep manual Finish and Pause behavior for ordinary work.
+
 # 0.5.147
 
 Open 247C Search with Command+F on macOS or Ctrl+F on Windows/Linux from the task interface and its chats. Selected text becomes the query; otherwise the previous query is ready to edit. Preserve unsaved-edit guards, return-to-chat navigation and Find inside browsers, terminals and file editors.

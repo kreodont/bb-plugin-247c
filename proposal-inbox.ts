@@ -1,5 +1,6 @@
 import type { AutomaticWork } from "./automatic-work.js";
 import { statusNeedsStoppedSession } from "./task-status.js";
+import { canFinishForSource } from "./source-session.js";
 import { randomUUID } from "node:crypto";
 import { reviewDossierSchema, sourceChatDeliverySchema, type ReviewItem, type ReviewSelection } from "./contracts.js";
 import { ACTIVE, Repository } from "./repository.js";
@@ -18,7 +19,7 @@ export class ProposalInbox {
       const currentTask = task ? { revision: task.revision, status: task.status, activeSession: active ? "active" : null } : null;
       const duplicate = !task && this.repo.list(true).tasks.some(t => t.title.trim().toLocaleLowerCase() === candidate.title.trim().toLocaleLowerCase());
       const blockedReason = task && task.revision !== candidate.baseRevision ? "The dossier changed. Expand this proposal and choose Refresh proposal to review the current task."
-        : active && candidate.changes.status && task && statusNeedsStoppedSession(task.status, candidate.changes.status.value) ? "Finish the work session before changing the task status."
+        : active && !canFinishForSource(active, candidate) && candidate.changes.status && task && statusNeedsStoppedSession(task.status, candidate.changes.status.value) ? "Finish the work session before changing the task status."
         : duplicate ? "A task with this title already exists. Check for a duplicate." : null;
       return { kind, candidate, currentTask, blockedReason };
     }

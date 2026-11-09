@@ -314,26 +314,136 @@ async function resolvedSource(s: Awaited<ReturnType<typeof setup>>, taskId: stri
   s.store.save({ ...s.store.run(run.id), status: "completed" });
   return s.store.pendingCandidates().find(c => c.runId === run.id)!;
 }
-it("leaves a closing source proposal pending and explains that manual Finish is required", async () => {
+it("finishes an idle work session on source completion and keeps reported time pending", async () => {
   const s = await setup(), { task, session } = await chat(s), date = s.days.today();
+  const quote = "Checked the report and prepared a local correction.";
   s.days.add({ taskId: task.id, date, reportedMinutes: 50, requestId: randomUUID() });
-  await s.f.idle(session.workerThreadId!, "Checked the report and prepared a correction.");
+  await s.f.idle(session.workerThreadId!, quote);
   const candidate = await resolvedSource(s, task.id);
   const finish = vi.spyOn(s.runtime, "finish");
   await s.auto.tick(); await s.auto.tick();
-  expect(finish).not.toHaveBeenCalled();
-  expect(s.store.candidate(candidate.id).status).toBe("pending");
-  expect(s.f.repo.session(session.id)).toMatchObject({ status: "working", finishedAt: null, reviewerThreadId: null });
-  expect(s.f.repo.transcript(session.id)).toBeNull();
-  expect(s.f.repo.kernel.getTask(task.id).status).toBe("open");
+  expect(finish).toHaveBeenCalledTimes(1);
+  expect(s.store.candidate(candidate.id).status).toBe("applied");
+  const reviewing = s.f.repo.session(session.id);
+  expect(reviewing).toMatchObject({ finishMode: "source", status: "reviewing", automation: { state: "reviewing" } });
+  const transcript = s.f.repo.transcript(session.id)!;
+  const ref = transcript.messages.find(m => m.text === quote)!.ref;
+  expect(JSON.stringify(s.f.conversations.get(reviewing.reviewerThreadId!)![0])).toContain("SOURCE RESOLUTION");
+  await s.f.idle(reviewing.reviewerThreadId!, { rationale: "Record the local investigation.",
+    facts: [{ kind: "progress", text: quote, citations: [{ messageRef: ref, quote }] }], knowledge: [],
+    changes: { status: { value: "waiting", evidenceRefs: ["fact:0"] }, summary: { value: "Outdated pending context", evidenceRefs: ["fact:0"] } },
+    reportedTime: { minutes: 25, reason: "Report investigation and local correction.", workSummary: "Checked the report and prepared a local correction.", evidenceRefs: ["fact:0"] } });
+  await s.auto.tick();
+  const reviewed = s.f.repo.session(session.id);
+  expect(s.f.repo.kernel.getTask(task.id).status).toBe("done");
+  expect(s.f.repo.kernel.getDossier(task.id).projection.summary).toBe("Resolved by the latest source update.");
   expect(s.days.taskItem(task.id, date)?.reportedMinutes).toBe(50);
+  expect(proposalParts(s.f.repo.kernel.getProposal(reviewed.proposalId!).changes, reviewed.extraction!)).toEqual(["reportedTime"]);
+  expect(s.f.threads.get(session.workerThreadId!)?.archivedAt).toBeTruthy();
+  const revision = s.f.repo.kernel.getTask(task.id).revision;
+  await s.auto.acceptSource(candidate.id); await s.auto.tick();
+  expect(s.f.repo.kernel.getTask(task.id).revision).toBe(revision);
+  expect(s.f.repo.sessions(task.id)).toHaveLength(1);
   expect(s.auto.state().errors).toEqual([]);
+});
+it("accepts Done in the shared inbox without a separate Finish click when automatic work is off", async () => {
+  const s = await setup(false), { task, session } = await chat(s);
+  await s.f.idle(session.workerThreadId!, "Checked the source.");
+  const candidate = await resolvedSource(s, task.id);
   const page = await s.f.harness.behavior.callRpc("proposalInbox", { offset: 0 }) as { items: { blockedReason: string | null }[] };
-  expect(page.items[0].blockedReason).toBe("Finish the work session before changing the task status.");
+  expect(page.items[0].blockedReason).toBeNull();
   const result = await s.f.harness.behavior.callRpc("acceptInbox", { items: [{ kind: "source", id: candidate.id, revision: candidate.baseRevision }] });
-  expect(result).toMatchObject({ applied: [], failed: [{ id: candidate.id, message: "Finish this task's current work session first." }] });
-  await expect(s.f.harness.behavior.callRpc("reviewParts", { kind: "source", id: candidate.id, revision: candidate.baseRevision, decision: "accept", parts: ["field:status"], requestId: randomUUID() })).rejects.toThrow(/Finish.*session first/);
+  expect(result).toMatchObject({ failed: [], applied: [{ id: candidate.id, taskId: task.id }] });
+  expect(s.f.repo.session(session.id)).toMatchObject({ finishMode: "source", status: "reviewing" });
+  expect(s.f.repo.kernel.getTask(task.id).status).toBe("done");
+});
+it("finishes when only Done is accepted while keeping the other source changes pending", async () => {
+  const s = await setup(false), { task, session } = await chat(s);
+  await s.f.idle(session.workerThreadId!, "Checked the source.");
+  const candidate = await resolvedSource(s, task.id);
+  const result = await s.f.harness.behavior.callRpc("reviewParts", { kind: "source", id: candidate.id, revision: candidate.baseRevision, decision: "accept", parts: ["field:status"], requestId: randomUUID() }) as { remainingId: string };
+  expect(s.f.repo.kernel.getTask(task.id).status).toBe("done");
+  expect(s.f.repo.session(session.id)).toMatchObject({ finishMode: "source", status: "reviewing" });
+  expect(s.store.candidate(result.remainingId).changes.summary).toBeTruthy();
+});
+it("does not finish when Done is unselected or rejected", async () => {
+  const s = await setup(false), { task, session } = await chat(s);
+  await s.f.idle(session.workerThreadId!, "Checked the source.");
+  const candidate = await resolvedSource(s, task.id);
+  const result = await s.auto.reviewSourceParts({ kind: "source", id: candidate.id, revision: candidate.baseRevision, decision: "accept", parts: ["field:summary"], requestId: randomUUID() });
   expect(s.f.repo.session(session.id).finishedAt).toBeNull();
+  const remaining = s.store.candidate(result.remainingId!);
+  await s.auto.reviewSourceParts({ kind: "source", id: remaining.id, revision: remaining.baseRevision, decision: "reject", parts: ["field:status"], requestId: randomUUID() });
+  expect(s.f.repo.kernel.getTask(task.id).status).toBe("open");
+  expect(s.f.repo.session(session.id).finishedAt).toBeNull();
+});
+it("waits for active turns, queued messages, approvals and background agents", async () => {
+  const s = await setup(), { task, session } = await chat(s), threadId = session.workerThreadId!;
+  const candidate = await resolvedSource(s, task.id);
+  await s.auto.tick(); expect(s.store.candidate(candidate.id).status).toBe("pending");
+  await expect(s.auto.acceptSource(candidate.id)).rejects.toThrow(/busy/);
+  await s.f.idle(threadId, "Checked the source.");
+  s.f.queued.set(threadId, [{ id: "queued" }] as never);
+  await s.auto.tick(); expect(s.f.repo.session(session.id).finishedAt).toBeNull();
+  s.f.queued.set(threadId, []);
+  s.f.harness.sdk.stub("threads.interactions.list", () => [{ id: "approval" }] as never);
+  await s.auto.tick(); expect(s.f.repo.session(session.id).finishedAt).toBeNull();
+  s.f.harness.sdk.stub("threads.interactions.list", () => []);
+  s.f.threads.set(threadId, { ...s.f.threads.get(threadId)!, activeBackgroundAgentCount: 1 });
+  await s.auto.tick(); expect(s.f.repo.session(session.id).finishedAt).toBeNull();
+  s.f.threads.set(threadId, { ...s.f.threads.get(threadId)!, activeBackgroundAgentCount: 0 });
+  s.f.repo.saveSession({ ...s.f.repo.session(session.id), automation: { state: "needs_input", note: "The worker has replied." } });
+  await s.auto.tick(); expect(s.store.candidate(candidate.id).status).toBe("applied");
+  expect(s.auto.state().errors).toEqual([]);
+});
+it("rechecks new user input during recorder selection before freezing a session", async () => {
+  const s = await setup(), { task, session } = await chat(s), threadId = session.workerThreadId!;
+  await s.f.idle(threadId, "Checked the source.");
+  const candidate = await resolvedSource(s, task.id);
+  const models = await s.f.bb.sdk.providers.models({ providerId: "codex" });
+  s.f.harness.sdk.stub("providers.models", async () => { s.f.message(threadId, "user", "Wait, another issue."); return models; });
+  await s.auto.tick();
+  expect(s.f.repo.session(session.id).finishedAt).toBeNull();
+  expect(s.store.candidate(candidate.id).status).toBe("pending");
+});
+it("rolls back finishing and time capture when the source becomes stale during model selection", async () => {
+  const s = await setup(), { task, session } = await chat(s);
+  await s.f.idle(session.workerThreadId!, "Checked the source.");
+  const candidate = await resolvedSource(s, task.id);
+  const models = await s.f.bb.sdk.providers.models({ providerId: "codex" });
+  s.f.harness.sdk.stub("providers.models", async () => { s.f.repo.kernel.appendFact({ taskId: task.id, kind: "user_instruction", text: "Keep the new scope.", source: "human:test" }); return models; });
+  await s.auto.tick();
+  expect(s.f.repo.session(session.id)).toMatchObject({ status: "working", finishedAt: null });
+  expect(s.f.repo.transcript(session.id)).toBeNull();
+  expect(s.f.repo.session(session.id).reportedTimeContext).toBeUndefined();
+  expect(s.store.candidate(candidate.id).status).toBe("pending");
+  expect(s.f.repo.kernel.getTask(task.id).status).toBe("open");
+  expect(s.auto.state().errors).toHaveLength(1);
+});
+it("retains source completion and the frozen transcript if review startup fails, and recovers after reload", async () => {
+  const s = await setup(), { task, session } = await chat(s);
+  await s.f.idle(session.workerThreadId!, "Checked the source.");
+  const candidate = await resolvedSource(s, task.id);
+  s.f.harness.sdk.stub("threads.spawn", async () => { throw new Error("Review runtime unavailable"); });
+  await s.auto.tick();
+  expect(s.store.candidate(candidate.id).status).toBe("applied");
+  expect(s.f.repo.session(session.id)).toMatchObject({ finishMode: "source", status: "blocked" });
+  const transcript = s.f.repo.transcript(session.id);
+  expect(transcript?.messages.length).toBeGreaterThan(0);
+  await s.f.reload();
+  await s.f.harness.behavior.callRpc("retry", { sessionId: session.id, recorder: "auto" });
+  expect(s.f.repo.session(session.id)).toMatchObject({ finishMode: "source", status: "reviewing" });
+  expect(s.f.repo.kernel.getTask(task.id).status).toBe("done");
+  expect(s.f.repo.transcript(session.id)).toEqual(transcript);
+});
+it("keeps legacy explicit input requests open until the user accepts the resolving source", async () => {
+  const s = await setup(), { task, session } = await chat(s);
+  await s.f.idle(session.workerThreadId!, "Please approve the external change.");
+  legacyCheckpoint(s, session.workerThreadId!, { state: "needs_input", requestedAt: new Date().toISOString(), note: "Approve the prepared change." });
+  const candidate = await resolvedSource(s, task.id);
+  await s.auto.tick(); expect(s.f.repo.session(session.id).finishedAt).toBeNull();
+  await s.auto.acceptSource(candidate.id);
+  expect(s.f.repo.kernel.getTask(task.id).status).toBe("done");
 });
 it.each([true, false])("accepts a waiting source update without finishing the session, automatic=%s", async automatic => {
   const s = await setup(automatic), { task, session } = await chat(s);
