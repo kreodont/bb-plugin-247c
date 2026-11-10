@@ -28,7 +28,7 @@ async function setup() {
     const quote = "The configuration is ready.";
     f.message(session.workerThreadId!, "user", quote);
     await f.idle(session.workerThreadId!, "Verified the configuration.");
-    await f.harness.behavior.callRpc("finish", { sessionId: session.id });
+    await f.harness.behavior.callRpc("pauseSession", { sessionId: session.id });
     const ref = f.repo.transcript(session.id)!.messages.find(m => m.text === quote)!.ref;
     const extraction: Extraction = { rationale: "Record the completed check", facts: [{ kind: "progress", text: quote, citations: [{ messageRef: ref, quote }] }],
       changes: { summary: { value: quote, evidenceRefs: ["fact:0"] } }, knowledge: [] };

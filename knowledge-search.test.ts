@@ -9,7 +9,7 @@ import { KnowledgeSearch, knowledgeDocuments } from "./knowledge-search.js";
 const cleanups: (() => Promise<unknown>)[] = [];
 afterEach(async () => { for (const cleanup of cleanups.splice(0).reverse()) await cleanup(); });
 async function setup() {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "247c-knowledge-"));
+  const root = await fs.mkdtemp(path.join(await fs.realpath(os.tmpdir()), "247c-knowledge-"));
   cleanups.push(() => fs.rm(root, { recursive: true, force: true }));
   const f = await fixture();
   cleanups.push(() => f.harness.lifecycle.dispose());

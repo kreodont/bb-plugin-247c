@@ -1,3 +1,7 @@
+# 0.5.151
+
+Default verification models are now mid-tier: GPT-6.1 Terra for Codex and Sonnet 5.5 for personal Claude; installations with saved values keep them. Source links from earlier imports are recognised by their record format rather than by a specific importer name. Tests follow the current Finish and Pause rules and no longer depend on built-in defaults or the temporary directory path.
+
 # 0.5.150
 
 Accept any well-formed BB provider ID in composer defaults, work requests and source checks instead of a fixed list. Automatic review may use the personal providers and the worker's own provider. The built-in time zone default is now UTC; installations that relied on the previous default should set the time zone setting explicitly. Backup tools also default to UTC.

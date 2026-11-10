@@ -1106,7 +1106,7 @@ it("opens a linked discussion from a review without starting a model before the 
   const session = f.repo.sessions(task.id)[0] ?? await f.harness.behavior.callRpc("start", { ...f.startInput(task.id, task.revision), criteria: [] }) as { id: string; workerThreadId: string };
   const quote = "Надо снизить срочность.";
   f.message(session.workerThreadId!, "user", quote);
-  await f.harness.behavior.callRpc("finish", { sessionId: session.id });
+  await f.harness.behavior.callRpc("pauseSession", { sessionId: session.id });
   const source = f.repo.transcript(session.id)!.messages.find((m) => m.text === quote)!;
   await f.idle(f.repo.session(session.id).reviewerThreadId!, { rationale: "Предлагается снизить срочность.", facts: [{ kind: "user_instruction", text: quote, citations: [{ messageRef: source.ref, quote }] }], changes: { urgent: { value: false, evidenceRefs: ["fact:0"] } }, knowledge: [] });
   const previous = f.repo.session(session.id);
@@ -1138,7 +1138,7 @@ it("shows cited conversation notes and knowledge together before saving them", a
   const fact = "В нашей интеграции статус booked означает проведённый счёт.";
   f.message(session.workerThreadId!, "user", fact);
   await f.idle(session.workerThreadId!, "Принял уточнение.");
-  await f.harness.behavior.callRpc("finish", { sessionId: session.id });
+  await f.harness.behavior.callRpc("pauseSession", { sessionId: session.id });
   const ref = f.repo.transcript(session.id)!.messages.find((m) => m.text === fact)!.ref;
   await f.idle(f.repo.session(session.id).reviewerThreadId!, { rationale: "Сохраним значение статуса для следующих задач.", facts: [{ kind: "description", text: fact, citations: [{ messageRef: ref, quote: fact }] }], changes: null, knowledge: [{ title: "Статус booked", body: fact, tags: ["интеграция"], evidenceRefs: ["fact:0"] }] });
   const { slot } = await setup(task.id, f);
@@ -1317,7 +1317,7 @@ it.each([false, true])("handles reported time in the inbox after a manual correc
   const session = f.repo.sessions(task.id)[0];
   const quote = "Reviewed the implementation and checked two sample exports.";
   await f.idle(session.workerThreadId!, quote);
-  await f.harness.behavior.callRpc("finish", { sessionId: session.id });
+  await f.harness.behavior.callRpc("pauseSession", { sessionId: session.id });
   const ref = f.repo.transcript(session.id)!.messages.find(m => m.text === quote)!.ref;
   await f.idle(f.repo.session(session.id).reviewerThreadId!, {
     rationale: "Save the outcome and estimated session work.", facts: [{ kind: "progress", text: quote, citations: [{ messageRef: ref, quote }] }],

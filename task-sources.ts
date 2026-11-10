@@ -47,7 +47,7 @@ function clickUpTaskId(url: URL): string | null {
 // Compatibility for explicit source fields retained by an earlier import.
 // Other record prose remains outside the source-link projection.
 function importedClickUpUrls(title: string, text: string): string[] {
-  if (!text.startsWith("Источник: Legacy (Windows). Импорт по запросу пользователя.\n")
+  if (!/^Источник: [^\n]{1,100}\. Импорт по запросу пользователя\.\n/.test(text)
     || !/^Исходный ID: [0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/im.test(text)) return [];
   const extract = (value: string): URL[] => [...value.matchAll(/https?:\/\/[^\s<>"'()[\]{}\\`]+/g)]
     .map(match => sourceUrl(match[0].replace(/[.,;:!?»]+$/, "")))

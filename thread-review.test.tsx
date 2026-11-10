@@ -39,7 +39,9 @@ it.each([false, true])("opens the recorder from the original chat without sendin
   await unrelated.behavior.emitRealtime("desk-changed", {});
   expect(within(reviewHeader.container).queryByRole("button")).toBeNull();
   expect(within(unrelated.container).queryByRole("button")).toBeNull();
-  await f.idle(reviewer, { rationale: "No new records", facts: [], changes: null, knowledge: [] });
+  const cited = f.repo.transcript(session.id)!.messages[0];
+  await f.idle(reviewer, { rationale: "Nothing else to record", facts: [{ kind: "progress", text: cited.text, citations: [{ messageRef: cited.ref, quote: cited.text }] }],
+    changes: { status: { value: "waiting", evidenceRefs: ["fact:0"] } }, knowledge: [] });
   await header.behavior.emitRealtime("desk-changed", {});
   await waitFor(() => expect(within(header.container).queryByRole("button")).toBeNull());
 });

@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { revealFile } from "./reveal-file.js";
@@ -8,7 +8,7 @@ import { windowsRevealArgs } from "./windows-reveal.js";
 const roots: string[] = [];
 afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))); });
 async function fixture() {
-  const root = await mkdtemp(path.join(tmpdir(), "247c-reveal-"));
+  const root = await mkdtemp(path.join(await realpath(tmpdir()), "247c-reveal-"));
   roots.push(root);
   const file = path.join(root, "notes ' $(example) é.txt");
   await writeFile(file, "fixture");
