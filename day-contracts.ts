@@ -2,7 +2,7 @@ import { taskStatuses } from "./task-status.js";
 import { z } from "zod";
 
 // Compatibility default for older installations and callers; configured settings override it.
-export const DAY_TIME_ZONE = "Europe/Athens";
+export const DAY_TIME_ZONE = "UTC";
 export const dayDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => {
   const d = new Date(`${value}T12:00:00Z`);
   return Number.isFinite(d.getTime()) && d.toISOString().slice(0, 10) === value;

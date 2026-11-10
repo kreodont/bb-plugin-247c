@@ -71,7 +71,7 @@ it("rejects missing, malformed, oversized and unknown configuration before any w
 it("validates account/model defaults as a pair without requiring any account on a fresh installation", async () => {
   const f = await fixture(); hosts.push(f);
   expect(await f.harness.behavior.callRpc("threadProject", {})).toMatchObject({ projectId: null, providerId: null, model: null });
-  for (const value of [{ providerId: "claude-work" }, { model: "example" }, { providerId: "unknown", model: "example" }]) {
+  for (const value of [{ providerId: "claude-work" }, { model: "example" }, { providerId: "not a provider", model: "example" }]) {
     await expect(f.harness.behavior.setSettings({ composerDefaults: JSON.stringify(value) })).rejects.toThrow();
   }
   expect(await f.harness.behavior.callRpc("threadProject", {})).toMatchObject({ projectId: null, providerId: null, model: null });

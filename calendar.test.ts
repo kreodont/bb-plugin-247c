@@ -16,7 +16,7 @@ function connection(answer: (name: string, args: Record<string, unknown>) => unk
   const close = vi.fn(async () => {}), call = vi.fn(async (name: string, args: Record<string, unknown>) => ({ structuredContent: await answer(name, args) }));
   return { connect: async () => ({ call, close }), close, call };
 }
-const input = () => ({ from: "2026-09-07", through: "2026-09-17", known: [], signal: new AbortController().signal });
+const input = () => ({ from: "2026-09-07", through: "2026-09-17", known: [], timeZone: "Europe/Athens", signal: new AbortController().signal });
 async function setup() { const f = await fixture(); hosts.push(f); return { f, days: new DayPlanning(f.repo, () => new Date("2026-09-12T00:00:00Z")) }; }
 
 it("reads every calendar page, deduplicates occurrences, and assigns the local meeting date", async () => {

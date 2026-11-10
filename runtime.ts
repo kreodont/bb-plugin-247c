@@ -409,8 +409,9 @@ export class SessionRuntime {
     const routing = { environmentId: environment.id };
     if (choice === "auto") {
       const providers = await this.bb.sdk.providers.list(routing);
-      // Personal conversations must not be sent to the corporate account.
-      const permitted = ["claude-code", "codex", ...(session.workerProvider === "claude-work" ? ["claude-work"] : [])];
+      // Personal conversations must not be sent to another account: besides the
+      // personal providers, only the worker's own provider may review.
+      const permitted = [...new Set(["claude-code", "codex", session.workerProvider])];
       const catalogs = await Promise.all(permitted.filter((id) => providers.some((p) => p.id === id && p.available)).map(async (providerId) => {
         try {
           const catalog = await this.bb.sdk.providers.models({ ...routing, providerId });

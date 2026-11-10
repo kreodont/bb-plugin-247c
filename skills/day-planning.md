@@ -32,7 +32,7 @@ Read the day before editing. Reuse one `requestId` when redelivering the same re
 
 When `dayPlannerProjectId` and `dayPlannerAutomationId` are configured in local
 247C settings, **Day → Create day plan** starts that existing BB automation.
-The button is available for today in Europe/Athens, saves unsaved day edits first,
+The button is available for today in the configured time zone, saves unsaved day edits first,
 and shows progress or failures. `dayPlannerState` is a read-only RPC;
 `dayPlannerStart({date, requestId})` is an explicit user action and forwards a
 stable idempotency key through the Automations plugin's public RPC. The backend

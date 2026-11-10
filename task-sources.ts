@@ -44,9 +44,9 @@ function clickUpTaskId(url: URL): string | null {
   return url.pathname.match(/^\/t\/(?:[0-9]+\/)?([A-Za-z0-9_-]+)\/?$/)?.[1] ?? null;
 }
 
-// Compatibility for explicit source fields retained by the Legacy migration.
+// Compatibility for explicit source fields retained by an earlier import.
 // Other record prose remains outside the source-link projection.
-function legacyClickUpUrls(title: string, text: string): string[] {
+function importedClickUpUrls(title: string, text: string): string[] {
   if (!text.startsWith("Источник: Legacy (Windows). Импорт по запросу пользователя.\n")
     || !/^Исходный ID: [0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/im.test(text)) return [];
   const extract = (value: string): URL[] => [...value.matchAll(/https?:\/\/[^\s<>"'()[\]{}\\`]+/g)]
@@ -122,7 +122,7 @@ export function taskSourceLinks(
   // Older and manually imported records may have a sourceRef without a sync candidate.
   for (const fact of dossier.facts) {
     add(fact.sourceRef, fact.occurredAt, fact.createdAt);
-    if (fact.kind === "description") for (const url of legacyClickUpUrls(dossier.task.title, fact.text)) {
+    if (fact.kind === "description") for (const url of importedClickUpUrls(dossier.task.title, fact.text)) {
       add(url, fact.occurredAt, fact.createdAt, true);
     }
   }

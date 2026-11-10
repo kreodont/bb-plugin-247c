@@ -34,7 +34,7 @@ import { z } from "zod";
 import { compatibleMigrations } from "./migration-compatibility.js";
 import { CORE_SCHEMA } from "./core/schema.js";
 import { PolicyError } from "./core/errors.js";
-import { rpcContract, draftSchema, idSchema, resultSchema, syncSubmitToolSchema, type SettingsView } from "./contracts.js";
+import { rpcContract, draftSchema, idSchema, providerIdSchema, resultSchema, syncSubmitToolSchema, type SettingsView } from "./contracts.js";
 import { proposalRefreshPreview, refreshProposal } from "./proposal-refresh.js";
 import { ACTIVE, EXTRA_SCHEMA, Repository } from "./repository.js";
 import { SessionRuntime } from "./runtime.js";
@@ -317,7 +317,7 @@ export default async function plugin(bb: BbPluginApi) {
   });
   bb.agents.registerTool({
     name: "c247_sync_start", description: "Start a 247C source update check only on user request, with their chosen provider and model. Uses the configured Thread project and its default folder, or this thread's project/workspace when unset. since=null resumes each source's last complete checkpoint (first run: last 24 hours); explicit since is an ISO timestamp with timezone. Creates a collector chat, never applies task changes. Human review is in the Updates panel. Use the native panel composer when model/account choice is needed.",
-    parameters: z.object({ requestId: z.uuid(), since: z.iso.datetime({ offset: true }).nullable().default(null), providerId: z.enum(["codex", "claude-code", "claude-work"]), model: z.string().min(1).max(200), reasoningLevel: z.enum(["low", "medium", "high", "xhigh", "max", "none", "ultra", "ultracode"]).default("medium") }).strict(),
+    parameters: z.object({ requestId: z.uuid(), since: z.iso.datetime({ offset: true }).nullable().default(null), providerId: providerIdSchema, model: z.string().min(1).max(200), reasoningLevel: z.enum(["low", "medium", "high", "xhigh", "max", "none", "ultra", "ultracode"]).default("medium") }).strict(),
     async execute(input, ctx) {
       independentCaller(ctx.threadId);
       const caller = await bb.sdk.threads.get({ threadId: ctx.threadId });

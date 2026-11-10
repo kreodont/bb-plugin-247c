@@ -5,6 +5,7 @@ import { homedir } from "node:os";
 import { constants, closeSync, fstatSync, fsyncSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { z } from "zod";
 import { PINNED_FILE_ERRORS, pinnedFileInputSchema, pinnedFilesSchema, type PinnedFile } from "./pinned-files-contracts.js";
+import { providerIdSchema } from "./contracts.js";
 
 // Installation-only preferences. Kept outside SQLite, BB's exported settings,
 // and local.patch.json, which is included in recovery archives. Never open,
@@ -63,7 +64,7 @@ export class PinnedFilesSettings {
 }
 
 export const composerDefaultsSchema = z.object({
-  providerId: z.enum(["codex", "claude-code", "claude-work"]).nullable().default(null),
+  providerId: providerIdSchema.nullable().default(null),
   model: z.string().trim().min(1).max(200).nullable().default(null),
 }).strict().refine(value => Boolean(value.providerId) === Boolean(value.model), "Set the default account and model together.");
 

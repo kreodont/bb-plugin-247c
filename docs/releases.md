@@ -1,3 +1,7 @@
+# 0.5.150
+
+Accept any well-formed BB provider ID in composer defaults, work requests and source checks instead of a fixed list. Automatic review may use the personal providers and the worker's own provider. The built-in time zone default is now UTC; installations that relied on the previous default should set the time zone setting explicitly. Backup tools also default to UTC.
+
 # 0.5.149
 
 Show overdue source checks in yellow when another check is scheduled. Display the next run time and omit urgent badges and popups. Keep failed checks, calendar errors and stalled runs red.

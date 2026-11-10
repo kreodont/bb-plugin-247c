@@ -253,8 +253,10 @@ const inputSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("localImage"), path: z.string().max(4096), visibility: z.literal("agent-only").optional() }).strict(),
   z.object({ type: z.literal("localFile"), path: z.string().max(4096), name: z.string().optional(), mimeType: z.string().optional(), sizeBytes: z.number().optional(), visibility: z.literal("agent-only").optional() }).strict(),
 ]);
+// Provider IDs are local BB registrations; any well-formed ID is accepted.
+export const providerIdSchema = z.string().regex(/^[a-z0-9][a-z0-9._-]{0,99}$/);
 export const requestSchema = z.object({
-  projectId: idSchema, providerId: z.enum(["codex", "claude-code", "claude-work"]), model: z.string().min(1).max(200),
+  projectId: idSchema, providerId: providerIdSchema, model: z.string().min(1).max(200),
   reasoningLevel: z.enum(["low", "medium", "high", "xhigh", "max", "none", "ultra", "ultracode"]),
   permissionMode: z.enum(["accept-edits", "auto", "full"]), serviceTier: z.enum(["default", "fast"]).optional(),
   executionInputSources: z.object({ providerId: z.enum(["explicit", "client-preference"]).optional(), model: z.enum(["explicit", "client-preference"]).optional(), reasoningLevel: z.enum(["explicit", "client-preference"]).optional(), permissionMode: z.enum(["explicit", "client-preference"]).optional(), serviceTier: z.enum(["explicit", "client-preference"]).optional() }).strict(), environment: environmentSchema, input: z.array(inputSchema).min(1).max(40),

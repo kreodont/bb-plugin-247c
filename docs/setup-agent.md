@@ -71,7 +71,7 @@ is still checked. Ordinary chats select their recorder on Finish; opening them
 does not require a verification model. Assignments with acceptance criteria still
 check their separate verifier before starting the worker.
 
-For corporate use, register `claude-work` as a separate BB provider and verify its
+For corporate use, register a separate BB provider (for example `claude-work`) and verify its
 login profile and account. Do not redirect personal `claude-code`. Account
 identities, profile paths and chosen defaults belong in local configuration.
 
@@ -126,7 +126,7 @@ bb plugin config 247c set dayPlannerAutomationId auto_example
 ```
 
 The **Create day plan** button saves pending day edits before starting the
-configured automation for today in Europe/Athens. It keeps the automation's
+configured automation for today in the configured time zone. It keeps the automation's
 provider, model, prompt or script, schedule and duplicate-run behavior. Run
 status appears next to the button, and saved entries refresh automatically.
 Entry time and day settings save after a short pause or when leaving the field.

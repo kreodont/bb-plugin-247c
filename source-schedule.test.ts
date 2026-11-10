@@ -6,6 +6,7 @@ import { hourlyUpdateId, hourlyUpdateSlot, quickSourceUpdate, scheduledSourceUpd
 import { syncStartSchema } from "./contracts.js";
 import * as collector from "./source-collector.js";
 
+const athens = { timeZone: "Europe/Athens", updateStartHour: 8, updateEndHour: 20 };
 const hosts: Awaited<ReturnType<typeof fixture>>[] = [];
 afterEach(async () => { for (const f of hosts.splice(0)) await f.harness.lifecycle.dispose(); vi.restoreAllMocks(); vi.useRealTimers(); });
 async function setup() {
@@ -59,7 +60,7 @@ it("keeps the configured external updater authoritative for quick checks", async
   expect(sync.store.state().runs).toHaveLength(1);
 });
 
-it("selects exactly 08 through 20 every day in Athens, including winter and DST dates", () => {
+it("selects exactly 08 through 20 every day in the configured zone, including winter and DST dates", () => {
   for (const day of ["2026-09-11", "2026-12-11", "2026-10-25", "2027-03-28"]) {
     const selected = [];
     for (let hour = 0; hour < 24; hour++) {
@@ -68,9 +69,9 @@ it("selects exactly 08 through 20 every day in Athens, including winter and DST 
     }
     expect(selected).toEqual([8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]);
   }
-  expect(hourlyUpdateSlot(new Date("2026-09-11T05:00:30Z"))).toBe("2026-09-11T08");
-  expect(hourlyUpdateSlot(new Date("2026-09-11T05:01:00Z"))).toBeNull();
-  expect(hourlyUpdateSlot(new Date("2026-12-11T06:00:00Z"))).toBe("2026-12-11T08");
+  expect(hourlyUpdateSlot(new Date("2026-09-11T05:00:30Z"), athens)).toBe("2026-09-11T08");
+  expect(hourlyUpdateSlot(new Date("2026-09-11T05:01:00Z"), athens)).toBeNull();
+  expect(hourlyUpdateSlot(new Date("2026-12-11T06:00:00Z"), athens)).toBe("2026-12-11T08");
 });
 
 it("skips local weekends, including overnight windows and UTC date boundaries, only when enabled", () => {
@@ -117,23 +118,23 @@ it("reuses the last successful execution settings and resumes source checkpoints
   const { f, sync } = await setup();
   const start = vi.spyOn(sync, "start").mockImplementation(async input => sync.store.insert(input));
   const at = new Date("2026-09-11T05:00:00Z");
-  const id = await scheduledSourceUpdate(sync, async () => true, at);
+  const id = await scheduledSourceUpdate(sync, async () => true, at, athens);
   expect(id).toBe(hourlyUpdateId("2026-09-11T08")); expect(start).toHaveBeenCalledOnce();
   expect(start.mock.calls[0][0]).toMatchObject({ since: null, request: { providerId: "codex", model: "gpt-6-astra", reasoningLevel: "max", permissionMode: "accept-edits" } });
   const run = sync.store.run(id!); sync.store.save({ ...run, status: "completed", finishedAt: run.startedAt });
   await f.reload();
   const reloaded = new SourceSyncRuntime(f.bb, f.repo);
-  expect(await scheduledSourceUpdate(reloaded, async () => true, at)).toBeNull();
+  expect(await scheduledSourceUpdate(reloaded, async () => true, at, athens)).toBeNull();
   expect(new SourceSyncStore(f.repo).state().runs).toHaveLength(2);
 });
 
 it("does not launch when disabled, outside the window, or when a manual check is active", async () => {
   const { sync, source } = await setup(); const start = vi.spyOn(sync, "start");
   const at = new Date("2026-09-11T05:00:00Z");
-  expect(await scheduledSourceUpdate(sync, async () => false, at)).toBeNull();
-  expect(await scheduledSourceUpdate(sync, async () => true, new Date("2026-09-11T18:00:00Z"))).toBeNull();
+  expect(await scheduledSourceUpdate(sync, async () => false, at, athens)).toBeNull();
+  expect(await scheduledSourceUpdate(sync, async () => true, new Date("2026-09-11T18:00:00Z"), athens)).toBeNull();
   sync.store.insert({ ...source, requestId: randomUUID() });
-  expect(await scheduledSourceUpdate(sync, async () => true, at)).toBeNull(); expect(start).not.toHaveBeenCalled();
+  expect(await scheduledSourceUpdate(sync, async () => true, at, athens)).toBeNull(); expect(start).not.toHaveBeenCalled();
 });
 
 it("overrides only configured execution fields and preserves historical requests", async () => {
@@ -152,9 +153,9 @@ it("overrides only configured execution fields and preserves historical requests
 it("keeps real start failures visible and safely skips a manual-start race", async () => {
   const { sync, source } = await setup(); const at = new Date("2026-09-11T05:00:00Z");
   const start = vi.spyOn(sync, "start").mockRejectedValue(new Error("Provider unavailable"));
-  await expect(scheduledSourceUpdate(sync, async () => true, at)).rejects.toThrow("Provider unavailable");
+  await expect(scheduledSourceUpdate(sync, async () => true, at, athens)).rejects.toThrow("Provider unavailable");
   start.mockImplementation(async () => { sync.store.insert({ ...source, requestId: randomUUID() }); throw new Error("Already running"); });
-  expect(await scheduledSourceUpdate(sync, async () => true, at)).toBeNull();
+  expect(await scheduledSourceUpdate(sync, async () => true, at, athens)).toBeNull();
 });
 
 it("wires the native schedule to settings and launches the existing collector without changing tasks", async () => {

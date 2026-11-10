@@ -698,7 +698,7 @@ it("distinguishes unspecified, estimated and confirmed zero reported time in the
   await unrelated.behavior.emitRealtime("desk-changed", {}); expect(unrelated.container.querySelector("output")).toBeNull();
 });
 
-it("rolls the header over at Athens midnight and does not present stale time after a failed refresh", async () => {
+it("rolls the header over at local midnight and does not present stale time after a failed refresh", async () => {
   vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-09-14T20:59:59Z"));
   const f = await fixture(), task = await f.create(), days = new DayPlanning(f.repo);
   await f.harness.behavior.callRpc("start", { ...f.startInput(task.id, task.revision), criteria: [] });

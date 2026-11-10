@@ -46,11 +46,11 @@ it("counts parallel embedded agents and distinct attempts, without a workflow du
   expect(measuredIntervals(rows).reduce((n, i) => n + i.end - i.start, 0) / 60000).toBe(15);
 });
 
-it.each([ ["2026-09-12", 24], ["2026-10-25", 25], ["2027-03-28", 23] ])("splits Athens days including DST: %s", (day, hours) => {
+it.each([ ["2026-09-12", 24], ["2026-10-25", 25], ["2027-03-28", 23] ])("splits local days including DST: %s", (day, hours) => {
   const next = new Date(`${day}T12:00:00Z`); next.setUTCDate(next.getUTCDate() + 1);
-  const endDate = next.toISOString().slice(0, 10), start = dayStart(String(day)), end = dayStart(endDate);
+  const endDate = next.toISOString().slice(0, 10), start = dayStart(String(day), "Europe/Athens"), end = dayStart(endDate, "Europe/Athens");
   expect((end - start) / 3600000).toBe(hours);
-  const totals = intervalDays([{ key: "turn", start: end - 600000, end: end + 1200000 }], String(day), end + 3600000);
+  const totals = intervalDays([{ key: "turn", start: end - 600000, end: end + 1200000 }], String(day), end + 3600000, "Europe/Athens");
   expect([...totals]).toEqual([[day, 600000], [endDate, 1200000]]);
 });
 

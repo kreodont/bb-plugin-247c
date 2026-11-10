@@ -419,7 +419,7 @@ def main():
     create.add_argument("--machine", required=True)
     create.add_argument("--retention", action="store_true", help="Keep 7 daily, 4 weekly and 3 monthly snapshots after a verified complete backup")
     create.add_argument("--daily", action="store_true", help="Skip if this machine already has a successful snapshot today")
-    create.add_argument("--timezone", default="Europe/Athens")
+    create.add_argument("--timezone", default="UTC")
     verify = sub.add_parser("verify")
     verify.add_argument("archive")
     prune = sub.add_parser("prune", help="Retry retention after a complete archive has uploaded")
