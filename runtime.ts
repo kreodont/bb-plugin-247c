@@ -7,6 +7,7 @@ import { ZodError } from "zod";
 import type { BbPluginApi, MessageDispatchHookContext } from "@get-bb/plugin-sdk";
 import { nativeRequest, requestSchema, resultSchema, reviewSchema, type Extraction, type ObservedArtifact, type Review, type Session, type SettingsView, type StartInput, type WorkerResult, type PartDecision } from "./contracts.js";
 import { ACTIVE, Repository, digest } from "./repository.js";
+import { threadNotFound } from "./search-index.js";
 import { PolicyError } from "./core/errors.js";
 import type { ProposalEvidence, StewardChanges, TaskRecord } from "./core/types.js";
 import { workerInstructions, reviewInstructions, repairInstructions, extractionInstructions } from "./prompts.js";
@@ -819,8 +820,13 @@ export class SessionRuntime {
         // The dossier was committed before cleanup. Retry independently, also
         // after reload, without making a successful approval look like a failure.
         if (!this.disposed) {
-          this.repo.recordThreadArchive(pending.threadId, pending.revision, false);
-          this.bb.log.warn(`Could not archive finished thread ${pending.threadId}; will retry: ${String(error)}`);
+          if (threadNotFound(error)) {
+            this.repo.recordThreadArchive(pending.threadId, pending.revision, true);
+            this.bb.log.debug(`Finished thread ${pending.threadId} no longer exists; nothing to archive.`);
+          } else {
+            this.repo.recordThreadArchive(pending.threadId, pending.revision, false);
+            this.bb.log.warn(`Could not archive finished thread ${pending.threadId}; will retry: ${String(error)}`);
+          }
         }
       } finally { this.archiving.delete(pending.threadId); }
     }

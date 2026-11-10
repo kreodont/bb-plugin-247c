@@ -10,7 +10,7 @@ type Document = { key: string; task: string; kind: SearchHit["kind"]; label: str
 const clean = (value: string) => value.replace(/[\u0000-\u0002]/g, " ");
 const PAGE_SIZE = 30;
 
-function threadNotFound(error: unknown): boolean {
+export function threadNotFound(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
   const value = error as { code?: unknown; message?: unknown };
   // Some SDK transports expose the code, others only the HTTP error message.

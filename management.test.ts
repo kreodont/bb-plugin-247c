@@ -206,6 +206,18 @@ describe("Discussing a finished review", () => {
     expect(canonical(f, task.id).task.status).toBe("open");
   });
 
+  it.each([
+    { label: "deleted thread", error: new Error("BbHttpError: HTTP 404: Thread not found"), settles: true },
+    { label: "temporary failure", error: new Error("HTTP 503: Service unavailable"), settles: false },
+  ])("stops retrying the archive of a $label", async ({ error, settles }) => {
+    const { f, task, session } = await setup();
+    const pending = await review(f, session);
+    f.harness.inspection.sdk.stub("threads.get", () => { throw error; });
+    await f.harness.behavior.callRpc("accept", { proposalId: pending.proposalId, revision: task.revision });
+    const row = f.repo.db.prepare("SELECT archived_at FROM closed_task_thread_archives WHERE thread_id=?").get(session.workerThreadId) as { archived_at: number | null } | undefined;
+    expect(row?.archived_at === null).toBe(!settles);
+  });
+
   it("keeps chronological, distinct citations across several discussions and enforces the transcript bound", () => {
     const transcript = (id: string, text: string): Transcript => ({ threadId: id, capturedAt: "2026-09-10", warnings: [], messages: [{ ref: "message:1", role: "user", text, sequence: 1 }] });
     const first = transcript("first", "A"), second = transcript("second", "B"), third = transcript("third", "C");
