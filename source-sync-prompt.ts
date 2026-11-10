@@ -93,7 +93,7 @@ Account owner's local context: ${config.analysisContext}
 ${jiraProjectInstructions(config)}
 
 ACCESS AND ACTION BOUNDARIES
-Find the Gmail, Slack and Jira tools available to the selected account, usually Claude Work.
+Find the Gmail, Slack and Jira tools available to the selected account, usually the corporate one.
 Use direct connector read/search/list/get calls; their actual responses provide evidence.
 If access is unavailable, report unavailable with the reason. Do not substitute memory, web search or old conversations for a live check.
 Do not send messages, email or comments, create drafts, or modify Gmail labels/read state, Slack, Jira, calendars or files.

@@ -1,3 +1,7 @@
+# 0.5.152
+
+Source-check instructions refer to the selected corporate account without naming a local provider.
+
 # 0.5.151
 
 Default verification models are now mid-tier: GPT-6.1 Terra for Codex and Sonnet 5.5 for personal Claude; installations with saved values keep them. Source links from earlier imports are recognised by their record format rather than by a specific importer name. Tests follow the current Finish and Pause rules and no longer depend on built-in defaults or the temporary directory path.
