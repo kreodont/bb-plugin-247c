@@ -1,6 +1,6 @@
 # Third-party notices
 
-The BB interface adapters, components and bundled file editor adapted from get-bb/bb retain the following license. Package dependencies retain their respective licenses. This notice does not grant an additional license for the independently authored 247C code.
+The BB interface adapters, components and bundled file editor adapted from get-bb/bb retain the following license. Package dependencies retain their respective licenses. The independently authored 247C code is licensed separately under the MIT License in [LICENSE](LICENSE).
 
 MIT License
 

@@ -37,6 +37,7 @@ Tasks with an open chat show a filled speech-bubble icon and a filled **Open cha
 - [Windows installation with WSL2](docs/windows.md)
 - [Backups, Google Drive and recovery](docs/recovery.md)
 - [Storage retention and daily maintenance](docs/storage-retention.md)
+- [License (MIT)](LICENSE)
 - [Third-party notices](THIRD_PARTY_NOTICES.md)
 
 To update an installation tracking `main`, run `bb plugin update 247c`. The local settings patch is automatically reapplied when the updated plugin loads. Make a backup before changing versions. Each release tag identifies one immutable code version.
