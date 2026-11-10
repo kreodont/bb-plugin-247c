@@ -130,3 +130,20 @@ it.each(["codex", "claude-code", "claude-work"])("injects sent-reply verificatio
   }
   expect(f.harness.inspection.sdk.callsTo("threads.send")).toHaveLength(0);
 });
+
+it("extends agent tools to the additional agent projects only", async () => {
+  const f = await setup();
+  await f.harness.behavior.setSettings({ agentProjectIds: "proj_personal, proj_extra" });
+  for (const [projectId, included] of [["proj_work", true], ["proj_personal", true], ["proj_extra", true], ["proj_other", false]] as const) {
+    const config = await f.harness.behavior.resolveAgentConfiguration(makePluginAgentConfigurationContext({
+      origin: { pluginId: null }, project: { id: projectId },
+    }));
+    expect(config.tools.map(tool => tool.name).includes("c247_read")).toBe(included);
+    expect((config.instructions ?? "").includes(guidance)).toBe(included);
+  }
+  await f.harness.behavior.setSettings({ agentProjectIds: "" });
+  const revoked = await f.harness.behavior.resolveAgentConfiguration(makePluginAgentConfigurationContext({
+    origin: { pluginId: null }, project: { id: "proj_personal" },
+  }));
+  expect(revoked.tools).toEqual([]);
+});

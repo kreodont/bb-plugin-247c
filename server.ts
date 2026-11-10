@@ -419,10 +419,12 @@ export default async function plugin(bb: BbPluginApi) {
     const external = externalAnalysis.configure(context);
     if (external) return external;
     const own = context.origin.pluginId === bb.pluginId;
-    if (configuration.scopeAgentsToProject && !own && context.project.id !== configuration.threadProjectId) {
+    const agentProjects = new Set([configuration.threadProjectId, ...configuration.agentProjectIds.split(",").map(id => id.trim())].filter(Boolean));
+    const inAgentProject = agentProjects.has(context.project.id);
+    if (configuration.scopeAgentsToProject && !own && !inAgentProject) {
       return { skills: [], tools: [] };
     }
-    const localInstructions = own || context.project.id === configuration.threadProjectId ? configuration.threadInstructions : "";
+    const localInstructions = own || inAgentProject ? configuration.threadInstructions : "";
     const instructions = (base = "") => [base, localInstructions].filter(Boolean).join("\n\n");
     const collection = own ? sync.resolveThread(context.thread.id, context.thread.title) : undefined;
     if (collection && !SYNC_ACTIVE.has(collection.status)) return {
