@@ -8,6 +8,7 @@ import type { TaskDossier } from "./core/types.js";
 import type { SourceCall } from "./source-sync.js";
 import { connectSources, sourceError, type SourceConnections, type SourceReady } from "./source-connectors.js";
 import { SourceBudget } from "./source-budget.js";
+import { GmailQuotaGate, GMAIL_QUOTA_COOLDOWN_MS } from "./source-gmail-quota.js";
 import type { ConnectionAttempt } from "./source-diagnostics.js";
 import { sourceResponseFailure, sourceThrownFailure } from "./source-errors.js";
 import { missingSlackThread, readableSlackChannel, normalizeMissingSlackReport } from "./source-slack-missing.js";
@@ -29,6 +30,8 @@ export type CollectionOptions = {
   // Limits are independent for each source. Setup and idle time do not spend the read budget.
   timeoutMs?: number; maxCalls?: number;
   retryDelayMs?: (attempt: number, rateLimited: boolean) => number;
+  // Tests can disable pacing with Infinity; production uses the conservative default.
+  gmailQuotaUnitsPerMinute?: number;
   resolveSlackLink?: (target: SlackTarget) => SlackTarget | null;
 };
 // Slack answers rate limits with a bare "ratelimited" payload, sometimes wrapped
@@ -129,6 +132,7 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
   const start = Date.now();
   const signal = options.signal ?? new AbortController().signal;
   const budgets = Object.fromEntries(SOURCES.map(s => [s, new SourceBudget(signal, options.timeoutMs ?? 180000)])) as Record<SyncSource, SourceBudget>;
+  const gmailQuota = new GmailQuotaGate(options.gmailQuotaUnitsPerMinute);
   const connectionAttempts: ConnectionAttempt[] = [];
   const onAttempt = (attempt: ConnectionAttempt) => { connectionAttempts.push(attempt); options.onConnectionAttempt?.(attempt); };
   const calls: SourceCall[] = [], documents: SourceDocument[] = [];
@@ -180,6 +184,9 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
     found.slack.forEach(s => pending.slack.set(`${s.channel}:${s.ts}`, s));
   };
   async function call(source: SyncSource, tool: string, args: Json, full = false, expectedThreadId?: string): Promise<Json | null> {
+    // Gmail's deliberate quota waits must not spend the network read budget.
+    // Each actual Gmail attempt enters the budget below, after acquiring a slot.
+    if (source === "gmail") return callWithinBudget(source, tool, args, full, expectedThreadId);
     const leave = budgets[source].enter();
     try { return await callWithinBudget(source, tool, args, full, expectedThreadId); }
     finally { leave(); }
@@ -190,6 +197,10 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
   async function callWithinBudget(source: SyncSource, tool: string, args: Json, full = false, expectedThreadId?: string): Promise<Json | null> {
     const signal = budgets[source].signal;
     if (signal.aborted) { error(source, stoppedMessage(source)); return null; }
+    if (source === "gmail" && gmailQuota.isStopped) {
+      error(source, "Gmail rate limit did not recover after bounded retries; remaining reads are deferred to the next check.");
+      return null;
+    }
     if (count[source] >= (options.maxCalls ?? 600) || bytes[source] > 28 * 1024 * 1024) { error(source, `${source} export limit was reached (${count[source]} calls, ${bytes[source]} bytes); the unchecked interval is preserved.`); return null; }
     const connection = connections[source];
     if ("error" in connection) { error(source, connection.error); return null; }
@@ -200,13 +211,24 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
       let result: unknown;
       for (let attempt = 0; ; attempt++) {
         try {
-          result = await connection.call(tool, args, signal);
+          if (source === "gmail") await gmailQuota.acquire(tool, args, signal);
+          const leave = source === "gmail" ? budgets.gmail.enter() : () => {};
+          try { signal.throwIfAborted(); result = await connection.call(tool, args, signal); }
+          finally { leave(); }
           const failure = sourceResponseFailure(result as Json, responseData(result));
           if (failure?.retryable) throw failure;
           break;
         }
         catch (cause) {
           const failure = sourceThrownFailure(cause), { rateLimited } = failure;
+          if (source === "gmail" && rateLimited) {
+            if (gmailQuota.isStopped || signal.aborted) throw failure;
+            if (attempt >= 3) { gmailQuota.stop(failure); throw failure; }
+            const pause = options.retryDelayMs ? options.retryDelayMs(attempt, true) : GMAIL_QUOTA_COOLDOWN_MS;
+            gmailQuota.cooldown(pause);
+            progress(source, `Gmail rate limit reached; pausing Gmail requests for ${Math.ceil(pause / 1000)}s`);
+            continue;
+          }
           if (attempt >= (rateLimited ? 3 : 2) || signal.aborted || !failure.retryable) throw failure;
           await new Promise<void>(resolve => {
             const done = () => { clearTimeout(t); signal.removeEventListener("abort", done); resolve(); };
@@ -268,7 +290,7 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
     for (const message of messages) {
       const result = await call("gmail", "get_message", { messageId: message.id, messageFormat: "PLAIN_TEXT" }, true, threadId);
       if (result) loaded++;
-      if (budgets.gmail.signal.aborted || count.gmail >= (options.maxCalls ?? 600) || bytes.gmail > 28 * 1024 * 1024) break;
+      if (budgets.gmail.signal.aborted || gmailQuota.isStopped || count.gmail >= (options.maxCalls ?? 600) || bytes.gmail > 28 * 1024 * 1024) break;
     }
     if (valid && loaded === messages.length) recoveredCalls.add(ref);
     else error("gmail", `get_thread (${threadId}): oversized thread recovery incomplete (${loaded}/${messages.length} messages read${valid ? "" : "; invalid message metadata"}).`);

@@ -21,7 +21,7 @@ it.each([mentionQuery, "from:me"])("finds %s outside watched channels when incom
   const seen: { tool: string; args: Record<string, unknown> }[] = [];
   const bundle = await collectSources(run(), [], {
     config: { ...defaultSourceConfig, slackUserId: "U123OWNER", slackChannels: ["support"] },
-    connect: async () => connections({ close: async () => {}, async call(tool, args) {
+    gmailQuotaUnitsPerMinute: Infinity, connect: async () => connections({ close: async () => {}, async call(tool, args) {
       seen.push({ tool, args });
       if (tool === "slack_read_thread") return response({ messages: `Message TS: ${parent}\nPlease review the next change.\nMessage TS: 1789034700.654321\nNon-urgent.`, pagination_info: "There are no more messages in this thread." });
       if (args.query !== query) return response({ results: "No results found.", pagination_info: "End of results - No more pages available." });
@@ -43,7 +43,7 @@ it.each([mentionQuery, "from:me"])("finds %s outside watched channels when incom
 it.each([mentionQuery, "from:me"])("reports partial coverage when %s fails despite successful empty searches", async query => {
   const bundle = await collectSources(run(), [], {
     config: { ...defaultSourceConfig, slackUserId: "U123OWNER" },
-    connect: async () => connections({ close: async () => {}, async call(_tool, args) {
+    gmailQuotaUnitsPerMinute: Infinity, connect: async () => connections({ close: async () => {}, async call(_tool, args) {
       if (args.query === query) return { isError: true, content: [{ type: "text", text: "Search permission denied." }] };
       return response({ results: "No results found.", pagination_info: "End of results - No more pages available." });
     } }),
@@ -55,7 +55,7 @@ it.each([mentionQuery, "from:me"])("reports partial coverage when %s fails despi
 
 it("does not send an invalid mention query when the Slack member ID is not configured", async () => {
   const queries: unknown[] = [];
-  await collectSources(run(), [], { connect: async () => connections({ close: async () => {}, async call(_tool, args) {
+  await collectSources(run(), [], { gmailQuotaUnitsPerMinute: Infinity, connect: async () => connections({ close: async () => {}, async call(_tool, args) {
     queries.push(args.query);
     return response({ results: "No results found.", pagination_info: "End of results - No more pages available." });
   } }) });
@@ -65,7 +65,7 @@ it("does not send an invalid mention query when the Slack member ID is not confi
 it.each(["complete", "failed", "missing-message", "no-proof"])("recovers an invalid saved address only after a verified current read: %s", async outcome => {
   const bundle = await collectSources(run(), [], {
     resolveSlackLink: () => outcome === "no-proof" ? null : { channel: "C123REAL", ts: parent },
-    connect: async () => connections({ close: async () => {}, async call(tool, args) {
+    gmailQuotaUnitsPerMinute: Infinity, connect: async () => connections({ close: async () => {}, async call(tool, args) {
       if (tool === "slack_search_public_and_private") return response({ results: args.query === "is:dm"
         ? `### Result 1 of 1\nPermalink: https://example.slack.com/archives/C987WRONG/p${parent.replace(".", "")}` : "No results found.", pagination_info: "No more results" });
       if (args.channel_id === "C987WRONG" || outcome === "failed") return { isError: true, content: [{ type: "text", text: "execution_failed: thread_not_found" }] };

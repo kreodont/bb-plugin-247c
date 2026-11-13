@@ -144,7 +144,7 @@ it.each(["throw", "payload"])("retries MCP Request timed out returned as %s", as
     }
     return { content: [{ type: "text", text: '{"issues":[],"isLast":true}' }] };
   } } };
-  const result = await collectSources(run, [], { connect: async () => connections });
+  const result = await collectSources(run, [], { gmailQuotaUnitsPerMinute: Infinity, connect: async () => connections });
   expect(attempts).toBe(2); expect(result.reports[2].status).toBe("complete");
   expect(result.calls.every(call => call.completed)).toBe(true);
 });

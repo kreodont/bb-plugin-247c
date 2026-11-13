@@ -1,3 +1,7 @@
+# 0.5.153
+
+Recognize Gmail minute-quota errors, pace source reads and pause all Gmail requests together before retrying. Quota waits do not consume the active read budget. Persistent limits defer remaining reads with the source checkpoint preserved; Slack and Jira continue independently.
+
 # 0.5.152
 
 Source-check instructions refer to the selected corporate account without naming a local provider.

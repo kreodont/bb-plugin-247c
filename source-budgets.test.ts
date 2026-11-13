@@ -23,7 +23,7 @@ it("starts Gmail before Jira finishes setup and preserves a full read budget aft
   vi.useFakeTimers();
   const connections = empty(), observed: number[] = [], start = Date.now();
   (connections.gmail as SourceConnector).call = async () => { observed.push(Date.now() - start); await pause(40); return data({ threads: [] }); };
-  const result = collectSources(run(), [], { timeoutMs: 50, connect: async (_signal, ready) => {
+  const result = collectSources(run(), [], { timeoutMs: 50, gmailQuotaUnitsPerMinute: Infinity, connect: async (_signal, ready) => {
     await pause(200); // Setup time must not consume the read allowance.
     ready("gmail", connections.gmail); ready("slack", connections.slack);
     await pause(1000);
@@ -43,7 +43,7 @@ it("starts Gmail before Jira finishes setup and preserves a full read budget aft
 it("times out Jira reads without aborting a source that becomes ready later", async () => {
   vi.useFakeTimers(); const connections = empty();
   (connections.jira as SourceConnector).call = async (_tool, _args, signal) => new Promise((_resolve, reject) => signal.addEventListener("abort", () => reject(signal.reason), { once: true }));
-  const result = collectSources(run(), [], { timeoutMs: 50, connect: async (_signal, ready) => {
+  const result = collectSources(run(), [], { timeoutMs: 50, gmailQuotaUnitsPerMinute: Infinity, connect: async (_signal, ready) => {
     ready("jira", connections.jira); ready("slack", connections.slack);
     await pause(100);
     ready("gmail", connections.gmail); return connections;
@@ -69,7 +69,7 @@ it("keeps unused time for links discovered by another source after an idle wait"
   (connections.jira as SourceConnector).call = async tool => data(tool === "searchJiraIssuesUsingJql"
     ? { issues: [{ key: "BK-1", fields: { updated: run().until } }], isLast: true }
     : { key: "BK-1", fields: { description: `https://mail.google.com/mail/u/0/#all/${id}`, comment: { comments: [], total: 0 } } });
-  const result = collectSources(run(), [], { timeoutMs: 50, connect: async (_signal, ready) => {
+  const result = collectSources(run(), [], { timeoutMs: 50, gmailQuotaUnitsPerMinute: Infinity, connect: async (_signal, ready) => {
     ready("gmail", connections.gmail); ready("slack", connections.slack);
     await pause(1000); ready("jira", connections.jira); return connections;
   } });
@@ -82,7 +82,7 @@ it("keeps unused time for links discovered by another source after an idle wait"
 it("does not let one source exhaust another source's request allowance", async () => {
   const connections = empty();
   (connections.jira as SourceConnector).call = async (_tool, args) => data({ issues: [], isLast: false, nextPageToken: String(Number(args.nextPageToken ?? 0) + 1) });
-  const bundle = await collectSources(run(), [], { maxCalls: 4, connect: async (_signal, ready) => {
+  const bundle = await collectSources(run(), [], { maxCalls: 4, gmailQuotaUnitsPerMinute: Infinity, connect: async (_signal, ready) => {
     ready("jira", connections.jira); ready("slack", connections.slack);
     await pause(10); ready("gmail", connections.gmail); return connections;
   } });
@@ -110,7 +110,7 @@ it("propagates cancellation to every active source without labelling it a quota 
     started++;
     return new Promise((_resolve, reject) => signal.addEventListener("abort", () => reject(signal.reason), { once: true }));
   };
-  const result = collectSources(run(), [], { signal: controller.signal, connect: async () => connections });
+  const result = collectSources(run(), [], { signal: controller.signal, gmailQuotaUnitsPerMinute: Infinity, connect: async () => connections });
   await vi.waitFor(() => expect(started).toBeGreaterThanOrEqual(3)); controller.abort();
   const bundle = await result;
   expect(bundle.reports.every(r => r.status === "unavailable" && r.detail.includes("check was canceled"))).toBe(true);

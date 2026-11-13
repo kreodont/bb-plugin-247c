@@ -98,7 +98,7 @@ it("keeps Jira complete when a collected issue describes an all-zero placeholder
       return { content: [{ type: "text", text: JSON.stringify({ key: args.issueIdOrKey, fields: { description: args.issueIdOrKey === "APP-42" ? description : "Confirmed", comment: { comments: [], total: 0 } } }) }] };
     } },
   };
-  const bundle = await collectSources(sampleRun(), dossiers, { connect: async () => connections });
+  const bundle = await collectSources(sampleRun(), dossiers, { gmailQuotaUnitsPerMinute: Infinity, connect: async () => connections });
   expect(ids).toEqual(["APP-42", "APP-43"]);
   expect(bundle.documents).toHaveLength(2);
   expect(bundle.documents[0].content).toContain("CASE-000000");
@@ -120,7 +120,7 @@ it("does not treat bare store identifiers as Jira links from collected issue pro
       return { isError: true, content: [{ type: "text", text: "Issue does not exist." }] };
     } },
   };
-  const bundle = await collectSources(sampleRun(), dossiers, { connect: async () => connections });
+  const bundle = await collectSources(sampleRun(), dossiers, { gmailQuotaUnitsPerMinute: Infinity, connect: async () => connections });
   expect(ids).toEqual(["BK-820", "SYS-100"]);
   expect(bundle.reports.find(report => report.source === "jira")).toMatchObject({ status: "complete", paginationComplete: true, linkedTasksChecked: true });
 });
@@ -136,7 +136,7 @@ it.each([600, 4])("follows a linked issue chain through completion or the reques
       return { content: [{ type: "text", text: JSON.stringify({ key: args.issueIdOrKey, fields: { description: `Related issue: APP-${number < 8 ? number + 1 : 1}`, comment: { comments: [], total: 0 } } }) }] };
     } },
   };
-  const bundle = await collectSources(sampleRun(), [], { connect: async () => connections, maxCalls });
+  const bundle = await collectSources(sampleRun(), [], { gmailQuotaUnitsPerMinute: Infinity, connect: async () => connections, maxCalls });
   const report = validateSyncReports(bundle.reports, bundle.calls).find(r => r.source === "jira")!;
   expect(ids).toEqual(Array.from({ length: maxCalls === 600 ? 8 : 3 }, (_, i) => `APP-${i + 1}`));
   expect(new Set(ids).size).toBe(ids.length);
@@ -159,7 +159,7 @@ it.each([true, false])("resolves Gmail message permalinks with searched thread=%
       return { content: [{ type: "text", text: JSON.stringify({ id: args.threadId, messages: [{ id: "1a08d7511a507393", threadId: args.threadId, date: "2026-09-10T10:00:00Z", plaintextBody: "Confirmed" }] }) }] };
     } },
   };
-  const bundle = await collectSources(sampleRun(), dossiers, { connect: async () => connections });
+  const bundle = await collectSources(sampleRun(), dossiers, { gmailQuotaUnitsPerMinute: Infinity, connect: async () => connections });
   expect(ids).toEqual(["1a04026aa250ce0e"]);
   expect(bundle.documents).toHaveLength(1);
   expect(bundle.documents[0].content).toContain("Confirmed");
@@ -174,7 +174,7 @@ it.each(["gmail", "jira"] as const)("reports %s source errors with the requested
     return source === "gmail" ? { isError: true, content: [{ type: "text", text: "Requested entity was not found." }] }
       : { content: [{ type: "text", text: JSON.stringify({ error: true, message: "Issue does not exist or you do not have permission to see it." }) }] };
   } };
-  const bundle = await collectSources(sampleRun(), [], { connect: async () => connections });
+  const bundle = await collectSources(sampleRun(), [], { gmailQuotaUnitsPerMinute: Infinity, connect: async () => connections });
   const report = bundle.reports.find(r => r.source === source)!;
   expect(report.status).toBe("partial");
   expect(report.detail).toContain(source === "gmail" ? "missing" : "APP-404");
@@ -205,7 +205,7 @@ it("collects paginated sources in code, deduplicates reads and retains sent repl
     else data = { key: args.issueIdOrKey, fields: { updated: "2026-09-10T10:00:00Z", status: { name: "Done" }, description: "Fixed", comment: { comments: [], total: 0 } }, comments: [] };
     return { content: [{ type: "text", text: JSON.stringify(data) }] };
   } }])) as unknown as SourceConnections;
-  const bundle = await collectSources(run, [], { connect: async () => connections });
+  const bundle = await collectSources(run, [], { gmailQuotaUnitsPerMinute: Infinity, connect: async () => connections });
   expect(bundle.reports.every(r => r.status === "complete")).toBe(true);
   expect(seen.filter(c => c.tool === "get_thread")).toHaveLength(2);
   expect(seen.filter(c => c.tool === "slack_read_thread")).toHaveLength(1);
@@ -223,7 +223,7 @@ it("marks an export partial on missing pagination and unavailable sources withou
   const connections: SourceConnections = { slack: { error: "Нет доступа" }, jira: { error: "Нет доступа" }, gmail: { close: async () => {}, async call(tool, args) {
     return { content: [{ type: "text", text: JSON.stringify(tool === "search_threads" ? args.query?.toString().includes("is:unread") ? { threads: [] } : { threads: Array.from({ length: 50 }, () => ({ id: "thread" })) } : { id: "thread", messages: [] }) }] };
   } } };
-  const bundle = await collectSources(sampleRun(), [], { connect: async () => connections });
+  const bundle = await collectSources(sampleRun(), [], { gmailQuotaUnitsPerMinute: Infinity, connect: async () => connections });
   expect(bundle.reports.map(r => r.status)).toEqual(["partial", "unavailable", "unavailable"]);
   expect(bundle.reports[0].detail).toContain("pagination");
 });
@@ -234,7 +234,7 @@ it("retries a transient MCP error payload and does not cite its failed body", as
     if (++attempts === 1) return { isError: true, content: [{ type: "text", text: "The service is currently unavailable." }] };
     return { content: [{ type: "text", text: '{"threads":[]}' }] };
   } } };
-  const bundle = await collectSources(sampleRun(), [], { connect: async () => connections });
+  const bundle = await collectSources(sampleRun(), [], { gmailQuotaUnitsPerMinute: Infinity, connect: async () => connections });
   expect(attempts).toBe(3);
   expect(bundle.reports[0].status).toBe("complete");
   expect(bundle.calls.some(c => c.output.includes("currently unavailable"))).toBe(false);
@@ -252,7 +252,7 @@ it("waits out Slack rate limits, including transport-wrapped ratelimited payload
     if (++threadReads <= 2) throw new Error(limited);
     return { content: [{ type: "text", text: JSON.stringify({ messages: "Message_TS: 1757500000.000100 hello" }) }] };
   } } };
-  const bundle = await collectSources(sampleRun(), [], { connect: async () => connections, retryDelayMs: (attempt, rateLimited) => { delays.push([attempt, rateLimited]); return 0; } });
+  const bundle = await collectSources(sampleRun(), [], { gmailQuotaUnitsPerMinute: Infinity, connect: async () => connections, retryDelayMs: (attempt, rateLimited) => { delays.push([attempt, rateLimited]); return 0; } });
   expect(bundle.reports[1].status).toBe("complete");
   expect(threadReads).toBe(3);
   expect(delays.filter(([, rateLimited]) => rateLimited).length).toBeGreaterThanOrEqual(3);
@@ -277,7 +277,7 @@ it.each([404, 403, 429, 503])("classifies Jira HTTP %i by the error status, not 
       return { isError: true, content: [{ type: "text", text: JSON.stringify(payload) }] };
     },
   } };
-  const bundle = await collectSources(sampleRun(), [], { connect: async () => connections, retryDelayMs: (_attempt, limited) => { delays.push(limited); return 0; } });
+  const bundle = await collectSources(sampleRun(), [], { gmailQuotaUnitsPerMinute: Infinity, connect: async () => connections, retryDelayMs: (_attempt, limited) => { delays.push(limited); return 0; } });
   expect(reads).toBe(statusCode === 429 ? 4 : statusCode === 503 ? 3 : 1);
   expect(delays).toEqual(statusCode === 429 ? [true, true, true] : statusCode === 503 ? [false, false] : []);
   const report = bundle.reports.find(r => r.source === "jira")!;
@@ -297,7 +297,7 @@ it("retries an actual nested Jira 429 and completes after recovery", async () =>
       return { content: [{ type: "text", text: JSON.stringify(data) }] };
     },
   } };
-  const bundle = await collectSources(sampleRun(), [], { connect: async () => connections, retryDelayMs: () => 0 });
+  const bundle = await collectSources(sampleRun(), [], { gmailQuotaUnitsPerMinute: Infinity, connect: async () => connections, retryDelayMs: () => 0 });
   expect(reads).toBe(2);
   expect(bundle.reports.find(r => r.source === "jira")?.status).toBe("complete");
   expect(bundle.documents).toHaveLength(1);
@@ -396,7 +396,7 @@ it.each([true, false])("retries an SSE gateway disconnect and preserves coverage
       return { content: [{ type: "text", text: JSON.stringify({ key: "APP-7", fields: { comment: { comments: [], total: 0 } } }) }] };
     },
   } };
-  const bundle = await collectSources(sampleRun(), [], { connect: async () => connections,
+  const bundle = await collectSources(sampleRun(), [], { gmailQuotaUnitsPerMinute: Infinity, connect: async () => connections,
     retryDelayMs: (attempt, limited) => { delays.push([attempt, limited]); return 0; } });
   expect(reads).toBe(recover ? 2 : 3);
   expect(delays).toEqual(recover ? [[0, false]] : [[0, false], [1, false]]);

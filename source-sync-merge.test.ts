@@ -264,7 +264,7 @@ it("rechecks pending proposal sources without counting their saved receipts as f
   const parent: SyncCandidate = { ...store.pendingCandidates()[0], title: "APP-123", facts: [], changes: {}, rationale: "Read https://example.atlassian.net/browse/APP-123" };
   const next = (await startSourceSync(f)).run;
   const issues: unknown[] = [];
-  const bundle = await collectSources(next, [], { pendingCandidates: [parent], connect: async () => ({
+  const bundle = await collectSources(next, [], { pendingCandidates: [parent], gmailQuotaUnitsPerMinute: Infinity, connect: async () => ({
     gmail: { error: "No access" }, slack: { error: "No access" },
     jira: { close: async () => {}, call: async (tool, args) => {
       if (tool === "searchJiraIssuesUsingJql") return { content: [{ type: "text", text: '{"issues":[],"isLast":true}' }] };

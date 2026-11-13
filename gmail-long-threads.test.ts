@@ -34,7 +34,7 @@ async function collect(input = messages(), options: { maxCalls?: number; extra?:
       return result(options.replace?.(found) ?? found);
     } },
   };
-  const bundle = await collectSources(run, dossiers, { connect: async () => connections, maxCalls: options.maxCalls });
+  const bundle = await collectSources(run, dossiers, { gmailQuotaUnitsPerMinute: Infinity, connect: async () => connections, maxCalls: options.maxCalls });
   return { bundle, reads, report: validateSyncReports(bundle.reports, bundle.calls, dossiers)[0] };
 }
 function contents(bundle: SourceExport) { return bundle.documents.flatMap(d => JSON.parse(d.content).messages); }

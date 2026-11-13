@@ -48,7 +48,7 @@ it.each([false, true])("looks up an unlinked Slack PR in older full email thread
   const f = await fixture();
   try {
     const task = await f.create(known ? `Implementation: ${url}` : "Publish installation event");
-    const bundle = await collectSources(run, [f.repo.kernel.getDossier(task.id)], { config: { ...defaultSourceConfig, jiraProjects: ["APP"] }, connect: async () => connections });
+    const bundle = await collectSources(run, [f.repo.kernel.getDossier(task.id)], { config: { ...defaultSourceConfig, jiraProjects: ["APP"] }, gmailQuotaUnitsPerMinute: Infinity, connect: async () => connections });
     const contextSearches = searches.filter(q => q.includes(url));
     expect(contextSearches).toHaveLength(known ? 0 : 1);
     expect(reads).toBe(known ? 0 : 1);

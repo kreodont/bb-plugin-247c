@@ -38,3 +38,19 @@ it("reads a structured gateway statusCode without interpreting nested quota head
   const payload = { statusCode: "403", message: "Temporarily unavailable to this account.", headers: { status: 503 } };
   expect(sourceThrownFailure(new Error(JSON.stringify(payload)))).toMatchObject({ retryable: false, rateLimited: false, message: `HTTP 403: ${payload.message}` });
 });
+
+const minuteQuota = "Quota exceeded for quota metric 'Total Query Cost' and limit 'Units per minute per user' of service 'gmailmcp.googleapis.com'.";
+it.each([undefined, 403, 429])("recognizes Google's minute quota with status %s", statusCode => {
+  expect(sourceResponseFailure({ isError: true }, { text: minuteQuota, statusCode })).toMatchObject({ retryable: true, rateLimited: true });
+});
+it("recognizes Google's minute quota in a thrown MCP payload", () => {
+  const payload = { result: { isError: true, content: [{ type: "text", text: minuteQuota }] } };
+  expect(sourceThrownFailure(new Error(`Streamable HTTP error\ndata: ${JSON.stringify(payload)}`))).toMatchObject({ retryable: true, rateLimited: true });
+});
+it("does not turn daily or billing quotas, successful content or an authentication error into minute retries", () => {
+  for (const message of ["Quota exceeded: Units per day per user", "Quota exhausted: insufficient account credit"]) {
+    expect(sourceThrownFailure(new Error(message))).toMatchObject({ retryable: false, rateLimited: false });
+  }
+  expect(sourceResponseFailure({}, { text: minuteQuota })).toBeNull();
+  expect(sourceResponseFailure({ isError: true }, { statusCode: 401, message: minuteQuota })).toMatchObject({ retryable: false, rateLimited: false });
+});

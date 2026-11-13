@@ -138,6 +138,20 @@ sources do not consume it. The existing 45-second setup budget and two-attempt
 limit apply separately to each connector. Shared account authentication and
 catalog discovery still precede those connections.
 
+Gmail requests are paced together at a conservative 4,800 quota units per minute,
+below Google's published 6,000-unit default. Searches reserve 10 units, message
+metadata reads 20, full message reads 60 and full thread reads 120. These
+reservations use conservative API costs; the connector's actual accounting and
+account-specific quota can differ. Long-thread recovery uses the same gate.
+
+Gmail minute-quota errors, including plain `Quota exceeded ... Units per minute
+per user` responses, pause all remaining Gmail calls for at least 60 seconds.
+The failed request is retried up to three times. If the quota still does not
+recover, remaining Gmail reads are deferred and its checkpoint is preserved.
+Slack and Jira continue independently. Gmail pacing and cooldown waits do not
+consume its active network-read budget, and cancellation interrupts those waits.
+Daily or billing quota text alone does not trigger minute-quota retries.
+
 A timeout or exhausted allowance keeps that source incomplete and preserves its
 checkpoint. Other sources can finish and advance their own checkpoints. Stopping
 a check cancels all sources. More independent work can make a check take longer

@@ -24,7 +24,7 @@ async function collect(options: { availableThread?: boolean; probeError?: string
   const seen: { tool: string; args: Record<string, unknown> }[] = [];
   const text = link + (options.availableThread ? ` https://example.slack.com/archives/${channel}/p${available.replace(".", "")}` : "");
   const dossiers = [{ task: { status: "open" }, text }] as unknown as Parameters<typeof collectSources>[1];
-  const bundle = await collectSources(sourceRun, dossiers, { retryDelayMs: () => 0, connect: async () => ({
+  const bundle = await collectSources(sourceRun, dossiers, { retryDelayMs: () => 0, gmailQuotaUnitsPerMinute: Infinity, connect: async () => ({
     gmail: { close: async () => {}, call: async () => response({ threads: [] }) },
     jira: { close: async () => {}, call: async () => response({ issues: [], isLast: true }) },
     slack: { close: async () => {}, async call(tool, args) {

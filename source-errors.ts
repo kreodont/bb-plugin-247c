@@ -2,6 +2,9 @@ import { sourceError } from "./source-error-text.js";
 
 type Json = Record<string, any>;
 const RATE_LIMITED = /\b(?:rate[ _-]+limit(?:ed|ing)?(?:[ _-]+exceeded)?|ratelimited|too many requests)\b/i;
+// Google MCP can return a plain diagnostic or HTTP 403 for a minute quota.
+// Do not retry daily quotas, billing exhaustion or ordinary permission errors.
+const SHORT_WINDOW_QUOTA = /\bquota (?:exceeded|exhausted)\b[\s\S]*\bper[ _-]+(?:minute|second)\b/i;
 const TRANSIENT = /fetch failed|ECONNRESET|currently unavailable|temporarily unavailable|timed?\s*out|timeout|(?:^|\W)-32001\b/i;
 
 function httpStatus(value: unknown): number | undefined {
@@ -32,8 +35,8 @@ export class SourceRequestError extends Error {
     status ??= httpStatus(/(?:^|\b(?:HTTP(?:\s+error)?|status(?:\s+code)?))\s*[:=]?\s*(\d{3})\b/i.exec(message)?.[1]);
     super(sourceError(`${status && !new RegExp(`^HTTP ${status}\\b`, "i").test(message) ? `HTTP ${status}: ` : ""}${message || "The source request failed."}`));
     this.status = status;
-    this.rateLimited = status ? status === 429 : RATE_LIMITED.test(message);
-    this.retryable = status ? [429, 502, 503, 504].includes(status) : this.rateLimited || TRANSIENT.test(message);
+    this.rateLimited = status === 429 || ((!status || status === 403) && SHORT_WINDOW_QUOTA.test(message)) || (!status && RATE_LIMITED.test(message));
+    this.retryable = this.rateLimited || (status ? [502, 503, 504].includes(status) : TRANSIENT.test(message));
   }
 }
 
