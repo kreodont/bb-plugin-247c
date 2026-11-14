@@ -125,7 +125,7 @@ An explicit request to another assignee is FYI unless the evidence also establis
 JIRA COLLECTION
 Search updated >= since, including terminal statuses, assignee=currentUser(), mentions and known task keys.
 Do not restrict searches to In Progress: Review is a valid status; do not assume it is named In Review.
-Read getJiraIssue with summary,status,updated,assignee,priority,description,comment. Paginate truncated comments.
+Read getJiraIssue with summary,status,updated,assignee,priority,description,comment. Use view=full when supported. Confirm embedded comments are complete. For missing or truncated comments, use listJiraIssueComments when available with view=full and paginate startAt until isLast=true and all total comments are accounted for. Preserve comment visibility, internal/public status and parent IDs.
 Any edit changes updated; inspect the text and comments, including the user's own comments, to understand the change.
 Cross-check JIRA mentioned you emails containing an issue key against the issue itself.
 

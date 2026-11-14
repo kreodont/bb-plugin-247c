@@ -71,13 +71,20 @@ export function sourceExportPage(bundle: SourceExport, page: number) {
 }
 const SOURCES: SyncSource[] = ["gmail", "slack", "jira"];
 
+function unwrapSourceEnvelope(value: Json): Json {
+  // New Atlassian MCP responses wrap the ordinary issue/search payload in data.
+  // Only unwrap a sole data property: outer errors and status must not be lost.
+  return value && Object.keys(value).length === 1 && value.data && typeof value.data === "object" && !Array.isArray(value.data)
+    ? value.data : value;
+}
+
 export function responseData(result: unknown): Json {
   const data = result as Json;
   const parts = (data?.content ?? []).filter((p: Json) => p.type === "text").map((p: Json) => p.text);
-  if (parts.length === 1) { try { return JSON.parse(parts[0]); } catch { /* A text response is also valid. */ } }
+  if (parts.length === 1) { try { return unwrapSourceEnvelope(JSON.parse(parts[0])); } catch { /* A text response is also valid. */ } }
   // Atlassian's structuredContent is a UI graph (issues.nodes/context), while
   // the text block contains the actual get/search payload and pagination.
-  if (data?.structuredContent && typeof data.structuredContent === "object") return data.structuredContent;
+  if (data?.structuredContent && typeof data.structuredContent === "object") return unwrapSourceEnvelope(data.structuredContent);
   return { text: parts.join("\n") };
 }
 export function receiptText(data: unknown): string {
@@ -109,7 +116,7 @@ async function pool<T>(items: T[], work: (item: T) => Promise<void>, concurrency
   let index = 0;
   await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, async () => { while (index < items.length) await work(items[index++]); }));
 }
-function documentContent(source: SyncSource, data: Json, until: number): string {
+function documentContent(source: SyncSource, data: Json, until: number, issueKey?: string): string {
   if (source === "gmail" && !Array.isArray(data.messages) && typeof data.threadId === "string") data = { id: data.threadId, messages: [data] };
   if (source === "gmail" && Array.isArray(data.messages)) {
     return JSON.stringify({ id: data.id, messages: data.messages.filter((m: Json) => Number(m.internalDate ?? Date.parse(m.date)) <= until).map((m: Json) => ({
@@ -117,11 +124,13 @@ function documentContent(source: SyncSource, data: Json, until: number): string 
       subject: m.subject, labelIds: m.labelIds, body: m.plaintextBody ?? m.plaintext_body ?? "", attachments: m.attachments?.map((a: Json) => ({ filename: a.filename, mimeType: a.mimeType })),
     })) });
   }
-  if (source === "jira" && data.fields) {
-    const f = data.fields;
-    return JSON.stringify({ key: data.key, id: data.id, updated: f.updated, summary: f.summary, status: f.status?.name, priority: f.priority?.name,
+  if (source === "jira" && (data.fields || Array.isArray(data.comments))) {
+    const f = data.fields ?? {};
+    return JSON.stringify({ key: data.key ?? issueKey, id: data.id, updated: f.updated, summary: f.summary, status: f.status?.name, priority: f.priority?.name,
       assignee: { name: f.assignee?.displayName, email: f.assignee?.emailAddress }, description: f.description,
-      comments: (data.comments ?? f.comment?.comments ?? []).filter((c: Json) => Date.parse(c.updated ?? c.created) <= until).map((c: Json) => ({ id: c.id, author: c.author?.displayName, created: c.created, updated: c.updated, body: c.body })),
+      appliedContentFormat: data.appliedContentFormat,
+      comments: (data.comments ?? f.comment?.comments ?? []).filter((c: Json) => Date.parse(c.updated ?? c.created) <= until).map((c: Json) => ({ id: c.id, author: c.author?.displayName, created: c.created, updated: c.updated, body: c.body,
+        parentId: c.parentId, visibility: c.visibility, jsdPublic: c.jsdPublic })),
     });
   }
   return typeof data.messages === "string" ? data.messages : JSON.stringify(data);
@@ -243,6 +252,7 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
       const shapeOk = tool === "get_message" ? data.id === args.messageId && typeof data.threadId === "string"
         && (!expectedThreadId || data.threadId === expectedThreadId)
         && (!full || typeof (data.plaintextBody ?? data.plaintext_body) === "string" && Number.isFinite(Number(data.internalDate ?? Date.parse(data.date))))
+        : tool === "listJiraIssueComments" ? Array.isArray(data.comments) && data.comments.every((c: Json) => c && typeof c.id === "string" && typeof c.body === "string" && Number.isFinite(Date.parse(c.updated ?? c.created)))
         : !full || (source === "gmail" ? Array.isArray(data.messages) : source === "jira" ? Boolean(data.key && data.fields) : typeof data.messages === "string");
       const completed = !failure && shapeOk;
       const size = Buffer.byteLength(output);
@@ -260,7 +270,7 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
         return null;
       }
       if (full) {
-        const content = documentContent(source, data, Date.parse(run.until));
+        const content = documentContent(source, data, Date.parse(run.until), args.issueIdOrKey);
         // Jira notification subjects establish a project before following bare
         // references in that thread. Ordinary bracketed store codes do not.
         if (source === "gmail") {
@@ -426,8 +436,33 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
       if (!data) return;
       if (!data.fields || !data.key) { error("jira", `Could not read issue ${id}.`); return; }
       const c = data.fields.comment, comments = data.comments ?? c?.comments;
-      if (!Array.isArray(comments) || c?.total > comments.length || c?.startAt > 0 || comments.length >= 100) error("jira", `${id}: the connector did not confirm that all comments were included.`);
+      const connection = connections.jira;
+      const embeddedComplete = Array.isArray(comments) && c?.startAt === 0 && c?.total === comments.length;
+      if (embeddedComplete) return;
+      if (!("error" in connection) && connection.supports?.("listJiraIssueComments")) await readJiraComments(id);
+      else if (!Array.isArray(comments) || c?.total > comments.length || c?.startAt > 0 || comments.length >= 100) error("jira", `${id}: the connector did not confirm that all comments were included.`);
     });
+  }
+  async function readJiraComments(id: string) {
+    const ids = new Set<string>();
+    let startAt = 0, total: number | undefined;
+    for (let page = 0; page < 100; page++) {
+      const data = await call("jira", "listJiraIssueComments", { cloudId: config.jiraSite, issueIdOrKey: id, startAt, maxResults: 20, orderBy: "created", responseContentFormat: "markdown" }, true);
+      if (!data) return;
+      const comments = data.comments as Json[], next = startAt + comments.length;
+      if (data.startAt !== startAt || !Number.isInteger(data.total) || data.total < next || total !== undefined && data.total !== total
+        || comments.some(c => ids.has(c.id)) || new Set(comments.map(c => c.id)).size !== comments.length) {
+        error("jira", `${id}: inconsistent comment pagination; the unchecked interval is preserved.`); return;
+      }
+      total = data.total;
+      comments.forEach(c => ids.add(c.id));
+      if (data.isLast === true && next === total) return;
+      if (data.isLast !== false || !comments.length || next >= data.total) {
+        error("jira", `${id}: the end of comment pagination was not confirmed.`); return;
+      }
+      startAt = next;
+    }
+    error("jira", `${id}: comment page limit exceeded.`);
   }
   try {
     const ready = {} as Record<SyncSource, () => void>;

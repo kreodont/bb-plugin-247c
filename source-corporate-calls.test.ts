@@ -8,6 +8,7 @@ afterEach(async () => { for (const f of hosts.splice(0)) await f.harness.lifecyc
 it("recognizes only corporate source reads and keeps search results separate from full messages", async () => {
   const f = await fixture(); hosts.push(f);
   const examples = [
+    ["claude_ai_Atlassian_MCP.listJiraIssueComments", { issueIdOrKey: "APP-42", startAt: 0 }, "jira", true],
     ["claude_ai_ClickUp.clickup_get_document_pages", { document_id: "doc", page_ids: ["page"] }, "clickup", true],
     ["mcp__claude_ai_ClickUp__clickup_get_task", { task_id: "task" }, "clickup", true],
     ["claude_ai_ClickUp.clickup_get_task_comments", { task_id: "task" }, "clickup", true],

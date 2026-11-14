@@ -4,6 +4,8 @@ Enable **Open Slack sources in the browser** (`slackLinksInBrowser`) to open Sla
 
 The BB `sources` setting contains JSON following [sources.example.json](sources.example.json). Keep your completed configuration outside the repository. It configures searches and account identity; do not put tokens or passwords in it.
 
+The built-in script calls connected MCP services through the configured account's HTTP proxy; it does not use direct Gmail, Slack or Jira REST credentials. Jira accepts the eligible connector names **Atlassian** and **Atlassian MCP**, preferring Atlassian when both are available. It understands wrapped responses and requests complete issue views when advertised by the connector. Missing or incomplete embedded comments are read through `listJiraIssueComments`, with every page checked. Connector selection never switches accounts or Jira sites, and connection failures preserve the unread interval.
+
 For corporate conversations, also follow the [setup-agent guide](setup-agent.md) to preauthorize source reads in the provider's local profile. These permissions are separate from the plugin's `sources` JSON and its approval workflow for task records. The repository contains the setup policy, not an installed permission allowlist.
 
 The plugin reads the saved Claude login from `profilePath`: through Keychain on macOS, or the file created by Claude on other systems. Sign in to that profile with the standard Claude CLI and connect the required integrations. `expectedEmail` is required; the plugin verifies the account matches. Set `profilePath` explicitly to your configured profile; no personal profile path is bundled. Login refresh requires `claude` on the BB server's PATH.

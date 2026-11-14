@@ -1,3 +1,7 @@
+# 0.5.154
+
+Support the Atlassian MCP connector alongside Atlassian, including wrapped responses and complete issue views. Read separate comment pages when embedded comments are missing or incomplete, retaining reply relationships and visibility. Failed or inconsistent pagination preserves the previous source checkpoint. Existing source accounts and site restrictions remain unchanged.
+
 # 0.5.153
 
 Recognize Gmail minute-quota errors, pace source reads and pause all Gmail requests together before retrying. Quota waits do not consume the active read budget. Persistent limits defer remaining reads with the source checkpoint preserved; Slack and Jira continue independently.

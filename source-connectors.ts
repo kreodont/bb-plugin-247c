@@ -24,10 +24,24 @@ export const READ_TOOLS: Record<SyncSource, readonly string[]> = {
 export interface SourceConnector {
   call(tool: string, args: Record<string, unknown>, signal: AbortSignal): Promise<unknown>;
   close(): Promise<void>;
+  supports?(tool: string): boolean;
 }
 export type SourceConnections = Record<SyncSource, SourceConnector | { error: string }>;
 export type SourceReady = (source: SyncSource, connection: SourceConnections[SyncSource]) => void;
 export const WORK_CALENDAR = "primary";
+
+export type SourceCatalogEntry = { id: string; display_name: string; eligible?: boolean; eligibility_reason?: string };
+const SOURCE_CONNECTOR_NAMES: Record<SyncSource, readonly string[]> = {
+  gmail: ["Gmail"], slack: ["Slack"], jira: ["Atlassian", "Atlassian MCP"],
+};
+export function selectSourceConnector(catalog: SourceCatalogEntry[], source: SyncSource): SourceCatalogEntry | undefined {
+  // Keep the existing connector when both are available. Only known aliases in
+  // the configured account are eligible; never try another account after failure.
+  for (const name of SOURCE_CONNECTOR_NAMES[source]) {
+    const server = catalog.find(s => s.display_name === name && s.eligible !== false && /^mcpsrv_[A-Za-z0-9]+$/.test(s.id));
+    if (server) return server;
+  }
+}
 
 type Credential = { accessToken?: string; expiresAt?: number; scopes?: string[] };
 async function credential(profile: string): Promise<Credential> {
@@ -73,7 +87,7 @@ export async function connectSources(signal: AbortSignal, config: SourceConfig =
   onAttempt?: (attempt: ConnectionAttempt) => void): Promise<SourceConnections> {
   const unavailable = (error: unknown): SourceConnections => Object.fromEntries(["gmail", "slack", "jira"].map(s => [s, { error: sourceError(error) }])) as SourceConnections;
   let token: string;
-  let catalog: { id: string; display_name: string; eligible?: boolean; eligibility_reason?: string }[];
+  let catalog: SourceCatalogEntry[];
   let phase: ConnectionAttempt["stage"] = "authentication";
   let startedAt = new Date().toISOString(), started = performance.now();
   const http: ConnectionHttp[] = [];
@@ -100,35 +114,48 @@ export async function connectSources(signal: AbortSignal, config: SourceConfig =
     catalog = data.data;
     sharedReport();
   } catch (error) { sharedReport(error); return unavailable(error); }
-  const names: Record<SyncSource, string> = { gmail: "Gmail", slack: "Slack", jira: "Atlassian" };
-  return Object.fromEntries(await Promise.all((Object.keys(names) as SyncSource[]).map(async source => {
+  return Object.fromEntries(await Promise.all((Object.keys(SOURCE_CONNECTOR_NAMES) as SyncSource[]).map(async source => {
     const ready = (connection: SourceConnections[SyncSource]) => { onReady?.(source, connection); return [source, connection] as const; };
-    const server = catalog.find(s => s.display_name === names[source]);
-    if (!server || server.eligible === false || !/^mcpsrv_[A-Za-z0-9]+$/.test(server.id)) {
+    const server = selectSourceConnector(catalog, source);
+    if (!server) {
       onAttempt?.({ source, attempt: 1, startedAt: new Date().toISOString(), elapsedMs: 0, stage: "availability", outcome: "failed", http: [], rateLimited: false, retryable: false });
-      return ready({ error: `Connector ${names[source]} is unavailable in the configured Claude profile.` });
+      return ready({ error: `Connector ${SOURCE_CONNECTOR_NAMES[source].join(" / ")} is unavailable in the configured Claude profile.` });
     }
     try {
-      const { client } = await establishSourceConnection(() => {
+      const { client, availableTools, fullViewTools } = await establishSourceConnection(() => {
         const http: ConnectionHttp[] = [];
+        const availableTools = new Set<string>(), fullViewTools = new Set<string>();
         let phase: ConnectionHttp["stage"] = "initialization", recording = true;
         const client = new Client({ name: "247c-source-reader", version: "1.0.0" }, { capabilities: {} });
         const transport = new StreamableHTTPClientTransport(new URL(`https://mcp-proxy.anthropic.com/v1/mcp/${server.id}`), {
           requestInit: { redirect: "error", headers: { Authorization: `Bearer ${token}`, "anthropic-beta": "mcp-servers-2025-12-04", "anthropic-version": "2023-06-01", "X-Mcp-Client-Session-Id": randomUUID() } },
           fetch: connectionFetch(() => phase, event => { if (recording && http.length < 32) http.push(event); }),
         });
-        return { client, http, stopDiagnostics: () => { recording = false; },
+        return { client, http, availableTools, fullViewTools, stopDiagnostics: () => { recording = false; },
           connect: (signal: AbortSignal) => client.connect(transport, { signal, timeout: 20000 }),
-          listTools: async (signal: AbortSignal) => { phase = "tool discovery"; return (await client.listTools({}, { signal, timeout: 20000 })).tools.map(t => t.name); },
+          listTools: async (signal: AbortSignal) => {
+            phase = "tool discovery";
+            const tools = (await client.listTools({}, { signal, timeout: 20000 })).tools;
+            for (const tool of tools) {
+              availableTools.add(tool.name);
+              const view = tool.inputSchema?.properties?.view as { enum?: unknown[] } | undefined;
+              if (view?.enum?.includes("full")) fullViewTools.add(tool.name);
+            }
+            return tools.map(t => t.name);
+          },
           close: () => client.close(),
         };
       }, READ_TOOLS[source], signal, { onAttempt: attempt => onAttempt?.({ source, ...attempt }) });
       return ready({
         async call(tool: string, args: Record<string, unknown>, signal: AbortSignal) {
-          if (!READ_TOOLS[source].includes(tool)) throw new Error("The collector allows only predefined read operations.");
+          if (!READ_TOOLS[source].includes(tool) && !(source === "jira" && tool === "listJiraIssueComments" && availableTools.has(tool))) throw new Error("The collector allows only predefined read operations.");
           if (source === "jira" && (!config.jiraSite || args.cloudId !== config.jiraSite || args.updateHistory === true)) throw new Error("Only reads from the configured Jira site without history changes are allowed.");
-          return client.callTool({ name: tool, arguments: args }, undefined, { signal, timeout: 20000 });
+          // Current Jira tools default to compact views, which can omit content.
+          // Older tools do not accept this option; use the advertised schema.
+          const completeView = source === "jira" && (tool === "getJiraIssue" || tool === "listJiraIssueComments") && fullViewTools.has(tool);
+          return client.callTool({ name: tool, arguments: completeView ? { ...args, view: "full" } : args }, undefined, { signal, timeout: 20000 });
         },
+        supports: (tool: string) => availableTools.has(tool),
         close: () => client.close(),
       } satisfies SourceConnector);
     } catch (error) { return ready({ error: sourceError(error) }); }

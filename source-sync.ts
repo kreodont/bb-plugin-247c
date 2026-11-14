@@ -91,7 +91,7 @@ function fullSourceRead(source: SyncSource, tool: string, args: unknown): boolea
     const uri = args && typeof args === "object" && "uri" in args ? args.uri : null;
     return /(?:^|[._])read_resource$/i.test(tool) && typeof uri === "string" && /\/messages\/[^/?#]+(?:\/replies)?(?:\?.*)?$/.test(uri);
   }
-  return source === "jira" ? /getJiraIssue|fetch.*issue/i.test(tool)
+  return source === "jira" ? /getJiraIssue|listJiraIssueComments|fetch.*issue/i.test(tool)
     : /(?:read|get|fetch).*(?:thread|replies|email)|(?:thread|replies).*(?:read|get|fetch)/i.test(tool);
 }
 
