@@ -24,7 +24,7 @@ You do not need to connect to corporate accounts, discover tools or collect the 
 Do not call external connectors, shell, web or agents. Use the export below and c247_sync_data for its remaining pages.
 In the user's original request, checking sources means analyzing this packet; collection is complete.
 The analysis packet has ${page.totalPages} pages of full changed threads/messages/issues. Page 0 is included below.
-Large Gmail threads may appear as individual get_message documents. Group them by threadId; use c247_sync_context for earlier messages when interpreting a new reply.
+Large Gmail threads may appear as individual get_message documents or get_thread responsePart records. Group them by threadId; use c247_sync_context for earlier messages when interpreting a new reply. A responsePart comes from the same full thread read, not another request.
 ${run.analysis ? `${run.analysis.documents} documents require analysis; ${run.analysis.reusedDocuments} unchanged documents were already analyzed successfully. Do not reread unchanged documents routinely. The full current export remains saved: use c247_sync_context to find and read a specific unchanged thread/issue only when needed for matching or interpreting a change. If you consult a context document, read all of its parts before drawing conclusions about replies. A packet with no documents may still require day-plan reconciliation.` : "This is a full analysis packet."}
 Read ALL remaining pages (c247_sync_data with page=1, then 2, etc.; independent pages can be read together).
 Document segments have part/parts and share one ref. Reading pages is local and does not query sources.

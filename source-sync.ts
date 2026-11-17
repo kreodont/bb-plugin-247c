@@ -28,7 +28,10 @@ const ANALYST_STOP_GRACE_MS = 30_000;
 const STOPPED_ANALYST = new Set(["idle", "error", "failed"]);
 type Row = Record<string, unknown>;
 type RunRequest = { input?: SyncStart; externalImport?: { path: string; sha256: string }; snapshots: TaskDossier[]; pendingCandidates?: SyncCandidate[]; jiraProjects?: string[]; submittedFingerprint?: string; submittedFingerprints?: string[]; submittedBatches?: string[]; dataPagesRead?: number[]; dayItemsRead?: string[]; incremental?: boolean; analysis?: SourceAnalysis };
-export type SourceCall = { ref: string; source: SyncSource; tool: string; args: unknown; output: string; completed: boolean; truncated: boolean; read: boolean; purpose?: "slack-channel-access" };
+// A response part is a retained message from one real get_thread response,
+// not another network request. Keep the original tool/arguments and parent ref.
+export type SourceResponsePart = { callRef: string; messageId: string };
+export type SourceCall = { ref: string; source: SyncSource; tool: string; args: unknown; output: string; completed: boolean; truncated: boolean; read: boolean; purpose?: "slack-channel-access"; responsePart?: SourceResponsePart };
 // Threaded replies omit task IDs. Prove their task URL through a successful
 // parent-comment listing, matching structured IDs rather than quoted message text.
 function replyBelongsToTask(call: SourceCall, calls: SourceCall[], taskId: string): boolean {
@@ -745,7 +748,7 @@ export class SourceSyncRuntime {
       this.store.saveExport(bundle);
       let run = this.store.run(id);
       if (!SYNC_ACTIVE.has(run.status) || controller.signal.aborted) return;
-      run = this.store.save({ ...run, reports: validateSyncReports(bundle.reports, bundle.calls, context.snapshots, context.pendingCandidates, context.jiraProjects), collection: { phase: "analyzing", calls: bundle.calls.length, reads: bundle.documents.length, elapsedMs: bundle.elapsedMs } });
+      run = this.store.save({ ...run, reports: validateSyncReports(bundle.reports, bundle.calls, context.snapshots, context.pendingCandidates, context.jiraProjects), collection: { phase: "analyzing", calls: bundle.calls.filter(c => !c.responsePart).length, reads: bundle.documents.length, elapsedMs: bundle.elapsedMs } });
       if (bundle.reports.every(r => r.status === "unavailable")) throw new PolicyError("The built-in source check could not load any configured sources. See this run’s source reports in Check history; analysis was not started.");
       const work = await this.analysisWork();
       if (this.disposed || controller.signal.aborted || !SYNC_ACTIVE.has(this.store.run(id).status)) return;

@@ -104,7 +104,7 @@ it("resumes oversized-thread recovery after a message hits the quota", async () 
   const connections: SourceConnections = {
     slack: { error: "Unavailable" }, jira: { error: "Unavailable" }, gmail: { close: async () => {}, async call(tool, args) {
       if (tool === "search_threads") return payload({ threads: [{ id }] });
-      if (tool === "get_thread") return payload({ id, messages, overflow: "x".repeat(2 * 1024 * 1024) });
+      if (tool === "get_thread") return payload({ id, messages: messages.map(m => ({ ...m, plaintextBody: undefined })), overflow: "x".repeat(2 * 1024 * 1024) });
       seen.push(String(args.messageId));
       if (!limited && args.messageId === messages[1].id) {
         limited = true; return { isError: true, content: [{ type: "text", text: quota }] };

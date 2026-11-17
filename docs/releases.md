@@ -1,3 +1,7 @@
+# 0.5.156
+
+Retain large Gmail thread responses as individual message records locally instead of downloading every message again. Fetch a message separately only when its returned data is incomplete or cannot fit a bounded record. Preserve full text, source provenance, incremental analysis baselines and partial coverage checks. Locally retained records do not consume network call budgets; export size and receipt counts remain bounded.
+
 # 0.5.155
 
 Prepare reply drafts after the requested work and result checks are complete, and put the current draft at the end of the final answer. Earlier drafts require an explicit request. Existing work conversations refresh this rule on their next idle resume without losing history. Required result formats and send permissions are preserved.

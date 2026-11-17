@@ -5,7 +5,7 @@ import { defaultSourceConfig, type SourceConfig } from "./source-config.js";
 import { randomUUID } from "node:crypto";
 import type { SyncCandidate, SyncRun, NativeSyncSource as SyncSource, SyncSubmit } from "./contracts.js";
 import type { TaskDossier } from "./core/types.js";
-import type { SourceCall } from "./source-sync.js";
+import type { SourceCall, SourceResponsePart } from "./source-sync.js";
 import { connectSources, sourceError, type SourceConnections, type SourceReady } from "./source-connectors.js";
 import { SourceBudget } from "./source-budget.js";
 import { GmailQuotaGate, GMAIL_QUOTA_COOLDOWN_MS } from "./source-gmail-quota.js";
@@ -14,7 +14,7 @@ import { sourceResponseFailure, sourceThrownFailure } from "./source-errors.js";
 import { missingSlackThread, readableSlackChannel, normalizeMissingSlackReport } from "./source-slack-missing.js";
 
 type Json = Record<string, any>;
-export type SourceDocument = { ref: string; source: SyncSource; tool: string; args: Record<string, unknown>; content: string };
+export type SourceDocument = { ref: string; source: SyncSource; tool: string; args: Record<string, unknown>; content: string; responsePart?: SourceResponsePart };
 export type SourceExport = {
   version: 1; runId: string; startedAt: string; finishedAt: string; elapsedMs: number;
   calls: SourceCall[]; documents: SourceDocument[]; reports: SyncSubmit["reports"];
@@ -184,14 +184,26 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
   const searchedPullRequests = new Set<string>();
   const connections = {} as SourceConnections;
   const bytes = { gmail: 0, slack: 0, jira: 0 }, count = { gmail: 0, slack: 0, jira: 0 };
+  let gmailParts = 0;
   const error = (source: SyncSource, message: string) => { if (!problems[source].includes(message)) problems[source].push(message); };
-  const progress = (source: SyncSource, detail: string) => options.onProgress?.({ source, detail, calls: calls.filter(c => c.source === source).length, reads: calls.filter(c => c.source === source && c.read && c.completed).length });
+  const progress = (source: SyncSource, detail: string) => options.onProgress?.({ source, detail, calls: calls.filter(c => c.source === source && !c.responsePart).length, reads: calls.filter(c => c.source === source && c.read && c.completed).length });
   const addLinks = (text: string) => {
     const found = sourceLinks(text);
     found.gmail.forEach(id => pending.gmail.add(id));
     addJiraLinks(text);
     found.slack.forEach(s => pending.slack.set(`${s.channel}:${s.ts}`, s));
   };
+  function saveDocument(source: SyncSource, tool: string, args: Json, data: Json, ref: string, output: string, responsePart?: SourceResponsePart) {
+    const content = documentContent(source, data, Date.parse(run.until), args.issueIdOrKey);
+    // Jira notification subjects establish a project before following bare
+    // references in that thread. Ordinary bracketed store codes do not.
+    if (source === "gmail") for (const message of JSON.parse(content).messages ?? []) {
+      const subject = String(message.subject ?? "");
+      if (/\[JIRA\]/i.test(subject)) for (const reference of jiraReferenceDetails(subject)) trustJiraProject(reference.key);
+    }
+    documents.push({ ref, source, tool, args, content, ...(responsePart ? { responsePart } : {}) }); addLinks(output);
+    for (const url of pullRequestReferences(content)) if (!knownPullRequests.has(url)) pendingPullRequests.add(url);
+  }
   async function call(source: SyncSource, tool: string, args: Json, full = false, expectedThreadId?: string): Promise<Json | null> {
     // Gmail's deliberate quota waits must not spend the network read budget.
     // Each actual Gmail attempt enters the budget below, after acquiring a slot.
@@ -210,6 +222,7 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
       error(source, "Gmail rate limit did not recover after bounded retries; remaining reads are deferred to the next check.");
       return null;
     }
+    if (count[source] + (source === "gmail" ? gmailParts : 0) >= 1000) { error(source, "Source receipt limit was reached; the unchecked interval is preserved."); return null; }
     if (count[source] >= (options.maxCalls ?? 600) || bytes[source] > 28 * 1024 * 1024) { error(source, `${source} export limit was reached (${count[source]} calls, ${bytes[source]} bytes); the unchecked interval is preserved.`); return null; }
     const connection = connections[source];
     if ("error" in connection) { error(source, connection.error); return null; }
@@ -261,7 +274,7 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
       bytes[source] += Buffer.byteLength(savedOutput);
       calls.push({ ref, source, tool: `${source}.${tool}`, args, output: savedOutput, completed: completed && !truncated, truncated, read: full });
       if (completed && source === "gmail" && tool === "get_thread" && full && size > 3 * 1024 * 1024) {
-        await readLargeGmailThread(data, String(args.threadId), ref);
+        await readLargeGmailThread(data, args, ref);
         return data;
       }
       if (!completed || truncated) {
@@ -269,19 +282,7 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
         callProblems.set(ref, detail); error(source, detail);
         return null;
       }
-      if (full) {
-        const content = documentContent(source, data, Date.parse(run.until), args.issueIdOrKey);
-        // Jira notification subjects establish a project before following bare
-        // references in that thread. Ordinary bracketed store codes do not.
-        if (source === "gmail") {
-          for (const message of JSON.parse(content).messages ?? []) {
-            const subject = String(message.subject ?? "");
-            if (/\[JIRA\]/i.test(subject)) for (const reference of jiraReferenceDetails(subject)) trustJiraProject(reference.key);
-          }
-        }
-        documents.push({ ref, source, tool, args, content }); addLinks(output);
-        for (const url of pullRequestReferences(content)) if (!knownPullRequests.has(url)) pendingPullRequests.add(url);
-      }
+      if (full) saveDocument(source, tool, args, data, ref, output);
       progress(source, full ? "Reading full threads and linked issues" : "Loading the list of changes");
       return data;
     } catch (cause) {
@@ -291,19 +292,43 @@ export async function collectSources(run: SyncRun, dossiers: TaskDossier[], opti
       callProblems.set(ref, detail); error(source, detail); progress(source, "Some data is unavailable"); return null;
     }
   }
-  async function readLargeGmailThread(data: Json, threadId: string, ref: string) {
+  async function readLargeGmailThread(data: Json, args: Json, ref: string) {
+    const threadId = String(args.threadId);
     const timestamp = (message: Json) => Number(message.internalDate ?? Date.parse(message.date));
     const valid = data.messages.every((message: Json) => typeof message.id === "string" && message.id.length > 0 && Number.isFinite(timestamp(message)));
     const messages = [...new Map<string, Json>(data.messages.filter((message: Json) => typeof message.id === "string" && Number.isFinite(timestamp(message)) && timestamp(message) <= Date.parse(run.until))
       .map((message: Json) => [message.id, message] as const)).values()].sort((a, b) => timestamp(b) - timestamp(a));
     let loaded = 0;
     for (const message of messages) {
+      // get_thread already returned full bodies. The size cap is local, not a
+      // failed Gmail read: retain bounded, independently citable response parts
+      // without downloading every message again. Parts never consume call quota.
+      const part = { id: threadId, messages: [message] }, output = receiptText(part), size = Buffer.byteLength(output);
+      if (data.id === threadId && message.threadId === threadId && typeof (message.plaintextBody ?? message.plaintext_body) === "string" && size <= 3 * 1024 * 1024) {
+        // Reports allow at most 1,000 receipt references, including in-flight
+        // requests. Local splitting must remain bounded independently of calls.
+        if (count.gmail + gmailParts >= 1000) {
+          error("gmail", "Source receipt limit was reached; the unchecked interval is preserved.");
+          break;
+        }
+        if (bytes.gmail + size > 32 * 1024 * 1024) {
+          error("gmail", "gmail export byte limit was reached; the unchecked interval is preserved.");
+          break;
+        }
+        const partRef = `export:${run.id}:${randomUUID()}`, responsePart = { callRef: ref, messageId: message.id };
+        bytes.gmail += size; gmailParts++;
+        calls.push({ ref: partRef, source: "gmail", tool: "gmail.get_thread", args, output, completed: true, truncated: false, read: true, responsePart });
+        saveDocument("gmail", "get_thread", args, part, partRef, output, responsePart);
+        loaded++; continue;
+      }
+      // Only incomplete or oversized individual messages need a separate read.
       const result = await call("gmail", "get_message", { messageId: message.id, messageFormat: "PLAIN_TEXT" }, true, threadId);
       if (result) loaded++;
-      if (budgets.gmail.signal.aborted || gmailQuota.isStopped || count.gmail >= (options.maxCalls ?? 600) || bytes.gmail > 28 * 1024 * 1024) break;
+      // Keep locally available messages even if the network budget just expired.
     }
     if (valid && loaded === messages.length) recoveredCalls.add(ref);
     else error("gmail", `get_thread (${threadId}): oversized thread recovery incomplete (${loaded}/${messages.length} messages read${valid ? "" : "; invalid message metadata"}).`);
+    progress("gmail", "Reading full threads and linked issues");
   }
   async function pages(source: SyncSource, tool: string, args: Json, take: (data: Json) => number, tokenName: string, limit: number, full = false): Promise<boolean> {
     const tokens = new Set<string>();

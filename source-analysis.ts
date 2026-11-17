@@ -20,6 +20,13 @@ export type AnalysisWork = { dayWork: Record<string, string>; dayComplete: boole
 
 function stamp(document: SourceExport["documents"][number]) {
   // Ref identifies this run's receipt, not the underlying thread/issue.
+  // A message extracted locally from get_thread has the same logical identity
+  // as the former get_message recovery. Preserve its analyzed baseline across
+  // upgrades and across inline/fallback reads; receipts keep the real API call.
+  if (document.source === "gmail" && document.responsePart) return {
+    key: digest({ source: "gmail", tool: "get_message", args: { messageId: document.responsePart.messageId, messageFormat: "PLAIN_TEXT" } }),
+    value: digest(document.content),
+  };
   const args = { ...document.args };
   // Slack bounds each read by this run's end. A moving upper bound is not a
   // different thread; replies and edits are still detected by the content hash.
