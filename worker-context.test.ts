@@ -5,6 +5,7 @@ import { fixture } from "./test-support.js";
 import { sessionSchema, type Session } from "./contracts.js";
 import { acceptedWorkerContext, workerContextBrief } from "./worker-context.js";
 import { readDossierPage } from "./dossier-read.js";
+import { draftTimingGuide } from "./prompts.js";
 
 type Fixture = Awaited<ReturnType<typeof fixture>>;
 const hosts: Fixture[] = [];
@@ -31,7 +32,7 @@ async function configured(f: Fixture, threadId: string) {
 function brief(f: Fixture, threadId: string) {
   return f.harness.inspection.registrations.instructionProvider!({ threadId, projectId: "proj_personal" });
 }
-function briefData(text: string) { return JSON.parse(text.slice(text.indexOf("\n") + 1)); }
+function briefData(text: string) { return JSON.parse(text.slice(text.lastIndexOf("\n") + 1)); }
 async function refreshed(f: Fixture, session: Session) {
   await vi.waitFor(() => expect(f.repo.session(session.id).workerContext).toEqual(acceptedWorkerContext(f.repo, session.taskId)));
   await vi.waitFor(async () => expect(await dispatch(f, session)).toEqual({ action: "proceed" }));
@@ -211,7 +212,7 @@ it("upgrades a marker-only runtime even when the accepted version did not change
   f.repo.saveSession({ ...f.repo.session(session.id), workerContext: marker });
   expect(await dispatch(f, session)).toMatchObject({ action: "wait" });
   await refreshed(f, session);
-  expect(f.repo.session(session.id).workerContext?.briefVersion).toBe(2);
+  expect(f.repo.session(session.id).workerContext?.briefVersion).toBe(3);
   expect(f.repo.session(session.id).workerDossierRead).toBeUndefined();
   expect(f.harness.inspection.sdk.callsTo("threads.send")).toHaveLength(0);
 });
@@ -288,14 +289,15 @@ it("supplies accepted work and source links before the first empty-chat answer w
   expect(instructions).toContain("Check known sources before asking the user to paste them");
 });
 
-it("refreshes existing version-one snapshots without losing the conversation", async () => {
+it.each([1, 2] as const)("refreshes existing version-%s snapshots with draft timing without losing the conversation", async briefVersion => {
   const { f, session } = await setup();
   await f.idle(session.workerThreadId!, "Keep this history.");
-  f.repo.saveSession({ ...f.repo.session(session.id), workerContext: { ...acceptedWorkerContext(f.repo, session.taskId), briefVersion: 1 } });
+  f.repo.saveSession({ ...f.repo.session(session.id), workerContext: { ...acceptedWorkerContext(f.repo, session.taskId), briefVersion } });
   const history = structuredClone(f.conversations.get(session.workerThreadId!));
   expect(await dispatch(f, session)).toMatchObject({ action: "wait" });
   await refreshed(f, session);
-  expect(f.repo.session(session.id).workerContext?.briefVersion).toBe(2);
+  expect(f.repo.session(session.id).workerContext?.briefVersion).toBe(3);
+  expect(brief(f, session.workerThreadId!)).toContain(draftTimingGuide);
   expect(f.conversations.get(session.workerThreadId!)).toEqual(history);
   expect(f.harness.inspection.sdk.callsTo("threads.send")).toHaveLength(0);
 });

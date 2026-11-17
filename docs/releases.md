@@ -1,3 +1,7 @@
+# 0.5.155
+
+Prepare reply drafts after the requested work and result checks are complete, and put the current draft at the end of the final answer. Earlier drafts require an explicit request. Existing work conversations refresh this rule on their next idle resume without losing history. Required result formats and send permissions are preserved.
+
 # 0.5.154
 
 Support the Atlassian MCP connector alongside Atlassian, including wrapped responses and complete issue views. Read separate comment pages when embedded comments are missing or incomplete, retaining reply relationships and visibility. Failed or inconsistent pagination preserves the previous source checkpoint. Existing source accounts and site restrictions remain unchanged.
