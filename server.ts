@@ -585,13 +585,14 @@ export default async function plugin(bb: BbPluginApi) {
   bb 247c show <task-id> [--json]
   bb 247c knowledge [query] [--offset N] [--id entry-id] [--json]
   bb 247c new <title> [--json]
+  bb 247c chat <task-id> [--json]
   bb 247c propose <task-id> <revision> '<draft-json>' [--json]
   bb 247c sync [--json]
   bb 247c sync-start '<request-json>' [--json]
   bb 247c sync-ingest '<request-json>' --json
   bb 247c sync-supplement <run-id> '<suggestions-json-array>' --json
 
-Use the 247C panel to approve, archive, start or finish sessions.
+Use the 247C panel to approve, archive or finish sessions.
 `;
   bb.cli.register({
     name: "247c", summary: "Read 247C dossiers, record tasks, and submit pending proposals",
@@ -601,6 +602,7 @@ Use the 247C panel to approve, archive, start or finish sessions.
       { name: "show", summary: "Read a dossier and its evidence", usage: "bb 247c show <task-id> [--json]" },
       { name: "knowledge", summary: "Search conversation notes and imported documents", usage: "bb 247c knowledge [query] [--offset N] [--id entry-id] [--json]" },
       { name: "new", summary: "Record an explicitly requested task", usage: "bb 247c new <title> [--json]" },
+      { name: "chat", summary: "Open the work chat for a task with the configured account and model, or return the active one", usage: "bb 247c chat <task-id> [--json]" },
       { name: "propose", summary: "Submit a pending evidence-backed patch", usage: "bb 247c propose <task-id> <revision> '<draft-json>' [--json]" },
       { name: "sync", summary: "Read source-update history and checkpoints", usage: "bb 247c sync [--json]" },
       { name: "sync-start", summary: "Start a source check with an explicit BB execution request", usage: "bb 247c sync-start '<request-json>' [--json]" },
@@ -657,6 +659,11 @@ Use the 247C panel to approve, archive, start or finish sessions.
         } else if (command === "new" && args.length) {
           independentCaller(ctx.threadId);
           value = repo.create(rpcContract.create.input.parse({ title: args.join(" "), description: "", requestId: randomUUID() }));
+        } else if (command === "chat" && args.length === 1) {
+          independentCaller(ctx.threadId);
+          const session = await runtime.openChat(rpcContract.openChat.input.parse({ taskId: args[0], requestId: randomUUID() }), chatDefaults());
+          automatic.manualOpen(session.taskId);
+          value = { sessionId: session.id, taskId: session.taskId, threadId: session.workerThreadId, status: session.status };
         } else if (command === "propose" && args.length === 3) {
           independentCaller(ctx.threadId);
           value = repo.propose(rpcContract.propose.input.parse({ taskId: args[0], revision: Number(args[1]), draft: draftSchema.parse(JSON.parse(args[2])), requestId: randomUUID() }), ctx.threadId ? `bb-thread:${ctx.threadId}` : "cli");

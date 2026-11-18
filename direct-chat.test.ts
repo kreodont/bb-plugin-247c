@@ -203,3 +203,15 @@ it("marks an open conversation as waiting for the user, not as a running agent",
   f.repo.db.prepare("UPDATE sessions SET status='reviewing' WHERE id=?").run(session.id);
   expect(f.repo.list().tasks.find(t => t.id === task.id)).toMatchObject({ activeSession: session.id, activeSessionBusy: true });
 });
+
+it("opens the same chat from the CLI and refuses the call from a worker thread", async () => {
+  const { f, task, open } = await setup();
+  const first = await open();
+  const result = await f.harness.behavior.runCli(["chat", task.id, "--json"]);
+  expect(result.exitCode).toBe(0);
+  expect(JSON.parse(result.stdout!)).toMatchObject({ sessionId: first.id, taskId: task.id, threadId: first.workerThreadId, status: "working" });
+  expect(f.harness.inspection.sdk.callsTo("threads.spawn")).toHaveLength(1);
+  const worker = await f.harness.behavior.runCli(["chat", task.id, "--json"], { threadId: first.workerThreadId! });
+  expect(worker.exitCode).toBe(1);
+  expect(worker.stderr).toContain("worker");
+});
