@@ -116,5 +116,8 @@ it("supplies the follow-up rule and cutoff in both analyst prompts", async () =>
     expect(prompt).not.toContain("Archived tasks remain excluded");
     expect(prompt).toContain('"updatedAt":"2026-09-20T10:00:00.000Z"');
     expect(prompt).not.toContain("Update ONLY tasks with status=open");
+    expect(prompt).toContain("resume the same task for a closure assessment");
+    expect(prompt).toContain("rather than directly proposing status=done from the source check");
+    expect(prompt).toContain('A bare "thanks", "received" or promise to reply later is not result acceptance');
   }
 });

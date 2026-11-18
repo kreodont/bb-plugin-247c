@@ -5,10 +5,10 @@ import { fixture } from "./test-support.js";
 import { AutomaticWork } from "./automatic-work.js";
 import { SessionRuntime } from "./runtime.js";
 import { DayPlanning } from "./day-planning.js";
-import { SourceSyncStore } from "./source-sync.js";
+import { readSourceCalls, SourceSyncStore } from "./source-sync.js";
 import { SourceChatUpdates } from "./source-chat-updates.js";
 import { sessionSchema, type Session, type Extraction } from "./contracts.js";
-import { sourceData, startSourceSync, submitSourceData } from "./source-sync-test-support.js";
+import { connectorCall, reportsFor, sourceData, startSourceSync, submitSourceData } from "./source-sync-test-support.js";
 import { proposalParts } from "./proposal-parts.js";
 
 const hosts: Awaited<ReturnType<typeof fixture>>[] = [];
@@ -61,6 +61,50 @@ it("accepts new source events once with an automation receipt and starts a corpo
   const writes = s.f.harness.inspection.sdk.callsTo("threads.send").length;
   await s.auto.tick(); await s.chats.flush(); expect(s.f.harness.inspection.sdk.callsTo("threads.send")).toHaveLength(writes);
   expect(JSON.stringify(s.f.repo.db.prepare("SELECT * FROM proposal_approvals").all())).toContain("automation:247c");
+});
+it.each([
+  { quote: "I checked the new values and they look correct.", resume: true },
+  { quote: "The new values look correct. Alex, please test them on some records.", resume: true },
+  { quote: "Thanks, I will check the values tomorrow.", resume: false },
+  { quote: "I added the values. Can you check them and confirm?", resume: false },
+])("routes waiting-task findings through automatic work without premature closure: $quote", async ({ quote, resume }) => {
+  const s = await setup(), task = await s.f.create("Add values to the transaction flag list");
+  s.f.repo.status(task.id, "waiting", task.revision);
+  const planning = s.f.repo.planning(task.id);
+  const { run } = await startSourceSync(s.f), { input } = await sourceData(s.f, run, task.id);
+  connectorCall(s.f, run.threadId!, "mcp__Gmail__get_thread", { threadId: "flag-update" }, { messages: [{ id: "flag-reply", text: quote }] });
+  const calls = await readSourceCalls(s.f.bb, run.threadId!);
+  const citation = { callRef: calls.at(-1)!.ref, source: "gmail" as const, url: "https://mail.google.com/mail/u/0/#all/flag-update",
+    messageId: "flag-reply", occurredAt: run.until, quote };
+  const step = resume ? "Verify the original request and recommend closing the task in the work chat if no user-owned work remains."
+    : "Wait for confirmation of the configured values.";
+  const summary = resume ? "The configured values were accepted; any remaining testing belongs to a colleague." : "Confirmation is still pending.";
+  input.suggestions[0] = { taskId: task.id, title: task.title, rationale: summary, confidence: 0.95,
+    facts: [{ kind: "progress", text: summary, citations: [citation] }, { kind: "explicit_next_step", text: step, citations: [citation] }],
+    changes: { ...(resume ? { status: { value: "open" as const, evidenceRefs: ["fact:0"] } } : {}),
+      summary: { value: summary, evidenceRefs: ["fact:0"] }, nextStep: { value: step, evidenceRefs: ["fact:1"] } } };
+  input.reports = reportsFor(calls);
+  await submitSourceData(s.f, run, input);
+  s.store.save({ ...s.store.run(run.id), status: "completed" });
+  const candidate = s.store.pendingCandidates()[0];
+  expect(candidate.actions).toEqual(resume ? ["reopen", "openChat"] : []);
+  await s.auto.tick(); await s.chats.flush();
+  expect(s.f.repo.kernel.getTask(task.id).status).toBe(resume ? "open" : "waiting");
+  expect(s.f.repo.planning(task.id)).toEqual(planning);
+  expect(s.f.repo.list(true).total).toBe(1);
+  const applied = s.store.candidate(candidate.id);
+  if (resume) {
+    expect(applied.chatDelivery).toMatchObject({ automatic: true, state: "sent" });
+    expect(applied.chatDelivery!.message).toContain("briefly recommend closing the task in this chat");
+    expect(applied.chatDelivery!.message).toContain("Do not invent additional work, close the session, or apply a task status yourself");
+    expect(s.f.threads.get(applied.chatDelivery!.threadId!)?.providerId).toBe("claude-work");
+    await s.f.idle(applied.chatDelivery!.threadId!, "The requested values were accepted. I recommend closing this task; the colleague's testing remains unverified.");
+  } else expect(applied.chatDelivery).toBeUndefined();
+  const sends = s.f.harness.inspection.sdk.callsTo("threads.send").length;
+  await s.auto.tick(); await s.chats.flush();
+  expect(s.f.harness.inspection.sdk.callsTo("threads.send")).toHaveLength(sends);
+  expect(s.f.repo.sessions(task.id)).toHaveLength(resume ? 1 : 0);
+  expect(s.f.repo.kernel.getTask(task.id).status).toBe(resume ? "open" : "waiting");
 });
 it("respects the worker cap, pause holds across dates, and disabled mode", async () => {
   const s = await setup(), first = await source(s); await s.auto.tick(); await s.chats.flush();
