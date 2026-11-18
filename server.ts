@@ -382,7 +382,7 @@ export default async function plugin(bb: BbPluginApi) {
     execute(input, ctx) { independentCaller(ctx.threadId); return boundedJson(repo.create(input)); },
   });
   bb.agents.registerTool({
-    name: "c247_propose", description: "Submit a pending 247C task patch using evidence IDs from c247_read. Supports title, status (open/waiting/done/archived), urgent and important (true/false/null), customer (company name or null), summary, nextStep, openQuestions, blockers and artifacts. Does not apply it. Title/priority need decision or user_instruction evidence. nextStep must exactly match an explicit_next_step/user_instruction fact; questions and blockers must also match evidence. Never manufacture evidence or claim human approval.",
+    name: "c247_propose", description: "Submit a pending 247C task patch using evidence IDs from c247_read. Supports title, status (open/waiting/done/archived), urgent and important (true/false/null), customer (company name or null), summary, nextStep, openQuestions, blockers and artifacts. Does not apply it. Title/priority need decision or user_instruction evidence. A new nextStep action must exactly match explicit_next_step/user_instruction evidence. For a task staying waiting, nextStep may summarize its existing dependency from progress/decision/blocker/constraint evidence: who, awaited event and already agreed follow-up, never invented work. Questions and blockers must match evidence. Never manufacture evidence or claim human approval.",
     instructions: managementGuide,
     parameters: rpcContract.propose.input,
     execute(input, ctx) { independentCaller(ctx.threadId); return boundedJson(repo.propose(input, `bb-thread:${ctx.threadId}`)); },

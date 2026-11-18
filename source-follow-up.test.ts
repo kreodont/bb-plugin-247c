@@ -119,5 +119,6 @@ it("supplies the follow-up rule and cutoff in both analyst prompts", async () =>
     expect(prompt).toContain("resume the same task for a closure assessment");
     expect(prompt).toContain("rather than directly proposing status=done from the source check");
     expect(prompt).toContain('A bare "thanks", "received" or promise to reply later is not result acceptance');
+    expect(prompt).toContain("State who or what we are waiting for, the concrete event/result that ends the wait");
   }
 });

@@ -135,7 +135,12 @@ export function validateEvidence(draft: StewardProposalDraft, dossier: TaskDossi
         throw new PolicyError("Clearing nextStep requires progress/decision evidence that the step was completed or canceled, or explicit_next_step/user_instruction evidence. The whole task does not need to be completed.");
       }
     } else {
-      if (!nextStep.evidenceRefs.some((id) => explicitKinds.has(facts.get(id)!.kind))) {
+      // A waiting card describes the existing dependency, not a new command.
+      // It may summarize cited results/decisions without pretending that the
+      // user dictated the complete sentence. Ordinary actions remain exact.
+      const contextualWaiting = (draft.changes.status?.value ?? dossier.task.status) === "waiting"
+        && nextStep.evidenceRefs.some(id => ["progress", "decision", "blocker", "constraint"].includes(facts.get(id)!.kind));
+      if (!contextualWaiting && !nextStep.evidenceRefs.some((id) => explicitKinds.has(facts.get(id)!.kind))) {
         throw new PolicyError("nextStep needs explicit_next_step or user_instruction evidence");
       }
       const normalized = normalizeText(nextStep.value);
@@ -143,7 +148,7 @@ export function validateEvidence(draft: StewardProposalDraft, dossier: TaskDossi
         const fact = facts.get(id)!;
         return explicitKinds.has(fact.kind) && normalizeText(fact.text) === normalized;
       });
-      if (!matches) throw new PolicyError("nextStep must exactly match explicit evidence");
+      if (!contextualWaiting && !matches) throw new PolicyError("nextStep must exactly match explicit evidence");
     }
   }
 

@@ -1,6 +1,7 @@
 import { DAY_TIME_ZONE } from "./day-contracts.js";
 import { REQUEST_SCOPE_POLICY } from "./task-completion-policy.js";
 import { languageGuide } from "./language.js";
+import { waitingContextGuide } from "./waiting-context.js";
 import { defaultSourceConfig, type SourceConfig } from "./source-config.js";
 import type { SyncCandidate, SyncRun } from "./contracts.js";
 import type { TaskDossier } from "./core/types.js";
@@ -201,6 +202,7 @@ ${JSON.stringify(remembered)}
 }
 
 const DONE_TASK_FOLLOW_UP_RULES = `COMPLETED-TASK FOLLOW-UPS
+${waitingContextGuide}
 A done or archived task may receive a new substantive request after closure. Read the complete current source conversation, check for a later reply or resolution, and compare the new work with the accepted result or archive decision. A direct mention with a new question, correction or requested check must not disappear solely because the related task is done or archived.
 Waiting tasks (status=waiting, Waiting for response) remain unfinished and must be matched and checked like open tasks. A substantive reply that enables the next action can support a proposal status=open on that same task; do not create a duplicate. When a request has been sent and an external reply is still pending, status=waiting can be proposed with verified evidence. Keep the saved priority, ignore empty reminders, and leave the status unchanged until human acceptance.
 For waiting tasks, work the user can act on now includes deciding whether their part is complete. A fresh reply confirming the delivered result, accepting the work, or handing the remaining work to someone else should resume the same task for a closure assessment: propose status=open with a specific nextStep to verify the original request and recommend closing it in the work chat if no user-owned work remains. Do not leave it waiting solely for someone else's downstream testing, rollout or approval unless the accepted task explicitly makes that follow-up the user's responsibility. For example, "the new values look correct; Alex, please test them on some records" after a verified configuration change is a reason to assess closure, not merely continue waiting for Alex. Preserve that unverified downstream test as context, without claiming it passed. Route this waiting-task confirmation through the work chat rather than directly proposing status=done from the source check.
