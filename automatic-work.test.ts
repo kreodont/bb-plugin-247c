@@ -63,11 +63,12 @@ it("accepts new source events once with an automation receipt and starts a corpo
   expect(JSON.stringify(s.f.repo.db.prepare("SELECT * FROM proposal_approvals").all())).toContain("automation:247c");
 });
 it.each([
-  { quote: "I checked the new values and they look correct.", resume: true },
-  { quote: "The new values look correct. Alex, please test them on some records.", resume: true },
-  { quote: "Thanks, I will check the values tomorrow.", resume: false },
-  { quote: "I added the values. Can you check them and confirm?", resume: false },
-])("routes waiting-task findings through automatic work without premature closure: $quote", async ({ quote, resume }) => {
+  { quote: "I checked the new values and they look correct.", resume: true, discuss: false },
+  { quote: "The new values look correct. Alex, please test them on some records.", resume: true, discuss: false },
+  { quote: "Thanks, I will check the values tomorrow.", resume: false, discuss: false },
+  { quote: "I added the values. Can you check them and confirm?", resume: false, discuss: false },
+  { quote: "Yes, the migration team will move the three stores. The subscription link is still pending.", resume: false, discuss: true },
+])("routes waiting-task findings through automatic work without premature closure: $quote", async ({ quote, resume, discuss }) => {
   const s = await setup(), task = await s.f.create("Add values to the transaction flag list");
   s.f.repo.status(task.id, "waiting", task.revision);
   const planning = s.f.repo.planning(task.id);
@@ -80,6 +81,7 @@ it.each([
     : "Wait for confirmation of the configured values.";
   const summary = resume ? "The configured values were accepted; any remaining testing belongs to a colleague." : "Confirmation is still pending.";
   input.suggestions[0] = { taskId: task.id, title: task.title, rationale: summary, confidence: 0.95,
+    ...(discuss ? { discussionEvidenceRefs: ["fact:0"] } : {}),
     facts: [{ kind: "progress", text: summary, citations: [citation] }, { kind: "explicit_next_step", text: step, citations: [citation] }],
     changes: { ...(resume ? { status: { value: "open" as const, evidenceRefs: ["fact:0"] } } : {}),
       summary: { value: summary, evidenceRefs: ["fact:0"] }, nextStep: { value: step, evidenceRefs: ["fact:1"] } } };
@@ -87,23 +89,24 @@ it.each([
   await submitSourceData(s.f, run, input);
   s.store.save({ ...s.store.run(run.id), status: "completed" });
   const candidate = s.store.pendingCandidates()[0];
-  expect(candidate.actions).toEqual(resume ? ["reopen", "openChat"] : []);
+  expect(candidate.actions).toEqual(resume ? ["reopen", "openChat"] : discuss ? ["openChat"] : []);
   await s.auto.tick(); await s.chats.flush();
   expect(s.f.repo.kernel.getTask(task.id).status).toBe(resume ? "open" : "waiting");
   expect(s.f.repo.planning(task.id)).toEqual(planning);
   expect(s.f.repo.list(true).total).toBe(1);
   const applied = s.store.candidate(candidate.id);
-  if (resume) {
+  if (resume || discuss) {
     expect(applied.chatDelivery).toMatchObject({ automatic: true, state: "sent" });
     expect(applied.chatDelivery!.message).toContain("briefly recommend closing the task in this chat");
     expect(applied.chatDelivery!.message).toContain("Do not invent additional work, close the session, or apply a task status yourself");
+    expect(applied.chatDelivery!.message).toContain("Opening this chat does not itself reopen a waiting task");
     expect(s.f.threads.get(applied.chatDelivery!.threadId!)?.providerId).toBe("claude-work");
     await s.f.idle(applied.chatDelivery!.threadId!, "The requested values were accepted. I recommend closing this task; the colleague's testing remains unverified.");
   } else expect(applied.chatDelivery).toBeUndefined();
   const sends = s.f.harness.inspection.sdk.callsTo("threads.send").length;
   await s.auto.tick(); await s.chats.flush();
   expect(s.f.harness.inspection.sdk.callsTo("threads.send")).toHaveLength(sends);
-  expect(s.f.repo.sessions(task.id)).toHaveLength(resume ? 1 : 0);
+  expect(s.f.repo.sessions(task.id)).toHaveLength(resume || discuss ? 1 : 0);
   expect(s.f.repo.kernel.getTask(task.id).status).toBe(resume ? "open" : "waiting");
 });
 it("respects the worker cap, pause holds across dates, and disabled mode", async () => {

@@ -52,5 +52,6 @@ export function mergeSyncDraft(draft: SyncDraft, parents: SyncCandidate[], dossi
       evidenceRefs: [...new Set(unresolved.flatMap(({ change }) => change.evidenceRefs))] } });
   }
   if (facts.length > 300) throw new PolicyError("The combined proposal exceeds 300 distinct facts. The pending proposals are preserved.");
-  return { ...draft, facts, changes, mergeCandidateIds: parents.map(p => p.id), ...(parents.some(p => p.recordFactIndexes) ? { recordFactIndexes: [...records].sort((a, b) => a - b) } : {}) };
+  return { ...draft, facts, changes, ...(draft.discussionEvidenceRefs ? { discussionEvidenceRefs: remap(draft.discussionEvidenceRefs, positions) } : {}),
+    mergeCandidateIds: parents.map(p => p.id), ...(parents.some(p => p.recordFactIndexes) ? { recordFactIndexes: [...records].sort((a, b) => a - b) } : {}) };
 }

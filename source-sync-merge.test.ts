@@ -90,6 +90,27 @@ it("drops unaccepted resume actions when later evidence explicitly keeps the tas
   expect(store.candidate(combined.id).chatDelivery).toBeUndefined();
 });
 
+it("keeps the chat discussion but drops reopening when a new reply leaves another dependency pending", async () => {
+  const f = await setup(), task = await f.create("Report"), store = new SourceSyncStore(f.repo);
+  f.repo.status(task.id, "waiting", task.revision);
+  const first = (await startSourceSync(f)).run, older = await finding(f, first, task.id);
+  await submitSourceData(f, first, older.input);
+  const parent = store.pendingCandidates()[0];
+  const next = (await startSourceSync(f)).run, data = await finding(f, next, task.id);
+  const draft = data.input.suggestions[0];
+  for (const fact of draft.facts) for (const citation of fact.citations) citation.occurredAt = next.until;
+  draft.mergeCandidateIds = [parent.id];
+  draft.changes.status = { value: "waiting", evidenceRefs: ["fact:0"] };
+  draft.discussionEvidenceRefs = ["fact:0"];
+  await submitSourceData(f, next, data.input);
+  const combined = store.pendingCandidates()[0];
+  expect(combined.actions).toEqual(["openChat"]);
+  expect(combined.facts[Number(combined.discussionEvidenceRefs![0].slice(5))]).toEqual(draft.facts[0]);
+  store.accept(combined.id);
+  expect(f.repo.kernel.getTask(task.id).status).toBe("waiting");
+  expect(store.candidate(combined.id).chatDelivery?.state).toBe("pending");
+});
+
 it("merges a missed task update, preserving earlier facts and untouched fields until one human approval", async () => {
   const f = await setup(), task = await f.create("Report"), before = await f.detail(task.id);
   const store = new SourceSyncStore(f.repo);

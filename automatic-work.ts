@@ -73,7 +73,8 @@ export class AutomaticWork {
   }
   allow(candidate: SyncCandidate) {
     if (!this.control().enabled || !candidate.resultTaskId || this.read(`pause:${candidate.resultTaskId}`)) return false;
-    if (this.repo.kernel.getTask(candidate.resultTaskId).status !== "open") return false;
+    const status = this.repo.kernel.getTask(candidate.resultTaskId).status;
+    if (status !== "open" && !(status === "waiting" && candidate.actions?.includes("openChat"))) return false;
     const active = this.repo.active().find(s => s.taskId === candidate.resultTaskId);
     if (active) return true;
     const workers = this.sessions().filter(s => ["starting", "working", "collecting", "review_starting", "reviewing"].includes(s.status) && s.automation?.state !== "needs_input" && !(s.status === "working" && s.automation?.state === "ready"));

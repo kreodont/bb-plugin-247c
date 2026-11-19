@@ -58,7 +58,9 @@ function replyBelongsToTask(call: SourceCall, calls: SourceCall[], taskId: strin
 }
 const now = () => new Date().toISOString();
 const normalize = (s: string) => s.trim().replace(/\s+/g, " ").toLocaleLowerCase();
-function candidateDraft({ taskId, title, rationale, confidence, facts, changes }: SyncDraft): SyncDraft { return { taskId, title, rationale, confidence, facts, changes }; }
+function candidateDraft({ taskId, title, rationale, confidence, facts, changes, discussionEvidenceRefs }: SyncDraft): SyncDraft {
+  return { taskId, title, rationale, confidence, facts, changes, ...(discussionEvidenceRefs ? { discussionEvidenceRefs } : {}) };
+}
 
 export function syncRanges(checkpoints: Record<string, string | null>, since: string | null, until: string, initialSince?: Record<string, string | null>): SyncRun["ranges"] {
   if (since && Date.parse(since) >= Date.parse(until)) throw new PolicyError("The start date must precede the check's start time.");
@@ -207,6 +209,18 @@ export function validateSyncDraft(draft: SyncDraft, run: SyncRun, snapshots: Tas
     if (!change?.evidenceRefs.some((ref) => /^fact:\d+$/.test(ref))) throw new PolicyError("Every change must reference a verified source finding (fact:N).");
   }
   validateEvidence(draft, dossier, syncEvidence(draft, run.id, dossier));
+  if (draft.discussionEvidenceRefs) {
+    if (!draft.taskId || !isLiveTask(dossier.task.status) || ["done", "archived"].includes(draft.changes.status?.value ?? "")) {
+      throw new PolicyError("Discuss an incoming update on an existing open or waiting task, without closing it in the same source proposal.");
+    }
+    for (const ref of draft.discussionEvidenceRefs) {
+      const fact = draft.facts[Number(ref.slice(5))];
+      if (!fact || !fact.citations.some(c => carried.has(digest(fact)) || !dossier.task.waitingSince
+        || Date.parse(c.occurredAt) >= Date.parse(dossier.task.waitingSince))) {
+        throw new PolicyError("Open chat with update requires a verified source fact from the current waiting period.");
+      }
+    }
+  }
   if (dossier.task.status === "waiting" && draft.changes.status?.value === "open" && !draft.changes.nextStep?.value) {
     throw new PolicyError("Resuming a waiting task requires a source-supported nextStep that the user can act on now. A sent reply, reminder or progress report while an external response is still pending must keep the task waiting.");
   }
@@ -550,14 +564,17 @@ ${errors.join("\n").slice(0, 16000)}`);
         if (!draft.taskId && this.repo.list(true).tasks.some(d => normalize(d.title) === normalize(draft.title))) throw new ConflictError("A task with this title already exists. Start a new check and link the finding to that task.");
         const closing = ["done", "archived"].includes(draft.changes.status?.value ?? "open");
         const resumesWaiting = dossier.task.status === "waiting" && draft.changes.status?.value === "open";
-        const defaultActions: NonNullable<SyncCandidate["actions"]> = resumesWaiting ? ["reopen", "openChat"] : [];
+        const discussWaiting = dossier.task.status === "waiting" && Boolean(draft.discussionEvidenceRefs?.length);
+        const defaultActions: NonNullable<SyncCandidate["actions"]> = resumesWaiting ? ["reopen", "openChat"] : discussWaiting ? ["openChat"] : [];
         // Preserve choices already made during a partial review when merging.
         // A prior informational update must not suppress a later actionable reply.
-        // Explicitly continuing to wait also cancels unaccepted resume actions.
+        // Continuing to wait cancels resume actions, but a substantive reply
+        // can still have an independent, evidence-backed chat discussion.
         const pendingActions = parents.flatMap(parent => parent.actions ?? []);
         const preserveChoices = pendingActions.length > 0 || parents.some(parent => parent.recordFactIndexes);
-        const actions = !closing && draft.changes.status?.value !== "waiting" && isLiveTask(dossier.task.status)
-          ? [...new Set(preserveChoices ? pendingActions : defaultActions)] : [];
+        const choices = [...new Set(preserveChoices ? pendingActions : defaultActions)];
+        const actions = !closing && isLiveTask(dossier.task.status)
+          ? choices.filter(action => draft.changes.status?.value !== "waiting" || action === "openChat" && discussWaiting) : [];
         const changes = { ...draft.changes };
         // Split the evidenced resume proposal into separately reviewable actions.
         if (resumesWaiting) delete changes.status;

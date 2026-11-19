@@ -90,6 +90,58 @@ it("rejects reopening without an evidenced next step and keeps the task waiting"
   expect(f.repo.kernel.getTask(task.id).status).toBe("waiting");
 });
 
+it.each([undefined, "waiting"] as const)("offers chat independently of status (%s), preserves waiting age and rejects duplicate delivery", async status => {
+  const f = await fixture({ settings: { workProvider: "codex", workModel: "gpt-5.6-sol" } }); hosts.push(f);
+  const task = await f.create(), waiting = f.repo.status(task.id, "waiting", task.revision);
+  const { run } = await startSourceSync(f), data = await sourceData(f, run, task.id);
+  const draft = data.input.suggestions[0];
+  for (const fact of draft.facts) for (const citation of fact.citations) citation.occurredAt = run.until;
+  draft.discussionEvidenceRefs = ["fact:0"];
+  if (status) draft.changes.status = { value: status, evidenceRefs: ["fact:0"] };
+  const store = new SourceSyncStore(f.repo);
+  store.submit(run.id, data.input, data.calls);
+  const candidate = store.pendingCandidates()[0];
+  expect(candidate.actions).toEqual(["openChat"]);
+  expect(sourceParts(candidate)).toContain("action:openChat");
+  expect(f.repo.sessions(task.id)).toHaveLength(0);
+  store.accept(candidate.id);
+  const send = stubSend(f).mockResolvedValue({ ok: true, delivery: "sent" });
+  await dispatcher(f).service.flush();
+  expect(f.repo.kernel.getTask(task.id)).toMatchObject({ status: "waiting", waitingSince: waiting.waitingSince });
+  expect(send).toHaveBeenCalledTimes(1);
+  const next = (await startSourceSync(f)).run;
+  expect(store.submit(next.id, data.input, data.calls).duplicates).toBe(1);
+  await dispatcher(f).service.flush();
+  expect(send).toHaveBeenCalledTimes(1);
+});
+
+it.each(["missing fact", "old reply", "closing"])("rejects unsupported chat requests: %s", async scenario => {
+  const f = await fixture(); hosts.push(f);
+  const task = await f.create(); f.repo.status(task.id, "waiting", task.revision);
+  const { run } = await startSourceSync(f), data = await sourceData(f, run, task.id);
+  const draft = data.input.suggestions[0];
+  for (const fact of draft.facts) for (const citation of fact.citations) if (scenario !== "old reply") citation.occurredAt = run.until;
+  draft.discussionEvidenceRefs = [scenario === "missing fact" ? "fact:99" : "fact:0"];
+  if (scenario === "closing") draft.changes.status = { value: "done", evidenceRefs: ["fact:0"] };
+  await expect(submitSourceData(f, run, data.input)).rejects.toThrow(scenario === "closing" ? /without closing/ : /verified source fact/);
+  expect(new SourceSyncStore(f.repo).pendingCandidates()).toHaveLength(0);
+});
+
+it("does not restore a declined chat discussion when the remaining waiting update is accepted", async () => {
+  const f = await fixture(); hosts.push(f);
+  const task = await f.create(); f.repo.status(task.id, "waiting", task.revision);
+  const { run } = await startSourceSync(f), data = await sourceData(f, run, task.id);
+  for (const fact of data.input.suggestions[0].facts) for (const citation of fact.citations) citation.occurredAt = run.until;
+  data.input.suggestions[0].discussionEvidenceRefs = ["fact:0"];
+  const store = new SourceSyncStore(f.repo);
+  store.submit(run.id, data.input, data.calls);
+  const candidate = store.pendingCandidates()[0];
+  const decision = store.reviewParts({ kind: "source", id: candidate.id, revision: candidate.baseRevision, decision: "reject", parts: ["action:openChat"], requestId: randomUUID() });
+  store.accept(decision.remainingId!, undefined, true);
+  expect(store.candidate(decision.remainingId!).chatDelivery).toBeUndefined();
+  expect(f.repo.kernel.getTask(task.id).status).toBe("waiting");
+});
+
 it.each([["open", undefined], ["waiting", "done"]] as const)("does not add waiting actions to %s / %s proposals", async (status, proposed) => {
   const { candidate } = await setup(status, proposed);
   expect(candidate.actions).toEqual([]);

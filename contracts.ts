@@ -160,6 +160,8 @@ export const syncDraftSchema = z.object({
   taskId: idSchema.nullable(), title: z.string().trim().min(1).max(200),
   rationale: text, confidence: z.number().min(0).max(1),
   facts: z.array(syncFactSchema).min(1).max(30), changes: changesSchema,
+  discussionEvidenceRefs: z.array(z.string().regex(/^fact:\d+$/)).min(1).max(30).optional()
+    .describe("Facts with a substantive incoming reply to discuss in the work chat, independently of task status. Omit for the user's own sent messages, acknowledgments and unchanged reminders."),
   mergeCandidateIds: z.array(idSchema).min(1).max(500).optional(),
 }).strict();
 export const syncReportSchema = z.object({
