@@ -5,6 +5,7 @@ import type { rpcContract } from "./contracts.js";
 import type { UpdaterHealthState } from "./updater-health-contracts.js";
 import { Button } from "./components/ui/button.js";
 import { Icon } from "./components/ui/icon.js";
+import { coverageDetail, incompleteCoverage } from "./source-coverage-health.js";
 
 export function useUpdaterHealth() {
   const rpc = useRpc<typeof rpcContract>();
@@ -34,8 +35,10 @@ function timestamp(value: number | null, zone: string) {
   }).format(value);
 }
 function HealthDetails({ data }: { data: UpdaterHealthState }) {
+  const gaps = incompleteCoverage(data.sourceCoverage);
   return <>
     <p className="mt-1 whitespace-pre-wrap break-words text-sm">{data.detail}</p>
+    {gaps.length > 0 && !data.incidentId?.startsWith("coverage/") && <p className="mt-2 whitespace-pre-wrap break-words text-sm">{coverageDetail(gaps, data.timeZone)}</p>}
     {data.calendarAlert && data.calendar && <div className="mt-2 rounded border border-destructive/30 p-2" aria-label="Calendar sync error"><p className="font-medium">Calendar sync failed</p><p className="text-sm whitespace-pre-wrap break-words">{data.calendar.lastError ?? data.calendar.message}</p><p className="mt-1 text-xs">Last successful calendar sync: {timestamp(data.calendar.completedAt ? Date.parse(data.calendar.completedAt) : null, data.timeZone)} · {data.timeZone}</p>{data.calendar.status === "running" && <p className="text-xs">Retry in progress. This warning remains until the calendar is updated successfully.</p>}</div>}
     <p className="mt-2 text-xs text-muted-foreground">Last successful run: {timestamp(data.lastSuccessAt, data.timeZone)} · {data.timeZone}</p>
     {data.running && <p className="mt-1 text-sm">{data.status === "waiting" ? "A check is running. Saved records will be analyzed in batches." : "A new check is running. This warning remains until recovery is confirmed."}</p>}
@@ -64,7 +67,7 @@ function statusPath(data: UpdaterHealthState | null) {
 }
 
 function isAdvisory(data: UpdaterHealthState | null) {
-  return Boolean(data && !data.calendarAlert && (data.status === "waiting"
+  return Boolean(data && !data.calendarAlert && (data.status === "waiting" || data.status === "partial"
     || (data.status === "overdue" && !data.running && data.nextRunAt !== null)));
 }
 
@@ -77,6 +80,7 @@ export function UpdaterHealthBanner({ showHealthy = false }: { showHealthy?: boo
   return <section role={data.alert && !waiting ? "alert" : "status"} aria-label="Source updater status" className={`m-4 max-h-48 shrink-0 overflow-auto rounded-lg border p-4 ${waiting ? "border-amber-400/60 bg-amber-400/10" : data.alert ? "border-destructive/40 bg-destructive/5" : "border-border"}`}>
     <p className={`font-medium ${waiting ? "text-amber-800 dark:text-amber-300" : data.alert ? "text-destructive" : ""}`}>{data.title}</p>
     <HealthDetails data={data} />
+    {Boolean(incompleteCoverage(data.sourceCoverage).length) && <Button className="mt-2" size="sm" variant="outline" onClick={() => navigate.toPluginPanel("desk", { subPath: "updates" })}>View collection gaps</Button>}
     {data.calendarAlert && <Button className="mt-2" size="sm" variant="outline" onClick={() => navigate.toPluginPanel("desk", { subPath: statusPath(data) })}>Open calendar</Button>}
     {showHealthy && Boolean(data.analysisThreads?.length) && <div className="mt-2">
       <Button size="sm" variant="outline" onClick={() => navigate.toThread(data.analysisThreads![0].threadId)}>Analysis conversation</Button>
@@ -90,10 +94,10 @@ export function UpdaterHealthBanner({ showHealthy = false }: { showHealthy?: boo
 export function UpdaterHealthBadge() {
   const { data, error } = useUpdaterHealth();
   const navigate = useBbNavigate();
-  if (!error && (!data?.alert || isAdvisory(data))) return null;
+  if (!error && (!data?.alert || (isAdvisory(data) && data.status !== "partial"))) return null;
   const label = error ? "Source updater status unavailable" : data!.title;
   return <button type="button" data-c247-updater-shortcut="" aria-label={label} title={`${label}. Open update status`}
-    className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-destructive font-bold text-white"
+    className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full font-bold text-white ${!error && data?.status === "partial" && !data.calendarAlert ? "bg-amber-600" : "bg-destructive"}`}
     onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); navigate.toPluginPanel("desk", { subPath: statusPath(data) }); }}>!</button>;
 }
 
@@ -119,7 +123,7 @@ export function UpdaterHealthNotification() {
   return <aside role="alert" aria-label="247C updater notification" className="fixed bottom-4 right-4 z-50 w-96 max-w-[calc(100vw-2rem)] rounded-xl border border-destructive/50 bg-background p-4 shadow-lg">
     <div className="flex items-start gap-3"><Icon name="AlertCircle" className="mt-0.5 size-5 shrink-0 text-destructive" /><div className="min-w-0 flex-1">
       <p className="font-medium">247C: {error ? "updater status unavailable" : data!.title}</p>
-      <p className="mt-2 text-sm">{error ?? (data?.calendarAlert ? "Calendar sync failed. Meetings and day totals may be out of date." : "Source checks need attention. An empty proposal list does not mean there is no new work.")}</p>
+      <p className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words text-sm">{error ?? (data?.calendarAlert ? "Calendar sync failed. Meetings and day totals may be out of date." : data?.incidentId?.startsWith("coverage/") ? data.detail : "Source checks need attention. An empty proposal list does not mean there is no new work.")}</p>
       {data && <p className="mt-2 text-xs text-muted-foreground">{data.calendarAlert ? "Last successful calendar sync" : "Last successful run"}: {timestamp(data.calendarAlert ? (data.calendar?.completedAt ? Date.parse(data.calendar.completedAt) : null) : data.lastSuccessAt, data.timeZone)} · {data.timeZone}</p>}
       <div className="mt-3 flex gap-2"><Button size="sm" onClick={() => { navigate.toPluginPanel("desk", { subPath: statusPath(data) }); dismiss(); }}>{data?.calendarAlert ? "Open calendar" : "Open update status"}</Button><Button size="sm" variant="ghost" onClick={dismiss}>Dismiss notification</Button></div>
     </div></div>

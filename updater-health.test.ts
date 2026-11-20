@@ -2,6 +2,7 @@ import { afterEach, expect, it } from "vitest";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { evaluateUpdater } from "./updater-health.js";
 import { fixture } from "./test-support.js";
+import { updaterHealthSchema, type SourceCoverage } from "./updater-health-contracts.js";
 
 const at = (value: string) => Date.parse(value);
 const now = at("2026-09-24T14:30:00Z");
@@ -10,6 +11,46 @@ const automation = { id: "auto_sources", projectId: "proj_example", enabled: tru
 const success = { id: "run_good", status: "succeeded", startedAt: at("2026-09-24T14:00:00Z"), finishedAt: at("2026-09-24T14:06:00Z"), error: null,
   output: JSON.stringify({ status: "complete", pendingRecords: 0, attentionBatches: [] }) };
 const failed = { ...success, id: "run_bad", status: "failed", startedAt: at("2026-09-24T15:00:00Z"), finishedAt: at("2026-09-24T15:06:00Z"), error: "Import failed", output: "private body" };
+
+const partialSnapshot = () => ({ version: 1 as const, operation: "check" as const, status: "complete" as const,
+  finishedAt: now, collectedAt: success.startedAt, pendingRecords: 0, pendingBatches: 0, attentionBatches: [], analysisError: null,
+  sourceCoverage: [{ source: "teams" as const, status: "partial" as const, collectedAt: new Date(success.startedAt).toISOString(),
+    since: "2026-09-22T13:55:00Z", fullyCheckedThrough: "2026-09-22T14:00:00Z", savedRecords: 11,
+    gaps: ["Channel reply could not be read."], chatScan: { checked: 151, available: 151, excluded: 1, pendingMessages: 1 } } as SourceCoverage] });
+
+it("alerts on old collection gaps despite successful analysis, an empty queue or an active retry", () => {
+  for (const pendingRecords of [0, 5]) for (const active of [false, true]) {
+    const runs = active ? [{ ...success, id: "active", status: "running", startedAt: now, finishedAt: null }, success] : [success];
+    const state = evaluateUpdater(automation, runs, now, { ...partialSnapshot(), pendingRecords });
+    expect(updaterHealthSchema.parse(state)).toMatchObject({ status: "attention", alert: true, pendingRecords, running: active,
+      title: "Source collection has gaps older than 24 hours", lastSuccessAt: now });
+    expect(state.detail).toContain("Teams: coverage not confirmed");
+    expect(state.detail).toContain("Messages queued: 1");
+    expect(state.detail).toContain("Channel reply could not be read");
+  }
+});
+
+it("shows fresh partial coverage immediately and escalates by the collected interval, not idle wall time", () => {
+  const snapshot = partialSnapshot();
+  snapshot.sourceCoverage[0].fullyCheckedThrough = "2026-09-24T13:00:00Z";
+  expect(updaterHealthSchema.parse(evaluateUpdater(automation, [success], now, snapshot))).toMatchObject({ status: "partial", alert: true });
+  const evening = { ...success, startedAt: at("2026-09-24T17:00:00Z"), finishedAt: at("2026-09-24T17:05:00Z") };
+  const idle = evaluateUpdater(automation, [evening], at("2026-09-25T02:00:00Z"), snapshot);
+  expect(idle).toMatchObject({ status: "partial", alert: true });
+  snapshot.sourceCoverage[0].fullyCheckedThrough = null;
+  expect(evaluateUpdater(automation, [success], now, snapshot)).toMatchObject({ status: "attention", alert: true });
+});
+
+it("keeps a coverage incident stable across analysis successes and clears only on complete collection", () => {
+  const snapshot = partialSnapshot();
+  const before = evaluateUpdater(automation, [success], now, snapshot);
+  const after = evaluateUpdater(automation, [success], now + 1000, { ...snapshot, operation: "analysis", finishedAt: now + 1000 });
+  expect(after.incidentId).toBe(before.incidentId);
+  expect(evaluateUpdater(automation, [success], now, { ...snapshot, sourceCoverage: [{ ...snapshot.sourceCoverage[0], status: "complete",
+    gaps: [], limitations: ["One inaccessible chat is excluded."] }] })).toMatchObject({ alert: false, status: "healthy" });
+  expect(evaluateUpdater(automation, [success], now, { ...snapshot, attentionBatches: ["bad"] })).toMatchObject({ status: "attention", title: "Source updates need attention" });
+  expect(evaluateUpdater(automation, [success], now + 3600000, snapshot)).toMatchObject({ status: "attention", title: "Source collection has gaps older than 24 hours" });
+});
 
 it("distinguishes a successful empty check from a failed or paused updater", () => {
   expect(evaluateUpdater(automation, [success], now)).toMatchObject({ status: "healthy", alert: false, lastSuccessAt: success.finishedAt });

@@ -4,6 +4,7 @@ import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { CronExpressionParser } from "cron-parser";
 import { z } from "zod";
 import { sourceCoverageSchema, type UpdaterHealthState } from "./updater-health-contracts.js";
+import { coverageHealth } from "./source-coverage-health.js";
 
 export type UpdaterSettings = { sourceUpdaterProjectId: string; sourceUpdaterAutomationId: string; sourceUpdaterStatusFile?: string };
 const automationSchema = z.object({
@@ -94,9 +95,10 @@ export function evaluateUpdater(automation: Automation, input: Run[], now: numbe
     `${base.attentionBatches} saved batch(es) need analysis or import recovery. New work may be missing from Proposals. ${errorText(latestReport?.analysisError?.error)}`.trim());
   if ((terminal?.status === "failed" && !recovered) || latestReport?.status === "analysis_failed") return problem("failed", "Source check failed",
     errorText(latestReport?.analysisError?.error) || errorText(terminal?.error) || "The latest check did not finish. New work may be missing from 247C.");
+  const coverage = coverageHealth(base);
   const queueStatus = active || automation.nextRunAt ? "waiting" : "attention";
-  if (latestReport?.status === "analysis_deferred") return problem(queueStatus, "Source analysis is waiting", "Source collection is saved, but analysis has been deferred. New work may be waiting in the queue.");
-  if (base.pendingRecords) return problem(queueStatus, "Source updates are waiting for analysis",
+  if (latestReport?.status === "analysis_deferred" && !coverage) return problem(queueStatus, "Source analysis is waiting", "Source collection is saved, but analysis has been deferred. New work may be waiting in the queue.");
+  if (base.pendingRecords && !coverage) return problem(queueStatus, "Source updates are waiting for analysis",
     `${recovered ? "The previous analysis error has been resolved. " : ""}${active
       ? "A check is running. Saved records will be analyzed in batches."
       : automation.nextRunAt ? `${successful === terminal ? "The latest check completed successfully. " : ""}Saved records are queued for the next scheduled analysis. No manual action is required.`
@@ -107,14 +109,15 @@ export function evaluateUpdater(automation: Automation, input: Run[], now: numbe
       + "\nScheduled checks continue for available sources. Missing source data may contain new work.") : null;
   if (active) {
     if (now - active.startedAt > (automation.execution?.timeoutMs ?? 15 * 60_000) + 60_000) return problem("overdue", "Source check is taking too long", "The active run exceeded its expected duration. Check the automation before relying on the task list.");
-    return sourceOutage ?? base;
+    return sourceOutage ?? coverage ?? base;
   }
   // Allow the scheduled run 20 minutes to start/finish. Using the real cron and
   // its zone avoids false overnight, weekend and daylight-saving alarms.
   const due = CronExpressionParser.parse(automation.trigger.cron, { currentDate: new Date(now - 20 * 60_000), tz: automation.trigger.timezone }).prev().getTime();
   const lastFinished = Math.max(successful?.finishedAt ?? 0, recovered ? snapshot!.collectedAt ?? 0 : 0);
+  if (coverage?.status === "attention") return sourceOutage ?? coverage;
   if (due >= automation.createdAt && lastFinished < due) return problem("overdue", "Scheduled source check is overdue", "No successful check was recorded for the latest expected schedule slot. New work may be missing from 247C.");
-  return sourceOutage ?? base;
+  return sourceOutage ?? coverage ?? base;
 }
 
 export class UpdaterHealth {

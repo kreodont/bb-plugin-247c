@@ -6,6 +6,7 @@ import type { CapturedPluginApp, RenderedSlot } from "@get-bb/plugin-sdk/testing
 import { emptyUpdaterHealth } from "./updater-health.js";
 import { UpdaterHealthBanner } from "./updater-health-ui.js";
 import { withCalendarHealth } from "./calendar-health.js";
+import { coverageHealth } from "./source-coverage-health.js";
 
 it("shows calendar failures in the banner, sidebar and notification even with no source updater configured", async () => {
   const state = withCalendarHealth({ ...emptyUpdaterHealth(0), timeZone: "Europe/Athens" }, { status: "error", startedAt: "2026-11-05T15:00:00Z",
@@ -34,6 +35,41 @@ beforeAll(async () => { app = await loadPluginApp(() => import("./app.js")); }, 
 afterEach(() => { mounts.splice(0).forEach(m => m.lifecycle.unmount()); localStorage.clear(); });
 const warning = { ...emptyUpdaterHealth(0), configured: true, status: "paused" as const, alert: true,
   title: "Source updater is paused", detail: "Paused after three failed runs", incidentId: "incident_one", lastSuccessAt: Date.parse("2026-09-23T09:06:00Z") };
+
+it("shows fresh collection gaps in yellow and old gaps in the sidebar and global notification", async () => {
+  const { UpdaterHealthBadge, UpdaterHealthNotification } = await import("./updater-health-ui.js");
+  const coverage = { source: "teams" as const, status: "partial" as const, collectedAt: "2026-11-20T13:00:00Z",
+    fullyCheckedThrough: "2026-11-20T12:00:00Z", since: "2026-11-20T11:55:00Z", savedRecords: 11,
+    gaps: ["Channel reply could not be read."], chatScan: { checked: 151, available: 151, excluded: 1, pendingMessages: 1 } };
+  let state = coverageHealth({ ...warning, sourceCoverage: [coverage] })!;
+  const slot = renderSlot({ component: () => <><UpdaterHealthBanner /><UpdaterHealthBadge /><UpdaterHealthNotification /></> }, {},
+    { rpc: { updaterHealth: () => state } }); mounts.push(slot);
+  expect((await slot.findByRole("status", { name: "Source updater status" })).className).toContain("border-amber-");
+  expect(slot.getByRole("button", { name: state.title }).className).toContain("bg-amber-");
+  expect(slot.queryByRole("alert")).toBeNull();
+  fireEvent.click(slot.getByRole("button", { name: "View collection gaps" }));
+  expect(slot.inspection.navigateCalls).toEqual([{ method: "toPluginPanel", path: "desk", options: { subPath: "updates" } }]);
+  state = coverageHealth({ ...warning, sourceCoverage: [{ ...coverage, fullyCheckedThrough: "2026-11-18T08:00:00Z" }] })!;
+  await slot.behavior.emitRealtime("updater-health-changed", {});
+  expect((await slot.findByRole("alert", { name: "Source updater status" })).className).toContain("border-destructive");
+  expect((await slot.findByRole("alert", { name: "247C updater notification" })).textContent).toContain("Channel reply could not be read");
+  expect(slot.getByRole("button", { name: state.title }).textContent).toBe("!");
+  fireEvent.click(slot.getByRole("button", { name: "Dismiss notification" }));
+  state = { ...state, lastSuccessAt: Date.now() };
+  await slot.behavior.emitRealtime("updater-health-changed", {});
+  expect(slot.queryByRole("alert", { name: "247C updater notification" })).toBeNull();
+  expect(slot.getByRole("alert", { name: "Source updater status" })).toBeTruthy();
+});
+
+it("keeps collection gaps visible alongside an analysis failure", async () => {
+  const state = { ...warning, sourceCoverage: [{ source: "teams" as const, status: "partial" as const,
+    collectedAt: "2026-11-20T13:00:00Z", fullyCheckedThrough: "2026-11-18T08:00:00Z", since: "2026-11-18T07:55:00Z",
+    savedRecords: 11, gaps: ["Channel reply could not be read."] }] };
+  const slot = renderSlot({ component: UpdaterHealthBanner }, {}, { rpc: { updaterHealth: () => state } }); mounts.push(slot);
+  const banner = await slot.findByRole("alert", { name: "Source updater status" });
+  expect(banner.textContent).toContain("Paused after three failed runs");
+  expect(banner.textContent).toContain("Channel reply could not be read");
+});
 
 it("distinguishes a saved submission from import and exposes the retained rejection", async () => {
   const state = { ...warning, analysisThreads: [{ threadId: "analysis", title: "Saved analysis", state: "ready",
